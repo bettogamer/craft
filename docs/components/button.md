@@ -59,15 +59,12 @@ button.frame          (Button — OnClick, OnEnter, OnLeave, OnMouseDown/Up)
 ├── button._bg        (Texture — BACKGROUND)   fondo principal
 ├── button._border    (Texture — BORDER)        borde 1px transparente por defecto
 ├── button._icon      (Texture — ARTWORK)       ícono Lucide, visible si config.icon
-├── button._label     (FontString — OVERLAY)    texto del botón
-└── button._ring      (Frame — OVERLAY)         focus ring 1px, oculto por defecto
-    ├── _ring._top    (Texture)
-    ├── _ring._bottom (Texture)
-    ├── _ring._left   (Texture)
-    └── _ring._right  (Texture)
+└── button._label     (FontString — OVERLAY)    texto del botón
 ```
 
 Base: `border border-transparent` — el frame siempre tiene un borde, pero transparente por defecto. Se vuelve visible en `outline` (`border-border`) y en estados de error.
+
+> **Sin ring frame**: WoW no tiene navegación por teclado entre elementos UI — el jugador solo usa el mouse. `focus-visible:ring` de shadcn no tiene equivalente en WoW addon UIs. El `_ring` frame no se implementa en Button.
 
 ---
 
@@ -113,10 +110,10 @@ Base: `border border-transparent` — el frame siempre tiene un borde, pero tran
 | Estado | Implementación WoW |
 |--------|-------------------|
 | `default` | Colores de variante activa |
-| `hover` | Ajustar alpha según tabla (OnEnter/OnLeave) |
-| `active (press)` | `translate-y-px` = mover frame 1px hacia abajo (OnMouseDown/OnMouseUp) |
-| `focus` | `_ring` visible: **1px** outward, color `t.ring` a=0.50 (`ring-ring/50`) |
-| `disabled` | `button.frame:SetAlpha(0.5)` — opacity-50 en frame entero. `EnableMouse(false)` |
+| `hover` | Ajustar alpha del fondo según tabla de variantes (OnEnter/OnLeave) |
+| `active (press)` | Mover frame 1px hacia abajo en OnMouseDown, restaurar en OnMouseUp |
+| `focus` | **No aplica en WoW** — sin navegación por teclado, `focus-visible:ring` nunca se activa |
+| `disabled` | `button.frame:SetAlpha(0.5)` + `EnableMouse(false)` |
 | `error (aria-invalid)` | Borde `t.destructive`, ring `t.destructive` a=0.20 |
 
 > **Ring en Lyra = 1px** (no 3px como en new-york). `focus-visible:ring-1`.
@@ -140,7 +137,7 @@ Base: `border border-transparent` — el frame siempre tiene un borde, pero tran
 | Fondo `destructive` dark | `{r=t.destructive.r, g=t.destructive.g, b=t.destructive.b, a=0.20}` |
 | Fondo `destructive` hover dark | `{r=t.destructive.r, g=t.destructive.g, b=t.destructive.b, a=0.30}` |
 | Texto `destructive` | `t.destructive` (no blanco — el texto ES el color destructive) |
-| Focus ring | `t.ring` a=0.50, **1px** |
+| Focus ring | **No implementado** — WoW es mouse-only, sin keyboard focus |
 | Disabled | `SetAlpha(0.5)` en frame raíz |
 | Active press | `SetPoint` offset Y=-1 en OnMouseDown |
 | Fuente | `t.font`, `t.fontSize` (12px) |
@@ -193,7 +190,7 @@ end)
 
 **Ghost hover = muted/50**: en dark mode `hover:bg-muted/50` — el bg de hover es `t.muted` al 50% de alpha (`a=0.5`). No `t.accent` como en new-york.
 
-**Focus ring = 1px, ring/50**: ring más sutil que new-york. `_ring` frame expandido 1px outward, color `{r=t.ring.r, g=t.ring.g, b=t.ring.b, a=0.5}`.
+**Sin focus ring en WoW**: `focus-visible:ring` de shadcn no tiene equivalente. WoW es mouse-only — no hay Tab navigation ni keyboard focus entre elementos de UI. El `_ring` frame no se implementa en Button. Esto aplica a todos los componentes excepto `Input` (EditBox), donde el ring sí tiene sentido para indicar que el campo de texto está activo al hacer clic.
 
 **Ícono sm = size-3.5 = 14px**: tamaño intermedio solo en `sm`. xs=12px, sm=14px, default/lg=16px.
 
