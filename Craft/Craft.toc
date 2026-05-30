@@ -1,0 +1,27 @@
+## Interface: 110007
+## Title: Craft
+## Version: @project-version@
+## Notes: Modern UI component library for WoW addons (shadcn Lyra style)
+## Author: Alberto Gomez
+## X-License: MIT
+## X-Craft-Build: @build-date@
+
+# Libraries
+libs\LibStub.lua
+
+# Core — must load first; creates the Craft namespace
+Craft.lua
+
+# Theme — Presets before Theme (Theme.lua references CraftPresets global)
+theme\Presets.lua
+theme\Theme.lua
+
+# Icons
+icons\Atlas.lua
+icons\Icons.lua
+
+# Layout
+layout\Flex.lua
+
+# Components
+components\Button.lua

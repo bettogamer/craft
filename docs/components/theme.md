@@ -15,6 +15,10 @@ Craft.Theme
 ├── _listeners    (table)         — array de {handle=int, fn=function} registrados por componentes
 ├── _handleCount  (number)        — contador autoincremental para generar handles únicos
 └── _presets      (table)         — presets disponibles: CraftPresets + los registrados con register_preset()
+
+CraftPresets  (global table)  — definida en theme/Presets.lua, cargada antes
+              que Theme.lua en Craft.toc. Craft.Theme._presets apunta a ella.
+              Nunca mutar CraftPresets directamente — usar register_preset().
 ```
 
 `_presets` se inicializa como referencia directa a `CraftPresets` (de `theme/Presets.lua`) y se extiende con `register_preset()`. El preset activo nunca se muta — cada `extend()` retorna una tabla nueva.
@@ -65,6 +69,16 @@ Craft.Theme
 
 La tabla retornada por `get()` **no debe mutarse**. Los componentes deben tratar el valor retornado como read-only. Si un componente necesita valores derivados, calcularlos localmente.
 
+**Shallow copy e inmutabilidad**: `get()` hace una copia shallow del preset activo —
+los tokens escalares (números, strings) se copian por valor; los tokens de color
+(`{r,g,b,a}`) se copian por referencia (misma tabla que en el preset). Por esto:
+
+- Los componentes MUST tratar `t` como read-only. Nunca `t.primary.r = 0`.
+- Mutación de un token de color corrompe el preset base permanentemente.
+- Si se necesita un color derivado, calcularlo localmente:
+  `local hoverR = t.primary.r` — correcto.
+  `t.primary.r = 0.5` — INCORRECTO, corrompe el preset.
+
 ### `extend(base, overrides)`
 
 ```lua
@@ -76,6 +90,17 @@ Craft.Theme.use(myTheme)
 ```
 
 Implementado como merge shallow: `for k, v in pairs(overrides) do result[k] = v end`. Las claves no presentes en `overrides` se heredan del preset base sin modificación.
+
+**Tokens de color en overrides**: el merge es shallow. Si se sobreescribe un token
+de color, la tabla override debe ser RGBA completa:
+
+```lua
+-- CORRECTO: tabla completa
+Craft.Theme.extend("lyra-dark", { primary = {r=0.5, g=0.0, b=0.5, a=1} })
+
+-- INCORRECTO: tabla parcial — g, b, a quedarán nil
+Craft.Theme.extend("lyra-dark", { primary = {r=0.5} })  -- NO HACER
+```
 
 ### `register(fn)` y `unregister(handle)`
 
@@ -178,11 +203,15 @@ Para completitud, los tokens que `get()` expone (definidos en `theme/Presets.lua
 | `muted` / `mutedForeground` | RGBA table | Color apagado y su contraste (placeholder, disabled) |
 | `accent` / `accentForeground` | RGBA table | Hover de ghost/outline, filas de tabla             |
 | `destructive`            | RGBA table    | Color para acciones destructivas / errores             |
+| `destructiveForeground`  | RGBA table    | Texto sobre fondo destructive                          |
 | `border`                 | RGBA table    | Borde de todos los componentes (a=0.1 en dark)         |
 | `input`                  | RGBA table    | Fondo de Input, Select trigger (a=0.15 en dark)        |
 | `ring`                   | RGBA table    | Focus ring (zinc, no emerald)                          |
 | `sidebar` / `sidebarForeground` | RGBA table | Tokens exclusivos del componente Sidebar          |
-| `sidebarPrimary` / `sidebarPrimaryForeground` | RGBA table | Emerald-500/950 en dark para sidebar primary |
+| `sidebarAccent` / `sidebarAccentForeground` | RGBA table | Hover y active items del Sidebar              |
+| `sidebarPrimary` / `sidebarPrimaryForeground` | RGBA table | Item activo del Sidebar (emerald-500/950)     |
+| `sidebarBorder`          | RGBA table    | Borde del Sidebar (blanco a=0.1 en dark)               |
+| `sidebarRing`            | RGBA table    | Ring del Sidebar                                       |
 | `radius`                 | number        | `0` — sin redondeo de esquinas (Lyra)                  |
 | `font`                   | string        | Ruta Inter-Regular.ttf                                 |
 | `fontBold`               | string        | Ruta Inter-Bold.ttf                                    |
@@ -194,6 +223,11 @@ Para completitud, los tokens que `get()` expone (definidos en `theme/Presets.lua
 | `focusRingWidth`         | number        | `2`                                                    |
 | `iconSizeSm`             | number        | `16`                                                   |
 | `iconSizeMd`             | number        | `24`                                                   |
+
+**t.fontSize vs tablas SIZES de componente**: los tokens `fontSize`, `fontSizeSm` y
+`fontSizeLg` son para elementos de texto genérico que no tienen su propia tabla de
+tamaños (Label, descripción de Card, texto de Tooltip). Los componentes con variantes
+de tamaño propias (Button, Input, Select) usan sus tablas SIZES internas — no estos tokens.
 
 ## Notas de implementación
 
@@ -237,7 +271,21 @@ end
 
 Ver también: `docs/pixel-perfect.md` para las reglas completas de ADR-0011 y los casos de uso de cada helper.
 
-**Orden de carga en Craft.toc**: `Theme.lua` y `Presets.lua` deben declararse antes de cualquier archivo de componente en el `.toc`. Si un componente se carga antes que el módulo Theme, `Craft.Theme` será nil y el addon fallará silenciosamente.
+**Relación entre Presets.lua y Theme.lua**: `Presets.lua` define la tabla global `CraftPresets` con los dos presets built-in (`lyra-dark` y `lyra-light`). `Theme.lua` la referencia en la inicialización: `T._presets = CraftPresets`. El orden en `Craft.toc` garantiza que `CraftPresets` existe cuando `Theme.lua` carga.
+
+**Orden de carga en Craft.toc**: el orden correcto de archivos en el addon es:
+```
+libs/LibStub.lua
+Craft.lua            ← crea el namespace Craft via LibStub
+theme/Presets.lua    ← define CraftPresets (global)
+theme/Theme.lua      ← define Craft.Theme, referencia CraftPresets
+icons/Atlas.lua      ← define Craft.Icons._atlas16/_atlas24
+icons/Icons.lua      ← define Craft.Icons.Get/Apply/Has/List
+layout/Flex.lua      ← define Craft.Flex
+components/Button.lua
+components/...       ← resto de componentes
+```
+Cualquier componente que cargue antes que `Theme.lua` fallará con "attempt to index a nil value (global 'Craft')".
 
 **Memory leak por listeners no desregistrados**: Si un componente es destruido sin llamar `unregister()`, su función listener permanece en `_listeners`. En el próximo `use()`, el sistema intentará llamar la función, que puede acceder a `self.frame` ya destruido. En el mejor caso produce un error de Lua "attempt to index a nil value"; en el peor, accede a un frame de otro addon que reutilizó la memoria. Siempre llamar `unregister` en `Destroy()`.
 
