@@ -1,0 +1,20 @@
+package-as: Craft
+enable-nolib-creation: no
+
+externals:
+  Craft/libs/LibStub: https://repos.wowace.com/wow/libstub/trunk
+
+ignore:
+  - .github
+  - .luacheckrc
+  - .pkgmeta
+  - .gitignore
+  - tests
+  - docs
+  - scripts
+  - templates
+  - skill-examples
+  - README.md
+  - CHANGELOG.md
+  - AGENTS.md
+  - CLAUDE.md

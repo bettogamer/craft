@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint (luacheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install luacheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y luarocks
+          sudo luarocks install luacheck
+
+      - name: Run luacheck
+        run: luacheck Craft/ --config .luacheckrc
+
+  test:
+    name: Unit tests (busted)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install busted
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y luarocks lua5.1 liblua5.1-dev
+          sudo luarocks install busted
+
+      - name: Run tests
+        run: busted tests/ --verbose

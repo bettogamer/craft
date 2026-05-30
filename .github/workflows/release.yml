@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Package and release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install luacheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y luarocks
+          sudo luarocks install luacheck
+
+      - name: Install busted
+        run: |
+          sudo apt-get install -y lua5.1 liblua5.1-dev
+          sudo luarocks install busted
+
+      - name: Lint
+        run: luacheck Craft/ --config .luacheckrc
+
+      - name: Test
+        run: busted tests/ --verbose
+
+      - name: Package and upload
+        uses: BigWigsMods/packager@main
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
