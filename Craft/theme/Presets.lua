@@ -34,8 +34,9 @@ CraftPresets["lyra-dark"] = {
     accent                  = {r=0.153, g=0.153, b=0.165, a=1},
     accentForeground        = {r=0.980, g=0.980, b=0.980, a=1},
     -- Destructive (red-400 in dark — lighter for contrast)
+    -- destructiveForeground: text-white en Lyra CSS — blanco puro, no foreground (zinc-50)
     destructive             = {r=0.973, g=0.443, b=0.443, a=1},
-    destructiveForeground   = {r=0.980, g=0.980, b=0.980, a=1},
+    destructiveForeground   = {r=1.000, g=1.000, b=1.000, a=1},
     -- Border and Input (white with alpha — use SetColorTexture(r,g,b,a) directly)
     border                  = {r=1.000, g=1.000, b=1.000, a=0.100},
     input                   = {r=1.000, g=1.000, b=1.000, a=0.150},
@@ -55,9 +56,10 @@ CraftPresets["lyra-dark"] = {
     -- Typography (Inter bundled in Craft/media/)
     font                    = FONT,
     fontBold                = FONT_B,
-    fontSize                = 12,   -- text-xs base (all Lyra components)
-    fontSizeSm              = 11,   -- captions, helper text
-    fontSizeLg              = 14,   -- text-sm: card titles, dialog titles
+    fontSize                = 12,   -- text-xs (Lyra base — todos los componentes)
+    fontSizeSm              = 11,   -- CRAFT ADAPTATION: no existe en Lyra CSS (mínimo Lyra = 12)
+                                    -- Para texto muy compacto (captions, helper text WoW)
+    fontSizeLg              = 14,   -- text-sm (Lyra — títulos de Card y Dialog)
     -- Spacing (px, used directly as WoW UI units — see docs/pixel-perfect.md)
     spacingXs               = 4,
     spacingSm               = 8,
@@ -65,7 +67,8 @@ CraftPresets["lyra-dark"] = {
     spacingLg               = 16,
     spacingXl               = 24,
     borderWidth             = 1,
-    focusRingWidth          = 2,    -- not used in MVP (WoW is mouse-only)
+    focusRingWidth          = 2,    -- RESERVADO: WoW es mouse-only, no usado en MVP
+                                    -- Mantenido para addons que implementen navegación propia
     iconSizeSm              = 16,
     iconSizeMd              = 24,
 }
@@ -114,9 +117,9 @@ CraftPresets["lyra-light"] = {
     -- Typography
     font                    = FONT,
     fontBold                = FONT_B,
-    fontSize                = 12,
-    fontSizeSm              = 11,
-    fontSizeLg              = 14,
+    fontSize                = 12,   -- text-xs (Lyra base)
+    fontSizeSm              = 11,   -- CRAFT ADAPTATION: no existe en Lyra CSS
+    fontSizeLg              = 14,   -- text-sm (Lyra — títulos Card/Dialog)
     -- Spacing
     spacingXs               = 4,
     spacingSm               = 8,
@@ -124,7 +127,7 @@ CraftPresets["lyra-light"] = {
     spacingLg               = 16,
     spacingXl               = 24,
     borderWidth             = 1,
-    focusRingWidth          = 2,
+    focusRingWidth          = 2,    -- RESERVADO: no usado en MVP (WoW mouse-only)
     iconSizeSm              = 16,
     iconSizeMd              = 24,
 }

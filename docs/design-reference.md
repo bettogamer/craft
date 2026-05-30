@@ -207,12 +207,12 @@ el contexto WoW (sin CSS box model):
 | `spacingLg` | 16 | Padding de Panel, Dialog content |
 | `spacingXl` | 24 | Padding de Dialog header/footer |
 | `borderWidth` | 1 | Grosor de bordes en todos los componentes |
-| `focusRingWidth` | 2 | Grosor del ring de foco (outward) |
+| `focusRingWidth` | 2 | **RESERVADO** — WoW es mouse-only, no usado en MVP. Disponible para addons con navegación propia. |
 | `iconSizeSm` | 16 | Íconos Lucide pequeños (atlas lucide-16.tga) |
 | `iconSizeMd` | 24 | Íconos Lucide estándar (atlas lucide-24.tga) |
-| `fontSize` | 12 | Tamaño base de texto en puntos WoW |
-| `fontSizeSm` | 11 | Texto pequeño, placeholder, label muted |
-| `fontSizeLg` | 14 | Dialog title, section headings |
+| `fontSize` | 12 | `text-xs` de Lyra — tamaño base de todos los componentes |
+| `fontSizeSm` | 11 | **CRAFT ADAPTATION** — no existe en Lyra CSS (mínimo Lyra = `text-xs` = 12px). Añadido para texto compacto en WoW (helper text, captions). |
+| `fontSizeLg` | 14 | `text-sm` de Lyra — títulos de Card y Dialog |
 
 ---
 
@@ -247,8 +247,9 @@ CraftPresets["lyra-dark"] = {
   accent                  = {r=0.153, g=0.153, b=0.165, a=1},
   accentForeground        = {r=0.980, g=0.980, b=0.980, a=1},
   -- Destructive (red-400 en dark — más claro para contraste)
+  -- destructiveForeground: text-white en Lyra CSS (blanco puro, no zinc-50)
   destructive             = {r=0.973, g=0.443, b=0.443, a=1},
-  destructiveForeground   = {r=0.980, g=0.980, b=0.980, a=1},
+  destructiveForeground   = {r=1.000, g=1.000, b=1.000, a=1},
   -- Border e Input (blanco con alpha — SetColorTexture(r,g,b,a))
   border                  = {r=1.000, g=1.000, b=1.000, a=0.100},
   input                   = {r=1.000, g=1.000, b=1.000, a=0.150},
