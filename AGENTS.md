@@ -97,6 +97,36 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
         └── 0011-pixel-perfect-estrategia.md
 ```
 
+### Modelo de branches
+
+```
+main          ← producción — siempre estable, protegida (requiere PR + CI verde)
+dev           ← integración — recibe features, genera dev builds automáticos
+feat/*        ← features nuevas → PR hacia dev
+hotfix/*      ← fixes críticos → PR hacia main + backport a dev
+```
+
+**Flujo normal:**
+```
+feat/mi-feature → PR → dev → (build automático) → PR → main → tag v1.x.x → CurseForge
+```
+
+**Flujo hotfix:**
+```
+hotfix/fix-critico → PR → main → tag v1.0.x → CurseForge
+                          ↘ PR → dev (backport obligatorio)
+```
+
+**CI por branch:**
+| Branch/evento | ci.yml | package.yml | release.yml |
+|---|---|---|---|
+| push `dev` | ✅ lint+test | ✅ .zip artefacto | — |
+| push `main` | ✅ lint+test | ✅ .zip artefacto | — |
+| PR → `main` | ✅ lint+test | — | — |
+| tag `v*` | — | — | ✅ CurseForge+Wago |
+
+El agente **MUST NOT** hacer push ni crear PRs — el maintainer (Alberto Gomez) lo hace manualmente.
+
 ---
 
 ## 4. Stack tecnológico autoritativo
@@ -111,7 +141,7 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
 | Linter | luacheck | `.luacheckrc` con globals WoW |
 | Tests | busted | Headless con `tests/mock_wow.lua` |
 | Packaging | bigwigsmods/packager | ADR-0009 |
-| CI | GitHub Actions | `ci.yml` (push) + `release.yml` (tags v*) |
+| CI | GitHub Actions | `ci.yml` + `package.yml` (push) + `release.yml` (tags v*) |
 | Distribución | CurseForge + Wago | Craft como Library |
 
 **MUST NOT** introducir dependencias fuera de este stack sin ADR aprobado.
