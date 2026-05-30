@@ -1,2 +1,40 @@
+# Documentación interna — no se distribuye
 templates/
 skill-examples/
+
+# Generados en el build — bigwigsmods/packager los descarga/crea
+Craft/libs/LibStub.lua
+
+# Assets generados por scripts/export-icons.py — no commitear binarios
+Craft/media/*.tga
+Craft/media/*.ttf
+
+# Caché local del generador de íconos
+.icon-cache/
+
+# Paquetes de release
+*.zip
+*.tar.gz
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Editores
+*.bak
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.python-version

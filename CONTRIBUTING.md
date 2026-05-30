@@ -104,3 +104,25 @@ test: cubrir Slider con valor mínimo negativo
 
 - **Código**: inglés (nombres de variables, funciones, comentarios inline)
 - **Documentación y commits**: español
+
+## Setup de desarrollo (assets locales)
+
+Los binarios de `Craft/media/` están en `.gitignore` — se generan en el build.
+Para desarrollo local necesitas generarlos una vez:
+
+```bash
+# 1. Instalar dependencias de Python
+pip install Pillow cairosvg
+
+# 2. Generar atlas TGA de Lucide
+python3 scripts/export-icons.py
+
+# 3. Descargar Inter desde https://rsms.me/inter/ y copiar:
+#    Inter-Regular.ttf → Craft/media/Inter-Regular.ttf
+#    Inter-Bold.ttf    → Craft/media/Inter-Bold.ttf
+
+# 4. LibStub se descarga automáticamente con el packager.
+#    Para desarrollo local, descárgalo de:
+#    https://repos.wowace.com/wow/libstub/trunk/LibStub.lua
+#    → Craft/libs/LibStub.lua
+```

@@ -1,4 +1,4 @@
-## Interface: 110007
+## Interface: 120000
 ## Title: Craft
 ## Version: @project-version@
 ## Notes: Modern UI component library for WoW addons (shadcn Lyra style)
