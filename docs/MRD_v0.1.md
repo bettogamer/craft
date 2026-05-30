@@ -571,7 +571,7 @@ La tabla siguiente vincula cada requerimiento de mercado del MRD con su requerim
 | MRD-N-08 | Sistema de theming con tokens semánticos + live-switching + temas registrables | BR-009, BR-010 | PRD-REQ-006 | Requisito crítico para el segmento S-2 |
 | MRD-N-09 | Catálogo MVP de 16 componentes completos | BR-011 | PRD-REQ-007 | Prerequisito del lanzamiento |
 | MRD-N-10 | Motor Craft.Flex (Flexbox programático) | BR-012 | PRD-REQ-008 | Eliminador de boilerplate de layout |
-| MRD-N-11 | Documentación técnica completa + Quick Start + canal de soporte | BR-013 | PRD-NFR-002 | Requisito de DX y sostenibilidad de la comunidad |
+| MRD-N-11 | Documentación técnica completa + Quick Start + canal de soporte | BR-013 | PRD-REQ-013, PRD-NFR-006 | Requisito de DX y sostenibilidad de la comunidad |
 | MRD-N-12 | Exclusión de TSTL y portal web del alcance | BR-014, BR-015 | PRD-REQ-009 (excl.), PRD-REQ-010 (excl.) | Decisiones de foco del producto |
 
 ### 14.2 Trazabilidad inversa: BRD → MRD
@@ -605,6 +605,7 @@ La tabla siguiente confirma que cada requerimiento del BRD tiene al menos un req
 | v0.1 | 30/05/2026 | Alberto Gomez | Versión inicial — MRD completo de Craft. TAM/SAM/SOM, personas Marco y Arjun, JTBDs, análisis competitivo vs AceGUI/XML/LibDF/do-nothing, go-to-market via GitHub/CurseForge/Wago/Discord/Reddit, 12 requerimientos de mercado MRD-N-01 a MRD-N-12, trazabilidad a BR-001–BR-015. |
 | v0.1.1 | 30/05/2026 | Alberto Gomez | Nota de alineación: decisión de assets bundled en `Craft/media/` (atlas TGA Lucide + fuente Inter). El MRD no contenía referencias a `Craft_SharedMedia`; la decisión impacta al PRD. El MRD permanece vigente sin cambios de contenido. |
 | v0.1.2 | 30/05/2026 | Alberto Gomez | Corrección §14: MRD-N-05 (licencia MIT) apuntaba a PRD-REQ-010 (exclusión portal web); corregido a PRD-REQ-012 |
+| v0.1.3 | 30/05/2026 | Alberto Gomez | Fix §14: MRD-N-11 apuntaba a PRD-NFR-002 (compatibilidad Retail/Classic) — corregido a PRD-REQ-013, PRD-NFR-006 (documentación/setup) |
 
 ---
 

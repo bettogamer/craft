@@ -10,7 +10,7 @@
 | Campo | Valor |
 |-------|-------|
 | Producto | Craft — Librería compartida de componentes UI para addons de World of Warcraft |
-| Versión del documento | v0.3 |
+| Versión del documento | v0.4 |
 | Fecha | 30/05/2026 |
 | Autores | Alberto Gomez |
 | Revisores | Comunidad addon-dev WoW (Discord #addon-dev-general) |
@@ -707,16 +707,19 @@ Craft no expone pantallas de usuario final. Sus interfaces son la API Lua públi
 |----|-----------|-----------|---------|--------|------------------------------|
 | FSD-NFR-001 | Anti-taint | Ningún componente Craft contamina Secure Frames ni produce errores de taint | Errores de taint reportados por WoW | 0 errores | Ejecutar la suite de Craft_Browser en Retail con el addon Blizzard_DebugTools activo; verificar que no aparece el error "action blocked: interface taint from Craft" en el log de WoW. Ejecutar en Classic con el mismo procedimiento. |
 | FSD-NFR-002 | Performance — Flex | Cálculo de layout Flex con 10 elementos | Tiempo de `flex:Layout()` en ms | < 1 ms | Instrumentar `flex:Layout()` con `debugprofilestop()` antes y después; loguear el delta. Ejecutar en Craft_Browser con un panel de 10 botones. Tomar el p95 de 100 llamadas consecutivas. |
-| FSD-NFR-003 | Performance — render | Tiempo de render inicial de un componente (desde `Create()` hasta frame visible) | ms por `Create()` | < 5 ms | Instrumentar `Craft.Button:Create()` con `debugprofilestop()`; medir en el p95 de 50 instanciaciones en Craft_Browser. |
+| FSD-NFR-003 | Performance — render (PRD-NFR-011) | Tiempo de render inicial de un componente (desde `Create()` hasta frame visible) | ms por `Create()` | < 5 ms | Instrumentar `Craft.Button:Create()` con `debugprofilestop()`; medir en el p95 de 50 instanciaciones en Craft_Browser. |
 | FSD-NFR-004 | Memoria — sin leaks | 100 ciclos de create/destroy de componentes no producen crecimiento de memoria Lua | Delta de `collectgarbage("count")` entre inicio y fin de los 100 ciclos | < 5 KB de crecimiento neto | Ejecutar en Craft_Browser: loop Lua de 100 iteraciones de `Create()` + `Destroy()`. Medir `collectgarbage("count")` antes y después con `collectgarbage("collect")` forzado entre mediciones. |
 | FSD-NFR-005 | Compatibilidad | Los 16 componentes funcionan sin errores en Retail 11.x y Classic | Errores de Lua reportados en el ErrorFrame de WoW | 0 errores en ambas versiones | Cargar Craft_Browser en una instalación limpia de Retail 11.x y en Classic. Navegar los 16 componentes y verificar ausencia de errores en el Lua Error Frame. |
 | FSD-NFR-006 | Live-switch performance | `Craft.Theme.use()` con 10 componentes activos | Tiempo total del live-switch en ms | < 16 ms (1 frame a 60fps) | Instrumentar `Craft.Theme.use()` con `debugprofilestop()`; activar 10 componentes en Craft_Browser y llamar `use()` 100 veces alternando `lyra-dark`/`lyra-light`; reportar p95. |
-| FSD-NFR-007 | Licencia | Craft y todos sus archivos distribuyen bajo MIT License | Presencia de header MIT en todos los archivos .lua | 100% de archivos | Script de CI: `grep -rL "MIT License" Craft/**.lua` debe retornar vacío. |
-| FSD-NFR-008 | Carga de addon | Craft se inicializa correctamente con 5 addons dependientes simultáneos | Sin errores en `LibStub("Craft-1.0")` desde cualquier addon | 0 errores | Instalar Craft + 5 addons de prueba, cada uno llamando `LibStub("Craft-1.0")` en ADDON_LOADED; verificar que todos retornan la misma instancia. |
+| FSD-NFR-007 | Licencia | Craft y todos sus archivos distribuyen bajo MIT License | Presencia de header MIT en todos los archivos .lua | 100% de archivos | Script de CI: `grep -rL "MIT License" Craft/**.lua` debe retornar vacío; también: encabezado de Craft.lua debe contener la cadena 'MIT' |
+| FSD-NFR-008 | Carga de addon (PRD-NFR-012) | Craft se inicializa correctamente con 5 addons dependientes simultáneos | Sin errores en `LibStub("Craft-1.0")` desde cualquier addon | 0 errores | Instalar Craft + 5 addons de prueba, cada uno llamando `LibStub("Craft-1.0")` en ADDON_LOADED; verificar que todos retornan la misma instancia. |
 | FSD-NFR-009 | DX — Tiempo de setup | Un desarrollador nuevo sin experiencia en Craft completa el Quick Start y renderiza su primer componente en ≤ 60 minutos | Tiempo promedio | ≤ 60 min | Test de usabilidad con ≥ 3 beta testers pre-lanzamiento |
 | FSD-NFR-010 | Sandbox WoW | 0 llamadas a APIs fuera del sandbox Lua de WoW (`io.*`, `socket.*`, `os.exit`, etc.) en todo el código de `Craft/` | 0 llamadas | 0 | `grep -r "io\.\|socket\.\|os\.exit"` sobre `Craft/` en el pipeline CI |
 | FSD-NFR-011 | Distribución | Craft y Craft_Browser listados y activos en CurseForge y Wago antes del release v1.0 | 2 listings activos | 2 | Checklist manual de release — verificar URLs de CurseForge y Wago |
 | FSD-NFR-012 | Lua 5.1 puro | 0 construcciones de Lua 5.2+ (`::`labels`::`, `<close>`, `goto`, `table.pack` no disponible en 5.1) en `Craft/` | 0 incompatibilidades | 0 | `luacheck Craft/ --std lua51` — el linter detecta syntax de versiones superiores |
+| FSD-NFR-013 | Contrato de API | Todos los componentes exportados en `Craft/components/` implementan los métodos `Create(parent,config)`, `Destroy()`, `_applyTheme(t)` y `GetFrame()` | 0 violaciones | 0 | Code review pre-merge + `luacheck` detecta métodos ausentes |
+| FSD-NFR-014 | Cero hardcoding visual | `grep -rn "SetColorTexture\|SetTextColor\|SetVertexColor" Craft/components/` retorna 0 líneas donde los argumentos son literales numéricos (e.g., `0.024,` ) en lugar de tokens `t.*` | 0 literales | 0 | Script de CI: `grep -Pn "\d\.\d{3}," Craft/components/` debe retornar vacío |
+| FSD-NFR-015 | Sin portal web activo | El checklist de release verifica que no existe dominio `craftui.dev`, `craft.dev` ni equivalente activo relacionado con el proyecto | Sin dominio | Sin dominio | Checklist manual de release |
 
 ---
 
@@ -742,6 +745,12 @@ Craft no expone pantallas de usuario final. Sus interfaces son la API Lua públi
 | PRD-NFR-008 (sandbox Lua) | — | PRD-NFR-008 → FSD-NFR-010 | FSD-NFR-010 | — | `grep -r "io\.\|socket\."` en CI |
 | PRD-NFR-009 (listings distribución) | — | PRD-NFR-009 → FSD-NFR-011 | FSD-NFR-011 | — | Checklist de release |
 | PRD-NFR-010 (Lua 5.1) | — | PRD-NFR-010 → FSD-NFR-012 | FSD-NFR-012 | — | `luacheck --std lua51` en CI |
+| PRD-REQ-002 (no hardcoding) | — | PRD-REQ-002 | FSD-NFR-014 | — | Grep CI sobre Craft/components/ |
+| PRD-REQ-010 (sin portal) | — | PRD-REQ-010 | FSD-NFR-015 | — | Checklist de release |
+| PRD-NFR-011 (instanciación) | — | PRD-NFR-011 | FSD-NFR-003 | — | debugprofilestop() en busted |
+| PRD-NFR-012 (LibStub única) | — | PRD-NFR-012 | FSD-NFR-008 | — | Test 5 addons simultáneos |
+| PRD-NFR-007 (contrato componentes) | — | PRD-NFR-007 | FSD-NFR-013 | — | Code review pre-merge |
+| PRD-REQ-013 (documentación) | — | PRD-REQ-013 | FSD-NFR-009 | — | README Quick Start ≤ 60 min |
 
 ---
 
@@ -778,6 +787,7 @@ Las pruebas de Craft se ejecutan en el entorno WoW real (no en un test runner ex
 - 0 errores de Lua en Craft_Browser navegando los 16 componentes.
 - FSD-NFR-002 (Flex < 1ms), FSD-NFR-003 (Create < 5ms), FSD-NFR-004 (memory < 5KB delta), FSD-NFR-006 (live-switch < 16ms) — todos verificados y documentados.
 - Los 16 componentes documentados con examples funcionales en `docs/components/`.
+- **Checklist de release (PRD-REQ-014)**: verificar existencia de `Craft/media/lucide-16.tga`, `Craft/media/lucide-24.tga`, `Craft/media/Inter-Regular.ttf`, `Craft/media/Inter-Bold.ttf` antes de cada release.
 
 ---
 
@@ -826,6 +836,7 @@ Las pruebas de Craft se ejecutan en el entorno WoW real (no en un test runner ex
 | v0.1 | 30/05/2026 | Alberto Gomez | Versión inicial — FSD completo de Craft v1.0 (modo FSD clásico). Cubre 16 componentes MVP, 3 casos de uso críticos con criterios Gherkin, módulo de theming, Craft.Flex, Craft.Icons, 8 NFRs con verificación en WoW/Lua, diagrama de módulos Mermaid, plan de pruebas en WoW sandbox, 13 riesgos funcionales y glosario de términos WoW. Trazabilidad a BRD v0.1 y ADRs 0001–0008. |
 | v0.2 | 30/05/2026 | Alberto Gomez | Eliminación de SharedMedia: se elimina el addon companion `Craft_SharedMedia` y la dependencia de `LibSharedMedia-3.0`. Los assets (atlas TGA de Lucide 16/24px, fuentes Inter Regular/Bold) se distribuyen bundled en `Craft/media/`. `Craft.Icons` resuelve directamente desde `Craft/media/` sin fallback. Se actualiza §2.1 alcance, §2.3 dependencias, §2.4.1 project structure, §3 actores, §6.1 diagrama Mermaid, §6.2 API, §8 integraciones, §13 riesgos y §14 glosario. Fuente cambiada de Geist a Inter. T-011 actualizada a "Generar atlas TGA de Lucide y empaquetar Inter.ttf en Craft/media/". |
 | v0.3 | 30/05/2026 | Alberto Gomez | Correcciones de trazabilidad: COMP-005 (estado disabled); NFRs renombrados a FSD-NFR-NNN; FSD-NFR-009–012 añadidos (DX, sandbox, distribución, Lua 5.1); filas BR-013/014/015, PRD-REQ-015, PRD-NFR-008/009/010 añadidas a tabla §11 |
+| v0.4 | 30/05/2026 | Alberto Gomez | FSD-NFR-013/014/015 añadidos (contrato API, cero hardcoding, sin portal); FSD-NFR-003/008 actualizados con origen PRD-NFR-011/012; FSD-NFR-007 expandido (header MIT); §11 actualizado con nuevos vínculos; §12 checklist media/ assets |
 
 ---
 

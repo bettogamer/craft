@@ -545,6 +545,8 @@ Escenario: Ícono inexistente
 | PRD-NFR-008 | Seguridad / sandboxing | Craft no debe usar APIs de WoW fuera del sandbox addon (sin acceso a filesystem, sin sockets de red, sin APIs de sistema operativo) | Revisión de código; ninguna llamada a funciones fuera de la API pública de WoW addon | 0 llamadas fuera del sandbox WoW | BR-006 |
 | PRD-NFR-009 | Distribución | Craft debe estar listado en CurseForge y Wago como addon de tipo Library. `Craft_Browser` debe tener listing separado antes del lanzamiento de v1.0 | Listados verificables en CurseForge/Wago antes del release | 2 listings activos pre-lanzamiento | BR-001, BR-008 |
 | PRD-NFR-010 | Lua 5.1 puro | La implementación de Craft debe ser compatible con Lua 5.1 (la versión del sandbox de WoW). No se usarán features de Lua 5.2+ ni TSTL | Revisión estática de código; ninguna llamada a funciones específicas de Lua 5.2+ | 0 incompatibilidades Lua 5.1 | BR-014 |
+| PRD-NFR-011 | Performance | Instanciación de cualquier componente (`Create()`) completa en < 5ms en hardware de 2022+ | p95 | < 5ms | `debugprofilestop()` en test de creación; reportado en busted suite |
+| PRD-NFR-012 | Distribución LibStub | `LibStub("Craft-1.0")` retorna la misma instancia con ≥5 addons dependientes cargados simultáneamente | Sin errores | 1 instancia compartida | Test de integración con 5 addons de prueba en entorno WoW |
 
 ---
 
@@ -662,7 +664,7 @@ El archivo `CONTRIBUTING.md` en la raíz del repositorio cubrirá:
 | PRD ID | Historia | BRD | ADR relevante | FSD (próximo) |
 |--------|----------|-----|---------------|---------------|
 | PRD-REQ-001 | US-001, 002, 003 | BR-001, BR-002 | ADR-0001 | FSD-UC-001 (loader LibStub) |
-| PRD-REQ-002 | US-004–020 | BR-003 | ADR-0002, ADR-0005 | Craft.Theme §6.2, THEME-002 |
+| PRD-REQ-002 | US-004–020 | BR-003 | ADR-0002, ADR-0005 | Craft.Theme §6.2, THEME-002, FSD-NFR-014 |
 | PRD-REQ-003 | US-020 | BR-004 | ADR-0003 | FSD-UC-003 (Icons module) |
 | PRD-REQ-004 | US-001–020 | BR-006 | — | COMP-004, FSD-NFR-005 |
 | PRD-REQ-005 | — | BR-008 | ADR-0004 | Actor Craft_Browser §3 |
@@ -670,19 +672,21 @@ El archivo `CONTRIBUTING.md` en la raíz del repositorio cubrirá:
 | PRD-REQ-007 | US-004–020 | BR-011 | — | §6.2 Diccionario API (16 componentes), COMP-001 |
 | PRD-REQ-008 | US-011 | BR-012 | ADR-0006 | FSD-UC-002, FLEX-001, FLEX-002 |
 | PRD-REQ-009 | — | BR-014 | ADR-0007 | — |
-| PRD-REQ-010 | — | BR-015 | ADR-0008 | — |
+| PRD-REQ-010 | — | BR-015 | ADR-0008 | FSD-NFR-015 |
 | PRD-REQ-011 | US-004–007 (theming) | BR-009 | ADR-0005 | COMP-001 (regla §5 FSD) |
-| PRD-REQ-013 | US-016 (docs) | BR-013 | — | §2.1 FSD (en texto) |
+| PRD-REQ-013 | US-016 (docs) | BR-013 | — | §2.1 FSD (en texto), FSD-NFR-009 |
 | PRD-REQ-014 | US-020 (media) | BR-004 | ADR-0003 | §2.4.1 FSD project structure (en texto) |
 | PRD-NFR-001 | US-004–020 | BR-005 | — | FSD-NFR-001 (anti-taint spec) |
 | PRD-NFR-002 | US-001–020 | BR-006 | — | FSD-NFR-002 (compat testing) |
 | PRD-NFR-003 | US-011 | BR-012 | ADR-0006 | FSD-NFR-003 (flex perf) |
 | PRD-NFR-004 | US-018 | BR-009 | ADR-0005 | FSD-NFR-004 (theme perf) |
 | PRD-NFR-006 | US-004–020 | BR-013 | — | FSD-NFR-009 |
-| PRD-NFR-007 | US-004–020 | BR-011 | — | FSD-NFR-007 (API contract) |
+| PRD-NFR-007 | US-004–020 | BR-011 | — | FSD-NFR-013 (API contract) |
 | PRD-NFR-008 | US-004–020 | BR-006 | — | FSD-NFR-010 |
 | PRD-NFR-009 | — | BR-001, BR-008 | — | FSD-NFR-011 |
 | PRD-NFR-010 | — | BR-014 | ADR-0007 | FSD-NFR-012 |
+| PRD-NFR-011 | US-* | BR-011 | MRD-N-09 | FSD-NFR-003 |
+| PRD-NFR-012 | — | BR-001, BR-002 | MRD-N-01 | FSD-NFR-008 |
 
 ### Cobertura de BRD → PRD
 
@@ -713,6 +717,7 @@ El archivo `CONTRIBUTING.md` en la raíz del repositorio cubrirá:
 | v0.1 | 30/05/2026 | Alberto Gomez | Versión inicial — PRD completo de Craft. 20 user stories, 15 requerimientos funcionales, 10 NFRs, trazabilidad completa a BR-001..BR-015 del BRD. Constitution (6 principios), journeys de Marco y Arjun, DX guidelines, MoSCoW + RICE top-10. |
 | v0.1.1 | 30/05/2026 | Alberto Gomez | Decisión de assets bundled: eliminado `Craft_SharedMedia` como addon companion separado. El atlas TGA de Lucide y la fuente Inter-Regular.ttf se distribuyen directamente en `Craft/media/`. `Craft.Icons` ya no implementa resolución en dos niveles; los íconos siempre están disponibles. PRD-REQ-003 y PRD-REQ-014 actualizados; PRD-NFR-009 reducido a 2 listings (Craft + Craft_Browser); `Geist` reemplazado por `Inter`. |
 | v0.1.2 | 30/05/2026 | Alberto Gomez | Correcciones de trazabilidad §14: referencias FSD-UC-004–023 inexistentes reemplazadas por mecanismos FSD reales; filas PRD-REQ-011/013/014 añadidas; referencias NFR actualizadas a prefijo FSD-NFR-NNN con nuevos FSD-NFR-009–012 |
+| v0.1.3 | 30/05/2026 | Alberto Gomez | Añadidos PRD-NFR-011 (instanciación <5ms) y PRD-NFR-012 (LibStub single instance); §14 actualizado: PRD-NFR-007→FSD-NFR-013, PRD-REQ-002/010/013 con FSD-NFR-014/015/009 |
 
 ---
 
