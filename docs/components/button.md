@@ -3,40 +3,51 @@
 > Referencia shadcn: `button` — [ui.shadcn.com/docs/components/button](https://ui.shadcn.com/docs/components/button)
 > WoW frame base: `Button`
 >
-> **Fuente**: código fuente real de `registry/new-york-v4/ui/button.tsx` (shadcn v4, mayo 2026).
+> **Fuente**: `apps/v4/registry/styles/style-lyra.css` (shadcn v4, mayo 2026) — archivo CSS de mappings específico del estilo Lyra.
 
 ## Propósito
-Elemento interactivo que ejecuta una acción al hacer clic, con soporte para múltiples variantes visuales y tamaños.
+Elemento interactivo que ejecuta una acción al hacer clic, con múltiples variantes visuales y tamaños. Lyra usa una estética más compacta y monocromática que new-york.
 
-## Código fuente shadcn de referencia
+## CSS fuente de Lyra (referencia exacta)
 
-```typescript
-const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 [&_svg:not([class*='size-'])]:size-4",
-  {
-    variants: {
-      variant: {
-        default:     "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive: "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
-        outline:     "border bg-background hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
-        secondary:   "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost:       "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link:        "text-primary underline-offset-4 hover:underline",
-      },
-      size: {
-        default:  "h-9 px-4 py-2 has-[>svg]:px-3",
-        xs:       "h-6 gap-1 px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm:       "h-8 gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg:       "h-10 px-6 has-[>svg]:px-4",
-        icon:     "size-9",
-        "icon-xs":"size-6 [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm":"size-8",
-        "icon-lg":"size-10",
-      },
-    },
-    defaultVariants: { variant: "default", size: "default" },
-  }
-)
+```css
+.cn-button {
+  @apply focus-visible:border-ring focus-visible:ring-ring/50
+         aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40
+         aria-invalid:border-destructive rounded-none border border-transparent
+         bg-clip-padding text-xs font-medium focus-visible:ring-1
+         active:not-aria-[haspopup]:translate-y-px
+         [&_svg:not([class*='size-'])]:size-4;
+}
+
+/* Variantes */
+.cn-button-variant-default    { @apply bg-primary text-primary-foreground hover:bg-primary/80; }
+.cn-button-variant-outline    { @apply border-border bg-background hover:bg-muted hover:text-foreground
+                                        dark:bg-input/30 dark:border-input dark:hover:bg-input/50; }
+.cn-button-variant-secondary  { @apply bg-secondary text-secondary-foreground
+                                        hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)]; }
+.cn-button-variant-ghost      { @apply hover:bg-muted hover:text-foreground dark:hover:bg-muted/50; }
+.cn-button-variant-destructive{ @apply bg-destructive/10 hover:bg-destructive/20
+                                        dark:bg-destructive/20 dark:hover:bg-destructive/30
+                                        text-destructive focus-visible:ring-destructive/20
+                                        focus-visible:border-destructive/40; }
+.cn-button-variant-link       { @apply text-primary underline-offset-4 hover:underline; }
+
+/* Tamaños */
+.cn-button-size-xs      { @apply h-6 gap-1 rounded-none px-2 text-xs
+                                  has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5
+                                  [&_svg:not([class*='size-'])]:size-3; }
+.cn-button-size-sm      { @apply h-7 gap-1 rounded-none px-2.5
+                                  has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5
+                                  [&_svg:not([class*='size-'])]:size-3.5; }
+.cn-button-size-default { @apply h-8 gap-1.5 px-2.5
+                                  has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2; }
+.cn-button-size-lg      { @apply h-9 gap-1.5 px-2.5
+                                  has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2; }
+.cn-button-size-icon-xs { @apply size-6 rounded-none [&_svg:not([class*='size-'])]:size-3; }
+.cn-button-size-icon-sm { @apply size-7 rounded-none; }
+.cn-button-size-icon    { @apply size-8; }
+.cn-button-size-icon-lg { @apply size-9; }
 ```
 
 ---
@@ -44,57 +55,56 @@ const buttonVariants = cva(
 ## Jerarquía de frames WoW
 
 ```
-button.frame          (Button — recibe OnClick, OnEnter, OnLeave)
-├── button._bg        (Texture — BACKGROUND)   fondo principal según variante
-├── button._border    (Texture — BORDER)        borde 1px, visible en outline
+button.frame          (Button — OnClick, OnEnter, OnLeave, OnMouseDown/Up)
+├── button._bg        (Texture — BACKGROUND)   fondo principal
+├── button._border    (Texture — BORDER)        borde 1px transparente por defecto
 ├── button._icon      (Texture — ARTWORK)       ícono Lucide, visible si config.icon
 ├── button._label     (FontString — OVERLAY)    texto del botón
-└── button._ring      (Frame — OVERLAY)         focus ring, oculto por defecto
-    ├── _ring._top    (Texture) 3px horizontal
-    ├── _ring._bottom (Texture) 3px horizontal
-    ├── _ring._left   (Texture) 3px vertical
-    └── _ring._right  (Texture) 3px vertical
+└── button._ring      (Frame — OVERLAY)         focus ring 1px, oculto por defecto
+    ├── _ring._top    (Texture)
+    ├── _ring._bottom (Texture)
+    ├── _ring._left   (Texture)
+    └── _ring._right  (Texture)
 ```
 
-`button.frame` es un `Button` nativo WoW con `OnClick` incorporado.
-`_ring` se expande 3px outward: `SetPoint("TOPLEFT", frame, "TOPLEFT", -3, 3)` / `SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 3, -3)`.
+Base: `border border-transparent` — el frame siempre tiene un borde, pero transparente por defecto. Se vuelve visible en `outline` (`border-border`) y en estados de error.
 
 ---
 
 ## Dimensiones
 
-### Tamaños — conversión Tailwind → px (base: 1rem=16px, 1unit=4px)
+### Tamaños — Lyra (conversión Tailwind → px, 1unit=4px)
 
-| Size | Alto (px) | Pad H sin ícono (px) | Pad H con ícono (px) | Gap icon-text (px) | Fuente (px) | Ícono (px) |
-|------|-----------|---------------------|---------------------|-------------------|------------|-----------|
-| `xs` | 24 (`h-6`) | 8 (`px-2`) | 6 (`px-1.5`) | 4 (`gap-1`) | 12 (`text-xs`) | 12 (`size-3`) |
-| `sm` | 32 (`h-8`) | 12 (`px-3`) | 10 (`px-2.5`) | 6 (`gap-1.5`) | 14 (`text-sm`) | 16 (`size-4`) |
-| `default` | 36 (`h-9`) | 16 (`px-4`) | 12 (`px-3`) | 8 (`gap-2`) | 14 (`text-sm`) | 16 (`size-4`) |
-| `lg` | 40 (`h-10`) | 24 (`px-6`) | 16 (`px-4`) | 8 (`gap-2`) | 14 (`text-sm`) | 16 (`size-4`) |
-| `icon` | 36×36 | — | — | — | — | 16 |
-| `icon-xs` | 24×24 | — | — | — | — | 12 |
-| `icon-sm` | 32×32 | — | — | — | — | 16 |
-| `icon-lg` | 40×40 | — | — | — | — | 16 |
+| Size | Alto (px) | Pad H sin ícono (px) | Pad H con ícono (px) | Gap (px) | Font (px) | Ícono (px) |
+|------|-----------|---------------------|---------------------|---------|----------|-----------|
+| `xs` | 24 (`h-6`) | 8 (`px-2`) | 6 (`pl/pr-1.5`) | 4 (`gap-1`) | 12 (`text-xs`) | 12 (`size-3`) |
+| `sm` | 28 (`h-7`) | 10 (`px-2.5`) | 6 (`pl/pr-1.5`) | 4 (`gap-1`) | 12 (hereda base) | 14 (`size-3.5`) |
+| `default` | 32 (`h-8`) | 10 (`px-2.5`) | 8 (`pl/pr-2`) | 6 (`gap-1.5`) | 12 (hereda base) | 16 (`size-4`) |
+| `lg` | 36 (`h-9`) | 10 (`px-2.5`) | 8 (`pl/pr-2`) | 6 (`gap-1.5`) | 12 (hereda base) | 16 (`size-4`) |
+| `icon` | 32×32 (`size-8`) | — | — | — | — | 16 |
+| `icon-xs` | 24×24 (`size-6`) | — | — | — | — | 12 (`size-3`) |
+| `icon-sm` | 28×28 (`size-7`) | — | — | — | — | 16 (hereda) |
+| `icon-lg` | 36×36 (`size-9`) | — | — | — | — | 16 (hereda) |
 
-> **Padding V**: `xs`=0px (centrado vertical automático por alineación), `default`=8px (`py-2`), `sm/lg`=centrado.
-> El ancho total de botones con texto es dinámico: `pad_h*2 + label_width + (icon ? gap + icon_size : 0)`.
+> **Lyra es más compacto que new-york**: default=32px vs 36px, sm=28px vs 32px, font=12px vs 14px.
+> El padding H es más pequeño y uniforme: 10px para sm/default/lg (px-2.5).
 
 ---
 
-## Variantes visuales
+## Variantes visuales (dark mode)
 
-| Variante | Fondo (dark) | Texto (dark) | Borde (dark) | Hover fondo (dark) |
-|----------|-------------|-------------|-------------|-------------------|
-| `default` | `t.primary` | `t.primaryForeground` | — | `t.primary` a=0.90 (`/90`) |
-| `destructive` | `t.destructive` a=0.60 (`dark:bg-destructive/60`) | `{r=1,g=1,b=1}` blanco puro | — | `t.destructive` a=0.90 |
-| `outline` | `t.input` a=0.30 (`dark:bg-input/30`) | `t.foreground` | `t.input` (border-input) | `t.input` a=0.50 (`dark:hover:bg-input/50`) |
-| `secondary` | `t.secondary` | `t.secondaryForeground` | — | `t.secondary` a=0.80 (`/80`) |
-| `ghost` | transparente | `t.foreground` | — | `t.accent` a=0.50 (`dark:hover:bg-accent/50`) |
+| Variante | Fondo | Texto | Borde | Hover fondo |
+|----------|-------|-------|-------|------------|
+| `default` | `t.primary` | `t.primaryForeground` | transparente | `t.primary` a=0.80 (`/80`) |
+| `outline` | `t.input` a=0.30 | `t.foreground` | `t.border` (visible) | `t.input` a=0.50 |
+| `secondary` | `t.secondary` | `t.secondaryForeground` | transparente | `t.secondary` ligeramente más claro† |
+| `ghost` | transparente | `t.foreground` | transparente | `t.muted` a=0.50 (`dark:bg-muted/50`) |
+| `destructive` | `t.destructive` a=0.20 (`dark:bg-destructive/20`) | `t.destructive` | transparente (error: borde destructive) | `t.destructive` a=0.30 |
 | `link` | transparente | `t.primary` | — | transparente (hover: underline) |
 
-> **Cálculo de alpha en WoW**: `bg-primary/90` = `SetColorTexture(t.primary.r, t.primary.g, t.primary.b, 0.9)`.
-> `dark:bg-input/30` = `SetColorTexture(1, 1, 1, 0.15 * 0.30)` = `SetColorTexture(1, 1, 1, 0.045)`.
-> `dark:bg-input/50` = `SetColorTexture(1, 1, 1, 0.15 * 0.50)` = `SetColorTexture(1, 1, 1, 0.075)`.
+> † `color-mix(in oklch, --secondary, --foreground 5%)` ≈ mezcla zinc-800 con zinc-50 al 5% → aproximar como `t.secondary` con r/g/b levemente más altos: `{r=0.194, g=0.194, b=0.206, a=1}`.
+
+> **Destructive en Lyra es radicalmente diferente a new-york**: no es un botón rojo sólido. Es un tinte sutil de rojo con texto rojo — para acciones destructivas que no quieren ser agresivas visualmente. `bg-destructive/20` + `text-destructive`.
 
 ---
 
@@ -102,37 +112,38 @@ button.frame          (Button — recibe OnClick, OnEnter, OnLeave)
 
 | Estado | Implementación WoW |
 |--------|-------------------|
-| `default` | Colores de la variante activa |
-| `hover` | Ajustar alpha del fondo según tabla de variantes (OnEnter/OnLeave) |
-| `focus` | `_ring` visible: 3px outward, `SetColorTexture(t.ring.r, t.ring.g, t.ring.b, 0.5)` — `ring/50` |
-| `disabled` | `button.frame:SetAlpha(0.5)` — **todo el frame al 50% opacity** (`disabled:opacity-50`). `EnableMouse(false)` |
-| `error (destructive aria-invalid)` | Variante destructive + ring destructive: `{r=0.973, g=0.443, b=0.443, a=0.2}` |
+| `default` | Colores de variante activa |
+| `hover` | Ajustar alpha según tabla (OnEnter/OnLeave) |
+| `active (press)` | `translate-y-px` = mover frame 1px hacia abajo (OnMouseDown/OnMouseUp) |
+| `focus` | `_ring` visible: **1px** outward, color `t.ring` a=0.50 (`ring-ring/50`) |
+| `disabled` | `button.frame:SetAlpha(0.5)` — opacity-50 en frame entero. `EnableMouse(false)` |
+| `error (aria-invalid)` | Borde `t.destructive`, ring `t.destructive` a=0.20 |
 
-> **Disabled es opacity-50, no cambio de colores.** shadcn usa `disabled:opacity-50` en el elemento completo.
-> En WoW: `button.frame:SetAlpha(0.5)` cuando `disabled=true`, `SetAlpha(1)` cuando `disabled=false`.
-> También `EnableMouse(false)` para suprimir clics.
+> **Ring en Lyra = 1px** (no 3px como en new-york). `focus-visible:ring-1`.
+> **Active press = translate-y-px**: en WoW implementar con `SetPoint` offset de 1px hacia abajo en `OnMouseDown` y restaurar en `OnMouseUp`. Solo para botones sin popup (`not-aria-[haspopup]`).
 
 ---
 
 ## Mapa de tokens
 
-| Elemento visual | Token / Valor |
-|----------------|---------------|
+| Elemento visual | Token / Valor Lua |
+|----------------|------------------|
+| Base border | transparente `{r=0,g=0,b=0,a=0}` (border-transparent) |
 | Fondo `default` | `t.primary` |
-| Fondo `destructive` (dark) | `{r=t.destructive.r, g=t.destructive.g, b=t.destructive.b, a=0.6}` |
-| Fondo `outline` (dark) | `{r=t.input.r, g=t.input.g, b=t.input.b, a=0.045}` (input/30) |
+| Fondo `default` hover | `{r=t.primary.r, g=t.primary.g, b=t.primary.b, a=0.8}` |
+| Fondo `outline` dark | `{r=t.input.r, g=t.input.g, b=t.input.b, a=0.30}` |
+| Borde `outline` dark | `t.border` (input token: `{r=1,g=1,b=1,a=0.15}`) |
+| Fondo `outline` hover dark | `{r=t.input.r, g=t.input.g, b=t.input.b, a=0.50}` |
 | Fondo `secondary` | `t.secondary` |
-| Fondo hover `default` | `t.primary` a=0.90 |
-| Fondo hover `ghost`/`outline` (dark) | `t.accent` a=0.50 |
-| Texto `default` | `t.primaryForeground` |
-| Texto `destructive` | `{r=1, g=1, b=1, a=1}` (blanco puro, `text-white`) |
-| Texto `secondary` | `t.secondaryForeground` |
-| Texto `outline`/`ghost` | `t.foreground` |
-| Texto `link` | `t.primary` |
-| Borde `outline` (dark) | `t.input` (border-input) |
-| Focus ring | `t.ring` a=0.50 (`ring-ring/50`), 3px (`ring-[3px]`) |
+| Fondo `secondary` hover | `{r=0.194, g=0.194, b=0.206, a=1}` (color-mix aproximado) |
+| Fondo `ghost` hover dark | `{r=t.muted.r, g=t.muted.g, b=t.muted.b, a=0.5}` |
+| Fondo `destructive` dark | `{r=t.destructive.r, g=t.destructive.g, b=t.destructive.b, a=0.20}` |
+| Fondo `destructive` hover dark | `{r=t.destructive.r, g=t.destructive.g, b=t.destructive.b, a=0.30}` |
+| Texto `destructive` | `t.destructive` (no blanco — el texto ES el color destructive) |
+| Focus ring | `t.ring` a=0.50, **1px** |
 | Disabled | `SetAlpha(0.5)` en frame raíz |
-| Fuente | `t.font` / tamaño según size (12px xs, 14px resto) |
+| Active press | `SetPoint` offset Y=-1 en OnMouseDown |
+| Fuente | `t.font`, `t.fontSize` (12px) |
 
 ---
 
@@ -140,13 +151,13 @@ button.frame          (Button — recibe OnClick, OnEnter, OnLeave)
 
 | Clave | Tipo | Default | Descripción |
 |-------|------|---------|-------------|
-| `text` | string | `""` | Texto visible del botón. |
+| `text` | string | `""` | Texto visible. |
 | `size` | string | `"default"` | `"xs"`, `"sm"`, `"default"`, `"lg"`, `"icon"`, `"icon-xs"`, `"icon-sm"`, `"icon-lg"`. |
 | `variant` | string | `"default"` | `"default"`, `"destructive"`, `"outline"`, `"secondary"`, `"ghost"`, `"link"`. |
-| `disabled` | boolean | `false` | Aplica `SetAlpha(0.5)` + `EnableMouse(false)`. |
-| `icon` | string | `nil` | Nombre ícono Lucide (e.g. `"check"`). Activa el modo con ícono (reduce padding H). |
-| `iconPosition` | string | `"left"` | `"left"` o `"right"`. Ignorado si `icon` es nil. |
-| `onClick` | function | `nil` | `function(self)` ejecutado en OnClick. |
+| `disabled` | boolean | `false` | `SetAlpha(0.5)` + `EnableMouse(false)`. |
+| `icon` | string | `nil` | Nombre ícono Lucide. Activa padding reducido (`has-data-[icon]`). |
+| `iconPosition` | string | `"left"` | `"left"` (`inline-start`) o `"right"` (`inline-end`). |
+| `onClick` | function | `nil` | `function(self)` en OnClick. |
 
 ---
 
@@ -154,34 +165,36 @@ button.frame          (Button — recibe OnClick, OnEnter, OnLeave)
 
 | Método | Firma | Descripción |
 |--------|-------|-------------|
-| `SetText(text)` | `string → void` | Cambia el texto y recalcula el ancho del frame. |
+| `SetText(text)` | `string → void` | Cambia texto, recalcula ancho. |
 | `SetEnabled(enabled)` | `boolean → void` | `SetAlpha(0.5/1)` + `EnableMouse`. |
-| `SetVariant(variant)` | `string → void` | Cambia variante visual y repinta tokens. |
-| `SetSize(size)` | `string → void` | Cambia tamaño (recalcula dimensiones y padding). |
-| `GetFrame()` | `→ Frame` | Frame WoW raíz para posicionamiento externo. |
+| `SetVariant(variant)` | `string → void` | Cambia variante y repinta. |
+| `SetSize(size)` | `string → void` | Cambia tamaño (dimensiones + padding). |
+| `GetFrame()` | `→ Frame` | Frame raíz para posicionamiento. |
 
 ---
 
 ## Notas de implementación
 
-**`has-[>svg]` en WoW**: En shadcn, `has-[>svg]:px-3` reduce el padding H cuando hay un ícono hijo. En WoW esto se implementa en `Create()`: si `config.icon ~= nil` usar el padding H reducido de la tabla; si no, usar el padding H completo.
+**Lyra es más compacto que new-york**: todos los tamaños son un step más pequeños (default=32px no 36px). El padding uniforme de 10px para sm/default/lg hace que los botones sean visualmente más densos.
 
-**Disabled = opacity-50**: La implementación correcta es `button.frame:SetAlpha(0.5)`, no cambiar colores individuales. Esto afecta todo el frame incluyendo ícono y texto, exactamente como `disabled:opacity-50` en CSS.
+**Base border transparent**: el frame siempre tiene un borde (`border border-transparent`). En WoW, crear siempre `_border` Texture y colorearla transparente por defecto. En `outline` variant: colorear con `t.border`. En error state: colorear con `t.destructive`.
 
-**Focus ring = 3px, ring/50**: El ring es 3px de ancho (no 2px) y al 50% de opacity. En WoW: `_ring` frame expandido 3px outward. Color: `SetColorTexture(t.ring.r, t.ring.g, t.ring.b, 0.5)`.
+**Active press = translate-y-px**: mover el frame 1px hacia abajo en OnMouseDown:
+```lua
+button.frame:SetScript("OnMouseDown", function(self)
+  if not self._disabled then self:SetPoint(...offset Y -1) end
+end)
+button.frame:SetScript("OnMouseUp", function(self)
+  self:SetPoint(...offset Y 0)
+end)
+```
 
-**Destructive en dark = bg-destructive/60**: El fondo destructive en dark no es sólido — es `t.destructive` al 60%. `SetColorTexture(t.destructive.r, t.destructive.g, t.destructive.b, 0.6)`.
+**Destructive = tinte, no sólido**: en Lyra `destructive` es `bg-destructive/20 text-destructive` — fondo translúcido rojizo, texto rojo. Completamente distinto a new-york (sólido rojo, texto blanco). En WoW: `_bg:SetColorTexture(t.destructive.r, t.destructive.g, t.destructive.b, 0.20)` y `_label:SetTextColor(t.destructive.r, t.destructive.g, t.destructive.b)`.
 
-**Destructive text = text-white**: El texto destructive es blanco puro `{r=1,g=1,b=1}`, no `t.foreground`.
+**Ghost hover = muted/50**: en dark mode `hover:bg-muted/50` — el bg de hover es `t.muted` al 50% de alpha (`a=0.5`). No `t.accent` como en new-york.
 
-**Ghost dark hover = accent/50**: En dark mode, el hover del ghost button es `t.accent` al 50%, no `t.accent` sólido.
+**Focus ring = 1px, ring/50**: ring más sutil que new-york. `_ring` frame expandido 1px outward, color `{r=t.ring.r, g=t.ring.g, b=t.ring.b, a=0.5}`.
 
-**Outline dark bg = input/30**: El fondo del outline button en dark es `t.input` (blanco 15%) al 30% = blanco al 4.5% (`a=0.045`).
+**Ícono sm = size-3.5 = 14px**: tamaño intermedio solo en `sm`. xs=12px, sm=14px, default/lg=16px.
 
-**Ícono xs = size-3 = 12px**: Los botones `xs` e `icon-xs` usan íconos de 12px. Los demás tamaños usan 16px (`size-4`).
-
-**Font size = text-sm = 14px**: shadcn usa `text-sm` (14px) en los botones, no 12px. Solo `xs` usa `text-xs` (12px). Adaptar: `_label:SetFont(t.font, 14)` para default/sm/lg.
-
-**OnClick nativo de Button**: WoW `Button` tiene `SetScript("OnClick", fn)` incorporado — no recrear con Frame genérico.
-
-**SetCursor para link**: En OnEnter de variante `link`, llamar `SetCursor("Interface\\CURSOR\\Point")`. En OnLeave, `SetCursor(nil)`.
+**Padding con ícono usa `has-data-[icon=inline-start/end]`**: en WoW, si `iconPosition="left"` reducir padding izquierdo; si `"right"` reducir padding derecho. El padding opuesto se mantiene normal.
