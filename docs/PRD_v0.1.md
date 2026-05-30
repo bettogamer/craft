@@ -662,20 +662,27 @@ El archivo `CONTRIBUTING.md` en la raíz del repositorio cubrirá:
 | PRD ID | Historia | BRD | ADR relevante | FSD (próximo) |
 |--------|----------|-----|---------------|---------------|
 | PRD-REQ-001 | US-001, 002, 003 | BR-001, BR-002 | ADR-0001 | FSD-UC-001 (loader LibStub) |
-| PRD-REQ-002 | US-004–020 | BR-003 | ADR-0002, ADR-0005 | FSD-UC-002 (contrato de componente) |
+| PRD-REQ-002 | US-004–020 | BR-003 | ADR-0002, ADR-0005 | Craft.Theme §6.2, THEME-002 |
 | PRD-REQ-003 | US-020 | BR-004 | ADR-0003 | FSD-UC-003 (Icons module) |
-| PRD-REQ-004 | US-001–020 | BR-006 | — | FSD-UC-004 (compat layer) |
-| PRD-REQ-005 | — | BR-008 | ADR-0004 | FSD-UC-005 (Craft_Browser) |
-| PRD-REQ-006 | US-018, 019 | BR-009, BR-010 | ADR-0005 | FSD-UC-006 (Theme module) |
-| PRD-REQ-007 | US-004–020 | BR-011 | — | FSD-UC-007–022 (componentes) |
-| PRD-REQ-008 | US-011 | BR-012 | ADR-0006 | FSD-UC-023 (Flex module) |
+| PRD-REQ-004 | US-001–020 | BR-006 | — | COMP-004, FSD-NFR-005 |
+| PRD-REQ-005 | — | BR-008 | ADR-0004 | Actor Craft_Browser §3 |
+| PRD-REQ-006 | US-018, 019 | BR-009, BR-010 | ADR-0005 | FSD-UC-003, THEME-001, THEME-003 |
+| PRD-REQ-007 | US-004–020 | BR-011 | — | §6.2 Diccionario API (16 componentes), COMP-001 |
+| PRD-REQ-008 | US-011 | BR-012 | ADR-0006 | FSD-UC-002, FLEX-001, FLEX-002 |
 | PRD-REQ-009 | — | BR-014 | ADR-0007 | — |
 | PRD-REQ-010 | — | BR-015 | ADR-0008 | — |
+| PRD-REQ-011 | US-004–007 (theming) | BR-009 | ADR-0005 | COMP-001 (regla §5 FSD) |
+| PRD-REQ-013 | US-016 (docs) | BR-013 | — | §2.1 FSD (en texto) |
+| PRD-REQ-014 | US-020 (media) | BR-004 | ADR-0003 | §2.4.1 FSD project structure (en texto) |
 | PRD-NFR-001 | US-004–020 | BR-005 | — | FSD-NFR-001 (anti-taint spec) |
 | PRD-NFR-002 | US-001–020 | BR-006 | — | FSD-NFR-002 (compat testing) |
 | PRD-NFR-003 | US-011 | BR-012 | ADR-0006 | FSD-NFR-003 (flex perf) |
 | PRD-NFR-004 | US-018 | BR-009 | ADR-0005 | FSD-NFR-004 (theme perf) |
+| PRD-NFR-006 | US-004–020 | BR-013 | — | FSD-NFR-009 |
 | PRD-NFR-007 | US-004–020 | BR-011 | — | FSD-NFR-007 (API contract) |
+| PRD-NFR-008 | US-004–020 | BR-006 | — | FSD-NFR-010 |
+| PRD-NFR-009 | — | BR-001, BR-008 | — | FSD-NFR-011 |
+| PRD-NFR-010 | — | BR-014 | ADR-0007 | FSD-NFR-012 |
 
 ### Cobertura de BRD → PRD
 
@@ -705,6 +712,7 @@ El archivo `CONTRIBUTING.md` en la raíz del repositorio cubrirá:
 |---------|-------|-------|--------|
 | v0.1 | 30/05/2026 | Alberto Gomez | Versión inicial — PRD completo de Craft. 20 user stories, 15 requerimientos funcionales, 10 NFRs, trazabilidad completa a BR-001..BR-015 del BRD. Constitution (6 principios), journeys de Marco y Arjun, DX guidelines, MoSCoW + RICE top-10. |
 | v0.1.1 | 30/05/2026 | Alberto Gomez | Decisión de assets bundled: eliminado `Craft_SharedMedia` como addon companion separado. El atlas TGA de Lucide y la fuente Inter-Regular.ttf se distribuyen directamente en `Craft/media/`. `Craft.Icons` ya no implementa resolución en dos niveles; los íconos siempre están disponibles. PRD-REQ-003 y PRD-REQ-014 actualizados; PRD-NFR-009 reducido a 2 listings (Craft + Craft_Browser); `Geist` reemplazado por `Inter`. |
+| v0.1.2 | 30/05/2026 | Alberto Gomez | Correcciones de trazabilidad §14: referencias FSD-UC-004–023 inexistentes reemplazadas por mecanismos FSD reales; filas PRD-REQ-011/013/014 añadidas; referencias NFR actualizadas a prefijo FSD-NFR-NNN con nuevos FSD-NFR-009–012 |
 
 ---
 

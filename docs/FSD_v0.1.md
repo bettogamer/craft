@@ -10,7 +10,7 @@
 | Campo | Valor |
 |-------|-------|
 | Producto | Craft — Librería compartida de componentes UI para addons de World of Warcraft |
-| Versión del documento | v0.2 |
+| Versión del documento | v0.3 |
 | Fecha | 30/05/2026 |
 | Autores | Alberto Gomez |
 | Revisores | Comunidad addon-dev WoW (Discord #addon-dev-general) |
@@ -250,7 +250,7 @@ Entonces WoW reporta un error de dependencia faltante
   3. El Button dispara `onClick` cuando el usuario hace clic.
   4. Los Input despachan `onChange` cuando el usuario escribe y `onEnter` cuando presiona Enter.
   5. Todos los componentes comparten el tema activo y se actualizarán si se cambia el tema.
-- **Reglas de negocio aplicables**: COMP-001 (contrato de componente), BR-012 (Craft.Flex), NFR-002 (performance de Flex < 1ms para 10 elementos).
+- **Reglas de negocio aplicables**: COMP-001 (contrato de componente), BR-012 (Craft.Flex), FSD-NFR-002 (performance de Flex < 1ms para 10 elementos).
 - **Datos de entrada**:
   - `Craft.Flex.new(parent, config)`: `parent` = frame WoW padre; `config.direction` = `"row"` | `"column"`; `config.gap` = número en píxeles; `config.justify` = `"start"` | `"center"` | `"end"` | `"space-between"` | `"space-around"` | `"space-evenly"`; `config.align` = `"start"` | `"center"` | `"end"` | `"stretch"`.
   - `Craft.Input:Create(parent, config)`: `config.placeholder` (string), `config.onChange` (function), `config.onEnter` (function), `config.icon` (string, nombre Lucide).
@@ -348,7 +348,7 @@ Entonces el uso de memoria no ha crecido de forma apreciable respecto al inicio
 |----|-------|------|--------|------------------------|
 | COMP-001 | Todo componente Craft DEBE implementar: (a) `Create(parent, config)` que registra su listener de tema con `Craft.Theme.register()` y aplica el tema inicial; (b) `Destroy()` que desregistra el listener con `Craft.Theme.unregister()` y oculta / elimina sus frames; (c) `_applyTheme(t)` que actualiza los frames con los tokens del tema `t`. Este es el contrato de componente estándar. | Política de arquitectura | ADR-0005, ADR-0001 | FSD-UC-001, FSD-UC-002, FSD-UC-003 |
 | COMP-002 | El campo `_themeHandle` de cada instancia de componente debe ser válido desde la creación hasta la destrucción del componente. Un `_themeHandle` inválido o `nil` es un bug. | Política de implementación | ADR-0005 | FSD-UC-003 |
-| COMP-003 | Ningún componente Craft puede llamar a funciones protegidas de WoW ni crear Secure Frames. Está prohibido el uso de `SecureHandlerSetFrameRef`, `SecureActionButtonTemplate` u otras APIs de Secure Frames. | Política anti-taint | BR-005 (BRD), NFR-001 | FSD-UC-001, FSD-UC-002 |
+| COMP-003 | Ningún componente Craft puede llamar a funciones protegidas de WoW ni crear Secure Frames. Está prohibido el uso de `SecureHandlerSetFrameRef`, `SecureActionButtonTemplate` u otras APIs de Secure Frames. | Política anti-taint | BR-005 (BRD), FSD-NFR-001 | FSD-UC-001, FSD-UC-002 |
 | COMP-004 | Todo componente debe funcionar correctamente en WoW Retail 11.x y Classic sin bifurcación de código. Los puntos de variación entre versiones (si los hay) deben resolverse con detección de versión en tiempo de carga, no con archivos separados. | Política de compatibilidad | BR-006 (BRD) | FSD-UC-001, FSD-UC-002, FSD-UC-003 |
 | THEME-001 | `Craft.Theme.use(name)` solo acepta nombres de presets registrados. Llamar con un nombre no registrado produce un error visible en el chat de WoW (no silencioso) y deja el tema sin cambios. | Validación | ADR-0005 | FSD-UC-003 |
 | THEME-002 | Los tokens semánticos de Lyra que DEBEN estar presentes en todo preset válido son: `background`, `foreground`, `card`, `cardForeground`, `primary`, `primaryForeground`, `secondary`, `secondaryForeground`, `muted`, `mutedForeground`, `accent`, `accentForeground`, `destructive`, `destructiveForeground`, `border`, `input`, `ring`. Un preset que omita cualquiera de estos tokens es inválido. | Validación | ADR-0005, ADR-0002 | FSD-UC-003 |
@@ -358,6 +358,7 @@ Entonces el uso de memoria no ha crecido de forma apreciable respecto al inicio
 | FLEX-001 | `Craft.Flex.new(parent, config)` requiere un `parent` frame WoW válido y no-nil. La config puede ser una tabla vacía (usa valores por defecto: `direction="row"`, `justify="start"`, `align="start"`, `gap=0`). | Validación | ADR-0006 | FSD-UC-002 |
 | FLEX-002 | `flex:Layout()` sobreescribe el `SetPoint` de todos los frames hijo. El caller no debe asumir que los `SetPoint` que estableció manualmente se preservarán. | Contrato de API | ADR-0006 | FSD-UC-002 |
 | ICONS-001 | `Craft.Icons.Get(name)` retorna un descriptor `{ path=string, coords={l,r,t,b} }` o `nil`. Los componentes que reciben `nil` no muestran ícono y no producen errores. La ausencia de un ícono no es un error. | Contrato de API | ADR-0003 | FSD-UC-001 |
+| COMP-005 | Todo componente con estado `disabled` MUST usar el token `theme.mutedForeground` para su color de texto y `theme.muted` para su fondo, y MUST suprimir todos los eventos de usuario (`OnClick`, `OnKeyDown`, `OnEnter`). Un componente deshabilitado que responda a input del usuario es un bug de contrato. | política | PRD-REQ-015 |
 
 ---
 
@@ -555,7 +556,7 @@ el código Lua que: (1) crea el contenedor Flex, (2) instancia los componentes e
 - Entrada: lista de campos `{type, label, placeholder?, onChange?, icon?}`,
   config del Flex `{direction, gap, justify?, align?}`,
   frame padre (variable name como string).
-- Referencias de dominio: COMP-001, FLEX-001, FLEX-002, NFR-002 (< 1ms para ≤ 10 campos).
+- Referencias de dominio: COMP-001, FLEX-001, FLEX-002, FSD-NFR-002 (< 1ms para ≤ 10 campos).
 - Restricciones:
   - Cada campo Label debe crearse antes del Input correspondiente.
   - El Flex DEBE incluir todos los frames en el orden correcto antes de llamar Layout().
@@ -704,14 +705,18 @@ Craft no expone pantallas de usuario final. Sus interfaces son la API Lua públi
 
 | ID | Categoría | Requisito | Métrica | Umbral | Cómo se verifica en WoW/Lua |
 |----|-----------|-----------|---------|--------|------------------------------|
-| NFR-001 | Anti-taint | Ningún componente Craft contamina Secure Frames ni produce errores de taint | Errores de taint reportados por WoW | 0 errores | Ejecutar la suite de Craft_Browser en Retail con el addon Blizzard_DebugTools activo; verificar que no aparece el error "action blocked: interface taint from Craft" en el log de WoW. Ejecutar en Classic con el mismo procedimiento. |
-| NFR-002 | Performance — Flex | Cálculo de layout Flex con 10 elementos | Tiempo de `flex:Layout()` en ms | < 1 ms | Instrumentar `flex:Layout()` con `debugprofilestop()` antes y después; loguear el delta. Ejecutar en Craft_Browser con un panel de 10 botones. Tomar el p95 de 100 llamadas consecutivas. |
-| NFR-003 | Performance — render | Tiempo de render inicial de un componente (desde `Create()` hasta frame visible) | ms por `Create()` | < 5 ms | Instrumentar `Craft.Button:Create()` con `debugprofilestop()`; medir en el p95 de 50 instanciaciones en Craft_Browser. |
-| NFR-004 | Memoria — sin leaks | 100 ciclos de create/destroy de componentes no producen crecimiento de memoria Lua | Delta de `collectgarbage("count")` entre inicio y fin de los 100 ciclos | < 5 KB de crecimiento neto | Ejecutar en Craft_Browser: loop Lua de 100 iteraciones de `Create()` + `Destroy()`. Medir `collectgarbage("count")` antes y después con `collectgarbage("collect")` forzado entre mediciones. |
-| NFR-005 | Compatibilidad | Los 16 componentes funcionan sin errores en Retail 11.x y Classic | Errores de Lua reportados en el ErrorFrame de WoW | 0 errores en ambas versiones | Cargar Craft_Browser en una instalación limpia de Retail 11.x y en Classic. Navegar los 16 componentes y verificar ausencia de errores en el Lua Error Frame. |
-| NFR-006 | Live-switch performance | `Craft.Theme.use()` con 10 componentes activos | Tiempo total del live-switch en ms | < 16 ms (1 frame a 60fps) | Instrumentar `Craft.Theme.use()` con `debugprofilestop()`; activar 10 componentes en Craft_Browser y llamar `use()` 100 veces alternando `lyra-dark`/`lyra-light`; reportar p95. |
-| NFR-007 | Licencia | Craft y todos sus archivos distribuyen bajo MIT License | Presencia de header MIT en todos los archivos .lua | 100% de archivos | Script de CI: `grep -rL "MIT License" Craft/**.lua` debe retornar vacío. |
-| NFR-008 | Carga de addon | Craft se inicializa correctamente con 5 addons dependientes simultáneos | Sin errores en `LibStub("Craft-1.0")` desde cualquier addon | 0 errores | Instalar Craft + 5 addons de prueba, cada uno llamando `LibStub("Craft-1.0")` en ADDON_LOADED; verificar que todos retornan la misma instancia. |
+| FSD-NFR-001 | Anti-taint | Ningún componente Craft contamina Secure Frames ni produce errores de taint | Errores de taint reportados por WoW | 0 errores | Ejecutar la suite de Craft_Browser en Retail con el addon Blizzard_DebugTools activo; verificar que no aparece el error "action blocked: interface taint from Craft" en el log de WoW. Ejecutar en Classic con el mismo procedimiento. |
+| FSD-NFR-002 | Performance — Flex | Cálculo de layout Flex con 10 elementos | Tiempo de `flex:Layout()` en ms | < 1 ms | Instrumentar `flex:Layout()` con `debugprofilestop()` antes y después; loguear el delta. Ejecutar en Craft_Browser con un panel de 10 botones. Tomar el p95 de 100 llamadas consecutivas. |
+| FSD-NFR-003 | Performance — render | Tiempo de render inicial de un componente (desde `Create()` hasta frame visible) | ms por `Create()` | < 5 ms | Instrumentar `Craft.Button:Create()` con `debugprofilestop()`; medir en el p95 de 50 instanciaciones en Craft_Browser. |
+| FSD-NFR-004 | Memoria — sin leaks | 100 ciclos de create/destroy de componentes no producen crecimiento de memoria Lua | Delta de `collectgarbage("count")` entre inicio y fin de los 100 ciclos | < 5 KB de crecimiento neto | Ejecutar en Craft_Browser: loop Lua de 100 iteraciones de `Create()` + `Destroy()`. Medir `collectgarbage("count")` antes y después con `collectgarbage("collect")` forzado entre mediciones. |
+| FSD-NFR-005 | Compatibilidad | Los 16 componentes funcionan sin errores en Retail 11.x y Classic | Errores de Lua reportados en el ErrorFrame de WoW | 0 errores en ambas versiones | Cargar Craft_Browser en una instalación limpia de Retail 11.x y en Classic. Navegar los 16 componentes y verificar ausencia de errores en el Lua Error Frame. |
+| FSD-NFR-006 | Live-switch performance | `Craft.Theme.use()` con 10 componentes activos | Tiempo total del live-switch en ms | < 16 ms (1 frame a 60fps) | Instrumentar `Craft.Theme.use()` con `debugprofilestop()`; activar 10 componentes en Craft_Browser y llamar `use()` 100 veces alternando `lyra-dark`/`lyra-light`; reportar p95. |
+| FSD-NFR-007 | Licencia | Craft y todos sus archivos distribuyen bajo MIT License | Presencia de header MIT en todos los archivos .lua | 100% de archivos | Script de CI: `grep -rL "MIT License" Craft/**.lua` debe retornar vacío. |
+| FSD-NFR-008 | Carga de addon | Craft se inicializa correctamente con 5 addons dependientes simultáneos | Sin errores en `LibStub("Craft-1.0")` desde cualquier addon | 0 errores | Instalar Craft + 5 addons de prueba, cada uno llamando `LibStub("Craft-1.0")` en ADDON_LOADED; verificar que todos retornan la misma instancia. |
+| FSD-NFR-009 | DX — Tiempo de setup | Un desarrollador nuevo sin experiencia en Craft completa el Quick Start y renderiza su primer componente en ≤ 60 minutos | Tiempo promedio | ≤ 60 min | Test de usabilidad con ≥ 3 beta testers pre-lanzamiento |
+| FSD-NFR-010 | Sandbox WoW | 0 llamadas a APIs fuera del sandbox Lua de WoW (`io.*`, `socket.*`, `os.exit`, etc.) en todo el código de `Craft/` | 0 llamadas | 0 | `grep -r "io\.\|socket\.\|os\.exit"` sobre `Craft/` en el pipeline CI |
+| FSD-NFR-011 | Distribución | Craft y Craft_Browser listados y activos en CurseForge y Wago antes del release v1.0 | 2 listings activos | 2 | Checklist manual de release — verificar URLs de CurseForge y Wago |
+| FSD-NFR-012 | Lua 5.1 puro | 0 construcciones de Lua 5.2+ (`::`labels`::`, `<close>`, `goto`, `table.pack` no disponible en 5.1) en `Craft/` | 0 incompatibilidades | 0 | `luacheck Craft/ --std lua51` — el linter detecta syntax de versiones superiores |
 
 ---
 
@@ -719,17 +724,24 @@ Craft no expone pantallas de usuario final. Sus interfaces son la API Lua públi
 
 | BRD / MRD (necesidad) | PRD (requerimiento) | FSD (caso de uso / módulo) | NFR | Prueba de aceptación |
 |----------------------|---------------------|---------------------------|-----|----------------------|
-| BR-001: distribución LibStub | PRD-REQ-001 | FSD-UC-001; LIB-001 | NFR-008 | Craft listado en CurseForge; `LibStub("Craft-1.0")` retorna instancia correcta con 5 addons cargados |
-| BR-002: LibStub como registro | PRD-REQ-001 | FSD-UC-001; LIB-001, LIB-002 | NFR-008 | `LibStub:NewLibrary("Craft-1.0", minor)` funciona sin errores; retorna nil si ya hay versión igual o mayor |
+| BR-001: distribución LibStub | PRD-REQ-001 | FSD-UC-001; LIB-001 | FSD-NFR-008 | Craft listado en CurseForge; `LibStub("Craft-1.0")` retorna instancia correcta con 5 addons cargados |
+| BR-002: LibStub como registro | PRD-REQ-001 | FSD-UC-001; LIB-001, LIB-002 | FSD-NFR-008 | `LibStub:NewLibrary("Craft-1.0", minor)` funciona sin errores; retorna nil si ya hay versión igual o mayor |
 | BR-003: shadcn Lyra | PRD-REQ-002 | Craft.Theme; THEME-002 | — | Todos los tokens semánticos de Lyra presentes en `lyra-dark` y `lyra-light` |
 | BR-004: Lucide first-class | PRD-REQ-003 | Craft.Icons; ICONS-001 | — | `Craft.Icons.Get("chevron-right")` retorna descriptor válido desde `Craft/media/lucide-16.tga` |
-| BR-005: anti-taint | PRD-NFR-001 | COMP-003 | NFR-001 | 0 errores de taint en Retail y Classic con Craft_Browser |
-| BR-006: compatibilidad Retail + Classic | PRD-REQ-004 | COMP-004 | NFR-005 | Craft_Browser funciona sin errores en Retail 11.x y Classic |
-| BR-008: Craft_Browser | PRD-REQ-005 | Craft_Browser (actor) | NFR-001, NFR-005 | Craft_Browser publicado en CurseForge con 16 componentes navegables |
-| BR-009: live-switching | PRD-REQ-006 | FSD-UC-003; THEME-001 | NFR-006 | `Craft.Theme.use("lyra-light")` actualiza 10 componentes en < 16ms |
+| BR-005: anti-taint | PRD-NFR-001 | COMP-003 | FSD-NFR-001 | 0 errores de taint en Retail y Classic con Craft_Browser |
+| BR-006: compatibilidad Retail + Classic | PRD-REQ-004 | COMP-004 | FSD-NFR-005 | Craft_Browser funciona sin errores en Retail 11.x y Classic |
+| BR-008: Craft_Browser | PRD-REQ-005 | Craft_Browser (actor) | FSD-NFR-001, FSD-NFR-005 | Craft_Browser publicado en CurseForge con 16 componentes navegables |
+| BR-009: live-switching | PRD-REQ-006 | FSD-UC-003; THEME-001 | FSD-NFR-006 | `Craft.Theme.use("lyra-light")` actualiza 10 componentes en < 16ms |
 | BR-010: temas personalizados | PRD-REQ-006 | FSD-UC-003; THEME-003 | — | `extend()` y `register_preset()` funcionan correctamente en Craft_Browser |
-| BR-011: 16 componentes MVP | PRD-REQ-007 | §6.2 Diccionario (todos) | NFR-003, NFR-004 | 16/16 componentes implementados, documentados y pasando anti-taint |
-| BR-012: Craft.Flex | PRD-REQ-008 | FSD-UC-002; FLEX-001, FLEX-002 | NFR-002 | `Flex:Layout()` con 10 elementos < 1ms; layout visualmente correcto en Craft_Browser |
+| BR-011: 16 componentes MVP | PRD-REQ-007 | §6.2 Diccionario (todos) | FSD-NFR-003, FSD-NFR-004 | 16/16 componentes implementados, documentados y pasando anti-taint |
+| BR-012: Craft.Flex | PRD-REQ-008 | FSD-UC-002; FLEX-001, FLEX-002 | FSD-NFR-002 | `Flex:Layout()` con 10 elementos < 1ms; layout visualmente correcto en Craft_Browser |
+| BR-013 / MRD-N-11 (documentación) | PRD-REQ-013 | PRD-NFR-006 → FSD-NFR-009 | §2.1 (en texto), FSD-NFR-009 | — | README Quick Start completado antes del release v1.0 |
+| BR-014 / MRD-N-12 (exclusión TSTL) | PRD-REQ-009 | — | §2.2 fuera de alcance | — | Revisión manual de PRs por maintainer: ningún `.d.ts` mergeado |
+| BR-015 / MRD-N-12 (exclusión portal web) | PRD-REQ-010 | — | §2.2 fuera de alcance | — | Política operativa: sin dominio web registrado en v1.0 |
+| PRD-REQ-015 (estado disabled) | PRD-REQ-015 | — | COMP-005 | — | Test unitario en `tests/test_button.lua` verificando supresión de OnClick en disabled=true |
+| PRD-NFR-008 (sandbox Lua) | — | PRD-NFR-008 → FSD-NFR-010 | FSD-NFR-010 | — | `grep -r "io\.\|socket\."` en CI |
+| PRD-NFR-009 (listings distribución) | — | PRD-NFR-009 → FSD-NFR-011 | FSD-NFR-011 | — | Checklist de release |
+| PRD-NFR-010 (Lua 5.1) | — | PRD-NFR-010 → FSD-NFR-012 | FSD-NFR-012 | — | `luacheck --std lua51` en CI |
 
 ---
 
@@ -764,7 +776,7 @@ Las pruebas de Craft se ejecutan en el entorno WoW real (no en un test runner ex
 
 - 0 errores de taint en Retail y Classic.
 - 0 errores de Lua en Craft_Browser navegando los 16 componentes.
-- NFR-002 (Flex < 1ms), NFR-003 (Create < 5ms), NFR-004 (memory < 5KB delta), NFR-006 (live-switch < 16ms) — todos verificados y documentados.
+- FSD-NFR-002 (Flex < 1ms), FSD-NFR-003 (Create < 5ms), FSD-NFR-004 (memory < 5KB delta), FSD-NFR-006 (live-switch < 16ms) — todos verificados y documentados.
 - Los 16 componentes documentados con examples funcionales en `docs/components/`.
 
 ---
@@ -774,8 +786,8 @@ Las pruebas de Craft se ejecutan en el entorno WoW real (no en un test runner ex
 | Riesgo | Probabilidad | Impacto | Mitigación | Responsable |
 |--------|--------------|---------|------------|-------------|
 | Cambio de API de Blizzard en parche que rompe componentes | Alta (parches frecuentes) | Alto (todos los addons dependientes se rompen) | Arquitectura modular — cada componente es un archivo Lua independiente que puede corregirse sin afectar a los demás. Monitorear PTR (Public Test Realm) antes de cada parche. Release de Craft correctivo < 24h de publicado el parche. | Alberto Gomez |
-| Memory leak por listeners de tema no desregistrados (Destroy() no llamado) | Media | Medio (uso creciente de memoria en sesiones largas) | Documentar claramente el ciclo de vida Create/Destroy. Implementar el test NFR-004 (100 ciclos) como release gate. Considerar weak references para listeners en versiones futuras. | Alberto Gomez |
-| Frame drops en live-switch con muchos componentes activos (> 50) | Baja | Bajo-medio (UX degradado momentáneamente) | NFR-006 verifica el caso de 10 componentes. Documentar la limitación para suites con muchos componentes. Plan B: deferred dispatch (via C_Timer) para casos de muchos componentes. | Alberto Gomez |
+| Memory leak por listeners de tema no desregistrados (Destroy() no llamado) | Media | Medio (uso creciente de memoria en sesiones largas) | Documentar claramente el ciclo de vida Create/Destroy. Implementar el test FSD-NFR-004 (100 ciclos) como release gate. Considerar weak references para listeners en versiones futuras. | Alberto Gomez |
+| Frame drops en live-switch con muchos componentes activos (> 50) | Baja | Bajo-medio (UX degradado momentáneamente) | FSD-NFR-006 verifica el caso de 10 componentes. Documentar la limitación para suites con muchos componentes. Plan B: deferred dispatch (via C_Timer) para casos de muchos componentes. | Alberto Gomez |
 | `Craft.Flex` produce posiciones incorrectas en edge cases de wrapping | Media | Medio (layouts rotos en el addon del dev) | Priorizar los casos de uso más comunes (sin wrapping, con dirección fija). Documentar las limitaciones conocidas del motor Flex. Suite de tests con todos los valores de justify × align. | Alberto Gomez |
 | Incompatibilidad con una versión de Classic no anticipada | Media | Medio (componentes con errores en esa versión) | Pruebas manuales en cada versión Classic antes de release. Usar detección de versión en tiempo de carga para variaciones de API. | Alberto Gomez |
 | Conflicto de LibStub: otra librería con nombre `"Craft-1.0"` ya registrada | Muy baja | Alto (Craft no se inicializa) | El nombre `"Craft-1.0"` es suficientemente específico para evitar conflictos. LibStub gestiona el versionado por `minor`. | Alberto Gomez |
@@ -813,6 +825,7 @@ Las pruebas de Craft se ejecutan en el entorno WoW real (no en un test runner ex
 |---------|-------|-------|--------|
 | v0.1 | 30/05/2026 | Alberto Gomez | Versión inicial — FSD completo de Craft v1.0 (modo FSD clásico). Cubre 16 componentes MVP, 3 casos de uso críticos con criterios Gherkin, módulo de theming, Craft.Flex, Craft.Icons, 8 NFRs con verificación en WoW/Lua, diagrama de módulos Mermaid, plan de pruebas en WoW sandbox, 13 riesgos funcionales y glosario de términos WoW. Trazabilidad a BRD v0.1 y ADRs 0001–0008. |
 | v0.2 | 30/05/2026 | Alberto Gomez | Eliminación de SharedMedia: se elimina el addon companion `Craft_SharedMedia` y la dependencia de `LibSharedMedia-3.0`. Los assets (atlas TGA de Lucide 16/24px, fuentes Inter Regular/Bold) se distribuyen bundled en `Craft/media/`. `Craft.Icons` resuelve directamente desde `Craft/media/` sin fallback. Se actualiza §2.1 alcance, §2.3 dependencias, §2.4.1 project structure, §3 actores, §6.1 diagrama Mermaid, §6.2 API, §8 integraciones, §13 riesgos y §14 glosario. Fuente cambiada de Geist a Inter. T-011 actualizada a "Generar atlas TGA de Lucide y empaquetar Inter.ttf en Craft/media/". |
+| v0.3 | 30/05/2026 | Alberto Gomez | Correcciones de trazabilidad: COMP-005 (estado disabled); NFRs renombrados a FSD-NFR-NNN; FSD-NFR-009–012 añadidos (DX, sandbox, distribución, Lua 5.1); filas BR-013/014/015, PRD-REQ-015, PRD-NFR-008/009/010 añadidas a tabla §11 |
 
 ---
 

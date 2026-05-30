@@ -565,7 +565,7 @@ La tabla siguiente vincula cada requerimiento de mercado del MRD con su requerim
 | MRD-N-02 | Sistema de diseño shadcn Lyra como fuente de verdad visual | BR-003 | PRD-REQ-002 | Diferenciador principal de mercado |
 | MRD-N-03 | Íconos Lucide como ciudadanos de primera clase | BR-004 | PRD-REQ-003 | Requisito para la percepción de modernidad visual |
 | MRD-N-04 | Craft_Browser: showcase in-game de los 16 componentes | BR-008 | PRD-REQ-005 | Palanca de go-to-market y canal de evaluación |
-| MRD-N-05 | Licencia MIT sin restricciones para addons monetizados | BR-007 | PRD-REQ-010 | Requisito legal de adopción |
+| MRD-N-05 | Licencia MIT sin restricciones para addons monetizados | BR-007 | PRD-REQ-012 | Requisito legal de adopción |
 | MRD-N-06 | Anti-taint documentado por componente, probado en Retail + Classic | BR-005 | PRD-NFR-001 | Requisito de calidad y reputación crítico |
 | MRD-N-07 | Compatibilidad Retail (11.x) + Classic con único codebase | BR-006 | PRD-REQ-004 | Requisito de cobertura de mercado |
 | MRD-N-08 | Sistema de theming con tokens semánticos + live-switching + temas registrables | BR-009, BR-010 | PRD-REQ-006 | Requisito crítico para el segmento S-2 |
@@ -604,6 +604,7 @@ La tabla siguiente confirma que cada requerimiento del BRD tiene al menos un req
 |---------|-------|-------|--------|
 | v0.1 | 30/05/2026 | Alberto Gomez | Versión inicial — MRD completo de Craft. TAM/SAM/SOM, personas Marco y Arjun, JTBDs, análisis competitivo vs AceGUI/XML/LibDF/do-nothing, go-to-market via GitHub/CurseForge/Wago/Discord/Reddit, 12 requerimientos de mercado MRD-N-01 a MRD-N-12, trazabilidad a BR-001–BR-015. |
 | v0.1.1 | 30/05/2026 | Alberto Gomez | Nota de alineación: decisión de assets bundled en `Craft/media/` (atlas TGA Lucide + fuente Inter). El MRD no contenía referencias a `Craft_SharedMedia`; la decisión impacta al PRD. El MRD permanece vigente sin cambios de contenido. |
+| v0.1.2 | 30/05/2026 | Alberto Gomez | Corrección §14: MRD-N-05 (licencia MIT) apuntaba a PRD-REQ-010 (exclusión portal web); corregido a PRD-REQ-012 |
 
 ---
 
