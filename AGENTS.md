@@ -158,6 +158,7 @@ end
 ## 6. Reglas de dominio invariantes
 
 - **MUST**: todo componente implementa el contrato §5 completo.
+- **MUST**: los valores visuales de un componente (tamaños, paddings, colores, variantes) se derivan **exclusivamente** de `docs/components/<nombre>.md` y `docs/design-reference.md`. Nunca usar conocimiento de entrenamiento sobre shadcn, Tailwind o Lyra como fuente — ese conocimiento puede estar desactualizado o ser incorrecto. Si un valor no está en los docs, ejecutar `/update-design-tokens` o preguntar al maintainer antes de asumir.
 - **MUST**: `CRAFT_BUILD` se incrementa antes de cada release (`scripts/bump-build.sh`).
 - **MUST**: colores desde tokens semánticos del tema, nunca hardcodeados.
 - **MUST**: usar `Craft.Icons.Apply(tex, name)` para íconos — nunca rutas TGA directas.
