@@ -8,7 +8,7 @@
 
 - **Nombre**: Craft
 - **Dominio**: WoW Addon Development — librería de componentes UI
-- **Resumen**: librería open source de componentes UI para addons de World of Warcraft. Distribuida como addon instalable (LibStub) en CurseForge y Wago. Diseño basado en shadcn Lyra (Zinc + Emerald, Radius=None) con íconos Lucide y fuente Inter bundled en `Craft/media/`.
+- **Resumen**: librería open source de componentes UI para addons de World of Warcraft. Distribuida como addon instalable (LibStub) en CurseForge y Wago. Diseño basado en shadcn Lyra (Zinc + Emerald, Radius=0) con íconos Lucide y fuente Inter bundled en `Craft/media/`. **Dark mode únicamente** — WoW addon dev es dark-mode exclusivo.
 - **DTI**: `docs/DTI_v0.1.md`
 - **FSD**: `docs/FSD_v0.1.md`
 - **BRD**: `docs/BRD_v0.1.md`
@@ -21,11 +21,13 @@
 En orden:
 
 1. **Este archivo completo** (AGENTS.md).
-2. `docs/adr/` — las 10 ADRs definen todas las decisiones no negociables.
+2. `docs/adr/` — las 11 ADRs definen todas las decisiones no negociables.
 3. `docs/FSD_v0.1.md` §4 y §5 — casos de uso y contrato de componente.
 4. `docs/DTI_v0.1.md` §3 y §5 — arquitectura de módulos y patrón de componente.
+5. `docs/design-reference.md` — fuente de verdad de tokens de color (CSS exacto de shadcn Lyra).
+6. `docs/pixel-perfect.md` — reglas de escala WoW (ADR-0011).
 
-Si la tarea toca un componente específico: leer también `docs/components/<nombre>.md` cuando exista.
+Si la tarea toca un componente específico: leer también `docs/components/<nombre>.md`.
 
 ---
 
@@ -35,69 +37,52 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
 /
 ├── AGENTS.md               ← este archivo
 ├── CLAUDE.md               ← instrucciones para Claude Code
-├── CHANGELOG.md            ← Keep a Changelog format
-├── README.md
+├── CHANGELOG.md
 ├── .gitignore
-├── .luacheckrc             ← configuración del linter Lua
-├── .pkgmeta                ← configuración de bigwigsmods/packager
-├── .github/
-│   └── workflows/
-│       ├── ci.yml          ← lint + test en cada push/PR
-│       └── release.yml     ← package + upload en tags v*
+├── .luacheckrc             ← linter Lua con globals WoW
+├── .pkgmeta                ← bigwigsmods/packager config
+├── .github/workflows/
+│   ├── ci.yml              ← lint + test en cada push/PR
+│   └── release.yml         ← package + upload en tags v*
+├── .claude/commands/
+│   ├── check-traceability.md   ← /check-traceability
+│   └── update-design-tokens.md ← /update-design-tokens
 │
 ├── Craft/                  ← LA LIBRERÍA (lo que se distribuye)
 │   ├── Craft.toc
-│   ├── Craft.lua           ← entry point, LibStub registration
-│   ├── libs/
-│   │   └── LibStub.lua
+│   ├── Craft.lua           ← entry point, LibStub:NewLibrary("Craft-1.0", BUILD)
+│   ├── libs/LibStub.lua
 │   ├── theme/
 │   │   ├── Theme.lua       ← Craft.Theme (register, use, get, extend)
-│   │   └── Presets.lua     ← lyra-dark, lyra-light tokens
-│   ├── layout/
-│   │   └── Flex.lua        ← Craft.Flex (motor CSS Flexbox en Lua)
+│   │   └── Presets.lua     ← lyra-dark (único preset built-in, dark mode solo)
+│   ├── layout/Flex.lua     ← Craft.Flex (motor CSS Flexbox en Lua)
 │   ├── icons/
-│   │   ├── Icons.lua       ← Craft.Icons.Get(name)
+│   │   ├── Icons.lua       ← Craft.Icons.Get/Apply/Has/List
 │   │   └── Atlas.lua       ← coordenadas UV del atlas TGA
-│   ├── components/         ← 16 componentes MVP
-│   │   ├── Button.lua
-│   │   ├── Checkbox.lua
-│   │   ├── Dialog.lua
-│   │   ├── Input.lua
-│   │   ├── Label.lua
-│   │   ├── Panel.lua
-│   │   ├── Scroll.lua
-│   │   ├── Select.lua
-│   │   ├── Separator.lua
-│   │   ├── Sidebar.lua
-│   │   ├── Slider.lua
-│   │   ├── Tabs.lua
-│   │   ├── Tooltip.lua
-│   │   └── (Icons y Flex son módulos, no componentes de UI directos)
-│   └── media/              ← assets bundled (no addon companion)
+│   ├── components/         ← 13 componentes UI + 3 módulos = 16 MVP
+│   │   ├── Button.lua      ├── Checkbox.lua  ├── Dialog.lua
+│   │   ├── Input.lua       ├── Label.lua     ├── Panel.lua
+│   │   ├── Scroll.lua      ├── Select.lua    ├── Separator.lua
+│   │   ├── Sidebar.lua     ├── Slider.lua    ├── Tabs.lua
+│   │   └── Tooltip.lua     (Icons, Flex, Theme son módulos en sus propias carpetas)
+│   └── media/              ← assets bundled
 │       ├── Inter-Regular.ttf
 │       ├── Inter-Bold.ttf
 │       ├── lucide-16.tga
 │       └── lucide-24.tga
 │
-├── Craft_Browser/          ← addon showcase in-game (CurseForge)
-│   ├── Craft_Browser.toc
-│   ├── Browser.lua
-│   └── pages/              ← una página por componente
-│
-├── tests/                  ← unit tests con busted + mock WoW API
-│   ├── mock_wow.lua        ← mock del WoW API para headless testing
-│   └── test_<component>.lua
-│
+├── Craft_Browser/          ← addon showcase in-game (pendiente)
+├── tests/                  ← unit tests con busted + mock WoW API (pendiente)
 ├── scripts/
-│   ├── export-icons.py     ← genera lucide-16.tga y lucide-24.tga
+│   ├── export-icons.py     ← genera lucide-*.tga
 │   └── bump-build.sh       ← incrementa CRAFT_BUILD en Craft.lua
 │
-└── docs/                   ← documentación (no se distribuye)
-    ├── BRD_v0.1.md
-    ├── MRD_v0.1.md
-    ├── PRD_v0.1.md
-    ├── FSD_v0.1.md
-    ├── DTI_v0.1.md
+└── docs/
+    ├── design-reference.md ← FUENTE DE VERDAD de tokens de color (CSS shadcn Lyra)
+    ├── pixel-perfect.md    ← reglas de escala WoW (ADR-0011)
+    ├── BRD_v0.1.md  ├── MRD_v0.1.md  ├── PRD_v0.1.md
+    ├── FSD_v0.1.md  └── DTI_v0.1.md
+    ├── components/         ← spec de cada componente
     └── adr/
         ├── 0001-arquitectura-libreria-libstub.md
         ├── 0002-sistema-diseno-shadcn-lyra.md
@@ -108,7 +93,8 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
         ├── 0007-exclusion-tstl.md
         ├── 0008-exclusion-portal-web.md
         ├── 0009-pipeline-ci-cd.md
-        └── 0010-estrategia-versioning.md
+        ├── 0010-estrategia-versioning.md
+        └── 0011-pixel-perfect-estrategia.md
 ```
 
 ---
@@ -117,18 +103,18 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
 
 | Capa | Tecnología | Notas |
 |------|------------|-------|
-| Lenguaje principal | Lua 5.1 | WoW sandbox — sin librerías externas al entorno WoW |
-| Librería compartida | LibStub | Registro: `LibStub:NewLibrary("Craft-1.0", BUILD)` |
-| Diseño | shadcn Lyra | Base=Zinc, Theme=Emerald, Radius=None. Ver ADR-0002 |
+| Lenguaje | Lua 5.1 | WoW sandbox — sin librerías externas |
+| Librería compartida | LibStub | `LibStub:NewLibrary("Craft-1.0", BUILD)` |
+| Diseño | shadcn Lyra dark | Base=Zinc, Theme=Emerald, Radius=0. Ver ADR-0002 |
 | Íconos | Lucide (atlas TGA bundled) | Ver ADR-0003 |
 | Fuente | Inter (TTF bundled) | `Craft/media/Inter-Regular.ttf` |
-| Linter | luacheck | Configurado en `.luacheckrc` con globals WoW |
+| Linter | luacheck | `.luacheckrc` con globals WoW |
 | Tests | busted | Headless con `tests/mock_wow.lua` |
-| Packaging | bigwigsmods/packager | Ver ADR-0009 |
-| CI | GitHub Actions | `ci.yml` (push) + `release.yml` (tags) |
-| Distribución | CurseForge + Wago | Craft como Library; Craft_Browser como Addon |
+| Packaging | bigwigsmods/packager | ADR-0009 |
+| CI | GitHub Actions | `ci.yml` (push) + `release.yml` (tags v*) |
+| Distribución | CurseForge + Wago | Craft como Library |
 
-El agente **MUST NOT** introducir dependencias fuera de este stack sin crear un ADR y obtener aprobación del maintainer.
+**MUST NOT** introducir dependencias fuera de este stack sin ADR aprobado.
 
 ---
 
@@ -137,11 +123,9 @@ El agente **MUST NOT** introducir dependencias fuera de este stack sin crear un 
 Todo componente Craft **MUST** implementar este contrato exacto:
 
 ```lua
--- 1. Definición del módulo
 local MyComponent = {}
 MyComponent.__index = MyComponent
 
--- 2. Constructor
 function MyComponent:Create(parent, config)
   local self = setmetatable({}, MyComponent)
   -- crear frames WoW aquí
@@ -150,84 +134,88 @@ function MyComponent:Create(parent, config)
   return self
 end
 
--- 3. Aplicar tema (MUST recibir la tabla de tokens, no llamar Theme.get() dentro)
 function MyComponent:_applyTheme(t)
-  -- aplicar t.background, t.primary, t.border, etc.
+  -- SOLO usar t.* — NUNCA llamar Craft.Theme.get() aquí (re-entrancia)
+  -- NUNCA hardcodear colores RGBA
 end
 
--- 4. Destructor — MUST liberar el listener para evitar memory leaks
 function MyComponent:Destroy()
-  Craft.Theme.unregister(self._themeHandle)
+  Craft.Theme.unregister(self._themeHandle)  -- CRÍTICO: evita memory leak
   self.frame:Hide()
   self.frame = nil
 end
 ```
 
-**Violaciones que el agente MUST NOT cometer:**
-- Llamar `Craft.Theme.get()` dentro de `_applyTheme()` — causa re-entrancia.
-- Omitir `Destroy()` o no llamar `unregister()` — causa memory leak de listeners.
-- Hardcodear colores RGBA en los componentes — MUST usar tokens de `t.*`.
-- Usar `radius > 0` en texturas — Lyra usa `Radius=None`; `SetColorTexture()` es suficiente.
+**Violaciones MUST NOT:**
+- Llamar `Craft.Theme.get()` dentro de `_applyTheme()` → re-entrancia.
+- Omitir `unregister()` en `Destroy()` → memory leak de listeners.
+- Hardcodear colores RGBA → siempre usar `t.*`.
+- Usar `radius > 0` → Lyra usa Radius=0, `SetColorTexture()` es suficiente.
+- Crear focus rings → WoW es mouse-only, sin navegación por teclado.
 
 ---
 
 ## 6. Reglas de dominio invariantes
 
-- **MUST**: todo componente implementa el contrato §5 completo (Create, _applyTheme, Destroy).
-- **MUST**: `Craft.lua` incrementa `CRAFT_BUILD` antes de cada release (ver `scripts/bump-build.sh`).
-- **MUST**: los colores vienen de tokens semánticos del tema, nunca hardcodeados.
-- **MUST**: usar `Craft.Icons.Get(name)` para íconos — nunca rutas TGA hardcodeadas.
-- **MUST**: usar `Craft.Theme.getFont()` para fuentes — nunca rutas TTF hardcodeadas.
-- **MUST NOT**: ningún componente puede contaminar Secure Frames (anti-taint). Verificar con `Blizzard_DebugTools` antes de PR.
-- **MUST NOT**: usar globales de Lua no declaradas en `.luacheckrc`. `luacheck` MUST pasar sin warnings nuevos.
-- **MUST NOT**: introducir soporte TypeScriptToLua (ver ADR-0007). Rechazar PRs con `.d.ts`.
-- **MUST NOT**: crear un addon companion separado para assets — todo va en `Craft/media/` (ver ADR-0003).
-- **MUST NOT**: usar `radius > 0` en ningún componente — Lyra usa `Radius=None` (ver ADR-0002).
-- **MUST NOT**: modificar ADRs aceptados. Crear un ADR nuevo que los superede.
+- **MUST**: todo componente implementa el contrato §5 completo.
+- **MUST**: `CRAFT_BUILD` se incrementa antes de cada release (`scripts/bump-build.sh`).
+- **MUST**: colores desde tokens semánticos del tema, nunca hardcodeados.
+- **MUST**: usar `Craft.Icons.Apply(tex, name)` para íconos — nunca rutas TGA directas.
+- **MUST**: usar `Craft.Theme.getFont()` para fuentes — nunca rutas TTF directas.
+- **MUST**: elementos de 1px (bordes, separadores, underlines) usar `Craft.Theme.SetPixelHeight/Width(frame, 1)` — nunca `SetHeight(1)` directo (ADR-0011).
+- **MUST**: posición del cursor en drag usar `GetCursorPosition() / frame:GetEffectiveScale()` (ADR-0011).
+- **MUST NOT**: contaminar Secure Frames (anti-taint) — verificar con `Blizzard_DebugTools`.
+- **MUST NOT**: globales Lua no declaradas en `.luacheckrc`.
+- **MUST NOT**: soporte TypeScriptToLua — rechazar PRs con `.d.ts` (ADR-0007).
+- **MUST NOT**: addon companion para assets — todo en `Craft/media/` (ADR-0003).
+- **MUST NOT**: `radius > 0` — Lyra usa Radius=0 (ADR-0002).
+- **MUST NOT**: modificar ADRs aceptados — crear un nuevo ADR que los superede.
+- **MUST NOT**: crear `lyra-light` ni ningún preset de tema claro — WoW es dark-mode exclusivo.
 
 ---
 
 ## 7. Seguridad y restricciones del sandbox WoW
 
-- **Sin acceso a filesystem**: WoW no provee APIs de lectura/escritura de archivos. `io.*` no existe.
-- **Sin sockets de red**: `socket.*`, `http.*` no existen en el sandbox.
-- **Sin `os.time()` no determinista**: usar `GetTime()` de WoW en su lugar.
-- **Variables globales**: evitar — todo debe estar en el namespace `Craft.*`. Los globales contaminan el entorno de WoW.
-- **No hay secretos**: Craft es código open source sin autenticación ni datos de usuario.
+- **Sin filesystem**: `io.*` no existe en WoW.
+- **Sin red**: `socket.*`, `http.*` no existen.
+- **Sin `os.time()`**: usar `GetTime()` de WoW.
+- **Globales**: evitar — todo en `Craft.*`. Los globales contaminan el entorno WoW.
+- **Mouse-only**: WoW addon UI es exclusivamente mouse. No implementar focus rings por teclado ni navegación por Tab. Los rings de Input (EditBox) sí aplican — son activados por click (OnEditFocusGained), no por teclado.
 
 ---
 
 ## 8. Guardrails del agente
 
-### Lo que el agente puede hacer sin aprobación:
-- Leer cualquier archivo del repositorio.
-- Implementar un componente siguiendo el contrato §5.
-- Agregar o modificar tests en `tests/`.
+### Sin aprobación:
+- Leer cualquier archivo.
+- Implementar un componente siguiendo §5.
+- Agregar/modificar tests.
+- Corregir bugs (PATCH, sin cambio de API).
 - Actualizar `CHANGELOG.md`.
-- Corregir bugs en componentes existentes (PATCH — sin cambio de API).
 
-### Lo que requiere aprobación del maintainer:
-- Cambiar la API pública de un componente (nuevo parámetro en `Create()`, nuevo método público).
-- Agregar un componente nuevo (MINOR — requiere entrada en `Craft.toc`, tests, docs).
-- Cualquier cambio en `Craft/theme/Presets.lua` (tokens de diseño Lyra).
-- Cambios en `.github/workflows/` (pipelines de CI/CD).
-- Breaking change de API (MAJOR — requiere nuevo ADR y cambio de nombre LibStub a `"Craft-2.0"`).
+### Requiere aprobación del maintainer:
+- Cambiar API pública de un componente.
+- Agregar componente nuevo (requiere `.toc`, tests, docs, ADR si aplica).
+- Cambiar `Craft/theme/Presets.lua` (tokens de color).
+- Cambiar `.github/workflows/`.
+- Breaking change de API (MAJOR → `"Craft-2.0"`, `BUILD=1`).
 
 ### MUST NOT sin excepción:
-- Hacer `git push` — el maintainer pushea manualmente.
-- Modificar ADRs aceptados — crear un nuevo ADR que los superede.
-- Introducir `require()` de módulos externos al sandbox WoW.
-- Crear archivos `.d.ts` o cualquier artefacto TypeScript/TSTL.
-- Crear un directorio `Craft_SharedMedia/` — los assets van en `Craft/media/`.
+- `git push` — el maintainer pushea manualmente.
+- Modificar ADRs aceptados.
+- `require()` de módulos externos al sandbox WoW.
+- Archivos `.d.ts` o artefactos TSTL.
+- Directorio `Craft_SharedMedia/`.
+- Preset `lyra-light` u otro tema claro.
 
 ---
 
-## 9. Flujo de trabajo estándar para una tarea
+## 9. Flujo de trabajo estándar
 
 ```mermaid
 flowchart TD
   A[Recibir tarea] --> B[Leer AGENTS.md + ADRs relevantes]
-  B --> C[Identificar componente o módulo afectado]
+  B --> C[Leer docs/components/<nombre>.md si aplica]
   C --> D[Implementar siguiendo contrato §5]
   D --> E[luacheck Craft/ — sin warnings nuevos]
   E --> F[busted tests/ — todos verdes]
@@ -238,10 +226,10 @@ flowchart TD
 
 ---
 
-## 10. Comandos de verificación locales
+## 10. Comandos de verificación y slash commands
 
 ```bash
-# Lint — MUST pasar sin warnings nuevos antes de cualquier PR
+# Lint — MUST pasar sin warnings nuevos
 luacheck Craft/ --config .luacheckrc
 
 # Tests unitarios headless
@@ -250,34 +238,65 @@ busted tests/
 # Generar atlas TGA de Lucide (requiere Python + Pillow)
 python3 scripts/export-icons.py
 
-# Incrementar LibStub build number antes de un release
+# Incrementar LibStub build antes de release
 bash scripts/bump-build.sh
 ```
 
+**Slash commands de Claude Code** (invocar con `/nombre`):
+
+| Comando | Descripción |
+|---------|-------------|
+| `/check-traceability` | Revisa la cadena BRD→MRD→PRD→FSD e identifica gaps |
+| `/update-design-tokens` | Actualiza tokens desde CSS de shadcn y revisa layouts de componentes |
+
 ---
 
-## 11. Tokens de diseño Lyra — referencia rápida
+## 11. Tokens de diseño — referencia rápida
 
-Todos los componentes usan estos tokens vía `Craft.Theme.get()`:
+Todos los componentes usan `t.*` en `_applyTheme(t)`. **Fuente de verdad**: `docs/design-reference.md`.
 
-| Token | Uso típico |
-|-------|-----------|
-| `t.background` | Fondo de Panel, Dialog, Scroll |
-| `t.foreground` | Texto principal |
-| `t.primary` | Color de acento (Emerald) — botones activos, focus rings |
-| `t.primaryForeground` | Texto sobre fondo primary |
-| `t.secondary` | Botones secundarios, badges |
-| `t.muted` | Texto de ayuda, placeholders |
-| `t.mutedForeground` | Texto sobre fondo muted |
-| `t.border` | Bordes de inputs, separators, cards |
-| `t.input` | Fondo de inputs, selects |
-| `t.ring` | Focus ring — 2px, color primary |
-| `t.destructive` | Estados de error, botones destructivos |
-| `t.card` | Fondo de cards y paneles anidados |
-| `t.font` | Ruta a `Inter-Regular.ttf` bundled |
-| `t.fontBold` | Ruta a `Inter-Bold.ttf` bundled |
+### Colores core
 
-`radiusBase = 0` — Lyra usa `Radius=None`. **No aplicar border radius en ningún componente.**
+| Token | Tipo | Uso |
+|-------|------|-----|
+| `t.background` | RGBA | Fondo de Panel, Dialog, Scroll |
+| `t.foreground` | RGBA | Texto principal |
+| `t.card` / `t.cardForeground` | RGBA | Fondo/texto de cards anidadas |
+| `t.popover` / `t.popoverForeground` | RGBA | Fondo/texto de tooltips y dropdowns |
+| `t.primary` / `t.primaryForeground` | RGBA | Emerald-800 — botones default, active states |
+| `t.secondary` / `t.secondaryForeground` | RGBA | Botones secundarios, tab list bg |
+| `t.muted` / `t.mutedForeground` | RGBA | `muted` = fondo apagado; `mutedForeground` = texto placeholder, labels disabled |
+| `t.accent` / `t.accentForeground` | RGBA | Hover de ghost/outline buttons, tab hover |
+| `t.destructive` / `t.destructiveForeground` | RGBA | `destructive/20` bg + `destructive` text (Lyra — tinte, no sólido). `destructiveForeground` = blanco puro |
+| `t.border` | RGBA | Bordes de componentes (blanco a=0.1 en dark) |
+| `t.input` | RGBA | Fondo de Input/Select trigger (blanco a=0.15 en dark) |
+| `t.ring` | RGBA | **Zinc** (gris) — NO primary. Solo Input ring en OnEditFocusGained (mouse click, no teclado) |
+
+### Tokens Sidebar (exclusivos de `Craft.Sidebar`)
+
+| Token | Uso |
+|-------|-----|
+| `t.sidebar` | Fondo del sidebar |
+| `t.sidebarForeground` | Texto de items |
+| `t.sidebarPrimary` / `t.sidebarPrimaryForeground` | Emerald-500 — disponible pero NO se usa en active state |
+| `t.sidebarAccent` / `t.sidebarAccentForeground` | **Active y hover** de items (no sidebarPrimary) |
+| `t.sidebarBorder` | Borde derecho del sidebar |
+
+### Tipografía y spacing
+
+| Token | Valor | Nota |
+|-------|-------|------|
+| `t.font` | ruta Inter-Regular | Siempre via `Craft.Theme.getFont()` |
+| `t.fontBold` | ruta Inter-Bold | Idem |
+| `t.fontSize` | 12 | `text-xs` Lyra — base de todos los componentes |
+| `t.fontSizeLg` | 14 | `text-sm` Lyra — títulos de Card y Dialog |
+| `t.fontSizeSm` | 11 | Adaptación Craft (no existe en Lyra CSS) |
+| `t.spacingXs/Sm/Md/Lg/Xl` | 4/8/12/16/24 px | UI units directos |
+| `t.borderWidth` | 1 | Usar con `Craft.Theme.SetPixelHeight/Width` |
+| `t.radius` | 0 | **Sin border radius** — Lyra usa Radius=0 |
+| `t.iconSizeSm` / `t.iconSizeMd` | 16 / 24 | Atlas lucide-16 / lucide-24 |
+
+> **`t.ring` es zinc (gris), NO emerald/primary.** Ring en WoW solo aplica para Input EditBox (OnEditFocusGained via click), no por navegación de teclado.
 
 ---
 
@@ -285,15 +304,15 @@ Todos los componentes usan estos tokens vía `Craft.Theme.get()`:
 
 | Tipo de cambio | Acción |
 |---|---|
-| Bug fix (sin cambio de API) | `PATCH` — e.g., `v1.0.1`; incrementar `CRAFT_BUILD` |
-| Nuevo componente o feature | `MINOR` — e.g., `v1.1.0`; incrementar `CRAFT_BUILD` |
-| Breaking change de API | `MAJOR` — e.g., `v2.0.0`; nuevo nombre LibStub `"Craft-2.0"`; `CRAFT_BUILD = 1` |
+| Bug fix (sin cambio de API) | `PATCH` → `v1.0.1`, incrementar `CRAFT_BUILD` |
+| Nuevo componente o feature | `MINOR` → `v1.1.0`, incrementar `CRAFT_BUILD` |
+| Breaking change de API | `MAJOR` → `v2.0.0`, LibStub `"Craft-2.0"`, `CRAFT_BUILD = 1` |
 
-El `CRAFT_BUILD` en `Craft.lua` es un integer siempre creciente. Usar `scripts/bump-build.sh`.
+`CRAFT_BUILD` en `Craft.lua` es un integer siempre creciente. Usar `scripts/bump-build.sh`.
 
 ---
 
-## 13. Contacto y escalamiento
+## 13. Contacto
 
 - **Maintainer**: Alberto Gomez
 - **Repositorio**: `github.com/[org]/craft` (pendiente publicación)
@@ -305,4 +324,5 @@ El `CRAFT_BUILD` en `Craft.lua` es un integer siempre creciente. Usar `scripts/b
 
 | Versión | Fecha | Autor | Cambio |
 |---------|-------|-------|--------|
-| v0.1 | 30/05/2026 | Alberto Gomez | Versión inicial — Craft, librería UI WoW con LibStub, Lyra, Lucide bundled |
+| v0.1 | 30/05/2026 | Alberto Gomez | Versión inicial |
+| v0.2 | 30/05/2026 | Alberto Gomez | ADR-0011 pixel-perfect; 11 ADRs; slash commands; token ring corregido (zinc, no primary); lyra-light eliminado; tabla de tokens completa; regla pixel-perfect en §6; WoW mouse-only en §7 |
