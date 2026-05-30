@@ -73,61 +73,12 @@ CraftPresets["lyra-dark"] = {
     iconSizeMd              = 24,
 }
 
--- ─── lyra-light ────────────────────────────────────────────────────────────
--- Background: white (#ffffff)  Primary: emerald-700 (#047857)
--- Ring: zinc-400 (#a1a1aa)  Border/Input: zinc-200 (solid)
-
-CraftPresets["lyra-light"] = {
-    -- Core
-    background              = {r=1.000, g=1.000, b=1.000, a=1},
-    foreground              = {r=0.035, g=0.035, b=0.043, a=1},
-    card                    = {r=1.000, g=1.000, b=1.000, a=1},
-    cardForeground          = {r=0.035, g=0.035, b=0.043, a=1},
-    popover                 = {r=1.000, g=1.000, b=1.000, a=1},
-    popoverForeground       = {r=0.035, g=0.035, b=0.043, a=1},
-    -- Primary (emerald-700 in light)
-    primary                 = {r=0.016, g=0.471, b=0.341, a=1},
-    primaryForeground       = {r=0.925, g=0.992, b=0.961, a=1},
-    -- Secondary / Muted / Accent (zinc-100)
-    secondary               = {r=0.957, g=0.957, b=0.961, a=1},
-    secondaryForeground     = {r=0.094, g=0.094, b=0.106, a=1},
-    muted                   = {r=0.957, g=0.957, b=0.961, a=1},
-    mutedForeground         = {r=0.443, g=0.443, b=0.478, a=1},
-    accent                  = {r=0.957, g=0.957, b=0.961, a=1},
-    accentForeground        = {r=0.094, g=0.094, b=0.106, a=1},
-    -- Destructive (red-600 in light — darker for contrast on white)
-    destructive             = {r=0.863, g=0.149, b=0.149, a=1},
-    destructiveForeground   = {r=1.000, g=1.000, b=1.000, a=1},
-    -- Border and Input (zinc-200 — solid, no alpha)
-    border                  = {r=0.894, g=0.894, b=0.906, a=1},
-    input                   = {r=0.894, g=0.894, b=0.906, a=1},
-    -- Ring (zinc-400 in light)
-    ring                    = {r=0.631, g=0.631, b=0.667, a=1},
-    -- Sidebar
-    sidebar                 = {r=0.980, g=0.980, b=0.980, a=1},
-    sidebarForeground       = {r=0.035, g=0.035, b=0.043, a=1},
-    sidebarPrimary          = {r=0.020, g=0.588, b=0.412, a=1},   -- emerald-600
-    sidebarPrimaryForeground= {r=0.925, g=0.992, b=0.961, a=1},   -- emerald-50
-    sidebarAccent           = {r=0.957, g=0.957, b=0.961, a=1},
-    sidebarAccentForeground = {r=0.094, g=0.094, b=0.106, a=1},
-    sidebarBorder           = {r=0.894, g=0.894, b=0.906, a=1},
-    sidebarRing             = {r=0.631, g=0.631, b=0.667, a=1},
-    -- Lyra: zero border radius
-    radius                  = 0,
-    -- Typography
-    font                    = FONT,
-    fontBold                = FONT_B,
-    fontSize                = 12,   -- text-xs (Lyra base)
-    fontSizeSm              = 11,   -- CRAFT ADAPTATION: no existe en Lyra CSS
-    fontSizeLg              = 14,   -- text-sm (Lyra — títulos Card/Dialog)
-    -- Spacing
-    spacingXs               = 4,
-    spacingSm               = 8,
-    spacingMd               = 12,
-    spacingLg               = 16,
-    spacingXl               = 24,
-    borderWidth             = 1,
-    focusRingWidth          = 2,    -- RESERVADO: no usado en MVP (WoW mouse-only)
-    iconSizeSm              = 16,
-    iconSizeMd              = 24,
-}
+-- ─── lyra-light — ELIMINADO ────────────────────────────────────────────────
+-- El ecosistema WoW addon usa dark mode exclusivamente. ElvUI, WeakAuras,
+-- Details!, Plater y todos los addons populares son dark. El juego mismo
+-- tiene una interfaz oscura. lyra-light sería código muerto en producción.
+--
+-- Si un addon necesita un tema claro en el futuro, puede definirlo con:
+--   Craft.Theme.register_preset("my-light", { background={r=1,g=1,b=1,a=1}, ... })
+-- Ver docs/design-reference.md §3 para los valores RGBA de lyra-light.
+-- (Los valores se conservan en design-reference.md como referencia de diseño.)

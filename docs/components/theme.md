@@ -43,10 +43,14 @@ CraftPresets  (global table)  — definida en theme/Presets.lua, cargada antes
 
 ### Presets built-in
 
-| Nombre         | Descripción                                         |
-|----------------|-----------------------------------------------------|
-| `"lyra-dark"`  | Default. Zinc-950 background, emerald-800 primary.  |
-| `"lyra-light"` | Zinc-50 background, emerald-700 primary.            |
+| Nombre        | Descripción |
+|---------------|-------------|
+| `"lyra-dark"` | **Único preset built-in.** Zinc-950 background, emerald-800 primary. |
+
+> **¿Por qué solo dark?** WoW addon dev es dark-mode exclusivo — el juego y todos los
+> addons populares (ElvUI, WeakAuras, Details!, Plater) usan fondos oscuros. Un preset
+> `lyra-light` sería código muerto. Sus valores están en `docs/design-reference.md §3`
+> como referencia. Addons que necesiten un tema claro pueden usar `register_preset()`.
 
 ## Comportamiento detallado
 
@@ -171,8 +175,8 @@ end
 ### Cambio de tema en runtime
 
 ```lua
--- Cambiar al preset light — todos los componentes registrados se repintan
-Craft.Theme.use("lyra-light")
+-- Aplicar un tema personalizado registrado por el addon
+Craft.Theme.use("mi-addon-dark")
 
 -- Usar un preset custom (anónimo, no registrado con nombre)
 local highContrast = Craft.Theme.extend("lyra-dark", {
@@ -271,7 +275,7 @@ end
 
 Ver también: `docs/pixel-perfect.md` para las reglas completas de ADR-0011 y los casos de uso de cada helper.
 
-**Relación entre Presets.lua y Theme.lua**: `Presets.lua` define la tabla global `CraftPresets` con los dos presets built-in (`lyra-dark` y `lyra-light`). `Theme.lua` la referencia en la inicialización: `T._presets = CraftPresets`. El orden en `Craft.toc` garantiza que `CraftPresets` existe cuando `Theme.lua` carga.
+**Relación entre Presets.lua y Theme.lua**: `Presets.lua` define la tabla global `CraftPresets` con el preset built-in `lyra-dark`. `Theme.lua` la referencia en la inicialización: `T._presets = CraftPresets`. El orden en `Craft.toc` garantiza que `CraftPresets` existe cuando `Theme.lua` carga.
 
 **Orden de carga en Craft.toc**: el orden correcto de archivos en el addon es:
 ```
