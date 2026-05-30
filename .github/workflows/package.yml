@@ -1,0 +1,93 @@
+name: Package (dev build)
+
+# Genera un .zip instalable en WoW en cada push a dev o main.
+# NO publica en CurseForge ni Wago — solo crea el artefacto en GitHub Actions.
+# Para descargar: Actions → run → Artifacts → Craft-dev.zip
+
+on:
+  push:
+    branches: [dev, main]
+
+jobs:
+  package:
+    name: Build artifact
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ─── Assets ─────────────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache icon SVGs
+        uses: actions/cache@v4
+        with:
+          path: .icon-cache
+          key: lucide-icons-${{ hashFiles('docs/components/icons.md') }}
+
+      - name: Install Python dependencies
+        run: pip install Pillow cairosvg
+
+      - name: Generate Lucide icon atlas
+        run: python3 scripts/export-icons.py
+
+      - name: Cache Inter font
+        id: cache-inter
+        uses: actions/cache@v4
+        with:
+          path: Craft/media/Inter-*.ttf
+          key: inter-font-v4.0
+
+      - name: Download Inter font
+        if: steps.cache-inter.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p Craft/media
+          curl -L -o /tmp/inter.zip \
+            "https://github.com/rsms/inter/releases/download/v4.0/Inter-4.0.zip"
+          unzip -j /tmp/inter.zip "Inter-Regular.ttf" "Inter-Bold.ttf" -d Craft/media/
+          rm /tmp/inter.zip
+
+      - name: Download LibStub
+        run: |
+          mkdir -p Craft/libs
+          curl -L -o Craft/libs/LibStub.lua \
+            "https://raw.githubusercontent.com/Ace3/LibStub/master/LibStub.lua"
+
+      # ─── Verificar assets ────────────────────────────────────────────────
+      - name: Verify assets
+        run: |
+          [ -f "Craft/media/lucide-16.tga"     ] || (echo "❌ lucide-16.tga"     && exit 1)
+          [ -f "Craft/media/lucide-24.tga"     ] || (echo "❌ lucide-24.tga"     && exit 1)
+          [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf" && exit 1)
+          [ -f "Craft/media/Inter-Bold.ttf"    ] || (echo "❌ Inter-Bold.ttf"    && exit 1)
+          [ -f "Craft/libs/LibStub.lua"        ] || (echo "❌ LibStub.lua"       && exit 1)
+          echo "✅ All assets present"
+
+      # ─── Empaquetar ──────────────────────────────────────────────────────
+      - name: Build .zip
+        run: |
+          # Determinar el nombre del build: Craft-dev-<sha corto>
+          SHA=$(git rev-parse --short HEAD)
+          BRANCH=${GITHUB_REF_NAME}
+          ZIP_NAME="Craft-${BRANCH}-${SHA}"
+
+          # Crear el .zip con solo el contenido de Craft/
+          # Excluir lo que no va en el entregable (igual que .pkgmeta)
+          mkdir -p dist
+          zip -r "dist/${ZIP_NAME}.zip" Craft/ \
+            --exclude "*.git*" \
+            --exclude "*/__pycache__/*"
+
+          echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
+          echo "📦 Built: dist/${ZIP_NAME}.zip"
+          ls -lh dist/
+
+      # ─── Subir como artefacto de GitHub Actions ──────────────────────────
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ZIP_NAME }}
+          path: dist/*.zip
+          retention-days: 14   # disponible 14 días para descargar
