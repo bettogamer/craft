@@ -481,7 +481,9 @@ Antes de cada release:
 | Ubicación del código | `../CraftUI/src/components/` |
 | ADRs derivados | ADR-0001 (LibStub), ADR-0002 (Lyra), ADR-0003 (Lucide), ADR-0005 (theming), ADR-0006 (Flex), ADR-0007 (exclusión TSTL) |
 
-### 9.2 POC-02: Packaging LibStub en instalación multi-addon — PENDIENTE
+### 9.2 POC-02: Packaging LibStub en instalación multi-addon — PROPUESTA
+
+> Documento completo: `docs/poc/POC-02-libstub-multi-addon.md`
 
 | Campo | Valor |
 |-------|-------|
