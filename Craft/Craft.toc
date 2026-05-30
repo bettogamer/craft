@@ -25,3 +25,15 @@ layout\Flex.lua
 
 # Components
 components\Button.lua
+components\Checkbox.lua
+components\Input.lua
+components\Label.lua
+components\Panel.lua
+components\Dialog.lua
+components\Select.lua
+components\Separator.lua
+components\Sidebar.lua
+components\Slider.lua
+components\Scroll.lua
+components\Tabs.lua
+components\Tooltip.lua

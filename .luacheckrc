@@ -24,6 +24,9 @@ globals = {
     "tinsert",
     "tremove",
     "tsort",
+    -- Mouse helpers
+    "MouseIsOver",
+    "IsMouseButtonDown",
     -- Chat output
     "DEFAULT_CHAT_FRAME",
     "print",
