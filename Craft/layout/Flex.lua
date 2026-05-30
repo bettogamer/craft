@@ -1,0 +1,248 @@
+-- Flex.lua — motor de layout CSS Flexbox para frames WoW
+-- Spec: docs/components/flex.md
+-- ADR:  docs/adr/0006-craft-flex-motor-layout.md
+-- Pixel: math.floor() en offsets antes de SetPoint (ADR-0011)
+
+local Craft = LibStub("Craft-1.0")
+
+Craft.Flex = {}
+local Flex = Craft.Flex
+
+-- ─── new() ─────────────────────────────────────────────────────────────────
+-- Crea una instancia de layout flex para el frame contenedor dado.
+-- config: {
+--   direction = "row" | "row-reverse" | "column" | "column-reverse"
+--   wrap      = "nowrap" | "wrap" | "wrap-reverse"
+--   justify   = "flex-start" | "flex-end" | "center" |
+--               "space-between" | "space-around" | "space-evenly"
+--   align     = "flex-start" | "flex-end" | "center" | "stretch"
+--   gap       = number (px, default 0)
+--   paddingH  = number (px, default 0)
+--   paddingV  = number (px, default 0)
+-- }
+
+function Flex.new(container, config)
+    local self = {
+        _container = container,
+        _items     = {},   -- array of { frame, grow, shrink, basis, alignSelf, order }
+        _cfg = {
+            direction = (config and config.direction) or "row",
+            wrap      = (config and config.wrap)      or "nowrap",
+            justify   = (config and config.justify)   or "flex-start",
+            align     = (config and config.align)     or "stretch",
+            gap       = (config and config.gap)       or 0,
+            paddingH  = (config and config.paddingH)  or 0,
+            paddingV  = (config and config.paddingV)  or 0,
+        },
+    }
+    return setmetatable(self, { __index = Flex })
+end
+
+-- ─── Add() ─────────────────────────────────────────────────────────────────
+-- Agrega un frame al contenedor flex con sus propiedades individuales.
+-- itemConfig: { grow=0, shrink=1, basis="auto", alignSelf="auto", order=0 }
+
+function Flex:Add(frame, itemConfig)
+    itemConfig = itemConfig or {}
+    local item = {
+        frame      = frame,
+        grow       = itemConfig.grow      or 0,
+        shrink     = itemConfig.shrink    or 1,
+        basis      = itemConfig.basis     or "auto",
+        alignSelf  = itemConfig.alignSelf or "auto",
+        order      = itemConfig.order     or 0,
+    }
+    table.insert(self._items, item)
+    return item
+end
+
+-- ─── Remove() ──────────────────────────────────────────────────────────────
+
+function Flex:Remove(frame)
+    for i, item in ipairs(self._items) do
+        if item.frame == frame then
+            table.remove(self._items, i)
+            return
+        end
+    end
+end
+
+-- ─── Clear() ───────────────────────────────────────────────────────────────
+
+function Flex:Clear()
+    self._items = {}
+end
+
+-- ─── SetConfig() ───────────────────────────────────────────────────────────
+
+function Flex:SetConfig(config)
+    for k, v in pairs(config) do
+        self._cfg[k] = v
+    end
+    self:Layout()
+end
+
+-- ─── Layout() ──────────────────────────────────────────────────────────────
+-- Calcula y aplica SetPoint a todos los items según el modelo Flexbox.
+
+function Flex:Layout()
+    if #self._items == 0 then return end
+
+    local cfg    = self._cfg
+    local isRow  = cfg.direction == "row" or cfg.direction == "row-reverse"
+    local isRev  = cfg.direction == "row-reverse" or cfg.direction == "column-reverse"
+    local cW     = self._container:GetWidth()
+    local cH     = self._container:GetHeight()
+    local pH, pV = cfg.paddingH, cfg.paddingV
+    local gap    = cfg.gap
+
+    -- Espacio disponible en el eje principal
+    local mainSize = isRow and (cW - pH * 2) or (cH - pV * 2)
+    local crossSize = isRow and (cH - pV * 2) or (cW - pH * 2)
+
+    -- 1. Ordenar items por order (stably)
+    local sorted = {}
+    for _, item in ipairs(self._items) do
+        table.insert(sorted, item)
+    end
+    table.sort(sorted, function(a, b)
+        if a.order ~= b.order then return a.order < b.order end
+        return false  -- stable: mantener orden de inserción
+    end)
+
+    -- 2. Resolver basis de cada item
+    local bases = {}
+    local totalBasis = 0
+    local totalGap   = gap * (math.max(#sorted - 1, 0))
+
+    for _, item in ipairs(sorted) do
+        local b
+        if item.basis == "auto" then
+            b = isRow and item.frame:GetWidth() or item.frame:GetHeight()
+        else
+            b = item.basis
+        end
+        bases[item] = b
+        totalBasis = totalBasis + b
+    end
+
+    -- 3. Calcular free space y distribuir grow/shrink
+    local freeSpace = mainSize - totalBasis - totalGap
+    local sizes = {}
+
+    if freeSpace > 0 then
+        local totalGrow = 0
+        for _, item in ipairs(sorted) do totalGrow = totalGrow + item.grow end
+        for _, item in ipairs(sorted) do
+            if totalGrow > 0 and item.grow > 0 then
+                sizes[item] = bases[item] + freeSpace * (item.grow / totalGrow)
+            else
+                sizes[item] = bases[item]
+            end
+        end
+    elseif freeSpace < 0 then
+        local totalShrink = 0
+        for _, item in ipairs(sorted) do totalShrink = totalShrink + item.shrink end
+        for _, item in ipairs(sorted) do
+            if totalShrink > 0 and item.shrink > 0 then
+                sizes[item] = math.max(0, bases[item] + freeSpace * (item.shrink / totalShrink))
+            else
+                sizes[item] = bases[item]
+            end
+        end
+    else
+        for _, item in ipairs(sorted) do
+            sizes[item] = bases[item]
+        end
+    end
+
+    -- 4. Calcular posición de inicio en eje principal según justify-content
+    local n         = #sorted
+    local usedSpace = totalGap
+    for _, item in ipairs(sorted) do usedSpace = usedSpace + sizes[item] end
+    local remaining = mainSize - usedSpace
+
+    local startOffset, itemGap
+    if cfg.justify == "flex-end" then
+        startOffset = remaining
+        itemGap     = gap
+    elseif cfg.justify == "center" then
+        startOffset = remaining / 2
+        itemGap     = gap
+    elseif cfg.justify == "space-between" then
+        startOffset = 0
+        itemGap     = n > 1 and (remaining + totalGap) / (n - 1) or 0
+    elseif cfg.justify == "space-around" then
+        local unit  = n > 0 and remaining / n or 0
+        startOffset = unit / 2
+        itemGap     = gap + unit
+    elseif cfg.justify == "space-evenly" then
+        local unit  = (n > 0) and remaining / (n + 1) or 0
+        startOffset = unit
+        itemGap     = gap + unit
+    else  -- flex-start (default)
+        startOffset = 0
+        itemGap     = gap
+    end
+
+    -- 5. Aplicar posiciones (math.floor para evitar sub-pixel blending, ADR-0011)
+    local cursor = startOffset
+    if isRev then
+        cursor = mainSize - startOffset
+    end
+
+    for _, item in ipairs(sorted) do
+        local mainPos  = math.floor(cursor)
+        local itemMain = math.floor(sizes[item])
+
+        -- Calcular posición en eje transversal (align-items / alignSelf)
+        local crossAlign = item.alignSelf ~= "auto" and item.alignSelf or cfg.align
+        local crossPos, itemCross
+
+        if crossAlign == "flex-end" then
+            itemCross = isRow and item.frame:GetHeight() or item.frame:GetWidth()
+            crossPos  = math.floor(crossSize - itemCross)
+        elseif crossAlign == "center" then
+            itemCross = isRow and item.frame:GetHeight() or item.frame:GetWidth()
+            crossPos  = math.floor((crossSize - itemCross) / 2)
+        elseif crossAlign == "stretch" then
+            crossPos  = 0
+            itemCross = math.floor(crossSize)
+        else  -- flex-start
+            itemCross = isRow and item.frame:GetHeight() or item.frame:GetWidth()
+            crossPos  = 0
+        end
+
+        -- Aplicar dimensiones y posición
+        item.frame:ClearAllPoints()
+
+        if isRow then
+            if crossAlign == "stretch" then
+                item.frame:SetHeight(itemCross)
+            end
+            item.frame:SetWidth(itemMain)
+
+            local x = isRev and (mainSize - mainPos - itemMain + pH) or (mainPos + pH)
+            local y = crossPos + pV
+            item.frame:SetPoint("TOPLEFT", self._container, "TOPLEFT",
+                math.floor(x), -math.floor(y))
+        else
+            if crossAlign == "stretch" then
+                item.frame:SetWidth(itemCross)
+            end
+            item.frame:SetHeight(itemMain)
+
+            local x = crossPos + pH
+            local y = isRev and (mainSize - mainPos - itemMain + pV) or (mainPos + pV)
+            item.frame:SetPoint("TOPLEFT", self._container, "TOPLEFT",
+                math.floor(x), -math.floor(y))
+        end
+
+        -- Avanzar cursor
+        if isRev then
+            cursor = cursor - itemMain - itemGap
+        else
+            cursor = cursor + itemMain + itemGap
+        end
+    end
+end
