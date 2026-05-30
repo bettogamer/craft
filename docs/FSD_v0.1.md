@@ -155,7 +155,7 @@ Craft_Browser/
 | T-013 | Suite de pruebas anti-taint en Retail 11.x y Classic | — | T-006–T-010 | pendiente |
 | T-014 | Suite de pruebas de memory leaks (100 ciclos create/destroy) | — | T-006–T-010 | pendiente |
 | T-015 | Suite de pruebas de performance (render < 5ms, Flex < 1ms) | FSD-UC-002 | T-005–T-010 | pendiente |
-| T-016 | Documentación: README Quick Start, docs por componente, CONTRIBUTING.md | FSD-UC-001 | T-001–T-012 | pendiente |
+| T-016 | Documentación: README Quick Start, docs por componente, CONTRIBUTING.md | FSD-UC-001 | T-001–T-012 | ✅ completado |
 
 ---
 
