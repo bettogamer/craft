@@ -2,6 +2,16 @@
 
 > Referencia shadcn: `tooltip` — WoW frame base: `Frame` custom (NO usar GameTooltip de WoW — tiene estilos propios que contradicen Lyra)
 
+## CSS de referencia (Lyra)
+
+```css
+.cn-tooltip-content {
+  @apply inline-flex items-center gap-1.5 rounded-none px-3 py-1.5 text-xs;
+}
+```
+
+El background no está declarado en `cn-tooltip-content` directamente — lo hereda del contenedor via `bg-popover`.
+
 ## Propósito
 
 Etiqueta informativa flotante que aparece al hacer hover sobre cualquier frame ancla, con delay configurable y posicionamiento automático relativo a la pantalla.
@@ -22,12 +32,13 @@ El tooltip es un **singleton**: existe un único frame `Craft.Tooltip._frame` re
 
 | Propiedad               | Valor                                                      |
 |-------------------------|------------------------------------------------------------|
-| Padding horizontal      | 8px (spacingSm) en cada lado                               |
-| Padding vertical        | 6px en cada lado                                           |
+| Padding horizontal      | 12px (`px-3`) en cada lado                                 |
+| Padding vertical        | 6px (`py-1.5`) en cada lado                                |
 | Max width               | 240px — el texto wraps con `:SetWordWrap(true)` si supera  |
 | Min width               | automático — igual al ancho del texto corto                |
 | Offset desde el anchor  | 4px de separación entre el anchor y el tooltip             |
-| Ícono                   | 16×16px (iconSizeSm), gap ícono→texto: 8px (spacingSm)     |
+| Ícono                   | 16×16px (iconSizeSm), gap ícono→texto: 6px (`gap-1.5`)     |
+| Sin flecha (arrow)      | Lyra tooltip no muestra flecha — no implementar en WoW     |
 | Delay de aparición      | 300ms por defecto (configurable por anchor)                |
 | Strata                  | TOOLTIP — aparece sobre todos los frames excepto UIParent  |
 | Font size               | `t.fontSize` (12px)                                        |
@@ -78,9 +89,11 @@ end)
 
 **Attach no sobreescribe otros scripts**: Usar `HookScript` en lugar de `SetScript` para OnEnter y OnLeave, de modo que otros scripts existentes en el frame no se pierdan. Si el frame ya tiene un attachment previo de Craft.Tooltip, desregistrar los hooks anteriores antes de agregar nuevos — guardar las funciones de hook en una tabla indexada por frame (`Craft.Tooltip._hooks[frame]`).
 
-**Tamaño del frame tras actualizar texto**: Después de llamar `_text:SetText(config.text)`, calcular el ancho resultante con `_text:GetStringWidth()`. El ancho del frame = `min(config.maxWidth, textWidth) + paddingH * 2 + (icon ? iconSize + gap : 0)`. La altura = `_text:GetStringHeight() + paddingV * 2`. Llamar `_frame:SetSize(w, h)` antes del SetPoint para que el clamping de pantalla use las dimensiones correctas.
+**Tamaño del frame tras actualizar texto**: Después de llamar `_text:SetText(config.text)`, calcular el ancho resultante con `_text:GetStringWidth()`. El ancho del frame = `min(config.maxWidth, textWidth) + paddingH * 2 + (icon ? iconSize + gap : 0)`, donde `paddingH = 12` y `gap = 6`. La altura = `_text:GetStringHeight() + paddingV * 2`, donde `paddingV = 6`. Llamar `_frame:SetSize(w, h)` antes del SetPoint para que el clamping de pantalla use las dimensiones correctas.
 
-**Ícono opcional**: Si `config.icon` es nil, `_icon:Hide()` y el texto ancla desde `paddingH` del borde izquierdo. Si `config.icon` existe, `_icon:Show()`, posicionarlo con `SetPoint("LEFT", _frame, "LEFT", paddingH, 0)`, y el texto con `SetPoint("LEFT", _icon, "RIGHT", gap, 0)`.
+**Ícono opcional**: Si `config.icon` es nil, `_icon:Hide()` y el texto ancla desde 12px del borde izquierdo. Si `config.icon` existe, `_icon:Show()`, posicionarlo con `SetPoint("LEFT", _frame, "LEFT", 12, 0)`, y el texto con `SetPoint("LEFT", _icon, "RIGHT", 6, 0)` (gap-1.5 = 6px).
+
+**Sin flecha**: Lyra tooltip no renderiza arrow aunque `cn-tooltip-arrow` exista en el CSS. En WoW no implementar ningún frame de flecha — el tooltip aparece directamente adyacente al anchor sin indicador de dirección.
 
 **Borde 1px**: Usar `SetBackdrop` con `edgeFile = "Interface\\BUTTONS\\WHITE8X8"` y `edgeSize = 1`, o cuatro texturas de 1px. La textura de borde se colorea con `SetBackdropBorderColor(t.border.r, t.border.g, t.border.b, t.border.a)`. En dark mode, `t.border = {r=1, g=1, b=1, a=0.1}`.
 

@@ -31,6 +31,11 @@ Craft.Theme
 | `Craft.Theme.register_preset(name, tbl)` | `(string, table) → void`          | Registra un preset con nombre para uso futuro con `use(name)`.                                                         |
 | `Craft.Theme.getFont(weight?)`           | `("regular"\|"bold") → string`    | Shortcut de `get().font` / `get().fontBold`. Retorna la ruta de la fuente.                                            |
 | `Craft.Theme.getPresets()`               | `() → string[]`                   | Lista los nombres de todos los presets disponibles (built-in + registrados).                                           |
+| `Craft.Theme.px(n, frame?)`              | `(number, Frame?) → number`        | Convierte `n` píxeles físicos a UI units. Usa `PixelUtil` si disponible; si no, `math.max(n/scale, 0.5)`. `frame` es opcional — si se pasa, usa `frame:GetEffectiveScale()` en lugar de `UIParent`. |
+| `Craft.Theme.SetPixelHeight(frame, n)`   | `(Frame, number) → void`           | Aplica altura de `n` píxeles físicos. `PixelUtil.SetHeight(frame, n, 1)` en Retail; fallback en Classic.              |
+| `Craft.Theme.SetPixelWidth(frame, n)`    | `(Frame, number) → void`           | Ídem para ancho.                                                                                                       |
+| `Craft.Theme.SetPixelSize(frame, w, h)`  | `(Frame, number, number) → void`   | Ídem para ancho y alto simultáneamente.                                                                                |
+| `Craft.Theme.isPixelPerfect()`           | `() → boolean`                     | `true` si `UIParent:GetEffectiveScale() ≈ 1.0` (tolerancia 0.01).                                                    |
 
 ### Presets built-in
 
@@ -191,6 +196,46 @@ Para completitud, los tokens que `get()` expone (definidos en `theme/Presets.lua
 | `iconSizeMd`             | number        | `24`                                                   |
 
 ## Notas de implementación
+
+**Helpers de pixel-perfect (ADR-0011)**: los métodos `px()`, `SetPixelHeight()`, `SetPixelWidth()`, `SetPixelSize()` e `isPixelPerfect()` garantizan que los frames queden alineados a píxeles físicos sin sub-pixel blending. Implementación de referencia:
+
+```lua
+function Craft.Theme.px(n, frame)
+    local scale = (frame or UIParent):GetEffectiveScale()
+    return math.max(n / scale, 0.5)
+end
+
+function Craft.Theme.SetPixelHeight(frame, n)
+    if PixelUtil then
+        PixelUtil.SetHeight(frame, n, 1)
+    else
+        frame:SetHeight(Craft.Theme.px(n, frame))
+    end
+end
+
+function Craft.Theme.SetPixelWidth(frame, n)
+    if PixelUtil then
+        PixelUtil.SetWidth(frame, n, 1)
+    else
+        frame:SetWidth(Craft.Theme.px(n, frame))
+    end
+end
+
+function Craft.Theme.SetPixelSize(frame, w, h)
+    if PixelUtil then
+        PixelUtil.SetSize(frame, w, h, 1, 1)
+    else
+        frame:SetWidth(Craft.Theme.px(w, frame))
+        frame:SetHeight(Craft.Theme.px(h, frame))
+    end
+end
+
+function Craft.Theme.isPixelPerfect()
+    return math.abs(UIParent:GetEffectiveScale() - 1.0) < 0.01
+end
+```
+
+Ver también: `docs/pixel-perfect.md` para las reglas completas de ADR-0011 y los casos de uso de cada helper.
 
 **Orden de carga en Craft.toc**: `Theme.lua` y `Presets.lua` deben declararse antes de cualquier archivo de componente en el `.toc`. Si un componente se carga antes que el módulo Theme, `Craft.Theme` será nil y el addon fallará silenciosamente.
 

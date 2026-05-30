@@ -38,6 +38,8 @@ Frame (root)                              — contenedor exterior, define el tam
 | Thumb        | Height calc   | `(visible/total) * trackHeight`, mínimo 32px |
 | Gap track-thumb | Offset X   | 1px desde cada lado del track      |
 
+> **Nota pixel-perfect (ADR-0011)**: Track width (8px) y thumb width (6px) son valores normales de UI — usar directamente como UI units en `SetWidth`. El gap de 1px entre thumb y track edges es el único valor que debe pasarse por `Craft.Theme.px(1, frame)` para garantizar que ocupe exactamente 1 píxel físico sin importar el scale del contenedor.
+
 ### Scrollbar horizontal (cuando `horizontal=true`)
 
 | Elemento     | Propiedad     | Valor                              |
@@ -147,3 +149,19 @@ El scrollbar completo se oculta (`Hide()`) si el contenido no excede el área vi
 - **Ocultar scrollbars vacíos**: si `GetVerticalScrollRange() == 0` al asignar el scrollChild, llamar `scrollbarV:Hide()` y no reservar el espacio de 8px — opcionalmente expandir el ScrollFrame al ancho completo del root. Sin embargo, para simplicidad de implementación, es aceptable reservar siempre el espacio del scrollbar y simplemente ocultar el thumb.
 - **Anclaje del scrollbar vertical**: `SetPoint("TOPRIGHT", root, "TOPRIGHT", 0, 0)` y `SetPoint("BOTTOMRIGHT", root, "BOTTOMRIGHT", 0, 0)`. Width fijo = 8px.
 - **Anclaje del scrollbar horizontal**: `SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", 0, 0)` y `SetPoint("BOTTOMRIGHT", root, "BOTTOMRIGHT", -8, 0)` (el -8 es para no solapar con el scrollbar vertical si ambos están activos). Height fijo = 8px.
+- **Cursor position para drag del thumb (ADR-0011 — regla obligatoria)**: `GetCursorPosition()` retorna coordenadas en píxeles físicos de pantalla. Para convertirlas a UI units del frame, dividir por `GetEffectiveScale()` del ScrollFrame (no de UIParent):
+  ```lua
+  local function onThumbDrag(self)
+      local _, cy = GetCursorPosition()
+      local eff = self._scrollFrame:GetEffectiveScale()
+      local y_ui = cy / eff  -- convertir a UI units del frame
+      -- ... calcular posición del thumb
+  end
+  ```
+- **Scale correction si el Scroll está dentro de un frame con SetScale()**: si el `ScrollFrame` está dentro de un contenedor que tiene `SetScale()` aplicado (e.g. `Craft_Browser` con 0.75x scale), `UIParent:GetEffectiveScale()` dará el valor incorrecto. Siempre usar `self._scrollFrame:GetEffectiveScale()` — este método ya aplica la cadena completa de scales del frame hacia arriba:
+  ```lua
+  -- Correcto: escala efectiva del ScrollFrame (incluye SetScale() de parents)
+  local eff = self._scrollFrame:GetEffectiveScale()
+  -- Incorrecto para este caso: escala de UIParent (no conoce los SetScale() intermedios)
+  -- local eff = UIParent:GetEffectiveScale()
+  ```

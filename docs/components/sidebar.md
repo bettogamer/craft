@@ -2,6 +2,32 @@
 
 > Referencia shadcn: `sidebar` — WoW frame base: `Frame` con ScrollFrame interno
 
+## CSS real de Lyra (referencia)
+
+```css
+.cn-sidebar-inner { @apply bg-sidebar; }
+.cn-sidebar-group-label {
+  @apply text-sidebar-foreground/70 h-8 rounded-none px-2 text-xs;
+}
+.cn-sidebar-menu-button {
+  @apply hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
+         active:bg-sidebar-accent active:text-sidebar-accent-foreground
+         data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground
+         gap-2 rounded-none p-2 text-left text-xs;
+}
+.cn-sidebar-menu-button-size-default { @apply h-8 text-xs; }
+.cn-sidebar-menu-button-size-sm      { @apply h-7 text-xs; }
+.cn-sidebar-menu-button-size-lg      { @apply h-12 text-xs; }
+.cn-sidebar-menu-sub-button {
+  @apply text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
+         data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground
+         h-7 gap-2 rounded-none px-2 text-xs;
+}
+.cn-sidebar-group { @apply p-2; }
+.cn-sidebar-menu { @apply gap-0; }
+.cn-sidebar-separator { @apply bg-sidebar-border mx-2; }
+```
+
 ## Propósito
 
 Navegación vertical en dos niveles (secciones e items clickeables) con scroll interno para listas largas; usa exclusivamente los tokens `sidebar*` del tema.
@@ -27,26 +53,30 @@ sidebar.frame              (Frame)                      raíz, ancho fijo
         └── ...
 ```
 
-La sección (section header) es un Frame con un FontString, no es clickeable. Los items son Buttons con altura fija de 32px. El `_child` Frame del ScrollFrame debe tener su altura ajustada al total acumulado de secciones e items.
+La sección (section header) es un Frame con un FontString, no es clickeable. Los items son Buttons con altura fija según la variante de tamaño. El `_child` Frame del ScrollFrame debe tener su altura ajustada al total acumulado de secciones e items.
 
 ## Dimensiones
 
-| Elemento | Valor |
-|---|---|
-| Width (default) | 220px |
-| Width (compact) | 180px |
-| Width (wide) | 260px |
-| Item height | 32px |
-| Item padding horizontal | 12px (`t.spacingMd`) |
-| Icon size | 16px (`t.iconSizeSm`) |
-| Gap icon → text | 8px (`t.spacingSm`) |
-| Section header height | 32px |
-| Section padding top extra | 8px (`t.spacingSm`) sobre los 32px base |
-| Border derecho width | 1px |
-| Font size (items) | 12px (`t.fontSize`) |
-| Font size (section labels) | 11px (`t.fontSizeSm`) |
+| Elemento | Valor | Origen CSS |
+|---|---|---|
+| Width (default) | 220px | — |
+| Width (compact) | 180px | — |
+| Width (wide) | 260px | — |
+| Item height (default) | 32px | `h-8` |
+| Item height (sm) | 28px | `h-7` |
+| Item height (lg) | 48px | `h-12` |
+| Item padding (todos los lados) | 8px (`t.spacingSm`) | `p-2` |
+| Gap icon → text | 8px (`t.spacingSm`) | `gap-2` |
+| Icon size | 16px (`t.iconSizeSm`) | — |
+| Section header height | 32px | `h-8` |
+| Section group padding | 8px (`t.spacingSm`) | `p-2` (cn-sidebar-group) |
+| Section label padding horizontal | 8px (`t.spacingSm`) | `px-2` |
+| Sub-button height | 28px | `h-7` |
+| Sub-button padding horizontal | 8px (`t.spacingSm`) | `px-2` |
+| Border derecho width | 1px | — |
+| Font size (items y labels) | 12px (`t.fontSize`) | `text-xs` |
 
-El `_child` height total = suma de alturas de todos los elementos (secciones e items, con el padding-top extra de cada sección).
+El `_child` height total = suma de alturas de todos los elementos (secciones e items, con el group padding de cada sección).
 
 ## Variantes / Configuraciones
 
@@ -56,42 +86,55 @@ El `_child` height total = suma de alturas de todos los elementos (secciones e i
 | `compact` | 180px |
 | `wide` | 260px |
 
+### Tamaños de item
+
+| Size | Height | Origen CSS |
+|---|---|---|
+| `sm` | 28px | `cn-sidebar-menu-button-size-sm` |
+| `default` | 32px | `cn-sidebar-menu-button-size-default` |
+| `lg` | 48px | `cn-sidebar-menu-button-size-lg` |
+
 ## Estados
 
-| Elemento | Estado | Visual |
-|---|---|---|
-| Item | Default | `_bg` transparente, texto `t.sidebarForeground` |
-| Item | Hover | `_bg` color `t.sidebarAccent`, texto `t.sidebarForeground` |
-| Item | Active | `_bg` color `t.sidebarPrimary`, texto `t.sidebarPrimaryForeground` |
-| Item | Disabled | Texto `t.mutedForeground` con a=0.5, `EnableMouse(false)` |
-| Section header | Default | No clickeable, texto `t.mutedForeground`, uppercase |
-| Sidebar | Default | Fondo `t.sidebar`, borde-right `t.sidebarBorder` |
+| Elemento | Estado | Visual | Origen CSS |
+|---|---|---|---|
+| Item | Default | `_bg` transparente, texto `t.sidebarForeground` | — |
+| Item | Hover | `_bg` color `t.sidebarAccent`, texto `t.sidebarAccentForeground` | `hover:bg-sidebar-accent` |
+| Item | Active | `_bg` color `t.sidebarAccent`, texto `t.sidebarAccentForeground` | `data-active:bg-sidebar-accent` |
+| Item | Disabled | Texto `t.mutedForeground` con a=0.5, `EnableMouse(false)` | — |
+| Sub-button | Default | Texto `t.sidebarForeground` | — |
+| Sub-button | Hover | `_bg` color `t.sidebarAccent`, texto `t.sidebarAccentForeground` | `hover:bg-sidebar-accent` |
+| Sub-button | Active | `_bg` color `t.sidebarAccent`, texto `t.sidebarAccentForeground` | `data-active:bg-sidebar-accent` |
+| Section header | Default | No clickeable, texto `t.sidebarForeground` a=0.7 | `text-sidebar-foreground/70` |
+| Sidebar | Default | Fondo `t.sidebar`, borde-right `t.sidebarBorder` | `bg-sidebar` |
+
+> **Corrección crítica:** el item activo usa `t.sidebarAccent` ({r=0.153,g=0.153,b=0.165}), NO `t.sidebarPrimary`. En Lyra, `data-active:bg-sidebar-accent` aplica el mismo fondo que el hover. `t.sidebarPrimary` (emerald-500) NO se usa como fondo de item activo en el sidebar menu button.
 
 ## Mapa de tokens
 
-| Elemento | Token |
-|---|---|
-| Fondo del sidebar | `t.sidebar` |
-| Borde derecho | `t.sidebarBorder` |
-| Texto de item | `t.sidebarForeground` |
-| Fondo de item en hover | `t.sidebarAccent` |
-| Fondo de item activo | `t.sidebarPrimary` |
-| Texto de item activo | `t.sidebarPrimaryForeground` |
-| Texto de item disabled | `t.mutedForeground` (a=0.5) |
-| Texto de section header | `t.mutedForeground` |
-| Fuente de item | `t.font`, `t.fontSize` (12px) |
-| Fuente de section label | `t.font`, `t.fontSizeSm` (11px) |
-| Item padding horizontal | `t.spacingMd` (12px) |
-| Gap icon → text | `t.spacingSm` (8px) |
-| Icon size | `t.iconSizeSm` (16px) |
+| Elemento | Token | Valor dark mode |
+|---|---|---|
+| Fondo del sidebar | `t.sidebar` | {r=0.094, g=0.094, b=0.106} |
+| Borde derecho | `t.sidebarBorder` | {r=1, g=1, b=1, a=0.10} |
+| Texto de item (default) | `t.sidebarForeground` | {r=0.980, g=0.980, b=0.980} |
+| Fondo de item en hover | `t.sidebarAccent` | {r=0.153, g=0.153, b=0.165} |
+| Fondo de item activo | `t.sidebarAccent` | {r=0.153, g=0.153, b=0.165} |
+| Texto de item hover/activo | `t.sidebarAccentForeground` | — |
+| Texto de item disabled | `t.mutedForeground` (a=0.5) | {r=0.631, g=0.631, b=0.667} |
+| Texto de section label | `t.sidebarForeground` (a=0.7) | {r=0.980, g=0.980, b=0.980, a=0.70} |
+| Fuente de items y labels | `t.font`, `t.fontSize` (12px) | — |
+| Item padding | `t.spacingSm` (8px) | — |
+| Gap icon → text | `t.spacingSm` (8px) | — |
+| Icon size | `t.iconSizeSm` (16px) | — |
 
-> Nota: el Sidebar NUNCA usa `t.background`, `t.card`, `t.accent` ni otros tokens generales. Todos los colores provienen de los tokens `sidebar*`.
+> Nota: el Sidebar NUNCA usa `t.background`, `t.card`, `t.accent` ni otros tokens generales. Todos los colores provienen de los tokens `sidebar*`. `t.sidebarPrimary` ({r=0.063,g=0.725,b=0.506}, emerald-500) y `t.sidebarPrimaryForeground` ({r=0.008,g=0.173,b=0.133}) están disponibles en el tema pero NO se usan en los estados del menu button.
 
 ## Config — `Create(parent, config)`
 
 | Parámetro | Tipo | Default | Descripción |
 |---|---|---|---|
 | `size` | string | `"default"` | Uno de: `"default"` (220px), `"compact"` (180px), `"wide"` (260px) |
+| `itemSize` | string | `"default"` | Uno de: `"sm"` (28px), `"default"` (32px), `"lg"` (48px) |
 | `items` | array | `{}` | Array de tablas de configuración de items (ver estructura abajo) |
 | `items[i].id` | string | — | Identificador único del item |
 | `items[i].label` | string | — | Texto visible del item |
@@ -105,14 +148,14 @@ El `_child` height total = suma de alturas de todos los elementos (secciones e i
 | Método | Retorno | Descripción |
 |---|---|---|
 | `GetFrame()` | Frame | Retorna `sidebar.frame` |
-| `SetActiveItem(id)` | void | Marca el item como activo (bg `t.sidebarPrimary`, texto `t.sidebarPrimaryForeground`); desactiva el anterior |
+| `SetActiveItem(id)` | void | Marca el item como activo (bg `t.sidebarAccent`, texto `t.sidebarAccentForeground`); desactiva el anterior |
 | `GetActiveItem()` | string \| nil | Retorna el id del item actualmente activo |
 | `AddItem(config)` | void | Agrega un item al final (o al final de su sección si `config.section` está definida); recalcula la altura del `_child` |
 | `AddSection(label)` | void | Agrega un section header al final del listado; las secciones deben agregarse antes que sus items |
 
 ## Notas de implementación
 
-**Tokens exclusivos:** el Sidebar usa `t.sidebar` (no `t.background`), `t.sidebarForeground`, `t.sidebarPrimary`, `t.sidebarPrimaryForeground`, `t.sidebarAccent`, `t.sidebarBorder`. Nunca mezclar con tokens generales.
+**Tokens exclusivos:** el Sidebar usa `t.sidebar`, `t.sidebarForeground`, `t.sidebarAccent`, `t.sidebarAccentForeground`, `t.sidebarBorder`. Nunca mezclar con tokens generales.
 
 **Borde derecho:**
 ```lua
@@ -132,6 +175,17 @@ El `_child` Frame debe tener su ancho igual al ancho del scroll y su altura igua
 
 **Construcción de items:** los items se crean en orden (secciones primero, luego sus items). Cada elemento se posiciona con `SetPoint("TOPLEFT", prevElement, "BOTTOMLEFT", 0, 0)`. Al agregar o remover items, recalcular `_child:SetHeight(totalHeight)`.
 
+**Item activo (corrección — usa sidebarAccent, no sidebarPrimary):**
+```lua
+-- Desactivar el anterior
+prevItem._bg:SetColorTexture(0, 0, 0, 0)  -- transparente
+prevItem._text:SetTextColor(t.sidebarForeground.r, t.sidebarForeground.g, t.sidebarForeground.b)
+
+-- Activar el nuevo (igual que hover — usa sidebarAccent)
+item._bg:SetColorTexture(t.sidebarAccent.r, t.sidebarAccent.g, t.sidebarAccent.b)
+item._text:SetTextColor(t.sidebarAccentForeground.r, t.sidebarAccentForeground.g, t.sidebarAccentForeground.b)
+```
+
 **Item con ícono:**
 ```lua
 local icon = Craft.Icons.Get(config.icon)  -- retorna Texture o nil
@@ -140,24 +194,18 @@ if icon then
     item._text:SetPoint("LEFT", item._icon, "RIGHT", spacingSm, 0)
 else
     item._icon:Hide()
-    item._text:SetPoint("LEFT", item, "LEFT", spacingMd, 0)
+    item._text:SetPoint("LEFT", item, "LEFT", spacingSm, 0)
 end
 ```
-El ícono se posiciona a `spacingMd` (12px) del borde izquierdo del item.
+El ícono se posiciona a `spacingSm` (8px) del borde izquierdo del item (padding `p-2`).
 
-**Item activo:** al llamar `SetActiveItem(id)`:
+**Section label foreground/70:** WoW Lua no tiene modificadores de opacidad en colores de texto directamente. Usar los valores RGBA del token con alpha 0.7:
 ```lua
--- Desactivar el anterior
-prevItem._bg:SetColorTexture(0, 0, 0, 0)  -- transparente
-prevItem._text:SetTextColor(t.sidebarForeground.r, t.sidebarForeground.g, t.sidebarForeground.b)
-
--- Activar el nuevo
-item._bg:SetColorTexture(t.sidebarPrimary.r, t.sidebarPrimary.g, t.sidebarPrimary.b, t.sidebarPrimary.a)
-item._text:SetTextColor(t.sidebarPrimaryForeground.r, t.sidebarPrimaryForeground.g, t.sidebarPrimaryForeground.b)
+sectionLabel:SetTextColor(t.sidebarForeground.r, t.sidebarForeground.g, t.sidebarForeground.b, 0.70)
 ```
 
 **Section label uppercase:** WoW Lua no tiene `text-transform`. Aplicar `string.upper(label)` al asignar el texto de `_sectionLabel`.
 
-**Section padding top extra:** el Frame de sección mide 32px, pero el `_sectionLabel` se ancla con un offset Y de `-spacingSm` (-8px) desde el top del Frame para simular el padding superior adicional. Esto mantiene la altura del frame fija en 32px mientras visualmente el texto queda más centrado en la mitad inferior.
+**Group padding:** cada grupo (sección + sus items) se inserta con 8px de padding (`p-2`). El Frame de group envuelve la sección y sus items con ese margen respecto a los bordes del sidebar.
 
-**Radius = 0:** los fondos de hover y activo son Textures rectangulares sin redondeo, pintadas con `SetColorTexture`.
+**Radius = 0:** los fondos de hover y activo son Textures rectangulares sin redondeo (`rounded-none` en Lyra), pintadas con `SetColorTexture`.

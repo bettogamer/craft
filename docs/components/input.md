@@ -10,24 +10,42 @@ Campo de texto editable de una sola línea, con soporte de placeholder, estados 
 
 ```
 Frame (root)                        — BACKGROUND layer
-├── Texture (bg)                    — BACKGROUND layer, t.input fill
-├── Texture (border)                — BORDER layer, 1px, t.border
-├── Frame (ring)                    — sibling del root, 2px outward, t.ring (visible solo en foco)
+├── Texture (bg)                    — BACKGROUND layer, input/30 fill
+├── Texture (borderT/B/L/R)         — BORDER layer, 1px cada una (SetPixelHeight/Width), t.border
 ├── Texture (iconLeading)           — ARTWORK layer, 16×16px, visible si config.iconLeading
 ├── Texture (iconTrailing)          — ARTWORK layer, 16×16px, visible si config.iconTrailing
 ├── EditBox                         — OVERLAY layer, centrado verticalmente con insets
 └── FontString (placeholder)        — OVERLAY layer, visible cuando EditBox vacío y sin foco
 ```
 
+Sin frame `ring` — no se implementa focus ring en WoW (mouse-only).
+
+## CSS de referencia (Lyra)
+
+```css
+.cn-input {
+  @apply dark:bg-input/30 border-input focus-visible:border-ring focus-visible:ring-ring/50
+         aria-invalid:border-destructive dark:aria-invalid:border-destructive/50
+         disabled:bg-input/50 dark:disabled:bg-input/80
+         h-8 rounded-none border bg-transparent px-2.5 py-1 text-xs
+         transition-colors focus-visible:ring-1 aria-invalid:ring-1;
+}
+```
+
 ## Dimensiones
 
-### Tamaños del componente
+### Tamaño del componente
 
-| Tamaño    | Height | Padding H | Font size | EditBox inset top/bottom |
-|-----------|--------|-----------|-----------|--------------------------|
-| `sm`      | 32px   | 10px      | 11px      | 8px                      |
-| `default` | 36px   | 12px      | 12px      | 10px                     |
-| `lg`      | 40px   | 14px      | 12px      | 12px                     |
+Lyra define un único tamaño para `input` (`h-8`). No hay variantes sm/lg en el CSS real.
+
+| Propiedad        | Valor  | Fuente Tailwind |
+|------------------|--------|-----------------|
+| Height           | 32px   | `h-8`           |
+| Padding H        | 10px   | `px-2.5`        |
+| Padding V        | 4px    | `py-1`          |
+| Font size        | 12px   | `text-xs`       |
+| Border radius    | 0      | `rounded-none`  |
+| Border           | 1px    | `border`        |
 
 Width: 100% del parent por defecto (puede fijarse con `config.width`).
 
@@ -35,7 +53,7 @@ Width: 100% del parent por defecto (puede fijarse con `config.width`).
 
 | Condición         | Padding H lado afectado |
 |-------------------|------------------------|
-| Sin icono         | valor base del tamaño  |
+| Sin icono         | 10px base              |
 | Con iconLeading   | left += 20px           |
 | Con iconTrailing  | right += 20px          |
 
@@ -44,48 +62,41 @@ Posición del icono:
 - Trailing: x = `spacing.sm` (8px) desde el borde derecho, centrado verticalmente.
 - Tamaño del icono: `iconSizeSm` = 16×16px.
 
-### Dimensiones del ring frame
-
-| Propiedad | Valor                                       |
-|-----------|---------------------------------------------|
-| Offset    | −2px en cada lado (2px outward del root)    |
-| Width     | `focusRingWidth` = 2px                      |
-| Color     | `t.ring`                                    |
-| Visibilidad | `Show()` en foco, `Hide()` fuera de foco  |
-
 ## Variantes visuales
 
-| Variante  | Fondo      | Border color    | Notas                                       |
-|-----------|------------|-----------------|---------------------------------------------|
-| `default` | `t.input`  | `t.border`      | Estado base                                 |
-| `error`   | `t.input`  | `t.destructive` | Borde cambia a destructive, fondo sin cambio |
+| Variante  | Fondo                        | Border color    | Notas                                        |
+|-----------|------------------------------|-----------------|----------------------------------------------|
+| `default` | input/30 = {r=1,g=1,b=1,a=0.045} | `t.border` = {r=1,g=1,b=1,a=0.15} | Estado base          |
+| `error`   | input/30 = {r=1,g=1,b=1,a=0.045} | `t.destructive` = {r=0.973,g=0.443,b=0.443} | Borde destructive |
 
 ## Estados
 
-| Estado          | Fondo      | Border color    | Ring       | Texto               | Placeholder          |
-|-----------------|------------|-----------------|------------|---------------------|----------------------|
-| Default         | `t.input`  | `t.border`      | Oculto     | `t.foreground`      | `t.mutedForeground`  |
-| Focused         | `t.input`  | `t.ring`        | Visible    | `t.foreground`      | Oculto               |
-| Disabled        | `t.muted`  | `t.border`      | Oculto     | `t.mutedForeground` | `t.mutedForeground`  |
-| Error           | `t.input`  | `t.destructive` | Oculto     | `t.foreground`      | `t.mutedForeground`  |
-| Error + Focused | `t.input`  | `t.destructive` | Visible    | `t.foreground`      | Oculto               |
+| Estado     | Fondo                         | Border color    | Texto               | Placeholder          |
+|------------|-------------------------------|-----------------|---------------------|----------------------|
+| Default    | {r=1,g=1,b=1,a=0.045}         | {r=1,g=1,b=1,a=0.15} | `t.foreground` | `t.mutedForeground`  |
+| Focused    | {r=1,g=1,b=1,a=0.045}         | `t.ring`        | `t.foreground`      | Oculto               |
+| Disabled   | {r=1,g=1,b=1,a=0.12}          | {r=1,g=1,b=1,a=0.15} | `t.mutedForeground` | `t.mutedForeground` |
+| Error      | {r=1,g=1,b=1,a=0.045}         | `t.destructive` | `t.foreground`      | `t.mutedForeground`  |
 
-Hover (sobre el frame raíz): alpha blend al 85% sobre el fondo — aplicar `SetAlpha(0.85)` a la textura `bg` al hacer `OnEnter`, restaurar a `1.0` en `OnLeave`. No aplica en estado disabled.
+Notas sobre estados:
+- `disabled:bg-input/50` en light mode; `dark:disabled:bg-input/80` → {r=1,g=1,b=1,a=0.12} en dark mode.
+- Focus ring: **NO implementar** en WoW (mouse-only, sin keyboard navigation). El `focus-visible:ring-1` de Lyra no aplica.
+- El borde del input es **siempre visible** (no transparente como en Button). Usar `Craft.Theme.SetPixelHeight/Width` para el borde de 1px.
+- Hover: no definido en el CSS de Lyra. Omitir efecto hover en esta versión.
 
 ## Mapa de tokens
 
-| Elemento              | Token                        |
-|-----------------------|------------------------------|
-| Fondo del input       | `t.input`                    |
-| Borde default         | `t.border`                   |
-| Borde focused         | `t.ring`                     |
-| Borde error           | `t.destructive`              |
-| Ring frame            | `t.ring`                     |
-| Texto ingresado       | `t.foreground`               |
-| Placeholder           | `t.mutedForeground`          |
-| Fondo disabled        | `t.muted`                    |
-| Texto disabled        | `t.mutedForeground`          |
-| Icono leading/trailing| `t.mutedForeground` (tint)   |
+| Elemento              | Token / Valor dark mode                    |
+|-----------------------|---------------------------------------------|
+| Fondo del input       | input/30 = {r=1,g=1,b=1,a=0.045}           |
+| Borde default         | `t.border` = {r=1,g=1,b=1,a=0.15}          |
+| Borde focused         | `t.ring`                                    |
+| Borde error           | `t.destructive` = {r=0.973,g=0.443,b=0.443}|
+| Texto ingresado       | `t.foreground` = {r=0.980,g=0.980,b=0.980} |
+| Placeholder           | `t.mutedForeground` = {r=0.631,g=0.631,b=0.667} |
+| Fondo disabled (dark) | input/80 = {r=1,g=1,b=1,a=0.12}            |
+| Texto disabled        | `t.mutedForeground`                         |
+| Icono leading/trailing| `t.mutedForeground` (tint)                  |
 
 ## Config — `Create(parent, config)`
 
@@ -93,7 +104,7 @@ Hover (sobre el frame raíz): alpha blend al 85% sobre el fondo — aplicar `Set
 |-----------------|------------|-------------|--------------------------------------------------------------------------|
 | `placeholder`   | `string`   | `""`        | Texto gris visible cuando el campo está vacío y sin foco                 |
 | `value`         | `string`   | `""`        | Valor inicial del EditBox                                                |
-| `size`          | `string`   | `"default"` | `"sm"`, `"default"`, `"lg"`                                              |
+| `size`          | `string`   | `"default"` | Solo `"default"` (Lyra no define variantes sm/lg para input)             |
 | `disabled`      | `boolean`  | `false`     | Deshabilita el EditBox y suprime eventos de hover/click                  |
 | `error`         | `boolean`  | `false`     | Activa variante error (borde destructive)                                |
 | `maxLetters`    | `number`   | `0`         | Límite de caracteres; `0` = sin límite                                   |
@@ -120,9 +131,10 @@ Hover (sobre el frame raíz): alpha blend al 85% sobre el fondo — aplicar `Set
 - **MaxLetters**: usar `EditBox:SetMaxLetters(n)`. Con `n=0` no hay límite.
 - **AutoFocus**: siempre llamar `EditBox:SetAutoFocus(false)` para evitar que tome foco automáticamente al mostrarse.
 - **Placeholder**: mostrar `placeholder FontString` cuando `EditBox:GetText() == ""` y el EditBox no tiene foco. Ocultar en `OnEditFocusGained`. Mostrar en `OnEditFocusLost` si el texto queda vacío.
-- **Insets del EditBox**: usar `EditBox:SetTextInsets(left, right, top, bottom)` para que el cursor y texto no toquen los bordes. Los valores de `left` y `right` son el `paddingH` del tamaño elegido (más el delta de icono si aplica).
-- **Ring frame**: es un `Frame` separado, hermano del root (mismo parent), con `SetFrameLevel` un nivel mayor. Se posiciona con `SetPoint("TOPLEFT", root, "TOPLEFT", -2, 2)` y `SetPoint("BOTTOMRIGHT", root, "BOTTOMRIGHT", 2, -2)`. Pintar solo el borde con una textura de 2px usando `SetBackdrop` o cuatro texturas de borde manual.
-- **Borde 1px**: dibujar el borde como cuatro texturas de 1px (top, bottom, left, right) o via `SetBackdrop` con `edgeSize=1`. Con `SetBackdrop` usar `{bgFile="", edgeFile="...", edgeSize=1, insets={...}}`.
-- **Disabled**: llamar `EditBox:EnableMouse(false)` y `EditBox:SetEnabled(false)`. El frame raíz también debe tener `EnableMouse(false)` para suprimir hover.
+- **Insets del EditBox**: usar `EditBox:SetTextInsets(left, right, top, bottom)` para que el cursor y texto no toquen los bordes. Los valores de `left` y `right` son 10px (paddingH del tamaño único), más el delta de icono si aplica.
+- **Borde 1px (pixel-perfect)**: el borde de 1px es siempre visible en el input. Usar `Craft.Theme.SetPixelHeight` y `Craft.Theme.SetPixelWidth` para las texturas de borde, **no** `SetHeight(1)` / `SetWidth(1)`. Esto garantiza exactamente 1px físico independientemente del UI scale.
+- **Sin focus ring en WoW**: el `focus-visible:ring-1` de Lyra no se implementa. WoW es mouse-only, sin keyboard navigation. No crear el frame `_ring` para el input.
+- **Sin variantes de tamaño**: Lyra define un único tamaño (`h-8` = 32px). Eliminar la lógica de `sm`/`lg` si existe de implementaciones anteriores.
+- **Disabled**: llamar `EditBox:EnableMouse(false)` y `EditBox:SetEnabled(false)`. El frame raíz también debe tener `EnableMouse(false)` para suprimir hover. Fondo disabled dark: {r=1,g=1,b=1,a=0.12} (`input/80`).
 - **OnTextChanged**: el script recibe `(self, userInput)`. Solo disparar `onChange` si `userInput == true` para evitar loops al llamar `SetText` programáticamente.
 - **Hover alpha**: aplicar `OnEnter`/`OnLeave` solo si `not self.disabled`. La textura de bg es la única que cambia de alpha — no el frame completo, para no afectar al texto.

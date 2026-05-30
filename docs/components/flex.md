@@ -117,6 +117,17 @@ Descripción paso a paso de `flex:Layout()`:
      direction=row-reverse  → anclar desde TOPRIGHT
      direction=column-reverse → anclar desde BOTTOMLEFT
 14. Limpiar puntos previos de cada frame: frame:ClearAllPoints() antes del SetPoint nuevo
+15. Antes de llamar SetPoint, redondear los offsets calculados con math.floor() para evitar
+    sub-pixel blending:
+     ```lua
+     -- En Flex.lua — aplicar posiciones calculadas
+     local x = math.floor(calculated_x)
+     local y = math.floor(calculated_y)
+     frame:SetPoint("TOPLEFT", container, "TOPLEFT", x, -y)
+     ```
+    Los cálculos de flex-grow/shrink producen offsets fraccionarios (e.g. 5.333) que causan
+    sub-pixel blending en WoW cuando se pasan directamente a SetPoint. El math.floor()
+    hace snap al UI unit más cercano.
 ```
 
 ## Ejemplos de uso
@@ -194,6 +205,8 @@ flex:Layout()
 ## Notas de implementación
 
 **ClearAllPoints antes de SetPoint**: Cada vez que `Layout()` aplica posiciones, debe llamar `frame:ClearAllPoints()` en cada item para evitar conflictos de anclaje múltiple. WoW no permite SetPoint si el frame ya tiene puntos que crean un ciclo de dependencia.
+
+**math.floor() en offsets de SetPoint (ADR-0011)**: los cálculos de flex-grow y flex-shrink producen valores fraccionarios (e.g. `5.333`, `10.666`) que al pasarse directamente a `SetPoint` causan sub-pixel blending en WoW — los frames quedan en posiciones intermedias entre píxeles físicos, produciendo bordes borrosos. Siempre aplicar `math.floor()` a `calculated_x` y `calculated_y` antes del `SetPoint`. Ver paso 15 del algoritmo de Layout.
 
 **Stretch en cross axis**: Para `align = "stretch"` o `alignSelf = "stretch"`, Flex debe llamar `frame:SetWidth()` o `frame:SetHeight()` en el item para forzar que ocupe toda la cross-axis de su línea. Esto modifica las dimensiones del frame hijo directamente — documentar este comportamiento para que el developer lo espere.
 

@@ -2,6 +2,21 @@
 
 > Referencia shadcn: `tabs` — WoW frame base: `Frame` con Button hijos por tab
 
+## CSS de referencia (Lyra)
+
+```css
+.cn-tabs-list {
+  @apply rounded-none p-[3px] group-data-horizontal/tabs:h-8;
+}
+.cn-tabs-trigger {
+  @apply gap-1.5 rounded-none border border-transparent px-1.5 py-0.5 text-xs font-medium
+         [&_svg:not([class*='size-'])]:size-4 has-data-[icon=inline-end]:pr-1 has-data-[icon=inline-start]:pl-1;
+}
+.cn-tabs-content {
+  @apply text-xs/relaxed;
+}
+```
+
 ## Propósito
 
 Organiza contenido en paneles exclusivos (solo uno visible a la vez) seleccionables mediante una barra de pestañas horizontal con indicador activo.
@@ -10,13 +25,12 @@ Organiza contenido en paneles exclusivos (solo uno visible a la vez) seleccionab
 
 ```
 tabs.frame              (Frame)                        raíz del componente
-├── tabs._list          (Frame, 36px alto)             barra de tabs
+├── tabs._list          (Frame, 32px alto)             barra de tabs
 │   ├── tabs._listBg    (Texture)                      fondo de la barra (muted)
 │   ├── tabs._tab[1]    (Button)                       pestaña 1
-│   │   ├── tabs._tab[1]._text      (FontString)       etiqueta de la tab
-│   │   └── tabs._tab[1]._indicator (Texture, 2px)     línea activa inferior
+│   │   └── tabs._tab[1]._text      (FontString)       etiqueta de la tab
 │   ├── tabs._tab[2]    (Button)                       pestaña 2
-│   │   ├── ...
+│   │   └── ...
 │   └── ...
 ├── tabs._listBorder    (Texture, 1px alto)            línea completa bajo la barra
 └── tabs._content       (Frame)                        área de contenido
@@ -27,56 +41,59 @@ tabs.frame              (Frame)                        raíz del componente
 
 Los content frames son los frames que el dev pasa en `config.tabs[i].content_frame`; se reparentan a `tabs._content` y se muestran u ocultan según la tab activa.
 
+**Sin indicador de línea activa**: Lyra tabs NO tienen el indicador de 2px bajo la tab activa (ese patrón corresponde a new-york/default variant, no a Lyra). El estado activo se expresa mediante fondo diferente de la tab activa vs inactiva.
+
 ## Dimensiones
 
 | Elemento | Valor |
 |---|---|
-| TabList height (default) | 36px |
-| TabList height (sm) | 32px |
-| Tab padding horizontal | 12px (`t.spacingMd`) |
-| Tab min width | 64px |
-| Tab height | igual a TabList height (36px o 32px) |
-| Active indicator height | 2px |
-| Active indicator width | igual al ancho del Button de la tab |
-| Active indicator posición | BOTTOM del Button, offset Y=0 |
-| ListBorder height | 1px |
+| TabList height | 32px (`h-8`) — único tamaño |
+| TabList padding interno | 3px en todos los lados (`p-[3px]`) |
+| Tab inner height efectiva | 32 − 3×2 = 26px |
+| Tab padding horizontal | 6px (`px-1.5`) |
+| Tab padding vertical | 2px (`py-0.5`) |
+| Tab padding H con ícono | 4px (`pr-1` o `pl-1` según lado) |
+| Tab gap con ícono | 6px (`gap-1.5`) |
+| Tab min width | automático según texto |
+| Tab height | igual a inner height del TabList (26px efectivo) |
+| ListBorder height | 1px — usar `Craft.Theme.SetPixelHeight(border, 1)` |
 | ListBorder posición | BOTTOM de `_list`, cubre todo el ancho |
 | Content padding | 16px (`t.spacingLg`) |
-| Tab font size | 12px (`t.fontSize`) |
+| Tab font size | 12px (`text-xs`) |
 
 ## Variantes / Configuraciones
 
-| Size | TabList height |
-|---|---|
-| `default` | 36px |
-| `sm` | 32px |
+Solo hay un tamaño de TabList: `h-8` = 32px. No existe variante `sm` separada en Lyra tabs.
 
 ## Estados
 
 | Elemento | Estado | Visual |
 |---|---|---|
-| Tab | Inactive | Texto `t.mutedForeground`, fondo transparente, indicator oculto |
+| Tab | Inactive | Texto `t.mutedForeground`, fondo transparente, borde transparente |
 | Tab | Hover | Fondo `t.accent`, texto `t.mutedForeground` |
-| Tab | Active | Texto `t.foreground`, indicator visible color `t.primary`, fondo transparente |
+| Tab | Active | Texto `t.foreground`, fondo diferenciado del list (ver nota), borde transparente |
 | Tab | Disabled | Texto `t.mutedForeground` con a=0.5, mouse deshabilitado (`EnableMouse(false)`) |
 | TabList | Default | Fondo `t.muted` |
 | Content | Visible | Frame activo mostrado con `Show()` |
 | Content | Oculto | Frames inactivos ocultos con `Hide()` |
+
+**Nota sobre el estado activo**: Lyra tabs no tienen indicador de línea. El trigger siempre lleva `border border-transparent` — la diferenciación visual de la tab activa se expresa mediante el fondo del botón activo contrastando con el fondo muted del tablist. Implementar la tab activa con un fondo ligeramente más claro o más oscuro que `t.muted` (por ejemplo `t.background` o `t.card`). Si el diseño no especifica el color exacto del fondo activo, usar transparente con un borde visible.
 
 ## Mapa de tokens
 
 | Elemento | Token |
 |---|---|
 | Fondo de la barra (TabList) | `t.muted` |
-| Separador bajo la barra | `t.border` |
+| Separador bajo la barra | `t.border` (1px, pixel-perfect) |
 | Texto de tab inactiva | `t.mutedForeground` |
 | Texto de tab activa | `t.foreground` |
 | Fondo de tab en hover | `t.accent` |
-| Indicador de tab activa | `t.primary` |
 | Texto de tab disabled | `t.mutedForeground` (a=0.5) |
-| Padding de tab horizontal | `t.spacingMd` (12px) |
+| Padding de tab horizontal | 6px (`px-1.5`) |
 | Padding del área de content | `t.spacingLg` (16px) |
 | Fuente de tab | `t.font`, `t.fontSize` (12px) |
+
+**Eliminado**: `Indicador de tab activa` con `t.primary` — Lyra tabs no tienen indicador de línea.
 
 ## Config — `Create(parent, config)`
 
@@ -87,8 +104,9 @@ Los content frames son los frames que el dev pasa en `config.tabs[i].content_fra
 | `tabs[i].label` | string | — | Texto visible en el Button de la tab |
 | `tabs[i].content_frame` | Frame | — | Frame ya construido a mostrar cuando la tab está activa |
 | `defaultTab` | string | primer id | Id de la tab activa al crear el componente |
-| `size` | string | `"default"` | Altura de la barra: `"default"` (36px) o `"sm"` (32px) |
 | `onTabChange` | function | nil | Callback `function(newId, oldId)` invocado al cambiar de tab |
+
+No hay parámetro `size` — el TabList tiene un único tamaño (32px `h-8`).
 
 ## API pública
 
@@ -105,20 +123,12 @@ Los content frames son los frames que el dev pasa en `config.tabs[i].content_fra
 **Auto-width de cada tab:**
 ```lua
 local textWidth = tab._text:GetStringWidth()
-local tabWidth = math.max(64, textWidth + spacingMd * 2)
+local tabWidth = textWidth + 6 * 2  -- px-1.5 = 6px cada lado
 tab:SetWidth(tabWidth)
 ```
 Los buttons se posicionan en secuencia horizontal con `SetPoint("LEFT", prevTab, "RIGHT", 0, 0)`.
 
-**Indicador activo:**
-```lua
--- Posicionar en el borde inferior del button, ancho igual al button
-tab._indicator:SetPoint("BOTTOMLEFT",  tab, "BOTTOMLEFT",  0, 0)
-tab._indicator:SetPoint("BOTTOMRIGHT", tab, "BOTTOMRIGHT", 0, 0)
-tab._indicator:SetHeight(2)
-tab._indicator:SetColorTexture(t.primary.r, t.primary.g, t.primary.b, t.primary.a)
-```
-Visible solo en la tab activa; oculto en las demás con `tab._indicator:Hide()`.
+**Sin indicador activo**: no crear `_indicator` texture. El estado activo se expresa solo con color de texto (`t.foreground` vs `t.mutedForeground`) y fondo diferenciado de la tab activa.
 
 **Show/Hide de content frames:**
 Los content frames se reparentan a `tabs._content` al ser registrados. Al cambiar de tab activa:
@@ -142,6 +152,6 @@ tab._text:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForegrou
 ```
 
 **Separator (`_listBorder`):**
-Texture de 1px de alto anclada al borde inferior de `_list`, `SetPoint("TOPLEFT", _list, "BOTTOMLEFT", 0, 0)` y `SetPoint("TOPRIGHT", _list, "BOTTOMRIGHT", 0, 0)`, pintada con `t.border`.
+Texture de 1px de alto anclada al borde inferior de `_list`, `SetPoint("TOPLEFT", _list, "BOTTOMLEFT", 0, 0)` y `SetPoint("TOPRIGHT", _list, "BOTTOMRIGHT", 0, 0)`, pintada con `t.border`. Usar `Craft.Theme.SetPixelHeight(_listBorder, 1)` (ADR-0011).
 
-**Radius = 0:** sin esquinas redondeadas. El indicador activo es una Texture rectangular plana.
+**Radius = 0:** sin esquinas redondeadas (`rounded-none`).
