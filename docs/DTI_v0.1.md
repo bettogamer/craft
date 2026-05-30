@@ -122,7 +122,7 @@ C4Container
 
   Container(libStubEmbed, "LibStub.lua", "Lua 5.1", "Mecanismo de registro de librería compartida. Embebido en Craft. Garantiza carga única por sesión.")
   Container(craftCore, "Craft.lua (Core)", "Lua 5.1", "Punto de entrada. Registra la librería con LibStub:NewLibrary('Craft-1.0'). Inicializa el namespace Craft y expone la versión.")
-  Container(craftTheme, "Craft.Theme", "Lua 5.1 / theme/", "Sistema de theming. Tokens semánticos equivalentes a CSS variables de shadcn Lyra. Observer pattern para live-switching. Presets: lyra-dark, lyra-light.")
+  Container(craftTheme, "Craft.Theme", "Lua 5.1 / theme/", "Sistema de theming. Tokens semánticos equivalentes a CSS variables de shadcn Lyra. Observer pattern para live-switching. Preset: lyra-dark (dark mode exclusivo)")
   Container(craftIcons, "Craft.Icons", "Lua 5.1 / icons/", "Resolución de íconos Lucide. Lee directamente desde Craft/media/lucide-16.tga y lucide-24.tga bundled en el paquete. API: Craft.Icons.Get(name).")
   Container(craftFlex, "Craft.Flex", "Lua 5.1 / layout/", "Motor de layout Flexbox en Lua. Implementa direction, wrap, justify, align, gap, grow, shrink, basis, order. ~400 líneas de Lua.")
   Container(craftComponents, "Componentes MVP (×16)", "Lua 5.1 / components/", "16 componentes UI: Button, Checkbox, Select, Input, Label, Panel, Dialog, Tooltip, Separator, Sidebar, Slider, Tabs, Scroll, Toggle, Badge, Flex. Cada uno sigue el contrato de componente (Create/Destroy/_applyTheme).")
@@ -222,7 +222,7 @@ sequenceDiagram
   Comp->>Dev: callback onClick()
 
   Note over Dev: Live theme switch
-  Dev->>Theme: Craft.Theme.use("lyra-light")
+  Dev->>Theme: Craft.Theme.use("my-addon-dark")
   Theme->>Theme: _build() — recalcula tokens
   Theme->>Comp: _notify() → fn(_themeHandle llamado)
   Comp->>Comp: _applyTheme(nuevos tokens) — actualiza colores en runtime
@@ -246,7 +246,7 @@ Craft no implementa DDD clásico (no hay bounded contexts, aggregates ni reposit
 |---------|-------------|---------------|--------------------------|
 | **Componente** | Frame WoW con métodos Craft. Tiene identidad propia (instancia). Posee referencias a sus subframes y a su `_themeHandle`. | `Create()` → uso → `Destroy()` | Tabla Lua con metatable: `setmetatable({}, Component)` |
 | **Token de tema** | Par clave-valor semántico que mapea un rol visual (e.g. `primary`, `background`, `border`) a un color RGBA o valor de espaciado. Equivalente a una CSS variable de Lyra. | Inmutable por preset; reemplazado en live-switch | Campo de la tabla retornada por `Craft.Theme.get()` |
-| **Preset de tema** | Tabla completa de tokens (22 de color + 7 de espaciado = 29 tokens) que define un tema completo. `lyra-dark` y `lyra-light` son los presets del MVP. | Registrado en startup o con `Craft.Theme.register()` | Tabla Lua en `theme/Presets.lua` o registrada por el dev |
+| **Preset de tema** | Tabla completa de tokens (22 de color + 7 de espaciado = 29 tokens) que define un tema completo. `lyra-dark` es el único preset built-in. | Registrado en startup o con `Craft.Theme.register()` | Tabla Lua en `theme/Presets.lua` o registrada por el dev |
 | **Descriptor de ícono** | Par `{path, coords}` que identifica una textura en el atlas TGA de Lucide bundled en `Craft/media/`. No tiene identidad persistente — se resuelve en runtime. | Efímero — resuelto en cada llamada a `Craft.Icons.Get()` | Tabla Lua retornada por `Craft.Icons.Get(name)` |
 | **Contenedor Flex** | Frame WoW que actúa como contenedor de layout. Calcula posiciones de sus hijos según atributos Flexbox (direction, justify, align, gap, grow/shrink). | `Craft.Flex.new(parent, config)` → `flex:Add(child)` → `flex:Layout()` → `flex:Destroy()` | Tabla Lua con metatable FlexContainer |
 | **_themeHandle** | Número de secuencia opaco que identifica la suscripción de un componente al observer de temas. | Creado en `Component:Create()` via `Craft.Theme.register(fn)`. Liberado en `Destroy()` via `Craft.Theme.unregister(handle)`. | `number` (entero, secuencia global `_handleSeq`) |
@@ -358,7 +358,7 @@ Craft/
 ├── Craft.lua                    # Core: LibStub:NewLibrary("Craft-1.0", build)
 ├── theme/
 │   ├── Theme.lua                # Craft.Theme — observer, get(), use(), extend(), register()
-│   └── Presets.lua              # Tokens lyra-dark y lyra-light (22 color + 7 spacing)
+│   └── Presets.lua              # lyra-dark (único preset built-in) (22 color + 7 spacing)
 ├── icons/
 │   ├── Icons.lua                # Craft.Icons — Get(name), lee desde media/ bundled
 │   └── Atlas.lua                # Coordenadas UV del atlas TGA de Lucide
@@ -730,6 +730,7 @@ El sandbox de Lua de WoW no puede ejecutarse fuera del cliente del juego. No hay
 |---------|-------|-------|--------|
 | v0.1 | 30/05/2026 | Alberto Gomez | Versión inicial — DTI completo de Craft. Arquitectura monolito modular Lua, LibStub, shadcn Lyra, 16 componentes MVP, Craft.Flex, Craft.Theme, Craft.Icons, Craft_Browser. Sin TSTL, sin portal web. Basado en POC CraftUI (mayo 2026) y los 8 ADRs fundacionales. |
 | v0.1.1 | 30/05/2026 | Alberto Gomez | Decisión arquitectónica: eliminación de `Craft_SharedMedia` y `LibSharedMedia-3.0`. Assets (atlas TGA Lucide, fuentes Inter) bundled directamente en `Craft/media/`. Sin addon companion de assets, sin fallback. Fuente tipográfica cambiada de Geist a Inter. `radiusBase = 0` — sin bordes redondeados, sin 9-slice TGA. |
+| v0.1.2 | 30/05/2026 | Alberto Gomez | lyra-light eliminado de diagramas y modelo de dominio; solo lyra-dark como preset built-in |
 
 ---
 

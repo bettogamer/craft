@@ -73,13 +73,13 @@ Los criterios decisivos fueron:
 
 - `Craft.Theme.get()` retorna la tabla de tokens del tema activo (lazy-built en el primer llamado).
 - Los tokens siguen la nomenclatura de shadcn Lyra: `background`, `foreground`, `card`, `primary`, `secondary`, `muted`, `accent`, `destructive`, `border`, `input`, `ring` (cada uno con su variante `Foreground`).
-- Presets incluidos en v1.0: `lyra-dark` y `lyra-light`. Presets adicionales en v1.1+.
+- Preset incluido en v1.0: `lyra-dark` (dark mode exclusivo; lyra-light eliminado — WoW addon dev es dark-mode). Presets adicionales en v1.1+.
 
 ---
 
 ### 5. Impacto en el sistema
 
-- **Código**: `Craft/theme/Theme.lua` implementa el registro de listeners, `get()`, `use()`, `extend()` y `register()`. `Craft/theme/Presets.lua` define los tokens de `lyra-dark` y `lyra-light`.
+- **Código**: `Craft/theme/Theme.lua` implementa el registro de listeners, `get()`, `use()`, `extend()` y `register()`. `Craft/theme/Presets.lua` define los tokens de `lyra-dark`.
 - **Contrato de componentes**: todo componente Craft DEBE implementar:
   - `self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)` en `Create()`.
   - `self:_applyTheme(Craft.Theme.get())` al final de `Create()` (aplicación inicial).
@@ -98,7 +98,7 @@ Los criterios decisivos fueron:
 
 ### 7. Validación
 
-- **Métrica**: `Craft.Theme.use("lyra-light")` aplicado a un addon con 10 componentes activos actualiza todos en menos de 16ms (1 frame a 60fps).
+- **Métrica**: `Craft.Theme.use(customTheme)` aplicado a un addon con 10 componentes activos actualiza todos en menos de 16ms (1 frame a 60fps). (Nota: `lyra-light` fue eliminado — el único preset built-in es `lyra-dark`; los presets custom se registran con `Craft.Theme.register()`)
 - **Memory leak check**: abrir y cerrar 100 componentes en Craft_Browser sin incremento apreciable de uso de memoria Lua.
 - **Responsable**: Alberto Gomez.
 - **Plazo**: al cierre del MVP, septiembre 2026.
@@ -120,3 +120,4 @@ Los criterios decisivos fueron:
 |---------|-------|-------|--------|
 | 1 | 30/05/2026 | Alberto Gomez | Propuesta inicial — tokens semánticos con callbacks |
 | 2 | 30/05/2026 | Alberto Gomez | Aceptada — paridad con Lyra y live-switching son criterios decisivos |
+| 3 | 30/05/2026 | Alberto Gomez | lyra-light eliminado — WoW addon dev es dark-mode exclusivo; lyra-dark es el único preset built-in |

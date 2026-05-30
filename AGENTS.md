@@ -316,7 +316,7 @@ Todos los componentes usan `t.*` en `_applyTheme(t)`. **Fuente de verdad**: `doc
 ## 13. Contacto
 
 - **Maintainer**: Alberto Gomez
-- **Repositorio**: `github.com/bettogamer/craft` (pendiente publicación)
+- **Repositorio**: `github.com/bettogamer/craft`
 - **Canal comunidad**: Discord addon-dev WoW
 
 ---

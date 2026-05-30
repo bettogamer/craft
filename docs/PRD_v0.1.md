@@ -66,7 +66,7 @@ La arquitectura de librería compartida garantiza que una corrección de bug o m
 
 - **Arquitectura LibStub**: registro de la librería como `"Craft-1.0"`, carga única por sesión de WoW, compartición entre múltiples addons. LibStub embebido en la distribución.
 - **16 componentes MVP** (ver §5 para detalle de cada uno): Button, Checkbox, Select, Flex, Icons, Input, Label, Scroll, Panel, Dialog, Separator, Sidebar, Slider, Tabs, Theme, Tooltip.
-- **Sistema de theming** (`Craft.Theme`): tokens semánticos Lyra, presets `lyra-dark` y `lyra-light`, live-switching via callbacks, `extend()` y `register()` para personalización.
+- **Sistema de theming** (`Craft.Theme`): tokens semánticos Lyra, preset `lyra-dark` (dark mode exclusivo de WoW), live-switching via callbacks, `extend()` y `register()` para personalización.
 - **Motor de layout** (`Craft.Flex`): implementación de CSS Flexbox en Lua 5.1 con `direction`, `wrap`, `justify`, `align`, `gap`, `grow`, `shrink`, `basis`, `order`.
 - **Módulo de íconos** (`Craft.Icons`): íconos Lucide disponibles directamente desde el atlas TGA bundled en `Craft/media/`. No se requiere addon externo.
 - **Addon showcase** (`Craft_Browser`): addon WoW separado con UI construida sobre Craft, navegable via `/craft`, con los 16 componentes del MVP. Distribuido en CurseForge/Wago.
@@ -84,7 +84,7 @@ La arquitectura de librería compartida garantiza que una corrección de bug o m
 | TypeScriptToLua (TSTL) y archivos `.d.ts` | Complejidad desproporcionada para el segmento actual; ADR-0007 | Evaluación en v2.x si el segmento crece |
 | Portal web / sitio de documentación (craftui.dev) | CurseForge + GitHub suficientes para MVP; ADR-0008; BR-015 | No planificado |
 | Bloques pre-construidos (OptionsPanel, ConfirmDialog, ProfileSelector) | Composiciones de nivel superior, dependen de que los 16 componentes base sean estables | v1.1 |
-| Temas adicionales más allá de Lyra dark/light | El preset Lyra cubre el MVP; temas adicionales son personalizaciones del desarrollador | v1.1 |
+| Temas adicionales más allá de lyra-dark | El preset lyra-dark cubre el MVP; temas adicionales son personalizaciones del desarrollador | v1.1 |
 | CLI de instalación (`craft add button`) | Complejidad de tooling fuera del alcance MVP | v2.0 |
 | Componentes de unit frames | Cubiertos por oUF; nicho especializado | Fuera del roadmap |
 | Componentes de visualización de datos (charts, heatmaps) | Fuera del caso de uso de UI general de addons | Evaluación futura |
@@ -95,7 +95,7 @@ La arquitectura de librería compartida garantiza que una corrección de bug o m
 
 | Versión | Contenido | Fecha objetivo |
 |---------|-----------|----------------|
-| **v1.0 (MVP)** | 16 componentes, LibStub, Theme (Lyra dark/light), Flex, Icons (Lucide, atlas bundled en `Craft/media/`), Craft_Browser, documentación completa, suite anti-taint | Septiembre 2026 |
+| **v1.0 (MVP)** | 16 componentes, LibStub, Theme (lyra-dark, dark mode exclusivo), Flex, Icons (Lucide, atlas bundled en `Craft/media/`), Craft_Browser, documentación completa, suite anti-taint | Septiembre 2026 |
 | **v1.1** | Bloques pre-construidos (OptionsPanel, ConfirmDialog, ProfileSelector, SettingsPanel), temas adicionales (3–5 presets de la comunidad), mejoras de DX basadas en feedback v1.0 | Q1 2027 |
 | **v2.0** | Evaluación de soporte TSTL (`.d.ts` opt-in), CLI de scaffolding (`craft init`, `craft add`), sistema de plugins de componentes, posible portal de documentación si el volumen de adopción lo justifica | Q3 2027 |
 
@@ -437,8 +437,8 @@ Escenario: Separator horizontal
 ```gherkin
 Escenario: Live-switching de tema
   Dado que un addon tiene 10 componentes Craft activos con el tema "lyra-dark"
-  Cuando el desarrollador (o el jugador vía toggle de UI) ejecuta Craft.Theme.use("lyra-light")
-  Entonces los 10 componentes actualizan sus colores al preset lyra-light
+  Cuando el desarrollador (o el jugador vía toggle de UI) ejecuta Craft.Theme.use("my-addon-dark")
+  Entonces los 10 componentes actualizan sus colores al preset custom "my-addon-dark"
   Y la actualización ocurre en menos de 16ms (dentro de un frame a 60fps)
   Y no se destruyen ni recrean los frames — solo se actualizan los valores de color
 
@@ -718,6 +718,7 @@ El archivo `CONTRIBUTING.md` en la raíz del repositorio cubrirá:
 | v0.1.1 | 30/05/2026 | Alberto Gomez | Decisión de assets bundled: eliminado `Craft_SharedMedia` como addon companion separado. El atlas TGA de Lucide y la fuente Inter-Regular.ttf se distribuyen directamente en `Craft/media/`. `Craft.Icons` ya no implementa resolución en dos niveles; los íconos siempre están disponibles. PRD-REQ-003 y PRD-REQ-014 actualizados; PRD-NFR-009 reducido a 2 listings (Craft + Craft_Browser); `Geist` reemplazado por `Inter`. |
 | v0.1.2 | 30/05/2026 | Alberto Gomez | Correcciones de trazabilidad §14: referencias FSD-UC-004–023 inexistentes reemplazadas por mecanismos FSD reales; filas PRD-REQ-011/013/014 añadidas; referencias NFR actualizadas a prefijo FSD-NFR-NNN con nuevos FSD-NFR-009–012 |
 | v0.1.3 | 30/05/2026 | Alberto Gomez | Añadidos PRD-NFR-011 (instanciación <5ms) y PRD-NFR-012 (LibStub single instance); §14 actualizado: PRD-NFR-007→FSD-NFR-013, PRD-REQ-002/010/013 con FSD-NFR-014/015/009 |
+| v0.1.4 | 30/05/2026 | Alberto Gomez | lyra-light eliminado — solo lyra-dark como preset built-in; ejemplo de theming usa preset custom |
 
 ---
 

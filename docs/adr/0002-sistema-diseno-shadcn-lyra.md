@@ -55,7 +55,7 @@ Lyra es el estilo más reciente de shadcn/ui (2026). La configuración canónica
 | Base Color | **Zinc** | Fondos, bordes, muted en escala gris-zinc |
 | Theme (accent) | **Emerald** | Color primario = verde esmeralda |
 | Chart Color | Zinc | No aplica (sin charts en WoW addon UI general) |
-| Heading Font | **Inter** | Craft_SharedMedia distribuye Inter.ttf |
+| Heading Font | **Inter** | Bundled en `Craft/media/Inter-Regular.ttf` (ADR-0003) |
 | Body Font | **Inter** | Misma fuente para texto general |
 | Icon Library | **Lucide** | Confirma ADR-0003 |
 | Radius | **None** | `radiusBase = 0` — esquinas completamente rectas, sin rounded corners |
@@ -64,7 +64,7 @@ Lyra es el estilo más reciente de shadcn/ui (2026). La configuración canónica
 
 1. **Radius = None**: todos los componentes tienen esquinas rectas (0px). Esto es un cambio sustancial respecto al POC CraftUI, que usaba 4–13px de radius. La estética de Lyra es deliberadamente geométrica y sharp.
 2. **Emerald como primario**: el color de acento (botones, focus rings, toggles activos) es verde esmeralda (`#10b981` equivalente en modo dark), no un azul ni un neutral.
-3. **Inter como fuente**: `Craft_SharedMedia` debe distribuir `Inter-Regular.ttf` e `Inter-Bold.ttf` (no Geist como usaba CraftUI POC). El sistema de dos niveles de fuentes: Tier 1 = Inter bundled en `Craft/media/`; Tier 2 = `Fonts\FRIZQT__.TTF` (WoW nativo).
+3. **Inter como fuente**: Inter bundled en `Craft/media/Inter-Regular.ttf` e `Inter-Bold.ttf` (no Geist como usaba CraftUI POC). Tier 1 = Inter bundled en `Craft/media/`; Tier 2 = `Fonts\FRIZQT__.TTF` (WoW nativo).
 4. **Base Zinc**: los tokens de fondo, borde, muted y card usan la escala zinc (grises con ligera temperatura fría). No zinc cálido ni neutral puro.
 
 La elección se sostiene en:
@@ -139,3 +139,4 @@ La versión de referencia de Lyra se fija a la configuración capturada en mayo 
 | 1 | 30/05/2026 | Alberto Gomez | Propuesta inicial — Lyra como fuente de verdad |
 | 2 | 30/05/2026 | Alberto Gomez | Aceptada — criterios de identidad y referencia objetiva son decisivos |
 | 3 | 30/05/2026 | Alberto Gomez | Configuración canónica de Lyra documentada: Base=Zinc, Theme=Emerald, Font=Inter, Radius=None. Actualizada implicación de Radius=None (esquinas rectas) e Inter como fuente de SharedMedia |
+| 4 | 30/05/2026 | Alberto Gomez | Corrección stale: Inter es bundled en Craft/media/, no distribuido por Craft_SharedMedia (eliminado en ADR-0003 v2) |

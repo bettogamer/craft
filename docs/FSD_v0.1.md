@@ -10,7 +10,7 @@
 | Campo | Valor |
 |-------|-------|
 | Producto | Craft — Librería compartida de componentes UI para addons de World of Warcraft |
-| Versión del documento | v0.4 |
+| Versión del documento | v0.5 |
 | Fecha | 30/05/2026 |
 | Autores | Alberto Gomez |
 | Revisores | Comunidad addon-dev WoW (Discord #addon-dev-general) |
@@ -41,7 +41,7 @@ Este FSD documenta los contratos funcionales de la API Lua de Craft — no las p
 ### 2.1 Dentro del alcance
 
 - Implementación y contrato de API de los 16 componentes MVP: Button, Checkbox, Select, Flex, Icons, Input, Label, Scroll, Panel, Dialog, Separator, Sidebar, Slider, Tabs, Theme, Tooltip.
-- Módulo `Craft.Theme`: sistema de tokens semánticos equivalentes a CSS variables de shadcn Lyra, presets `lyra-dark` y `lyra-light`, live-switching con callbacks, API `use()`, `get()`, `extend()`, `register()`.
+- Módulo `Craft.Theme`: sistema de tokens semánticos equivalentes a CSS variables de shadcn Lyra, preset `lyra-dark` (único built-in; dark mode exclusivo de WoW), live-switching con callbacks, API `use()`, `get()`, `extend()`, `register()`.
 - Módulo `Craft.Icons`: resolución de íconos Lucide directamente desde `Craft/media/lucide-16.tga` y `Craft/media/lucide-24.tga` (assets bundled).
 - Módulo `Craft.Flex`: implementación de CSS Flexbox en Lua 5.1 — atributos `direction`, `wrap`, `justify`, `align`, `gap`, `grow`, `shrink`, `basis`, `order`, `align-self`.
 - Registro de la librería con LibStub: `LibStub("Craft-1.0")`, carga única por sesión.
@@ -56,7 +56,7 @@ Este FSD documenta los contratos funcionales de la API Lua de Craft — no las p
 - **TypeScriptToLua (TSTL)**: sin soporte, sin `.d.ts`, sin runtime TSTL. Decisión firme documentada en ADR-0007.
 - **Portal web o sitio de documentación**: toda la documentación vive en GitHub. No existe `craftui.dev` ni equivalente (ADR-0008).
 - **Blocks (composiciones pre-construidas)**: OptionsPanel, ConfirmDialog, ProfileSelector — planificados para v1.1.
-- **Temas adicionales** más allá de `lyra-dark` y `lyra-light`: reservados para v1.1+.
+- **Temas adicionales** más allá de `lyra-dark` (preset built-in): reservados para v1.1+ vía `register_preset()`.
 - **Componentes de unit frames**: cubiertos por oUF.
 - **Visualización de datos** (charts, heatmaps, timelines): fuera del alcance de UI de addon general.
 - **CLI de scaffolding** (`craft add button`): planificado para versiones futuras.
@@ -105,7 +105,7 @@ Craft/
 │   └── Inter-Bold.ttf           -- Fuente Inter Bold (bundled)
 ├── core/
 │   ├── Theme.lua                -- Craft.Theme: tokens, use(), get(), extend(), register()
-│   ├── Presets.lua              -- lyra-dark, lyra-light token tables
+│   ├── Presets.lua              -- lyra-dark (único preset built-in)
 │   ├── Icons.lua                -- Craft.Icons: Get(), lee desde Craft/media/
 │   └── Atlas.lua                -- Coordenadas UV del atlas Lucide TGA
 ├── layout/
@@ -293,14 +293,14 @@ Entonces Craft.Flex recalcula y reaplica el layout automáticamente
   3. El tema activo actual es `lyra-dark` (tema por defecto).
 - **Disparador**: El usuario del addon activa un toggle de tema en la UI (o el addon llama a `Craft.Theme.use()` programáticamente en respuesta a cualquier evento).
 - **Flujo principal**:
-  1. El addon del desarrollador llama a `Craft.Theme.use("lyra-light")`.
-  2. `Craft.Theme` valida que `"lyra-light"` es un preset registrado.
-  3. `Craft.Theme` actualiza la tabla de tema activo con los tokens de `lyra-light`.
+  1. El addon del desarrollador crea un tema custom y llama a `Craft.Theme.use(myAddonTheme)`, donde `myAddonTheme = Craft.Theme.extend("lyra-dark", { primary = {...} })` ha sido registrado previamente con `register_preset()`.
+  2. `Craft.Theme` valida que `myAddonTheme` es un preset registrado.
+  3. `Craft.Theme` actualiza la tabla de tema activo con los tokens del preset custom.
   4. `Craft.Theme` itera sobre todos los listeners registrados (uno por cada componente activo) y llama a cada callback `function(t) component:_applyTheme(t) end` con la nueva tabla de tokens.
   5. Cada componente llama a su método `_applyTheme(t)` interno, que actualiza los colores y apariencia de sus frames WoW con los nuevos tokens (`SetBackdropColor`, `SetTextColor`, `SetVertexColor`, etc.).
-  6. Todos los componentes activos del addon reflejan inmediatamente el diseño Lyra light sin necesidad de destruirlos o recargar la UI.
+  6. Todos los componentes activos del addon reflejan inmediatamente el nuevo tema sin necesidad de destruirlos o recargar la UI.
 - **Flujos alternativos / excepciones**:
-  - A1: El desarrollador llama a `Craft.Theme.use("nonexistent-theme")` → `Craft.Theme` registra un error en el chat de WoW con el mensaje `"[Craft] Theme 'nonexistent-theme' not found. Available: lyra-dark, lyra-light"`. El tema activo no cambia.
+  - A1: El desarrollador llama a `Craft.Theme.use("nonexistent-theme")` → `Craft.Theme` registra un error en el chat de WoW con el mensaje `"[Craft] Theme 'nonexistent-theme' not found. Available: lyra-dark"`. El tema activo no cambia.
   - A2: El desarrollador registra un tema personalizado con `Craft.Theme.register("my-theme", tokens)` y luego llama `Craft.Theme.use("my-theme")` → el flujo principal aplica normalmente con los tokens del tema registrado.
   - A3: El desarrollador usa `Craft.Theme.extend("lyra-dark", { primary = { r=1, g=0, b=0, a=1 } })` → crea un nuevo preset derivado de `lyra-dark` con solo `primary` sobreescrito; los demás tokens heredan de `lyra-dark`. El nuevo tema se puede usar con `Craft.Theme.use()` si el desarrollador lo registra con un nombre.
   - A4: Un componente destruido (su listener fue desregistrado en `Destroy()`) no recibe el callback → comportamiento correcto por diseño.
@@ -316,12 +316,16 @@ Entonces Craft.Flex recalcula y reaplica el layout automáticamente
 - **Criterios de aceptación**:
 
 ```gherkin
+Dado que existe un preset custom "my-addon-dark" registrado con register_preset()
+Cuando el addon llama a Craft.Theme.use("my-addon-dark")
+Entonces Craft.Theme.get() retorna la tabla de tokens de "my-addon-dark"
+  Y todos los componentes registrados reciben _applyTheme con los nuevos tokens
+
 Dado que un addon tiene 10 componentes Craft activos y visibles
   Y el tema activo es "lyra-dark"
-Cuando el addon llama a Craft.Theme.use("lyra-light")
-Entonces todos los componentes actualizan sus colores al diseño Lyra light
+Cuando el addon llama a Craft.Theme.use("my-addon-dark")
+Entonces todos los componentes actualizan sus colores al diseño del preset custom
   Y la operación completa se ejecuta en menos de 16ms (1 frame a 60fps)
-  Y Craft.Theme.get() retorna la tabla de tokens de lyra-light
 
 Dado que el desarrollador registra un tema personalizado con Craft.Theme.register("acme-dark", tokens)
 Cuando el addon llama a Craft.Theme.use("acme-dark")
@@ -710,7 +714,7 @@ Craft no expone pantallas de usuario final. Sus interfaces son la API Lua públi
 | FSD-NFR-003 | Performance — render (PRD-NFR-011) | Tiempo de render inicial de un componente (desde `Create()` hasta frame visible) | ms por `Create()` | < 5 ms | Instrumentar `Craft.Button:Create()` con `debugprofilestop()`; medir en el p95 de 50 instanciaciones en Craft_Browser. |
 | FSD-NFR-004 | Memoria — sin leaks | 100 ciclos de create/destroy de componentes no producen crecimiento de memoria Lua | Delta de `collectgarbage("count")` entre inicio y fin de los 100 ciclos | < 5 KB de crecimiento neto | Ejecutar en Craft_Browser: loop Lua de 100 iteraciones de `Create()` + `Destroy()`. Medir `collectgarbage("count")` antes y después con `collectgarbage("collect")` forzado entre mediciones. |
 | FSD-NFR-005 | Compatibilidad | Los 16 componentes funcionan sin errores en Retail 11.x y Classic | Errores de Lua reportados en el ErrorFrame de WoW | 0 errores en ambas versiones | Cargar Craft_Browser en una instalación limpia de Retail 11.x y en Classic. Navegar los 16 componentes y verificar ausencia de errores en el Lua Error Frame. |
-| FSD-NFR-006 | Live-switch performance | `Craft.Theme.use()` con 10 componentes activos | Tiempo total del live-switch en ms | < 16 ms (1 frame a 60fps) | Instrumentar `Craft.Theme.use()` con `debugprofilestop()`; activar 10 componentes en Craft_Browser y llamar `use()` 100 veces alternando `lyra-dark`/`lyra-light`; reportar p95. |
+| FSD-NFR-006 | Live-switch performance | `Craft.Theme.use()` con 10 componentes activos | Tiempo total del live-switch en ms | < 16 ms (1 frame a 60fps) | Instrumentar `Craft.Theme.use()` con `debugprofilestop()`; activar 10 componentes en Craft_Browser y llamar `use()` 100 veces alternando entre `lyra-dark` y un preset custom registrado con `register_preset()`; reportar p95. |
 | FSD-NFR-007 | Licencia | Craft y todos sus archivos distribuyen bajo MIT License | Presencia de header MIT en todos los archivos .lua | 100% de archivos | Script de CI: `grep -rL "MIT License" Craft/**.lua` debe retornar vacío; también: encabezado de Craft.lua debe contener la cadena 'MIT' |
 | FSD-NFR-008 | Carga de addon (PRD-NFR-012) | Craft se inicializa correctamente con 5 addons dependientes simultáneos | Sin errores en `LibStub("Craft-1.0")` desde cualquier addon | 0 errores | Instalar Craft + 5 addons de prueba, cada uno llamando `LibStub("Craft-1.0")` en ADDON_LOADED; verificar que todos retornan la misma instancia. |
 | FSD-NFR-009 | DX — Tiempo de setup | Un desarrollador nuevo sin experiencia en Craft completa el Quick Start y renderiza su primer componente en ≤ 60 minutos | Tiempo promedio | ≤ 60 min | Test de usabilidad con ≥ 3 beta testers pre-lanzamiento |
@@ -729,12 +733,12 @@ Craft no expone pantallas de usuario final. Sus interfaces son la API Lua públi
 |----------------------|---------------------|---------------------------|-----|----------------------|
 | BR-001: distribución LibStub | PRD-REQ-001 | FSD-UC-001; LIB-001 | FSD-NFR-008 | Craft listado en CurseForge; `LibStub("Craft-1.0")` retorna instancia correcta con 5 addons cargados |
 | BR-002: LibStub como registro | PRD-REQ-001 | FSD-UC-001; LIB-001, LIB-002 | FSD-NFR-008 | `LibStub:NewLibrary("Craft-1.0", minor)` funciona sin errores; retorna nil si ya hay versión igual o mayor |
-| BR-003: shadcn Lyra | PRD-REQ-002 | Craft.Theme; THEME-002 | — | Todos los tokens semánticos de Lyra presentes en `lyra-dark` y `lyra-light` |
+| BR-003: shadcn Lyra | PRD-REQ-002 | Craft.Theme; THEME-002 | — | Todos los tokens semánticos de Lyra presentes en `lyra-dark` (único preset) |
 | BR-004: Lucide first-class | PRD-REQ-003 | Craft.Icons; ICONS-001 | — | `Craft.Icons.Get("chevron-right")` retorna descriptor válido desde `Craft/media/lucide-16.tga` |
 | BR-005: anti-taint | PRD-NFR-001 | COMP-003 | FSD-NFR-001 | 0 errores de taint en Retail y Classic con Craft_Browser |
 | BR-006: compatibilidad Retail + Classic | PRD-REQ-004 | COMP-004 | FSD-NFR-005 | Craft_Browser funciona sin errores en Retail 11.x y Classic |
 | BR-008: Craft_Browser | PRD-REQ-005 | Craft_Browser (actor) | FSD-NFR-001, FSD-NFR-005 | Craft_Browser publicado en CurseForge con 16 componentes navegables |
-| BR-009: live-switching | PRD-REQ-006 | FSD-UC-003; THEME-001 | FSD-NFR-006 | `Craft.Theme.use("lyra-light")` actualiza 10 componentes en < 16ms |
+| BR-009: live-switching | PRD-REQ-006 | FSD-UC-003; THEME-001 | FSD-NFR-006 | `Craft.Theme.use()` con preset custom registrado vía `register_preset()` actualiza 10 componentes en < 16ms |
 | BR-010: temas personalizados | PRD-REQ-006 | FSD-UC-003; THEME-003 | — | `extend()` y `register_preset()` funcionan correctamente en Craft_Browser |
 | BR-011: 16 componentes MVP | PRD-REQ-007 | §6.2 Diccionario (todos) | FSD-NFR-003, FSD-NFR-004 | 16/16 componentes implementados, documentados y pasando anti-taint |
 | BR-012: Craft.Flex | PRD-REQ-008 | FSD-UC-002; FLEX-001, FLEX-002 | FSD-NFR-002 | `Flex:Layout()` con 10 elementos < 1ms; layout visualmente correcto en Craft_Browser |
@@ -837,6 +841,7 @@ Las pruebas de Craft se ejecutan en el entorno WoW real (no en un test runner ex
 | v0.2 | 30/05/2026 | Alberto Gomez | Eliminación de SharedMedia: se elimina el addon companion `Craft_SharedMedia` y la dependencia de `LibSharedMedia-3.0`. Los assets (atlas TGA de Lucide 16/24px, fuentes Inter Regular/Bold) se distribuyen bundled en `Craft/media/`. `Craft.Icons` resuelve directamente desde `Craft/media/` sin fallback. Se actualiza §2.1 alcance, §2.3 dependencias, §2.4.1 project structure, §3 actores, §6.1 diagrama Mermaid, §6.2 API, §8 integraciones, §13 riesgos y §14 glosario. Fuente cambiada de Geist a Inter. T-011 actualizada a "Generar atlas TGA de Lucide y empaquetar Inter.ttf en Craft/media/". |
 | v0.3 | 30/05/2026 | Alberto Gomez | Correcciones de trazabilidad: COMP-005 (estado disabled); NFRs renombrados a FSD-NFR-NNN; FSD-NFR-009–012 añadidos (DX, sandbox, distribución, Lua 5.1); filas BR-013/014/015, PRD-REQ-015, PRD-NFR-008/009/010 añadidas a tabla §11 |
 | v0.4 | 30/05/2026 | Alberto Gomez | FSD-NFR-013/014/015 añadidos (contrato API, cero hardcoding, sin portal); FSD-NFR-003/008 actualizados con origen PRD-NFR-011/012; FSD-NFR-007 expandido (header MIT); §11 actualizado con nuevos vínculos; §12 checklist media/ assets |
+| v0.5 | 30/05/2026 | Alberto Gomez | lyra-light eliminado de todos los ejemplos y criterios — solo lyra-dark como preset built-in |
 
 ---
 
