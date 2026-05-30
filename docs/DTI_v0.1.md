@@ -20,7 +20,7 @@
 | Arquitecto responsable | Alberto Gomez |
 | Stakeholders | Desarrolladores independientes de addons WoW, autores de suites UI completas, comunidad CurseForge/Wago |
 | Estado | Borrador |
-| Repositorio | github.com/[org]/craft (pendiente de creación pública) |
+| Repositorio | github.com/bettogamer/craft |
 | Enlace al BRD | `docs/BRD_v0.1.md` |
 | Enlace a ADRs | `docs/adr/` |
 | POC de referencia | CraftUI (mayo 2026) — `../CraftUI/` |
@@ -732,5 +732,5 @@ El sandbox de Lua de WoW no puede ejecutarse fuera del cliente del juego. No hay
 ---
 
 *Documento preparado bajo la cadena BRD → DTI de Craft.*
-*Repositorio: github.com/[org]/craft (pendiente de creación pública).*
+*Repositorio: github.com/bettogamer/craft.*
 *POC de referencia: `../CraftUI/src/components/` — código Lua de implementaciones validadas.*

@@ -17,7 +17,7 @@
 | Revisores | Comunidad addon-dev (Discord #addon-dev-general), early-adopters |
 | Estado | Borrador |
 | BRD de referencia | `docs/BRD_v0.1.md` |
-| MRD de referencia | `docs/MRD_v0.1.md` (pendiente) |
+| MRD de referencia | `docs/MRD_v0.1.md` |
 | ADRs relevantes | ADR-0001 (LibStub), ADR-0002 (Lyra), ADR-0003 (Lucide), ADR-0004 (Browser), ADR-0005 (Theming), ADR-0006 (Flex), ADR-0007 (no-TSTL), ADR-0008 (no-web) |
 | POC de referencia | CraftUI (mayo 2026) — exploración copy-paste, descontinuado |
 | Prompts utilizados | PR-PRD-001 (generación inicial via Claude Code) |

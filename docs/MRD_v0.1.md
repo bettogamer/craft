@@ -14,7 +14,7 @@
 | Autor | Alberto Gomez |
 | Revisores | Comunidad addon-dev (Discord #addon-dev-general, r/WowUI) |
 | Estado | Borrador |
-| Repositorio | github.com/[org]/craft (pendiente de creación pública) |
+| Repositorio | github.com/bettogamer/craft |
 | BRD de referencia | `docs/BRD_v0.1.md` |
 | Documento hijo | `docs/PRD_v0.1.md` |
 | Prompts utilizados | PR-MRD-001 (generación inicial via Claude Code) |

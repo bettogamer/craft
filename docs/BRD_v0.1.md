@@ -16,7 +16,7 @@
 | Autores | Alberto Gomez |
 | Revisores | Comunidad addon-dev (Discord #addon-dev-general) |
 | Estado | Borrador |
-| Repositorio | github.com/[org]/craft (pendiente de creación pública) |
+| Repositorio | github.com/bettogamer/craft |
 | POC de referencia | CraftUI (mayo 2026) — exploración de copy-paste sin dependencias; descontinuado en favor de arquitectura de librería compartida |
 | Prompts utilizados | PR-BRD-001 (generación inicial via Claude Code) |
 
@@ -413,7 +413,7 @@ se benefician automáticamente — sin que cada autor tenga que actualizar su co
 Craft se siente como llevar shadcn/ui al mundo de los addons WoW",
 comentó un desarrollador beta-tester de la comunidad.
 
-Craft está disponible hoy en github.com/[org]/craft bajo licencia MIT,
+Craft está disponible hoy en github.com/bettogamer/craft bajo licencia MIT,
 y como addon instalable en CurseForge y Wago.
 ```
 

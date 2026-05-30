@@ -19,7 +19,7 @@
 | Trazabilidad a PRD | `docs/PRD_v0.1.md` |
 | Trazabilidad a BRD | `docs/BRD_v0.1.md` |
 | ADRs relevantes | `docs/adr/0001` — `docs/adr/0008` |
-| Repositorio | github.com/[org]/craft (pendiente publicación) |
+| Repositorio | github.com/bettogamer/craft |
 | Prompts utilizados | PR-FSD-001 (generación inicial via Claude Code) |
 
 ---
@@ -140,16 +140,16 @@ Craft_Browser/
 
 | Task ID | Descripción | Caso de uso | Dependencias | Estado |
 |---------|-------------|-------------|--------------|--------|
-| T-001 | Implementar Craft.lua: LibStub registration, namespace base, módulos loader | FSD-UC-001 | — | pendiente |
-| T-002 | Implementar Craft.Theme: token table, use(), get(), register(), unregister(), extend() | FSD-UC-003 | T-001 | pendiente |
-| T-003 | Implementar Presets.lua: lyra-dark y lyra-light con tokens semánticos completos | FSD-UC-003 | T-002 | pendiente |
-| T-004 | Implementar Craft.Icons: Get(), resolución desde Craft/media/, Atlas.lua con coords UV | FSD-UC-001 | T-001 | pendiente |
-| T-005 | Implementar Craft.Flex: motor Flexbox en Lua 5.1 con todos los atributos MVP | FSD-UC-002 | T-001 | pendiente |
-| T-006 | Implementar Button con contrato estándar (Create, Destroy, _applyTheme) | FSD-UC-002 | T-002, T-004 | pendiente |
-| T-007 | Implementar Input, Label, Checkbox con contrato estándar | FSD-UC-002 | T-002, T-004 | pendiente |
-| T-008 | Implementar Panel, Scroll, Separator con contrato estándar | FSD-UC-001 | T-002 | pendiente |
-| T-009 | Implementar Select, Slider, Tabs con contrato estándar | — | T-002, T-004, T-005 | pendiente |
-| T-010 | Implementar Dialog, Sidebar, Tooltip con contrato estándar | — | T-002, T-004, T-005 | pendiente |
+| T-001 | Implementar Craft.lua: LibStub registration, namespace base, módulos loader | FSD-UC-001 | — | ✅ completado |
+| T-002 | Implementar Craft.Theme: token table, use(), get(), register(), unregister(), extend() | FSD-UC-003 | T-001 | ✅ completado |
+| T-003 | Implementar Presets.lua: lyra-dark con tokens semánticos completos | FSD-UC-003 | T-002 | ✅ completado |
+| T-004 | Implementar Craft.Icons: Get(), resolución desde Craft/media/, Atlas.lua con coords UV | FSD-UC-001 | T-001 | ✅ completado |
+| T-005 | Implementar Craft.Flex: motor Flexbox en Lua 5.1 con todos los atributos MVP | FSD-UC-002 | T-001 | ✅ completado |
+| T-006 | Implementar Button con contrato estándar (Create, Destroy, _applyTheme) | FSD-UC-002 | T-002, T-004 | ✅ completado |
+| T-007 | Implementar Input, Label, Checkbox con contrato estándar | FSD-UC-002 | T-002, T-004 | ✅ completado |
+| T-008 | Implementar Panel, Scroll, Separator con contrato estándar | FSD-UC-001 | T-002 | ✅ completado |
+| T-009 | Implementar Select, Slider, Tabs con contrato estándar | — | T-002, T-004, T-005 | ✅ completado |
+| T-010 | Implementar Dialog, Sidebar, Tooltip con contrato estándar | — | T-002, T-004, T-005 | ✅ completado |
 | T-011 | Generar atlas TGA de Lucide y empaquetar Inter.ttf en Craft/media/ | FSD-UC-001 | T-004 | pendiente |
 | T-012 | Implementar Craft_Browser: showcase interactivo de 16 componentes | — | T-006–T-010, T-011 | pendiente |
 | T-013 | Suite de pruebas anti-taint en Retail 11.x y Classic | — | T-006–T-010 | pendiente |

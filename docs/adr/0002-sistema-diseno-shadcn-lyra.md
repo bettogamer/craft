@@ -72,7 +72,7 @@ La elección se sostiene en:
 - **Referencia objetiva y pública**: cada token tiene un valor exacto en la especificación de shadcn. Sin debates de diseño.
 - **Radius = None es coherente con WoW**: los frames de WoW son rectangulares por defecto. La estética square encaja con el paradigma visual del juego sin requerir texturas TGA para rounded corners.
 
-La versión de referencia de Lyra se fija a la configuración capturada en mayo 2026 (imagen de referencia archivada en `docs/assets/lyra-config-reference.png`). Cambios en Lyra son breaking changes en Craft y requieren nueva ADR y major version bump.
+La versión de referencia de Lyra se fija a la configuración capturada en mayo 2026 . Cambios en Lyra son breaking changes en Craft y requieren nueva ADR y major version bump.
 
 ---
 
