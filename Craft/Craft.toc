@@ -2,7 +2,7 @@
 ## Title: Craft
 ## Version: @project-version@
 ## Notes: Modern UI component library for WoW addons (shadcn Lyra style)
-## Author: Alberto Gomez
+## Author: bettogamer
 ## X-License: MIT
 ## X-Craft-Build: @build-date@
 

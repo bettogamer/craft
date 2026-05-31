@@ -105,7 +105,7 @@ El `.toc` debe declarar la versión de WoW interface que soporta:
 ## Title: Craft
 ## Version: @project-version@
 ## Notes: Modern UI component library for WoW addons
-## Author: Alberto Gomez
+## Author: bettogamer
 ## X-License: MIT
 ## X-Craft-Build: @build-date@
 ```

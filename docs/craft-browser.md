@@ -42,7 +42,7 @@ Craft_Browser/
 ## Interface: 120000
 ## Title: Craft Browser
 ## Notes: Interactive showcase of Craft UI components
-## Author: Alberto Gomez
+## Author: bettogamer
 ## Version: @project-version@
 ## X-License: MIT
 ## SavedVariables: CraftBrowserDB
