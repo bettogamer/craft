@@ -183,9 +183,10 @@ function Dialog:_layoutFrames(t)
     local xs = t.spacingXs   -- 4px  — gap-1 inside header
 
     -- ── _bg inset 1px ──────────────────────────────────────────────────────
+    local px1 = Craft.Theme.px(1, self.frame)
     self._bg:ClearAllPoints()
-    self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",      1, -1)
-    self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -1,  1)
+    self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     px1, -px1)
+    self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1, px1)
 
     -- ── Close button: top-2 right-2 from the inner frame edge ──────────────
     self._closeBtn:ClearAllPoints()

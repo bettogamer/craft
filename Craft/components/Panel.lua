@@ -106,9 +106,10 @@ function Panel:_layoutFrames(t)
     local xs  = t.spacingXs        -- 4px  — gap-1 inside header
 
     -- ── Anchor _bg inset 1px (ring pattern) ────────────────────────────────
+    local px1 = Craft.Theme.px(1, self.frame)
     self._bg:ClearAllPoints()
-    self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",      1, -1)
-    self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -1,  1)
+    self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     px1, -px1)
+    self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1, px1)
 
     -- ── Header ─────────────────────────────────────────────────────────────
     local hasHeader = self._cfg.title ~= nil

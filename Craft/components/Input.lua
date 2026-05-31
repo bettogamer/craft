@@ -204,13 +204,13 @@ function Input:_applyTheme(t)
     if self._cfg.disabled then
         self._edit:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
         self._placeholder:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
-        -- Fondo disabled dark: input/80 = {r=1,g=1,b=1,a=0.12}
-        self._bg:SetColorTexture(1, 1, 1, 0.12)
+        -- Fondo disabled dark: input/80
+        self._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a * 0.80)
     else
         self._edit:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
         self._placeholder:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
-        -- Fondo default: input/30 = {r=1,g=1,b=1,a=0.045}
-        self._bg:SetColorTexture(1, 1, 1, 0.045)
+        -- Fondo default: input/30
+        self._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a * 0.30)
     end
 
     -- Íconos: color = mutedForeground
@@ -275,6 +275,7 @@ end
 
 function Input:SetEnabled(enabled)
     self._cfg.disabled = not enabled
+    self.frame:SetAlpha(enabled and 1 or 0.5)  -- disabled:opacity-50 en frame entero
     if enabled then
         self._edit:EnableMouse(true)
         self._edit:SetEnabled(true)

@@ -64,6 +64,7 @@ end
 
 -- ─── Internal theme application ────────────────────────────────────────────
 function TT._applyThemeToFrame(t)
+    TT._t = t
     if not _tooltip then return end
     _tooltip._bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
     _tooltip._text:SetFont(t.font, FONT_SIZE)
@@ -114,7 +115,7 @@ local function _layoutTooltip(config)
         f._text:SetPoint("TOPLEFT", f._icon, "TOPRIGHT", ICON_GAP, 0)
 
         -- Tint icon with popover foreground
-        local t = Craft.Theme.get()
+        local t = TT._t or Craft.Theme.get()
         f._icon:SetVertexColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b, 1)
         f._icon:Show()
     else

@@ -140,16 +140,16 @@ function Checkbox:_refreshVisual()
             self:_setBorderColor(t.border.r, t.border.g, t.border.b, t.border.a or 0.1)
         end
         -- bg = input/30
-        self._bg:SetColorTexture(1, 1, 1, 0.045)
+        self._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a * 0.30)
         self._check:Hide()
         self._dash:Hide()
     end
 
-    -- Disabled alpha en el _box completo
+    -- Disabled alpha en el frame raíz completo
     if self._cfg.disabled then
-        self._box:SetAlpha(0.5)
+        self.frame:SetAlpha(0.5)
     else
-        self._box:SetAlpha(1)
+        self.frame:SetAlpha(1)
     end
 end
 
@@ -242,13 +242,13 @@ function Checkbox:SetEnabled(enabled)
     self._cfg.disabled = not enabled
     if enabled then
         self.frame:EnableMouse(true)
-        self._box:SetAlpha(1)
+        self.frame:SetAlpha(1)
         if self._t then
             self._label:SetTextColor(self._t.foreground.r, self._t.foreground.g, self._t.foreground.b)
         end
     else
         self.frame:EnableMouse(false)
-        self._box:SetAlpha(0.5)
+        self.frame:SetAlpha(0.5)
         if self._t then
             self._label:SetTextColor(self._t.mutedForeground.r, self._t.mutedForeground.g, self._t.mutedForeground.b)
         end

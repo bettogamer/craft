@@ -36,9 +36,6 @@ local ITEM_FONT       = 12   -- text-xs
 local MAX_ITEMS_VIS   = 6    -- max visible antes de scroll
 local CHECK_SIZE      = 12   -- checkmark icon 12px
 
--- bg input/30 y hover input/50 — input = {r=1,g=1,b=1}
-local BG_ALPHA        = 0.045  -- input/30 ≈ 0.30 * 0.15 (alpha compuesta)
-local BG_HOVER_ALPHA  = 0.075  -- input/50 ≈ 0.50 * 0.15
 
 -- ─── Create ───────────────────────────────────────────────────────────────────
 function Select:Create(parent, config)
@@ -110,12 +107,14 @@ function Select:Create(parent, config)
     -- ── Scripts del trigger ───────────────────────────────────────────────────
     self._trigger:SetScript("OnEnter", function()
         if not self._cfg.disabled then
-            self._triggerBg:SetColorTexture(1, 1, 1, BG_HOVER_ALPHA)
+            local t = self._t
+            self._triggerBg:SetColorTexture(t and t.input.r or 1, t and t.input.g or 1, t and t.input.b or 1, self._bgHoverAlpha or 0.075)
         end
     end)
     self._trigger:SetScript("OnLeave", function()
         if not self._cfg.disabled then
-            self._triggerBg:SetColorTexture(1, 1, 1, BG_ALPHA)
+            local t = self._t
+            self._triggerBg:SetColorTexture(t and t.input.r or 1, t and t.input.g or 1, t and t.input.b or 1, self._bgAlpha or 0.045)
         end
     end)
     self._trigger:SetScript("OnClick", function()
@@ -270,6 +269,10 @@ end
 function Select:_applyTheme(t)
     self._t = t
 
+    -- Cachear alphas derivadas del token input (bg input/30 y hover input/50)
+    self._bgAlpha      = t.input.a * 0.30   -- input/30
+    self._bgHoverAlpha = t.input.a * 0.50   -- input/50
+
     local px1 = Craft.Theme.px(1, self._trigger)
 
     -- Fuente del trigger
@@ -287,7 +290,7 @@ function Select:_applyTheme(t)
     -- _triggerBg inset 1px — input/30
     self._triggerBg:SetPoint("TOPLEFT",     self._trigger, "TOPLEFT",     px1,  -px1)
     self._triggerBg:SetPoint("BOTTOMRIGHT", self._trigger, "BOTTOMRIGHT", -px1,  px1)
-    self._triggerBg:SetColorTexture(1, 1, 1, BG_ALPHA)
+    self._triggerBg:SetColorTexture(t.input.r, t.input.g, t.input.b, self._bgAlpha)
 
     -- Posición del _selectedText: pl=10px, pr deja espacio al chevron (16px + gap)
     self._selectedText:ClearAllPoints()
@@ -407,10 +410,10 @@ function Select:SetEnabled(enabled)
     self._cfg.disabled = not enabled
     if enabled then
         self._trigger:EnableMouse(true)
-        self._trigger:SetAlpha(1)
+        self.frame:SetAlpha(1)
     else
         self._trigger:EnableMouse(false)
-        self._trigger:SetAlpha(0.5)
+        self.frame:SetAlpha(0.5)
         self:Close()
     end
 end
