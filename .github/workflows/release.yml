@@ -83,13 +83,14 @@ jobs:
       - name: Embed Craft into Craft_Browser
         run: |
           mkdir -p Craft_Browser/libs
-          # LibStub en su propio folder (convención estándar WoW)
+          # LibStub en su propio folder LibStub/ (convención estándar WoW)
           mkdir -p Craft_Browser/libs/LibStub
           cp Craft/libs/LibStub.lua Craft_Browser/libs/LibStub/LibStub.lua
-          # Craft sin su propia carpeta libs/ (LibStub ya está arriba)
+          # Craft — copiar sin la carpeta libs/ interna (LibStub ya está en libs/LibStub/)
           cp -r Craft/ Craft_Browser/libs/Craft/
-          echo "✅ Craft embedded in Craft_Browser/libs/Craft/"
-          echo "✅ LibStub at Craft_Browser/libs/LibStub/LibStub.lua"
+          rm -rf Craft_Browser/libs/Craft/libs/
+          echo "✅ LibStub → Craft_Browser/libs/LibStub/LibStub.lua"
+          echo "✅ Craft   → Craft_Browser/libs/Craft/ (sin libs/ interno)"
           ls Craft_Browser/libs/
 
       # ─── Craft.zip para GitHub Release (para developers) ─────────────────
