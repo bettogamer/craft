@@ -21,6 +21,7 @@ function Slider:Create(parent, config)
     local self = setmetatable({}, Slider)
 
     config = config or {}
+    self._cfg      = config
     self._min      = config.min      or 0
     self._max      = config.max      or 100
     self._step     = config.step     or 1
@@ -28,23 +29,21 @@ function Slider:Create(parent, config)
     self._disabled = config.disabled or false
     self._onChange = config.onChange
     self._updating = false
+    self._dragging = false
 
-    -- Root frame — 32px tall, width set by dev
+    -- Root frame — 32px tall normally, 48px when showValue=true
+    local frameH = config.showValue and 48 or FRAME_H
     self.frame = CreateFrame("Frame", nil, parent)
-    self.frame:SetHeight(FRAME_H)
+    self.frame:SetHeight(frameH)
 
-    -- Track: 4px tall, centered vertically, full width
-    -- Anchor LEFT+RIGHT for width; vertical center via a single midpoint anchor.
-    -- FRAME_H=32, TRACK_H=4 → vertical offset = -(32/2 - 4/2) = -14 from top,
-    -- but we express this as CENTER anchor which only controls Y when combined with
-    -- explicit width anchors. Correct WoW pattern: LEFT+RIGHT sets width, CENTER
-    -- Y sets vertical position (height still controlled by SetPixelHeight).
+    -- Track: 4px tall; when showValue=true the track sits in the lower 32px of the
+    -- 48px frame (i.e. 24px from top), otherwise it is vertically centered.
+    local trackOffsetY = config.showValue and 24 or (frameH / 2)
     self._track = CreateFrame("Frame", nil, self.frame)
     self._track:SetPoint("LEFT",  self.frame, "LEFT",  0, 0)
     self._track:SetPoint("RIGHT", self.frame, "RIGHT", 0, 0)
     Craft.Theme.SetPixelHeight(self._track, TRACK_H)
-    -- Vertically center by positioning top edge at (FRAME_H - TRACK_H) / 2 from top
-    self._track:SetPoint("TOP", self.frame, "TOP", 0, -((FRAME_H - TRACK_H) / 2))
+    self._track:SetPoint("TOP", self.frame, "TOP", 0, -(trackOffsetY - math.floor(TRACK_H / 2)))
 
     self._trackBg = self._track:CreateTexture(nil, "BACKGROUND")
     self._trackBg:SetAllPoints(self._track)
@@ -89,11 +88,18 @@ function Slider:Create(parent, config)
         self._valueLabel = self.frame:CreateFontString(nil, "OVERLAY")
     end
 
+    -- Min/Max labels (opcionales)
+    self._minLabel = self.frame:CreateFontString(nil, "OVERLAY")
+    self._minLabel:Hide()
+    self._maxLabel = self.frame:CreateFontString(nil, "OVERLAY")
+    self._maxLabel:Hide()
+
     -- Interaction scripts
     self._thumb:SetScript("OnEnter", function() self:_onThumbEnter() end)
     self._thumb:SetScript("OnLeave", function() self:_onThumbLeave() end)
 
     self._thumb:SetScript("OnMouseDown", function()
+        self._dragging = true
         self._thumb:SetScript("OnUpdate", function()
             local cx        = GetCursorPosition() / self._track:GetEffectiveScale()
             local trackLeft = self._track:GetLeft() or 0
@@ -107,6 +113,7 @@ function Slider:Create(parent, config)
     end)
 
     self._thumb:SetScript("OnMouseUp", function()
+        self._dragging = false
         self._thumb:SetScript("OnUpdate", nil)
     end)
 
@@ -175,11 +182,28 @@ function Slider:_updateVisuals()
     self._thumb:ClearAllPoints()
     self._thumb:SetPoint("CENTER", self._track, "LEFT", thumbOffset + THUMB_SZ / 2, 0)
 
-    -- Value label
+    -- Value label: when showValue=true, float above the thumb
     if self._valueLabel then
         self._valueLabel:SetText(tostring(self._value))
         self._valueLabel:ClearAllPoints()
-        self._valueLabel:SetPoint("TOPLEFT", self._track, "BOTTOMLEFT", 0, -4)
+        if self._cfg.showValue then
+            self._valueLabel:SetPoint("BOTTOM", self._thumb, "TOP", 0, 4)
+        else
+            self._valueLabel:SetPoint("TOPLEFT", self._track, "BOTTOMLEFT", 0, -4)
+        end
+    end
+
+    -- Min/Max labels
+    if self._cfg.showMinMax then
+        self._minLabel:SetText(tostring(self._min))
+        self._maxLabel:SetText(tostring(self._max))
+        self._minLabel:SetPoint("TOPRIGHT", self._track, "BOTTOMLEFT", 0, -2)
+        self._maxLabel:SetPoint("TOPLEFT",  self._track, "BOTTOMRIGHT", 0, -2)
+        self._minLabel:Show()
+        self._maxLabel:Show()
+    else
+        if self._minLabel then self._minLabel:Hide() end
+        if self._maxLabel then self._maxLabel:Hide() end
     end
 end
 
@@ -191,6 +215,15 @@ function Slider:_applyTheme(t)
     if self._valueLabel then
         self._valueLabel:SetFont(t.font, t.fontSize or 12)
         self._valueLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+    end
+
+    if self._minLabel then
+        self._minLabel:SetFont(t.font, t.fontSizeSm)
+        self._minLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+    end
+    if self._maxLabel then
+        self._maxLabel:SetFont(t.font, t.fontSizeSm)
+        self._maxLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     end
 
     -- Track bg = t.muted
@@ -259,7 +292,9 @@ function Slider:_onThumbEnter()
 end
 
 function Slider:_onThumbLeave()
-    self._thumbRing:Hide()
+    if not self._dragging then
+        self._thumbRing:Hide()
+    end
 end
 
 -- ─── API pública ───────────────────────────────────────────────────────────
@@ -292,6 +327,10 @@ function Slider:SetRange(min, max)
     self._max = max
     -- Re-clamp current value
     self._value = math.max(self._min, math.min(self._max, self._value))
+    if self._cfg.showMinMax and self._minLabel then
+        self._minLabel:SetText(tostring(min))
+        self._maxLabel:SetText(tostring(max))
+    end
     self:_updateVisuals()
 end
 

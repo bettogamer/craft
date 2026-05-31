@@ -40,9 +40,13 @@ local function _getTooltipFrame()
     _tooltip:SetClampedToScreen(true)
     _tooltip:Hide()
 
-    -- Background texture
+    -- Ring (1px border around the tooltip, drawn behind the bg)
+    _tooltip._ring = _tooltip:CreateTexture(nil, "BACKGROUND")
+    -- Colored in _applyThemeToFrame; occupies the full frame area
+
+    -- Background texture (inset 1px inside the ring)
     _tooltip._bg = _tooltip:CreateTexture(nil, "BACKGROUND")
-    _tooltip._bg:SetAllPoints(_tooltip)
+    -- Positioned in _applyThemeToFrame
 
     -- Icon texture (optional, shown when config.icon is set)
     _tooltip._icon = _tooltip:CreateTexture(nil, "ARTWORK")
@@ -66,7 +70,22 @@ end
 function TT._applyThemeToFrame(t)
     TT._t = t
     if not _tooltip then return end
-    _tooltip._bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
+
+    -- Ring: full frame, t.border color
+    if _tooltip._ring then
+        _tooltip._ring:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
+        _tooltip._ring:SetAllPoints(_tooltip)
+    end
+
+    -- Background: inset 1px inside the ring
+    if _tooltip._bg then
+        local px1 = Craft.Theme.px(1)
+        _tooltip._bg:ClearAllPoints()
+        _tooltip._bg:SetPoint("TOPLEFT",     _tooltip, "TOPLEFT",     px1,  -px1)
+        _tooltip._bg:SetPoint("BOTTOMRIGHT", _tooltip, "BOTTOMRIGHT", -px1,  px1)
+        _tooltip._bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
+    end
+
     _tooltip._text:SetFont(t.font, FONT_SIZE)
     _tooltip._text:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
 end
@@ -147,6 +166,7 @@ end
 -- ─── Pending timer handle ──────────────────────────────────────────────────
 -- We track a pending show so we can cancel it on OnLeave before it fires.
 local _pendingAnchor = nil
+local _pendingTimer  = nil  -- C_Timer handle, cancellable via :Cancel()
 
 -- ─── Show / Hide ───────────────────────────────────────────────────────────
 function TT.Show(anchor, config)
@@ -162,24 +182,28 @@ end
 
 function TT.Hide()
     _pendingAnchor = nil
+    if _pendingTimer then
+        if _pendingTimer.Cancel then _pendingTimer:Cancel() end
+        _pendingTimer = nil
+    end
     if _tooltip then
         _tooltip:Hide()
     end
 end
 
 -- ─── Attach / Detach ───────────────────────────────────────────────────────
--- Attaches OnEnter/OnLeave scripts to a frame to auto-show/hide the tooltip.
--- The frame's existing scripts are NOT clobbered: we stack on top using
--- a dedicated table of tooltip-owned hooks keyed by frame reference.
+-- Attaches tooltip behaviour to a frame via HookScript so pre-existing
+-- OnEnter/OnLeave scripts on the frame are preserved automatically.
 --
--- Because WoW Lua has no proper multi-script support in the API, we store
--- Craft-owned hooks separately and set a single script wrapper that calls
--- through to any pre-existing script first.
+-- Note: WoW does not provide a way to unregister a HookScript. Detach()
+-- removes the frame from the _attached registry; the hook closures check
+-- this registry before acting, so a detached frame is silently ignored.
 
--- Registry: frame → {onEnter, onLeave, prevOnEnter, prevOnLeave}
+-- Registry: set of frames that currently have tooltip hooks active.
 local _attached = {}
 
 function TT.Attach(frame, config)
+    -- If already attached, detach first to reset the config.
     if _attached[frame] then
         TT.Detach(frame)
     end
@@ -187,19 +211,19 @@ function TT.Attach(frame, config)
     config = config or {}
     local delay = config.delay or 300
 
-    local prevEnter = frame:GetScript("OnEnter")
-    local prevLeave = frame:GetScript("OnLeave")
+    _attached[frame] = true
 
-    frame:SetScript("OnEnter", function(self, ...)
-        if prevEnter then prevEnter(self, ...) end
+    frame:HookScript("OnEnter", function()
+        -- Ignore if this frame was later detached.
+        if not _attached[frame] then return end
 
         _pendingAnchor = frame
         local capturedAnchor = frame
         local capturedConfig = config
 
         if delay > 0 then
-            C_Timer.After(delay / 1000, function()
-                -- Only show if the cursor is still over this anchor
+            _pendingTimer = C_Timer.After(delay / 1000, function()
+                -- Only show if the cursor is still over this anchor.
                 if _pendingAnchor == capturedAnchor then
                     TT.Show(capturedAnchor, capturedConfig)
                 end
@@ -209,32 +233,28 @@ function TT.Attach(frame, config)
         end
     end)
 
-    frame:SetScript("OnLeave", function(self, ...)
-        if prevLeave then prevLeave(self, ...) end
+    frame:HookScript("OnLeave", function()
+        -- Ignore if this frame was later detached.
+        if not _attached[frame] then return end
+
         if _pendingAnchor == frame then
             _pendingAnchor = nil
         end
         TT.Hide()
     end)
-
-    _attached[frame] = {
-        prevOnEnter = prevEnter,
-        prevOnLeave = prevLeave,
-    }
 end
 
 function TT.Detach(frame)
-    local entry = _attached[frame]
-    if not entry then return end
-
-    -- Restore previous scripts (may be nil, which clears the script)
-    frame:SetScript("OnEnter", entry.prevOnEnter)
-    frame:SetScript("OnLeave", entry.prevOnLeave)
+    if not _attached[frame] then return end
 
     _attached[frame] = nil
 
-    -- If this frame was the pending anchor, cancel the pending show
+    -- If this frame was the pending anchor, cancel any queued show.
     if _pendingAnchor == frame then
         _pendingAnchor = nil
+        if _pendingTimer then
+            if _pendingTimer.Cancel then _pendingTimer:Cancel() end
+            _pendingTimer = nil
+        end
     end
 end

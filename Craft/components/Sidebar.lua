@@ -38,7 +38,7 @@ local ITEM_FONT      = 12   -- text-xs
 local ICON_SIZE      = 16
 local GROUP_H        = 32   -- h-8
 local GROUP_PX       = 8    -- px-2
-local GROUP_FONT     = 11   -- text-xs (fontSizeSm)
+local GROUP_FONT     = 12   -- text-xs (fontSizeSm)
 local GROUP_ALPHA    = 0.7  -- sidebarForeground/70
 local SEPARATOR_MX   = 8    -- mx-2  (usado en separators: inset horizontal)
 
@@ -244,7 +244,7 @@ function Sidebar:AddSection(label)
     labelFs:SetPoint("BOTTOM", secFrame, "BOTTOM", 0, 0)
     labelFs:SetJustifyH("LEFT")
     labelFs:SetJustifyV("MIDDLE")
-    labelFs:SetText(label or "")
+    labelFs:SetText(string.upper(label or ""))
 
     if t then
         labelFs:SetFont(t.font, GROUP_FONT)

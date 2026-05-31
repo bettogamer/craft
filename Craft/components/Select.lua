@@ -218,7 +218,7 @@ function Select:_buildItems()
             local tt = self._t
             if not tt then return end
             if self._cfg.value == optValue then
-                itemBg:SetColorTexture(tt.accent.r, tt.accent.g, tt.accent.b, 0.5)
+                itemBg:SetColorTexture(tt.primary.r, tt.primary.g, tt.primary.b, 1)
             else
                 itemBg:SetColorTexture(0, 0, 0, 0)
             end
@@ -257,10 +257,12 @@ function Select:_refreshItemStates()
     for _, item in ipairs(self._items) do
         if item.value == self._cfg.value then
             item.checkmark:Show()
-            item.bg:SetColorTexture(t.accent.r, t.accent.g, t.accent.b, 0.5)
+            item.bg:SetColorTexture(t.primary.r, t.primary.g, t.primary.b, 1)
+            item.text:SetTextColor(t.primaryForeground.r, t.primaryForeground.g, t.primaryForeground.b)
         else
             item.checkmark:Hide()
             item.bg:SetColorTexture(0, 0, 0, 0)
+            item.text:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
         end
     end
 end
@@ -374,10 +376,19 @@ function Select:Open()
 
     -- Anclar el panel bajo el trigger
     self._panel:ClearAllPoints()
-    self._panel:SetPoint("TOPLEFT", self._trigger, "BOTTOMLEFT", 0, 0)
+    self._panel:SetPoint("TOPLEFT", self._trigger, "BOTTOMLEFT", 0, -2)
 
     -- Scroll al inicio
     self._scroll:SetVerticalScroll(0)
+
+    -- Chevron: indicar estado abierto
+    Craft.Icons.Apply(self._chevron, "chevron-up", 16)
+
+    -- Border del trigger: t.ring mientras el panel está abierto
+    local t = self._t
+    if t then
+        self._triggerBorder:SetColorTexture(t.ring.r, t.ring.g, t.ring.b, t.ring.a)
+    end
 
     self._panel:Show()
 end
@@ -386,6 +397,15 @@ function Select:Close()
     if not self._open then return end
     self._open = false
     self._panel:Hide()
+
+    -- Chevron: restaurar estado cerrado
+    Craft.Icons.Apply(self._chevron, "chevron-down", 16)
+
+    -- Border del trigger: restaurar a t.input
+    local t = self._t
+    if t then
+        self._triggerBorder:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a or 0.15)
+    end
 end
 
 -- ─── API pública ──────────────────────────────────────────────────────────────

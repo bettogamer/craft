@@ -192,11 +192,13 @@ function Dialog:_layoutFrames(t)
     self._closeBtn:ClearAllPoints()
     self._closeBtn:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -sm, -sm)
 
-    -- ── Title ──────────────────────────────────────────────────────────────
+    -- ── Header height: calculated from its contents ────────────────────────
+    local headerH = lg  -- padding top
     self._title:ClearAllPoints()
     -- Right edge leaves room for the close button (8px + 24px + 8px = 40px)
     self._title:SetPoint("TOPLEFT",  self._header, "TOPLEFT",   lg, -lg)
     self._title:SetPoint("TOPRIGHT", self._header, "TOPRIGHT", -(lg + 24 + sm), -lg)
+    headerH = headerH + (t.fontSizeLg or 14) + xs
 
     -- ── Description ────────────────────────────────────────────────────────
     self._desc:ClearAllPoints()
@@ -204,9 +206,12 @@ function Dialog:_layoutFrames(t)
         self._desc:SetPoint("TOPLEFT",  self._title, "BOTTOMLEFT",  0, -xs)
         self._desc:SetPoint("TOPRIGHT", self._title, "BOTTOMRIGHT", 0, -xs)
         self._desc:Show()
+        headerH = headerH + (t.fontSize or 12) + xs
     else
         self._desc:Hide()
     end
+    headerH = headerH + sm  -- padding bottom
+    self._header:SetHeight(headerH)
 
     -- ── Content ────────────────────────────────────────────────────────────
     self._content:ClearAllPoints()

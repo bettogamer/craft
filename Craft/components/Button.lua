@@ -42,7 +42,7 @@ function Button:Create(parent, config)
 
     -- _border: Texture que ocupa todo el frame — muestra el color del borde
     -- Por defecto transparente (border-transparent); visible en variant=outline y error
-    self._border = self.frame:CreateTexture(nil, "BACKGROUND")
+    self._border = self.frame:CreateTexture(nil, "BORDER")
     self._border:SetAllPoints(self.frame)
 
     -- _bg: Texture inset 1px — ocupa el interior del borde

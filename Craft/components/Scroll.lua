@@ -24,6 +24,9 @@ function Scroll:Create(parent, config)
     local self = setmetatable({}, Scroll)
 
     config = config or {}
+    self._cfg = {
+        onScroll = config.onScroll,
+    }
 
     -- Root frame — sized by dev
     self.frame = CreateFrame("Frame", nil, parent)
@@ -79,6 +82,9 @@ function Scroll:Create(parent, config)
 
     self._scrollThumb:SetScript("OnMouseDown", function()
         self._thumbDragging = true
+        if self._t then
+            self._thumbTex:SetColorTexture(self._t.primary.r, self._t.primary.g, self._t.primary.b, 1)
+        end
         self._thumbDragStartY      = GetCursorPosition() / self._scrollbar:GetEffectiveScale()
         self._thumbDragStartScroll = self._scrollFrame:GetVerticalScroll()
         self._scrollThumb:SetScript("OnUpdate", function()
@@ -136,7 +142,12 @@ function Scroll:Create(parent, config)
 
     -- Sync scrollbar when scroll position or range changes
     self._scrollFrame:SetScript("OnScrollRangeChanged", function() self:_updateScrollbar() end)
-    self._scrollFrame:SetScript("OnVerticalScroll",     function() self:_updateScrollbar() end)
+    self._scrollFrame:SetScript("OnVerticalScroll", function()
+        self:_updateScrollbar()
+        if self._cfg.onScroll then
+            self._cfg.onScroll(self._scrollFrame:GetVerticalScroll())
+        end
+    end)
 
     -- Register theming
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
@@ -215,6 +226,15 @@ end
 -- The dev is responsible for setting the child's height after adding content.
 function Scroll:GetScrollChild()
     return self._child
+end
+
+-- Reparents a frame into the scroll child and updates the child height so
+-- the scroll range works correctly.
+function Scroll:SetScrollChild(frame)
+    frame:SetParent(self._child)
+    frame:SetPoint("TOPLEFT", self._child, "TOPLEFT", 0, 0)
+    -- Actualizar height del _child para que el scroll range funcione
+    self._child:SetHeight(math.max(self._scrollFrame:GetHeight(), frame:GetHeight()))
 end
 
 function Scroll:ScrollToTop()

@@ -141,11 +141,15 @@ function Flex:Layout()
             end
         end
     elseif freeSpace < 0 then
-        local totalShrink = 0
-        for _, item in ipairs(sorted) do totalShrink = totalShrink + item.shrink end
+        -- Shrink ponderado por basis (CSS Flexbox spec §9.7)
+        local totalShrinkWeighted = 0
         for _, item in ipairs(sorted) do
-            if totalShrink > 0 and item.shrink > 0 then
-                sizes[item] = math.max(0, bases[item] + freeSpace * (item.shrink / totalShrink))
+            totalShrinkWeighted = totalShrinkWeighted + item.shrink * bases[item]
+        end
+        for _, item in ipairs(sorted) do
+            if totalShrinkWeighted > 0 and item.shrink > 0 then
+                local weight = (item.shrink * bases[item]) / totalShrinkWeighted
+                sizes[item] = math.max(0, bases[item] + freeSpace * weight)
             else
                 sizes[item] = bases[item]
             end
@@ -154,6 +158,61 @@ function Flex:Layout()
         for _, item in ipairs(sorted) do
             sizes[item] = bases[item]
         end
+    end
+
+    -- 3b. Wrap básico: direction="row", wrap="wrap" — agrupa items en líneas
+    -- TODO: wrap-reverse, align-content, justify-content por línea
+    if cfg.wrap ~= "nowrap" and isRow then
+        local lines = {}
+        local currentLine = {}
+        local currentLineSize = 0
+        for _, item in ipairs(sorted) do
+            local itemSize = sizes[item]
+            local needsGap = #currentLine > 0 and gap or 0
+            if #currentLine > 0 and currentLineSize + needsGap + itemSize > mainSize then
+                table.insert(lines, currentLine)
+                currentLine = { item }
+                currentLineSize = itemSize
+            else
+                table.insert(currentLine, item)
+                currentLineSize = currentLineSize + needsGap + itemSize
+            end
+        end
+        if #currentLine > 0 then table.insert(lines, currentLine) end
+
+        -- Layout cada línea con flex-start; offset Y acumulado por línea
+        local yOffset = pV
+        for _, line in ipairs(lines) do
+            local lineHeight = 0
+            local lineCursor = pH
+            for _, item in ipairs(line) do
+                local itemMain  = math.floor(sizes[item])
+                local itemCross = item.frame:GetHeight()
+                lineHeight = math.max(lineHeight, itemCross)
+
+                local crossAlign = item.alignSelf ~= "auto" and item.alignSelf or cfg.align
+                local crossPos
+                if crossAlign == "flex-end" then
+                    crossPos = math.floor(lineHeight - itemCross)
+                elseif crossAlign == "center" then
+                    crossPos = math.floor((lineHeight - itemCross) / 2)
+                elseif crossAlign == "stretch" then
+                    crossPos = 0
+                    item.frame:SetHeight(lineHeight)
+                else  -- flex-start / baseline
+                    crossPos = 0
+                end
+
+                item.frame:ClearAllPoints()
+                item.frame:SetWidth(itemMain)
+                item.frame:SetPoint("TOPLEFT", self._container, "TOPLEFT",
+                    math.floor(lineCursor), -math.floor(yOffset + crossPos))
+
+                lineCursor = lineCursor + itemMain + gap
+            end
+            yOffset = yOffset + lineHeight + gap
+        end
+        return  -- skip layout normal
     end
 
     -- 4. Calcular posición de inicio en eje principal según justify-content
@@ -208,7 +267,7 @@ function Flex:Layout()
         elseif crossAlign == "stretch" then
             crossPos  = 0
             itemCross = math.floor(crossSize)
-        else  -- flex-start
+        else  -- flex-start / baseline ("baseline" tratado como "flex-start"; WoW no tiene baseline nativo)
             itemCross = isRow and item.frame:GetHeight() or item.frame:GetWidth()
             crossPos  = 0
         end
@@ -245,4 +304,15 @@ function Flex:Layout()
             cursor = cursor + itemMain + itemGap
         end
     end
+end
+
+-- ─── GetItems() ────────────────────────────────────────────────────────────
+-- Retorna copia read-only del array de items.
+
+function Flex:GetItems()
+    local copy = {}
+    for i, item in ipairs(self._items) do
+        copy[i] = item
+    end
+    return copy
 end

@@ -23,6 +23,7 @@ function Panel:Create(parent, config)
         title       = config.title,
         description = config.description,
         padding     = config.padding ~= nil and config.padding or 16,
+        footer      = config.footer,
     }
 
     -- ── Root frame ─────────────────────────────────────────────────────────
@@ -73,6 +74,12 @@ function Panel:Create(parent, config)
     self._footer:SetPoint("BOTTOMLEFT",  self.frame, "BOTTOMLEFT",  0, 0)
     self._footer:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
     self._footer:Hide()
+
+    -- If a pre-built frame was passed as config.footer, reparent it into _footer.
+    if config.footer then
+        config.footer:SetParent(self._footer)
+        config.footer:SetAllPoints(self._footer)
+    end
 
     -- Footer top separator (border-t, ADR-0011)
     self._footerBorder = CreateFrame("Frame", nil, self._footer)

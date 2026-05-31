@@ -8,7 +8,7 @@
 -- Trigger: px=6px, py=2px, text-xs=12px, border-transparent default
 -- Active: bg=t.secondary, text=t.foreground
 -- Inactive: text=t.mutedForeground
--- List bg: t.secondary
+-- List bg: t.muted
 -- No underline indicator (Lyra uses data-active bg change only)
 
 local Craft = LibStub("Craft-1.0")
@@ -39,7 +39,7 @@ function Tabs:Create(parent, config)
     -- Root frame
     self.frame = CreateFrame("Frame", nil, parent)
 
-    -- Tab list: 32px tall, full width, bg=t.secondary
+    -- Tab list: 32px tall, full width, bg=t.muted
     self._list = CreateFrame("Frame", nil, self.frame)
     self._list:SetHeight(LIST_H)
     self._list:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
@@ -47,6 +47,13 @@ function Tabs:Create(parent, config)
 
     self._listBg = self._list:CreateTexture(nil, "BACKGROUND")
     self._listBg:SetAllPoints(self._list)
+
+    -- 1px separator below the tab list
+    self._listBorder = self.frame:CreateTexture(nil, "BACKGROUND")
+    self._listBorder:SetColorTexture(0, 0, 0, 0)  -- colored in _applyTheme
+    Craft.Theme.SetPixelHeight(self._listBorder, 1)
+    self._listBorder:SetPoint("TOPLEFT",  self._list, "BOTTOMLEFT",  0, 0)
+    self._listBorder:SetPoint("TOPRIGHT", self._list, "BOTTOMRIGHT", 0, 0)
 
     -- Content area: below the list, fills remaining height
     self._content = CreateFrame("Frame", nil, self.frame)
@@ -213,7 +220,7 @@ function Tabs:_onTriggerEnter(btn)
         btn._bg = btn:CreateTexture(nil, "BACKGROUND")
         btn._bg:SetAllPoints(btn)
     end
-    btn._bg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 0.5)
+    btn._bg:SetColorTexture(t.accent.r, t.accent.g, t.accent.b, 0.5)
 end
 
 function Tabs:_onTriggerLeave(btn)
@@ -228,7 +235,12 @@ function Tabs:_applyTheme(t)
     self._t = t
 
     -- List background
-    self._listBg:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 1)
+    self._listBg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 1)
+
+    -- 1px separator border below tab list
+    if self._listBorder then
+        self._listBorder:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
+    end
 
     -- Content area: transparent
     -- (content bg is managed by individual tab content frames or the dev)
@@ -280,8 +292,31 @@ function Tabs:GetContentFrame(id)
     return self._frames[id]
 end
 
+function Tabs:GetContent()
+    return self._content
+end
+
 function Tabs:GetFrame()
     return self.frame
+end
+
+-- ─── SetTabEnabled ─────────────────────────────────────────────────────────
+-- Enables or disables a tab trigger. Disabled tabs cannot be clicked and are
+-- shown at 50% alpha with mouse interaction disabled.
+function Tabs:SetTabEnabled(id, enabled)
+    local btn = self._buttons[id]
+    if not btn then return end
+    btn:EnableMouse(enabled)
+    if self._t then
+        local t = self._t
+        if enabled then
+            btn:SetAlpha(1)
+            btn._text:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+        else
+            btn:SetAlpha(0.5)
+            btn:EnableMouse(false)
+        end
+    end
 end
 
 -- ─── Destructor ────────────────────────────────────────────────────────────
