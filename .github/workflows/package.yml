@@ -43,11 +43,15 @@ jobs:
       - name: Download Inter font
         if: steps.cache-inter.outputs.cache-hit != 'true'
         run: |
-          mkdir -p Craft/media
+          mkdir -p Craft/media /tmp/inter_extract
           curl -L -o /tmp/inter.zip \
             "https://github.com/rsms/inter/releases/download/v4.0/Inter-4.0.zip"
-          unzip -j /tmp/inter.zip "Inter-Regular.ttf" "Inter-Bold.ttf" -d Craft/media/
-          rm /tmp/inter.zip
+          unzip -q /tmp/inter.zip -d /tmp/inter_extract
+          find /tmp/inter_extract -name "Inter-Regular.ttf" | head -1 \
+            | xargs -I{} cp {} Craft/media/Inter-Regular.ttf
+          find /tmp/inter_extract -name "Inter-Bold.ttf" | head -1 \
+            | xargs -I{} cp {} Craft/media/Inter-Bold.ttf
+          rm -rf /tmp/inter.zip /tmp/inter_extract
 
       - name: Download LibStub
         run: |
