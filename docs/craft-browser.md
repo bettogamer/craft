@@ -45,8 +45,8 @@ Craft_Browser/
 ## Author: Alberto Gomez
 ## Version: @project-version@
 ## X-License: MIT
-## Dependencies: Craft
 ## SavedVariables: CraftBrowserDB
+# Note: Craft embedded in libs/Craft/ (generated in CI — see ADR-0012)
 
 Browser.lua
 pages\Button.lua
