@@ -28,6 +28,7 @@
 .cn-sidebar-group { @apply p-2; }
 .cn-sidebar-menu { @apply gap-0; }
 .cn-sidebar-separator { @apply bg-sidebar-border mx-2; }
+.cn-sidebar-rail { @apply hover:after:bg-sidebar-border; }
 ```
 
 ## Propósito
@@ -54,7 +55,8 @@ sidebar.frame              (Frame)                      raíz, ancho fijo
         ├── sidebar._item[2]      (Button, 32px alto)   item 2
         │   └── ...
         └── ...
-└── sidebar._footer        (Frame)                      SidebarFooter — oculto por defecto
+├── sidebar._footer        (Frame)                      SidebarFooter — oculto por defecto
+└── sidebar._rail  (Frame, ~6px ancho)    SidebarRail — franja clickeable en el borde derecho
 ```
 
 **`_header` y `_footer`:** Creados siempre, ocultos por defecto (height=0). El dev los activa
@@ -84,6 +86,7 @@ La sección (section header) es un Frame con un FontString, no es clickeable. Lo
 | Header padding | 8px todos los lados | `gap-2 p-2` (.cn-sidebar-header) |
 | Footer padding | 8px todos los lados | `gap-2 p-2` (.cn-sidebar-footer) |
 | Border derecho width | 1px | — |
+| SidebarRail width | 6px | `.cn-sidebar-rail` |
 | Font size (items y labels) | 12px (`t.fontSize`) | `text-xs` |
 
 El `_child` height total = suma de alturas de todos los elementos (secciones e items, con el group padding de cada sección).
@@ -167,6 +170,8 @@ El `_child` height total = suma de alturas de todos los elementos (secciones e i
 | `GetHeader()` | Frame | Retorna `_header` Frame (SidebarHeader). El dev llama `SetHeight(N)` y agrega contenido, luego `RefreshLayout()` |
 | `GetFooter()` | Frame | Retorna `_footer` Frame (SidebarFooter). Mismo patrón que GetHeader() |
 | `RefreshLayout()` | void | Reancla `_scroll` entre `_header` y `_footer` según sus alturas actuales. Llamar después de modificar header/footer |
+| `GetRail()` | Frame | Retorna el rail frame (para posicionamiento externo si se necesita) |
+| `SetCollapsible(bool)` | void | Habilita/deshabilita el comportamiento de colapso al clickear el rail |
 
 ## Notas de implementación
 
@@ -224,3 +229,29 @@ sectionLabel:SetTextColor(t.sidebarForeground.r, t.sidebarForeground.g, t.sideba
 **Group padding:** cada grupo (sección + sus items) se inserta con 8px de padding (`p-2`). El Frame de group envuelve la sección y sus items con ese margen respecto a los bordes del sidebar.
 
 **Radius = 0:** los fondos de hover y activo son Textures rectangulares sin redondeo (`rounded-none` en Lyra), pintadas con `SetColorTexture`.
+
+**SidebarRail:**
+```lua
+-- Frame de 6px en el borde derecho del sidebar (sobre el border de 1px)
+self._rail = CreateFrame("Button", nil, self.frame)
+self._rail:SetWidth(6)
+self._rail:SetPoint("TOPRIGHT",    self.frame, "TOPRIGHT",    0, 0)
+self._rail:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
+self._rail:EnableMouse(true)
+
+-- Franja visual: aparece en hover (bg-sidebar-border)
+self._railTex = self._rail:CreateTexture(nil, "HIGHLIGHT")
+self._railTex:SetAllPoints(self._rail)
+-- Color en _applyTheme: t.sidebarBorder
+
+-- Colapsar/expandir al clickear
+self._collapsible = false
+self._collapsed   = false
+self._rail:SetScript("OnClick", function()
+    if self._collapsible then
+        self:_toggleCollapse()
+    end
+end)
+```
+
+`_toggleCollapse()` alterna entre `self.frame:SetWidth(WIDTHS[size])` y `self.frame:SetWidth(0)`.

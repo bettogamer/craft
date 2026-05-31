@@ -89,18 +89,23 @@ Guardar en `OnDragStop` y en el callback de resize del handle.
 ## 4. Layout general
 
 ```
-┌────────────────────────────────────────────────────────┐  800×600 default
-│  Craft Browser          [━━━●━━━━━] 100%            ✕  │  ← header 40px
-├───────────────┬────────────────────────────────────────┤
-│               │                                         │
-│  Craft.Sidebar│  Craft.Scroll                           │
-│  (200px fijo) │  └─ demo frame (escalable)             │
-│               │       └─ páginas de componentes         │
-│               │          con Craft.Flex + Craft.Label   │
-│               │          + Craft.Separator              │
-│               │                                     ◢  │
-└───────────────┴────────────────────────────────────────┘
-                                                     ↑ resize handle 16×16
+┌──────────────┬──────────────────────────────────────────┐  800×600
+│ Craft Browser│  Button · Elemento interactivo...         │  ← demoHeader 40px
+│           ✕  ├──────────────────────────────────────────┤
+├──────────────┤                                           │
+│ Form Controls│         DEMO AREA                         │
+│  Button      │         Craft.Scroll                      │
+│  Checkbox    │                                           │
+│  Input       │                                           │
+│  Select      │                                           │
+│  Slider      │                                           │
+│ Layout       │                                           │
+│  Flex        │                                           │
+│  ...         │                                       ◢  │
+├──────────────┤                                           │
+│ ━━●━━━  100%│                                           │  ← SidebarFooter
+└──────────────┴──────────────────────────────────────────┘
+  ↑ SidebarRail (6px, colapsa el sidebar)
 ```
 
 **Dimensiones:**
@@ -163,27 +168,34 @@ end)
 
 ```lua
 local nav = Craft.Sidebar:Create(navFrame, {
-    size  = "default",   -- 200px, items de 32px
-    items = {
-        { id = "Button",    label = "Button"    },
-        { id = "Checkbox",  label = "Checkbox"  },
-        { id = "Dialog",    label = "Dialog"    },
-        { id = "Flex",      label = "Flex"      },
-        { id = "Icons",     label = "Icons"     },
-        { id = "Input",     label = "Input"     },
-        { id = "Label",     label = "Label"     },
-        { id = "Panel",     label = "Panel"     },
-        { id = "Scroll",    label = "Scroll"    },
-        { id = "Select",    label = "Select"    },
-        { id = "Separator", label = "Separator" },
-        { id = "Sidebar",   label = "Sidebar"   },
-        { id = "Slider",    label = "Slider"    },
-        { id = "Tabs",      label = "Tabs"      },
-        { id = "Theme",     label = "Theme"     },
-        { id = "Tooltip",   label = "Tooltip"   },
-    },
-    activeItem = CraftBrowserDB.page,
+    size         = "default",
+    activeItem   = CraftBrowserDB.page,
+    -- Grupos por categoría
 })
+-- Form Controls
+nav:AddSection("Form Controls")
+nav:AddItem({ id="Button",    label="Button",    section="Form Controls" })
+nav:AddItem({ id="Checkbox",  label="Checkbox",  section="Form Controls" })
+nav:AddItem({ id="Input",     label="Input",     section="Form Controls" })
+nav:AddItem({ id="Select",    label="Select",    section="Form Controls" })
+nav:AddItem({ id="Slider",    label="Slider",    section="Form Controls" })
+-- Layout
+nav:AddSection("Layout")
+nav:AddItem({ id="Flex",      label="Flex",      section="Layout" })
+nav:AddItem({ id="Panel",     label="Panel",     section="Layout" })
+nav:AddItem({ id="Scroll",    label="Scroll",    section="Layout" })
+nav:AddItem({ id="Separator", label="Separator", section="Layout" })
+-- Navigation
+nav:AddSection("Navigation")
+nav:AddItem({ id="Dialog",    label="Dialog",    section="Navigation" })
+nav:AddItem({ id="Sidebar",   label="Sidebar",   section="Navigation" })
+nav:AddItem({ id="Tabs",      label="Tabs",      section="Navigation" })
+-- Display
+nav:AddSection("Display")
+nav:AddItem({ id="Icons",     label="Icons",     section="Display" })
+nav:AddItem({ id="Label",     label="Label",     section="Display" })
+nav:AddItem({ id="Theme",     label="Theme",     section="Display" })
+nav:AddItem({ id="Tooltip",   label="Tooltip",   section="Display" })
 ```
 
 Al hacer clic en un item: cargar la página correspondiente y guardar en `CraftBrowserDB.page`.
@@ -488,8 +500,53 @@ tex:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b
 
 ---
 
+## 13. SidebarRail
+
+El Craft.Sidebar incluye un rail de 6px en el borde derecho (SidebarRail).
+En Craft_Browser, habilitar el colapso para que el dev pueda ver el demo
+más amplio:
+
+    nav:SetCollapsible(true)
+
+Cuando el sidebar está colapsado, solo el rail de 6px es visible.
+El demo area ocupa el ancho completo (mainFlex re-layoutea automáticamente
+porque el sidebar frame cambia de ancho).
+
+---
+
+## 14. Demo area header
+
+Barra de 40px encima del Craft.Scroll con el nombre y descripción
+del componente activo:
+
+    ┌─────────────────────────────────┐
+    │ Button  ·  Elemento interactivo │  40px, Craft.Label + Craft.Separator
+    └─────────────────────────────────┘
+
+Implementación en Browser.lua:
+    self._demoTitle = Craft.Label:Create(demoHeader, {
+        text  = "Button",
+        color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+    })
+    self._demoDesc = Craft.Label:Create(demoHeader, {
+        text  = "Elemento interactivo que ejecuta una acción",
+        color = { r=t.mutedForeground.r, g=t.mutedForeground.g, b=t.mutedForeground.b, a=1 },
+    })
+    self._demoSep = Craft.Separator:Create(demoHeader)
+
+Cada página define su metadata:
+    -- En pages/Button.lua
+    return {
+        title = "Button",
+        desc  = "Elemento interactivo que ejecuta una acción al clic",
+        render = function(parent) ... end,
+    }
+
+---
+
 ## 12. Registro de cambios
 
 | Versión | Fecha | Autor | Cambio |
 |---------|-------|-------|--------|
 | v0.1 | 31/05/2026 | Alberto Gomez | Spec inicial — layout, SavedVariables, páginas de demo, slash commands |
+| v0.2 | 31/05/2026 | Alberto Gomez | Grupos de navegación por categoría; SidebarRail con colapso; demo area header con título y descripción |

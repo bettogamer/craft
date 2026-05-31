@@ -61,6 +61,7 @@ function Sidebar:Create(parent, config)
 
     -- Ancho del sidebar
     local w = self._cfg.width or WIDTHS[self._cfg.size] or WIDTHS["default"]
+    self._width = w
 
     -- ── Root frame ────────────────────────────────────────────────────────────
     self.frame = CreateFrame("Frame", nil, parent)
@@ -89,6 +90,24 @@ function Sidebar:Create(parent, config)
     self._footer:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
     self._footer:SetHeight(0)
     self._footer:Hide()
+
+    -- SidebarRail: franja visual clickeable en el borde derecho
+    self._rail = CreateFrame("Button", nil, self.frame)
+    self._rail:SetWidth(6)
+    self._rail:SetPoint("TOPRIGHT",    self.frame, "TOPRIGHT",    0, 0)
+    self._rail:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
+    self._rail:EnableMouse(true)
+
+    self._railTex = self._rail:CreateTexture(nil, "HIGHLIGHT")
+    self._railTex:SetAllPoints(self._rail)
+
+    self._collapsible = false
+    self._collapsed   = false
+    self._rail:SetScript("OnClick", function()
+        if self._collapsible then
+            self:_toggleCollapse()
+        end
+    end)
 
     -- _scroll: ScrollFrame — se ancla entre _header y _footer
     self._scroll = CreateFrame("ScrollFrame", nil, self.frame)
@@ -133,6 +152,13 @@ function Sidebar:_applyTheme(t)
     -- Borde derecho: t.sidebarBorder
     self._borderR:SetColorTexture(t.sidebarBorder.r, t.sidebarBorder.g, t.sidebarBorder.b,
                                    t.sidebarBorder.a or 0.10)
+
+    -- Rail: colorizar la franja
+    if self._railTex then
+        self._railTex:SetColorTexture(
+            t.sidebarBorder.r, t.sidebarBorder.g,
+            t.sidebarBorder.b, t.sidebarBorder.a)
+    end
 
     -- Re-aplicar colores a todos los items y secciones ya construidos
     self:_recolorAll()
@@ -478,6 +504,32 @@ function Sidebar:RefreshLayout()
     self._scroll:ClearAllPoints()
     self._scroll:SetPoint("TOPLEFT",     self._header, "BOTTOMLEFT",  0,  0)
     self._scroll:SetPoint("BOTTOMRIGHT", self._footer, "TOPRIGHT",    -1, 0)
+end
+
+function Sidebar:GetRail()
+    return self._rail
+end
+
+function Sidebar:SetCollapsible(enabled)
+    self._collapsible = enabled
+end
+
+function Sidebar:_toggleCollapse()
+    if self._collapsed then
+        -- Expandir
+        self.frame:SetWidth(self._width)
+        self._scroll:Show()
+        self._collapsed = false
+    else
+        -- Colapsar — solo el rail queda visible
+        self.frame:SetWidth(self._rail:GetWidth())
+        self._scroll:Hide()
+        self._collapsed = true
+    end
+    -- Notificar al parent para relayout si existe callback
+    if self._onCollapse then
+        self._onCollapse(self._collapsed)
+    end
 end
 
 -- ─── Destructor ───────────────────────────────────────────────────────────────
