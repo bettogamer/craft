@@ -64,33 +64,26 @@ jobs:
             | xargs -I{} cp {} Craft/media/Inter-Bold.ttf
           rm -rf /tmp/inter.zip /tmp/inter_extract
 
-      - name: Download LibStub
-        run: |
-          mkdir -p Craft/libs
-          curl -L -o Craft/libs/LibStub.lua \
-            "https://raw.githubusercontent.com/Ace3/LibStub/master/LibStub.lua"
-
       - name: Verify assets
         run: |
           [ -f "Craft/media/lucide-16.tga"     ] || (echo "❌ lucide-16.tga"     && exit 1)
           [ -f "Craft/media/lucide-24.tga"     ] || (echo "❌ lucide-24.tga"     && exit 1)
           [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf" && exit 1)
           [ -f "Craft/media/Inter-Bold.ttf"    ] || (echo "❌ Inter-Bold.ttf"    && exit 1)
-          [ -f "Craft/libs/LibStub.lua"        ] || (echo "❌ LibStub.lua"       && exit 1)
           echo "✅ All assets present"
 
       # ─── Embeber Craft en Craft_Browser/libs/ ─────────────────────────────
       - name: Embed Craft into Craft_Browser
         run: |
-          mkdir -p Craft_Browser/libs
-          # LibStub en su propio folder LibStub/ (convención estándar WoW)
           mkdir -p Craft_Browser/libs/LibStub
-          cp Craft/libs/LibStub.lua Craft_Browser/libs/LibStub/LibStub.lua
-          # Craft — copiar sin la carpeta libs/ interna (LibStub ya está en libs/LibStub/)
+          # LibStub directo a su lugar final — mismo nivel que Craft/
+          curl -L -o Craft_Browser/libs/LibStub/LibStub.lua \
+            "https://raw.githubusercontent.com/Ace3/LibStub/master/LibStub.lua"
+          # Craft — sin la carpeta libs/ interna
           cp -r Craft/ Craft_Browser/libs/Craft/
           rm -rf Craft_Browser/libs/Craft/libs/
           echo "✅ LibStub → Craft_Browser/libs/LibStub/LibStub.lua"
-          echo "✅ Craft   → Craft_Browser/libs/Craft/ (sin libs/ interno)"
+          echo "✅ Craft   → Craft_Browser/libs/Craft/"
           ls Craft_Browser/libs/
 
       # ─── Craft.zip para GitHub Release (para developers) ─────────────────

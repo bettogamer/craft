@@ -6,8 +6,8 @@
 ## X-License: MIT
 ## X-Craft-Build: @build-date@
 
-# Libraries
-libs\LibStub.lua
+# Libraries — LibStub en su propio folder (convención estándar WoW)
+libs\LibStub\LibStub.lua
 
 # Core — must load first; creates the Craft namespace
 Craft.lua

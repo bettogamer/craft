@@ -146,5 +146,5 @@ python3 scripts/export-icons.py
 # 4. LibStub se descarga automáticamente con el packager.
 #    Para desarrollo local, descárgalo de:
 #    https://www.curseforge.com/wow/addons/libstub
-#    → libs/LibStub/LibStub.lua  (mismo nivel que libs/Craft/)
+#    → Craft/libs/LibStub/LibStub.lua  (para desarrollo standalone de Craft)
 ```
