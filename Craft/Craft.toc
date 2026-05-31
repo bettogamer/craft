@@ -1,9 +1,7 @@
 ## Interface: 120000
 ## Title: Craft
-## Title-esES: Craft
 ## Title-esMX: Craft
 ## Notes: Modern UI component library for WoW addons (shadcn Lyra style)
-## Notes-esES: Librería moderna de componentes UI para addons de WoW (estilo shadcn Lyra)
 ## Notes-esMX: Librería moderna de componentes UI para addons de WoW (estilo shadcn Lyra)
 ## Author: bettogamer
 ## Version: @project-version@

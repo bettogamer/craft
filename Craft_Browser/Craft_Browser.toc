@@ -1,9 +1,7 @@
 ## Interface: 120000
 ## Title: Craft Browser
-## Title-esES: Craft Browser
 ## Title-esMX: Craft Browser
 ## Notes: Interactive showcase of Craft UI components
-## Notes-esES: Showcase interactivo de los componentes UI de Craft
 ## Notes-esMX: Showcase interactivo de los componentes UI de Craft
 ## Author: bettogamer
 ## Version: @project-version@
