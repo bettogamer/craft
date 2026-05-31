@@ -2,7 +2,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 
 CraftBrowserPages["Select"] = {
     title = "Select",
-    desc  = "Selector desplegable con lista de opciones",
+    desc  = "Dropdown selector with list of options",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -10,10 +10,10 @@ CraftBrowserPages["Select"] = {
         local selectW = 240
 
         local opts = {
-            { value="opt1", label="Opción 1" },
-            { value="opt2", label="Opción 2" },
-            { value="opt3", label="Opción 3" },
-            { value="opt4", label="Opción 4" },
+            { value="opt1", label="Option 1" },
+            { value="opt2", label="Option 2" },
+            { value="opt3", label="Option 3" },
+            { value="opt4", label="Option 4" },
         }
 
         local function addLabel(text, yOff)
@@ -35,16 +35,16 @@ CraftBrowserPages["Select"] = {
         end
 
         y = addLabel("Default", y)
-        y = addSelect({ options=opts, placeholder="Selecciona una opción..." }, y)
+        y = addSelect({ options=opts, placeholder="Select an option..." }, y)
 
-        y = addLabel("Con valor seleccionado", y)
+        y = addLabel("With selected value", y)
         y = addSelect({ options=opts, value="opt2" }, y)
 
-        y = addLabel("Tamaño sm", y)
+        y = addLabel("Size sm", y)
         y = addSelect({ options=opts, placeholder="Select...", size="sm" }, y)
 
         y = addLabel("Disabled", y)
-        y = addSelect({ options=opts, placeholder="Deshabilitado", disabled=true }, y)
+        y = addSelect({ options=opts, placeholder="Disabled", disabled=true }, y)
 
         return {
             height  = y + 24,

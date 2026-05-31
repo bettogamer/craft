@@ -2,7 +2,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 
 CraftBrowserPages["Sidebar"] = {
     title = "Sidebar",
-    desc  = "Panel lateral con secciones, items y estado activo",
+    desc  = "Side panel with sections, items and active state",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -20,7 +20,7 @@ CraftBrowserPages["Sidebar"] = {
 
         y = addLabel("Sidebar 180px × 300px, item activo: Home", y)
 
-        -- Contenedor de tamaño fijo
+        -- Fixed-size container
         local container = CreateFrame("Frame", nil, parent)
         container:SetSize(180, 300)
         container:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
@@ -33,13 +33,13 @@ CraftBrowserPages["Sidebar"] = {
         local sf = sidebar:GetFrame()
         sf:SetAllPoints(container)
 
-        -- Sección: Navegación
-        sidebar:AddSection("Navegación")
+        -- Section: Navigation
+        sidebar:AddSection("Navigation")
         sidebar:AddItem({ id="home",     label="Home",     icon="user"     })
         sidebar:AddItem({ id="settings", label="Settings", icon="settings" })
 
-        -- Sección: Acciones
-        sidebar:AddSection("Acciones")
+        -- Section: Actions
+        sidebar:AddSection("Actions")
         sidebar:AddItem({ id="export", label="Export", icon="arrow-right" })
         sidebar:AddItem({ id="import", label="Import", icon="arrow-left"  })
 

@@ -2,7 +2,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 
 CraftBrowserPages["Icons"] = {
     title = "Icons",
-    desc  = "Catálogo completo de íconos Lucide disponibles en el atlas",
+    desc  = "Full catalog of Lucide icons available in the atlas",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -18,7 +18,7 @@ CraftBrowserPages["Icons"] = {
             return yOff + 20
         end
 
-        y = addLabel("Íconos del atlas Lucide (16px), 6 por fila", y)
+        y = addLabel("Lucide atlas icons (16px), 6 per row", y)
 
         local names = Craft.Icons.List()
         local COLS      = 6
@@ -33,7 +33,7 @@ CraftBrowserPages["Icons"] = {
             local x = 16 + col * CELL_W
             local cellY = y + row * CELL_H
 
-            -- Textura del ícono
+            -- Icon texture
             local iconFrame = CreateFrame("Frame", nil, parent)
             iconFrame:SetSize(ICON_SIZE, ICON_SIZE)
             iconFrame:SetPoint("TOPLEFT", parent, "TOPLEFT", x + (CELL_W - ICON_SIZE) / 2, -cellY)
@@ -48,7 +48,7 @@ CraftBrowserPages["Icons"] = {
                 iconFrame:Hide(); iconFrame:SetParent(nil)
             end })
 
-            -- Nombre debajo del ícono
+            -- Name below the icon
             local nameLbl = Craft.Label:Create(parent, {
                 text     = name,
                 maxWidth = CELL_W - 4,

@@ -2,7 +2,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 
 CraftBrowserPages["Panel"] = {
     title = "Panel",
-    desc  = "Contenedor con fondo card y ring de Lyra",
+    desc  = "Container with card background and Lyra ring",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -18,39 +18,39 @@ CraftBrowserPages["Panel"] = {
             return yOff + 20
         end
 
-        -- Panel básico (solo fondo + ring)
-        y = addLabel("Panel básico (300×120)", y)
+        -- Basic panel (background + ring only)
+        y = addLabel("Basic panel (300×120)", y)
         local p1 = Craft.Panel:Create(parent, { width=300, height=120 })
         p1:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
         table.insert(comps, p1)
         y = y + 132
 
-        -- Panel con título
-        y = addLabel("Con título", y)
+        -- Panel with title
+        y = addLabel("With title", y)
         local p2 = Craft.Panel:Create(parent, { width=300, height=100, title="Mi Panel" })
         p2:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
         table.insert(comps, p2)
         y = y + 112
 
-        -- Panel con título + descripción
-        y = addLabel("Con título y descripción", y)
+        -- Panel with title + description
+        y = addLabel("With title and description", y)
         local p3 = Craft.Panel:Create(parent, {
             width       = 300,
             height      = 120,
             title       = "Panel",
-            description = "Contenedor con ring de Lyra",
+            description = "Container with Lyra ring",
         })
         p3:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
         table.insert(comps, p3)
         y = y + 132
 
-        -- Panel con footer
-        y = addLabel("Con título y footer", y)
-        local p4 = Craft.Panel:Create(parent, { width=300, height=160, title="Panel con Footer" })
+        -- Panel with footer
+        y = addLabel("With title and footer", y)
+        local p4 = Craft.Panel:Create(parent, { width=300, height=160, title="Panel with Footer" })
         p4:ShowFooter(52)
         local footer = p4:GetFooter()
         if footer then
-            local btn = Craft.Button:Create(footer, { text="Aceptar", variant="default" })
+            local btn = Craft.Button:Create(footer, { text="Accept", variant="default" })
             btn:GetFrame():SetPoint("RIGHT", footer, "RIGHT", -16, 0)
             btn:GetFrame():SetPoint("TOP",   footer, "TOP",   0,  -10)
             table.insert(comps, btn)

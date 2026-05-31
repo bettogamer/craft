@@ -2,7 +2,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 
 CraftBrowserPages["Separator"] = {
     title = "Separator",
-    desc  = "Línea divisoria horizontal o vertical",
+    desc  = "Horizontal or vertical divider line",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -35,11 +35,11 @@ CraftBrowserPages["Separator"] = {
         table.insert(comps, sep2)
         y = y + 32
 
-        -- Vertical: contenedor con dos labels y un separador entre ellos
+        -- Vertical: container with two labels and a separator between them
         y = addLabel("Vertical", y)
 
         local lblL = Craft.Label:Create(parent, {
-            text  = "Izquierda",
+            text  = "Left",
             color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
         })
         lblL:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
@@ -51,7 +51,7 @@ CraftBrowserPages["Separator"] = {
         table.insert(comps, sep3)
 
         local lblR = Craft.Label:Create(parent, {
-            text  = "Derecha",
+            text  = "Right",
             color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
         })
         lblR:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 116, -y)

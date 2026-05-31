@@ -2,7 +2,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 
 CraftBrowserPages["Button"] = {
     title = "Button",
-    desc  = "Elemento interactivo que ejecuta una acción",
+    desc  = "Interactive element that triggers an action",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -29,8 +29,8 @@ CraftBrowserPages["Button"] = {
             return yOff + 40
         end
 
-        -- Variantes
-        y = addLabel("Variantes", y)
+        -- Variants
+        y = addLabel("Variants", y)
         local variants = {
             Craft.Button:Create(parent, { text="Default",     variant="default"     }),
             Craft.Button:Create(parent, { text="Destructive", variant="destructive" }),
@@ -42,8 +42,8 @@ CraftBrowserPages["Button"] = {
         y = addRow(variants, y)
         y = y + 8
 
-        -- Tamaños
-        y = addLabel("Tamaños", y)
+        -- Sizes
+        y = addLabel("Sizes", y)
         local sizes = {
             Craft.Button:Create(parent, { text="xs",      size="xs"      }),
             Craft.Button:Create(parent, { text="sm",      size="sm"      }),
@@ -53,8 +53,8 @@ CraftBrowserPages["Button"] = {
         y = addRow(sizes, y)
         y = y + 8
 
-        -- Con ícono
-        y = addLabel("Con ícono", y)
+        -- With icon
+        y = addLabel("With icon", y)
         local withIcon = {
             Craft.Button:Create(parent, { text="Left",  icon="arrow-left",  iconPosition="left"  }),
             Craft.Button:Create(parent, { text="Right", icon="arrow-right", iconPosition="right" }),
@@ -63,8 +63,8 @@ CraftBrowserPages["Button"] = {
         y = addRow(withIcon, y)
         y = y + 8
 
-        -- Solo ícono
-        y = addLabel("Solo ícono", y)
+        -- Icon only
+        y = addLabel("Icon only", y)
         local iconOnly = {
             Craft.Button:Create(parent, { icon="settings", size="icon-xs" }),
             Craft.Button:Create(parent, { icon="settings", size="icon-sm" }),

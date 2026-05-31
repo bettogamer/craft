@@ -2,7 +2,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 
 CraftBrowserPages["Scroll"] = {
     title = "Scroll",
-    desc  = "Área de scroll vertical con scrollbar personalizado",
+    desc  = "Vertical scroll area with custom scrollbar",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -20,7 +20,7 @@ CraftBrowserPages["Scroll"] = {
 
         y = addLabel("ScrollFrame de 200px de alto con 20 items", y)
 
-        -- Contenedor de tamaño fijo para el Scroll
+        -- Fixed-size container for Scroll
         local container = CreateFrame("Frame", nil, parent)
         container:SetSize(300, 200)
         container:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)

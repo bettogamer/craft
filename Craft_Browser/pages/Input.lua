@@ -2,7 +2,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 
 CraftBrowserPages["Input"] = {
     title = "Input",
-    desc  = "Campo de texto editable con estados y variantes",
+    desc  = "Editable text field with states and variants",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -30,20 +30,20 @@ CraftBrowserPages["Input"] = {
         y = addLabel("Default", y)
         y = addInput({ value="" }, y)
 
-        y = addLabel("Con placeholder", y)
-        y = addInput({ placeholder="Escribe algo..." }, y)
+        y = addLabel("With placeholder", y)
+        y = addInput({ placeholder="Type something..." }, y)
 
-        y = addLabel("Con ícono (leading)", y)
-        y = addInput({ placeholder="Buscar...", iconLeading="search" }, y)
+        y = addLabel("With icon (leading)", y)
+        y = addInput({ placeholder="Search...", iconLeading="search" }, y)
 
-        y = addLabel("Con ícono (trailing)", y)
-        y = addInput({ placeholder="Contraseña", iconTrailing="eye" }, y)
+        y = addLabel("With icon (trailing)", y)
+        y = addInput({ placeholder="Password", iconTrailing="eye" }, y)
 
         y = addLabel("Error", y)
-        y = addInput({ placeholder="Campo requerido", error=true }, y)
+        y = addInput({ placeholder="Required field", error=true }, y)
 
         y = addLabel("Disabled", y)
-        y = addInput({ value="No editable", disabled=true }, y)
+        y = addInput({ value="Not editable", disabled=true }, y)
 
         return {
             height  = y + 24,

@@ -2,7 +2,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 
 CraftBrowserPages["Checkbox"] = {
     title = "Checkbox",
-    desc  = "Control de selección booleana con tres estados",
+    desc  = "Boolean selection control with three states",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -23,8 +23,8 @@ CraftBrowserPages["Checkbox"] = {
             table.insert(comps, comp)
         end
 
-        -- Estados
-        y = addLabel("Estados", y)
+        -- States
+        y = addLabel("States", y)
         place(Craft.Checkbox:Create(parent, { checked=false }),                  16, y)
         place(Craft.Checkbox:Create(parent, { checked=true  }),                  48, y)
         place(Craft.Checkbox:Create(parent, { checked="indeterminate" }),        80, y)
@@ -32,15 +32,15 @@ CraftBrowserPages["Checkbox"] = {
 
         -- Con label
         y = addLabel("Con label", y)
-        place(Craft.Checkbox:Create(parent, { checked=false, label="Acepto los términos" }), 16, y)
+        place(Craft.Checkbox:Create(parent, { checked=false, label="I accept the terms" }), 16, y)
         y = y + 32
 
-        place(Craft.Checkbox:Create(parent, { checked=true, label="Recordar sesión" }), 16, y)
+        place(Craft.Checkbox:Create(parent, { checked=true, label="Remember session" }), 16, y)
         y = y + 32
 
         -- Disabled
         y = addLabel("Disabled", y)
-        place(Craft.Checkbox:Create(parent, { checked=false, disabled=true, label="Deshabilitado"      }), 16, y)
+        place(Craft.Checkbox:Create(parent, { checked=false, disabled=true, label="Disabled"           }), 16, y)
         y = y + 32
         place(Craft.Checkbox:Create(parent, { checked=true,  disabled=true, label="Checked + disabled" }), 16, y)
         y = y + 32
