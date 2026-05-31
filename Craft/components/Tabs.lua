@@ -21,7 +21,7 @@ Tabs.__index = Tabs
 local LIST_H       = 32
 local LIST_PAD     = 3   -- internal padding in the list bar
 local TRIGGER_PX   = 6   -- horizontal padding inside each trigger
-local TRIGGER_PY   = 2   -- vertical padding inside each trigger (reservado: setTextInsets futura) --luacheck: ignore 211
+local TRIGGER_PY   = 2   -- luacheck: ignore 211
 local FONT_SIZE    = 12  -- text-xs
 
 -- ─── Create ────────────────────────────────────────────────────────────────

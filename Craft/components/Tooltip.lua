@@ -31,7 +31,7 @@ local OFFSET    = 4   -- pixels between anchor and tooltip
 
 -- ─── Singleton frame ───────────────────────────────────────────────────────
 local _tooltip       = nil   -- the shared Frame, created lazily
-local _themeHandle   = nil   -- registered once, lives forever; singleton nunca hace unregister --luacheck: ignore 211
+local _themeHandle   = nil   -- luacheck: ignore 211
 
 local function _getTooltipFrame()
     if _tooltip then return _tooltip end
