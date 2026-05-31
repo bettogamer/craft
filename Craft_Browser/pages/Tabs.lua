@@ -2,7 +2,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 
 CraftBrowserPages["Tabs"] = {
     title = "Tabs",
-    desc  = "Navegación por pestañas con contenido intercambiable",
+    desc  = "Tab navigation with switchable content",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -18,29 +18,29 @@ CraftBrowserPages["Tabs"] = {
             return yOff + 20
         end
 
-        y = addLabel("3 tabs con contenido independiente", y)
+        y = addLabel("3 tabs with independent content", y)
 
-        -- Contenedor para los tabs
+        -- Container for the tabs
         local container = CreateFrame("Frame", nil, parent)
         container:SetSize(400, 160)
         container:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
 
         local tabs = Craft.Tabs:Create(container, {
             tabs = {
-                { id="tab1", label="Tab Uno"  },
-                { id="tab2", label="Tab Dos"  },
-                { id="tab3", label="Tab Tres" },
+                { id="tab1", label="Tab One"   },
+                { id="tab2", label="Tab Two"   },
+                { id="tab3", label="Tab Three" },
             },
             defaultTab = "tab1",
         })
         tabs:GetFrame():SetAllPoints(container)
         table.insert(comps, tabs)
 
-        -- Contenido de cada tab
+        -- Content for each tab
         local defs = {
-            { id="tab1", text="Contenido del Tab Uno"  },
-            { id="tab2", text="Contenido del Tab Dos"  },
-            { id="tab3", text="Contenido del Tab Tres" },
+            { id="tab1", text="Content for Tab One"   },
+            { id="tab2", text="Content for Tab Two"   },
+            { id="tab3", text="Content for Tab Three" },
         }
         for _, def in ipairs(defs) do
             local cf = tabs:GetContentFrame(def.id)

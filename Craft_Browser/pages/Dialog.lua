@@ -2,7 +2,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 
 CraftBrowserPages["Dialog"] = {
     title = "Dialog",
-    desc  = "Ventana modal con header, contenido y footer",
+    desc  = "Modal window with header, content, and footer",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -18,34 +18,34 @@ CraftBrowserPages["Dialog"] = {
             return yOff + 20
         end
 
-        y = addLabel("Haz clic para abrir el dialog", y)
+        y = addLabel("Click to open the dialog", y)
 
-        -- Crear el dialog (empieza oculto)
+        -- Create the dialog (starts hidden)
         local dlg = Craft.Dialog:Create(parent, {
             title       = "Demo Dialog",
-            description = "Este es un diálogo de ejemplo",
+            description = "This is a sample dialog",
         })
         dlg:ShowFooter(52)
 
         local footer = dlg:GetFooter()
         if footer then
-            local btnCancel = Craft.Button:Create(footer, { text="Cancelar", variant="outline" })
+            local btnCancel = Craft.Button:Create(footer, { text="Cancel", variant="outline" })
             btnCancel:GetFrame():SetPoint("RIGHT", footer, "RIGHT", -96, -16)
             btnCancel:GetFrame():SetScript("OnClick", function() dlg:Hide() end)
             table.insert(comps, btnCancel)
 
-            local btnConfirm = Craft.Button:Create(footer, { text="Confirmar", variant="default" })
+            local btnConfirm = Craft.Button:Create(footer, { text="Confirm", variant="default" })
             btnConfirm:GetFrame():SetPoint("RIGHT", footer, "RIGHT", -16, -16)
             btnConfirm:GetFrame():SetScript("OnClick", function()
-                print("Dialog confirmado")
+                print("Dialog confirmed")
                 dlg:Hide()
             end)
             table.insert(comps, btnConfirm)
         end
         table.insert(comps, dlg)
 
-        -- Botón que abre el dialog
-        local openBtn = Craft.Button:Create(parent, { text="Abrir Dialog", variant="default" })
+        -- Button that opens the dialog
+        local openBtn = Craft.Button:Create(parent, { text="Open Dialog", variant="default" })
         openBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
         openBtn:GetFrame():SetScript("OnClick", function() dlg:Show() end)
         table.insert(comps, openBtn)

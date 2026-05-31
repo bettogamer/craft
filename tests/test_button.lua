@@ -1,9 +1,9 @@
--- test_button.lua — Unit tests para Craft.Button
--- Ejecutar: busted tests/test_button.lua
+-- test_button.lua — Unit tests for Craft.Button
+-- Run: busted tests/test_button.lua
 
 require("tests.mock_wow")
 
--- Cargar módulos de Craft en orden
+-- Load Craft modules in order
 dofile("Craft/Craft.lua")
 dofile("Craft/theme/Presets.lua")
 dofile("Craft/theme/Theme.lua")
@@ -23,43 +23,43 @@ end
 
 describe("Craft.Button", function()
 
-    -- ── Contrato de componente ────────────────────────────────────────────
+    -- ── Component contract ────────────────────────────────────────────────
 
-    describe("contrato de componente", function()
-        it("Create() retorna un objeto con GetFrame()", function()
+    describe("component contract", function()
+        it("Create() returns an object with GetFrame()", function()
             local btn = newBtn()
             assert.is_not_nil(btn)
             assert.is_not_nil(btn:GetFrame())
         end)
 
-        it("Create() registra un theme listener (_themeHandle)", function()
+        it("Create() registers a theme listener (_themeHandle)", function()
             local btn = newBtn()
             assert.is_not_nil(btn._themeHandle)
             assert.is_true(btn._themeHandle > 0)
         end)
 
-        it("Destroy() desregistra el listener sin error", function()
+        it("Destroy() unregisters the listener without error", function()
             local btn = newBtn()
             local handle = btn._themeHandle
             assert.has_no_errors(function() btn:Destroy() end)
         end)
 
-        it("Destroy() nulifica self.frame", function()
+        it("Destroy() nullifies self.frame", function()
             local btn = newBtn()
             btn:Destroy()
             assert.is_nil(btn.frame)
         end)
 
-        it("GetFrame() retorna el Button frame de WoW", function()
+        it("GetFrame() returns the WoW Button frame", function()
             local btn = newBtn()
             local f = btn:GetFrame()
             assert.equals("Button", f._type)
         end)
     end)
 
-    -- ── Tamaños ───────────────────────────────────────────────────────────
+    -- ── Sizes ─────────────────────────────────────────────────────────────
 
-    describe("tamaños (style-lyra.css)", function()
+    describe("sizes (style-lyra.css)", function()
         local cases = {
             { size="xs",      h=24 },
             { size="sm",      h=28 },
@@ -80,7 +80,7 @@ describe("Craft.Button", function()
             { size="icon-lg", dim=36 },
         }
         for _, c in ipairs(iconCases) do
-            it(string.format("size=%q → cuadrado %dpx", c.size, c.dim), function()
+            it(string.format("size=%q → square %dpx", c.size, c.dim), function()
                 local btn = newBtn({ size=c.size, icon="check" })
                 assert.equals(c.dim, btn:GetFrame():GetWidth())
                 assert.equals(c.dim, btn:GetFrame():GetHeight())
@@ -88,10 +88,10 @@ describe("Craft.Button", function()
         end
     end)
 
-    -- ── Variantes ─────────────────────────────────────────────────────────
+    -- ── Variants ──────────────────────────────────────────────────────────
 
-    describe("variantes visuales", function()
-        it("default → fondo t.primary", function()
+    describe("visual variants", function()
+        it("default → background t.primary", function()
             local btn = newBtn({ variant="default" })
             local t   = Craft.Theme.get()
             local r, g, b = btn._bg:GetColorTexture()
@@ -100,7 +100,7 @@ describe("Craft.Button", function()
             assert.near(t.primary.b, b, 0.01)
         end)
 
-        it("destructive → fondo t.destructive/20", function()
+        it("destructive → background t.destructive/20", function()
             local btn = newBtn({ variant="destructive" })
             local t   = Craft.Theme.get()
             local r, g, b, a = btn._bg:GetColorTexture()
@@ -108,19 +108,19 @@ describe("Craft.Button", function()
             assert.near(0.20, a, 0.01)
         end)
 
-        it("ghost → fondo transparente (a=0)", function()
+        it("ghost → transparent background (a=0)", function()
             local btn = newBtn({ variant="ghost" })
             local r, g, b, a = btn._bg:GetColorTexture()
             assert.equals(0, a)
         end)
 
-        it("link → fondo transparente (a=0)", function()
+        it("link → transparent background (a=0)", function()
             local btn = newBtn({ variant="link" })
             local r, g, b, a = btn._bg:GetColorTexture()
             assert.equals(0, a)
         end)
 
-        it("outline → borde visible (t.input)", function()
+        it("outline → visible border (t.input)", function()
             local btn = newBtn({ variant="outline" })
             local t   = Craft.Theme.get()
             local r, g, b, a = btn._border:GetColorTexture()
@@ -128,7 +128,7 @@ describe("Craft.Button", function()
             assert.is_true(a > 0)
         end)
 
-        it("secondary → fondo t.secondary", function()
+        it("secondary → background t.secondary", function()
             local btn = newBtn({ variant="secondary" })
             local t   = Craft.Theme.get()
             local r, g, b = btn._bg:GetColorTexture()
@@ -139,20 +139,20 @@ describe("Craft.Button", function()
     -- ── SetText ───────────────────────────────────────────────────────────
 
     describe("SetText()", function()
-        it("cambia el texto del label", function()
-            local btn = newBtn({ text="Inicial" })
+        it("changes the label text", function()
+            local btn = newBtn({ text="Initial" })
             btn:SetText("Nuevo")
             assert.equals("Nuevo", btn._label:GetText())
         end)
 
-        it("texto inicial vacío si no se pasa config.text", function()
+        it("initial text is empty if config.text is not provided", function()
             local btn = newBtn()
             assert.equals("", btn._label:GetText())
         end)
 
-        it("texto se establece correctamente en Create()", function()
-            local btn = newBtn({ text="Hola" })
-            assert.equals("Hola", btn._label:GetText())
+        it("text is set correctly in Create()", function()
+            local btn = newBtn({ text="Hello" })
+            assert.equals("Hello", btn._label:GetText())
         end)
     end)
 
@@ -172,20 +172,20 @@ describe("Craft.Button", function()
             assert.near(1.0, btn:GetFrame():GetAlpha(), 0.01)
         end)
 
-        it("SetEnabled(false) → mouse deshabilitado", function()
+        it("SetEnabled(false) → mouse disabled", function()
             local btn = newBtn()
             btn:SetEnabled(false)
             assert.is_false(btn:GetFrame():IsMouseEnabled())
         end)
 
-        it("SetEnabled(true) → mouse habilitado", function()
+        it("SetEnabled(true) → mouse enabled", function()
             local btn = newBtn()
             btn:SetEnabled(false)
             btn:SetEnabled(true)
             assert.is_true(btn:GetFrame():IsMouseEnabled())
         end)
 
-        it("config.disabled=true en Create() deshabilita el botón", function()
+        it("config.disabled=true in Create() disables the button", function()
             local btn = newBtn({ disabled=true })
             assert.near(0.5, btn:GetFrame():GetAlpha(), 0.01)
         end)
@@ -194,7 +194,7 @@ describe("Craft.Button", function()
     -- ── SetVariant ────────────────────────────────────────────────────────
 
     describe("SetVariant()", function()
-        it("cambia de default a secondary", function()
+        it("changes from default to secondary", function()
             local btn = newBtn({ variant="default" })
             btn:SetVariant("secondary")
             local t = Craft.Theme.get()
@@ -202,7 +202,7 @@ describe("Craft.Button", function()
             assert.near(t.secondary.r, r, 0.01)
         end)
 
-        it("cambia de default a ghost (transparente)", function()
+        it("changes from default to ghost (transparent)", function()
             local btn = newBtn({ variant="default" })
             btn:SetVariant("ghost")
             local r, g, b, a = btn._bg:GetColorTexture()
@@ -213,14 +213,14 @@ describe("Craft.Button", function()
     -- ── SetSize ───────────────────────────────────────────────────────────
 
     describe("SetSize()", function()
-        it("cambia la altura del frame según el nuevo tamaño", function()
+        it("changes the frame height according to the new size", function()
             local btn = newBtn({ size="default", text="T" })
             assert.equals(32, btn:GetFrame():GetHeight())
             btn:SetSize("lg")
             assert.equals(36, btn:GetFrame():GetHeight())
         end)
 
-        it("cambia de default a xs", function()
+        it("changes from default to xs", function()
             local btn = newBtn({ size="default", text="T" })
             btn:SetSize("xs")
             assert.equals(24, btn:GetFrame():GetHeight())
@@ -230,14 +230,14 @@ describe("Craft.Button", function()
     -- ── onClick ───────────────────────────────────────────────────────────
 
     describe("onClick callback", function()
-        it("se llama al disparar OnClick", function()
+        it("is called when OnClick fires", function()
             local called = false
             local btn = newBtn({ onClick=function() called = true end })
             btn:GetFrame():_fire("OnClick")
             assert.is_true(called)
         end)
 
-        it("no se llama si el botón está disabled", function()
+        it("is not called when the button is disabled", function()
             local called = false
             local btn = newBtn({
                 disabled = true,
@@ -247,7 +247,7 @@ describe("Craft.Button", function()
             assert.is_false(called)
         end)
 
-        it("recibe self como argumento", function()
+        it("receives self as argument", function()
             local received = nil
             local btn = newBtn({ onClick=function(self) received = self end })
             btn:GetFrame():_fire("OnClick")
@@ -257,34 +257,34 @@ describe("Craft.Button", function()
 
     -- ── Hover / active ────────────────────────────────────────────────────
 
-    describe("estados hover y active", function()
-        it("OnEnter → cambia alpha del fondo (default hover = 0.80)", function()
+    describe("hover and active states", function()
+        it("OnEnter → changes background alpha (default hover = 0.80)", function()
             local btn = newBtn({ variant="default" })
             btn:GetFrame():_fire("OnEnter")
             local r, g, b, a = btn._bg:GetColorTexture()
             assert.near(0.80, a, 0.01)
         end)
 
-        it("OnLeave → restaura el fondo original del variant", function()
+        it("OnLeave → restores the original variant background", function()
             local btn = newBtn({ variant="default" })
             btn:GetFrame():_fire("OnEnter")
             btn:GetFrame():_fire("OnLeave")
             local t = Craft.Theme.get()
             local r, g, b, a = btn._bg:GetColorTexture()
-            -- Después de OnLeave el fondo debe ser t.primary (a=1)
+            -- After OnLeave the background must be t.primary (a=1)
             assert.near(t.primary.r, r, 0.01)
             assert.near(1.0, a, 0.01)
         end)
 
-        it("OnMouseDown → label se mueve 1px hacia abajo (translate-y-px)", function()
+        it("OnMouseDown → label moves 1px downward (translate-y-px)", function()
             local btn = newBtn({ text="Test" })
-            -- Capturar el punto inicial del label antes del press
+            -- Capture the label's initial position before the press
             btn:GetFrame():_fire("OnMouseDown")
-            -- Verificar que se registró el OnMouseDown sin error
+            -- Verify that OnMouseDown was registered without error
             assert.is_not_nil(btn._label)
         end)
 
-        it("OnMouseUp → restaura posición después del press", function()
+        it("OnMouseUp → restores position after press", function()
             local btn = newBtn({ text="Test" })
             btn:GetFrame():_fire("OnMouseDown")
             assert.has_no_errors(function()
@@ -293,20 +293,20 @@ describe("Craft.Button", function()
         end)
     end)
 
-    -- ── Live-switching de tema ────────────────────────────────────────────
+    -- ── Live theme switching ──────────────────────────────────────────────
 
-    describe("live-switching de tema", function()
-        it("_applyTheme() no llama Craft.Theme.get() internamente", function()
-            -- Si hubiera re-entrancia, esto produciría un error de stack overflow
+    describe("live theme switching", function()
+        it("_applyTheme() does not call Craft.Theme.get() internally", function()
+            -- If there were re-entrancy, this would produce a stack overflow error
             local btn = newBtn({ variant="default" })
             assert.has_no_errors(function()
                 btn:_applyTheme(Craft.Theme.get())
             end)
         end)
 
-        it("Craft.Theme.use() actualiza el color del botón", function()
+        it("Craft.Theme.use() updates the button color", function()
             local btn = newBtn({ variant="default" })
-            -- Registrar un preset custom con primary diferente
+            -- Register a custom preset with a different primary
             Craft.Theme.register_preset("test-theme", (function()
                 local p = {}
                 for k, v in pairs(CraftPresets["lyra-dark"]) do p[k] = v end
@@ -316,28 +316,28 @@ describe("Craft.Button", function()
             end)())
             Craft.Theme.use("test-theme")
             local r = btn._bg:GetColorTexture()
-            assert.near(0.5, r, 0.01)  -- nuevo primary.r
-            -- Restaurar tema original
+            assert.near(0.5, r, 0.01)  -- new primary.r
+            -- Restore original theme
             Craft.Theme.use("lyra-dark")
         end)
     end)
 
-    -- ── Íconos ────────────────────────────────────────────────────────────
+    -- ── Icons ─────────────────────────────────────────────────────────────
 
-    describe("íconos", function()
-        it("config.icon muestra la textura del ícono", function()
+    describe("icons", function()
+        it("config.icon shows the icon texture", function()
             local btn = newBtn({ icon="check" })
             assert.is_true(btn._icon:IsShown())
         end)
 
-        it("sin config.icon el ícono está oculto", function()
-            local btn = newBtn({ text="Sin ícono" })
+        it("without config.icon the icon is hidden", function()
+            local btn = newBtn({ text="No icon" })
             assert.is_false(btn._icon:IsShown())
         end)
 
-        it("ícono inexistente → el botón se crea sin error", function()
+        it("non-existent icon → button is created without error", function()
             assert.has_no_errors(function()
-                newBtn({ icon="icon-que-no-existe" })
+                newBtn({ icon="icon-that-does-not-exist" })
             end)
         end)
     end)

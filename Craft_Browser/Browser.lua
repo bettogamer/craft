@@ -1,42 +1,42 @@
 -- Browser.lua
--- Craft_Browser — showcase interactivo de los 16 componentes MVP de Craft
+-- Craft_Browser — interactive showcase of the 16 MVP components of Craft
 -- Spec: docs/craft-browser.md
 --
--- Estructura:
---   Craft.Sidebar (izquierda, 200px)
---     SidebarHeader: título + close button (drag handle)
---     SidebarContent: 4 grupos (Form Controls, Layout, Navigation, Display)
---     SidebarFooter: Craft.Slider de escala 50-150%
---     SidebarRail: colapso
---   Demo area (derecha)
---     demoHeader: 40px con título + descripción del componente activo
---     Craft.Scroll: contenido del componente
+-- Structure:
+--   Craft.Sidebar (left, 200px)
+--     SidebarHeader: title + close button (drag handle)
+--     SidebarContent: 4 groups (Form Controls, Layout, Navigation, Display)
+--     SidebarFooter: Craft.Slider for scale 50-150%
+--     SidebarRail: collapse
+--   Demo area (right)
+--     demoHeader: 40px with title + description of the active component
+--     Craft.Scroll: component content
 --
 -- SavedVariables: CraftBrowserDB
--- Slash: /craft [nombre-componente]
+-- Slash: /craft [component-name]
 
--- Registro global de páginas (llenado por pages/*.lua)
+-- Global page registry (populated by pages/*.lua)
 CraftBrowserPages = CraftBrowserPages or {}
 
 CraftBrowser = {}
 local CB = CraftBrowser
 
--- Constantes
+-- Constants
 local DEFAULT_W, DEFAULT_H = 800, 600
 local MIN_W,     MIN_H     = 600, 400
 local SIDEBAR_W            = 200
 
--- Estado interno
+-- Internal state
 local _mainFrame   = nil
 local _nav         = nil   -- Craft.Sidebar
 local _demoScroll  = nil   -- Craft.Scroll
-local _demoFrame   = nil   -- frame escalable (scroll child)
-local _demoHeader  = nil   -- frame 40px con título/desc
-local _titleLabel  = nil   -- Craft.Label — nombre del componente
-local _descLabel   = nil   -- Craft.Label — descripción
+local _demoFrame   = nil   -- scalable frame (scroll child)
+local _demoHeader  = nil   -- 40px frame with title/desc
+local _titleLabel  = nil   -- Craft.Label — component name
+local _descLabel   = nil   -- Craft.Label — description
 local _scaleSlider = nil   -- Craft.Slider
 local _scaleLabel  = nil   -- Craft.Label — "100%"
-local _currentRender = nil -- resultado de render() de la página activa
+local _currentRender = nil -- result of render() from the active page
 
 -- ─── Init ──────────────────────────────────────────────────────────────────
 
@@ -62,7 +62,7 @@ loader:SetScript("OnEvent", OnAddonLoaded)
 function CB._build()
     local t = Craft.Theme.get()
 
-    -- ── Ventana principal ──────────────────────────────────────────────────
+    -- ── Main window ───────────────────────────────────────────────────────
     _mainFrame = CreateFrame("Frame", "CraftBrowserFrame", UIParent)
     _mainFrame:SetSize(CraftBrowserDB.width, CraftBrowserDB.height)
     _mainFrame:SetFrameStrata("HIGH")
@@ -78,7 +78,7 @@ function CB._build()
         _mainFrame:SetPoint("CENTER", UIParent, "CENTER")
     end
 
-    -- Fondo principal
+    -- Main background
     local mainBg = _mainFrame:CreateTexture(nil, "BACKGROUND")
     mainBg:SetAllPoints(_mainFrame)
     mainBg:SetColorTexture(t.background.r, t.background.g, t.background.b, 1)
@@ -93,7 +93,7 @@ function CB._build()
     navFrame:SetPoint("BOTTOMLEFT", _mainFrame, "BOTTOMLEFT", 0, 0)
     navFrame:SetWidth(SIDEBAR_W)
 
-    -- SidebarHeader: título + drag handle + close button
+    -- SidebarHeader: title + drag handle + close button
     local hdr = _nav:GetHeader()
     hdr:SetHeight(48)
 
@@ -112,7 +112,7 @@ function CB._build()
     })
     titleLabel:GetFrame():SetPoint("LEFT", hdr, "LEFT", 12, 0)
 
-    -- Botón cerrar en el header
+    -- Close button in the header
     local closeBtn = CreateFrame("Button", nil, hdr)
     closeBtn:SetSize(20, 20)
     closeBtn:SetPoint("RIGHT", hdr, "RIGHT", -8, 0)
@@ -133,7 +133,7 @@ function CB._build()
 
     _nav:RefreshLayout()
 
-    -- Navegación agrupada
+    -- Grouped navigation
     _nav:AddSection("Form Controls")
     _nav:AddItem({ id="Button",    label="Button",    onClick=function() CB.Navigate("Button")    end })
     _nav:AddItem({ id="Checkbox",  label="Checkbox",  onClick=function() CB.Navigate("Checkbox")  end })
@@ -155,10 +155,10 @@ function CB._build()
     _nav:AddItem({ id="Theme",     label="Theme",     onClick=function() CB.Navigate("Theme")     end })
     _nav:AddItem({ id="Tooltip",   label="Tooltip",   onClick=function() CB.Navigate("Tooltip")   end })
 
-    -- SidebarRail (colapso)
+    -- SidebarRail (collapse)
     _nav:SetCollapsible(true)
 
-    -- SidebarFooter: escala
+    -- SidebarFooter: scale
     local ftr = _nav:GetFooter()
     ftr:SetHeight(56)
     _nav:RefreshLayout()
@@ -194,12 +194,12 @@ function CB._build()
     _scaleSlider:GetFrame():SetPoint("BOTTOMRIGHT", ftr, "BOTTOMRIGHT", -8, 8)
     _scaleSlider:GetFrame():SetHeight(20)
 
-    -- ── Demo area ─────────────────────────────────────────────────────────
+    -- ── Demo area ────────────────────────────────────────────────────────
     local demoContainer = CreateFrame("Frame", nil, _mainFrame)
     demoContainer:SetPoint("TOPLEFT",     _mainFrame, "TOPLEFT",     SIDEBAR_W, 0)
     demoContainer:SetPoint("BOTTOMRIGHT", _mainFrame, "BOTTOMRIGHT", 0,         0)
 
-    -- demoHeader: 40px con nombre + descripción del componente activo
+    -- demoHeader: 40px with name + description of the active component
     _demoHeader = CreateFrame("Frame", nil, demoContainer)
     _demoHeader:SetHeight(40)
     _demoHeader:SetPoint("TOPLEFT",  demoContainer, "TOPLEFT",  0, 0)
@@ -225,7 +225,7 @@ function CB._build()
     headerSep:GetFrame():SetPoint("BOTTOMLEFT",  _demoHeader, "BOTTOMLEFT",  0, 0)
     headerSep:GetFrame():SetPoint("BOTTOMRIGHT", _demoHeader, "BOTTOMRIGHT", 0, 0)
 
-    -- Craft.Scroll debajo del header
+    -- Craft.Scroll below the header
     local scrollContainer = CreateFrame("Frame", nil, demoContainer)
     scrollContainer:SetPoint("TOPLEFT",     _demoHeader,   "BOTTOMLEFT",  0,  0)
     scrollContainer:SetPoint("BOTTOMRIGHT", demoContainer, "BOTTOMRIGHT", 0,  0)
@@ -236,7 +236,7 @@ function CB._build()
     _demoFrame:SetWidth(scrollContainer:GetWidth())
     _demoFrame:SetScale(CraftBrowserDB.scale / 100)
 
-    -- Re-layout en resize
+    -- Re-layout on resize
     _mainFrame:SetScript("OnSizeChanged", function(self, w, h)
         CraftBrowserDB.width  = w
         CraftBrowserDB.height = h
@@ -268,30 +268,30 @@ end
 function CB.Navigate(pageId)
     if not _mainFrame then return end
 
-    -- Limpiar página anterior
+    -- Clear previous page
     if _currentRender and _currentRender.cleanup then
         _currentRender.cleanup()
     end
     _currentRender = nil
 
-    -- Limpiar frame de demo
+    -- Clear demo frame
     for _, child in ipairs({ _demoFrame:GetChildren() }) do
         child:Hide()
         child:SetParent(nil)
     end
 
-    -- Cargar nueva página
+    -- Load new page
     local page = CraftBrowserPages[pageId]
     if not page then return end
 
     CraftBrowserDB.page = pageId
     _nav:SetActiveItem(pageId)
 
-    -- Actualizar header
+    -- Update header
     _titleLabel:SetText(page.title or pageId)
     _descLabel:SetText(page.desc  or "")
 
-    -- Renderizar
+    -- Render
     if page.render then
         _currentRender = page.render(_demoFrame)
         if _currentRender and _currentRender.height then
@@ -331,7 +331,7 @@ SlashCmdList["CRAFT"] = function(msg)
     if msg == "" then
         CB.Toggle()
     else
-        -- Capitalizar primera letra para coincidir con el ID
+        -- Capitalize first letter to match the page ID
         local pageId = msg:sub(1,1):upper() .. msg:sub(2):lower()
         CB.Show()
         CB.Navigate(pageId)

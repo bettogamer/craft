@@ -1,5 +1,5 @@
--- mock_wow.lua — WoW API mock para tests headless con busted
--- Provee los globals mínimos que Craft necesita para correr sin WoW.
+-- mock_wow.lua — WoW API mock for headless tests with busted
+-- Provides the minimum globals that Craft needs to run without WoW.
 
 -- ─── LibStub ───────────────────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ end)()
 local function noop() end
 local function ident(...) return ... end
 
--- Crea un objeto frame simulado con los métodos WoW más comunes.
+-- Creates a simulated frame object with the most common WoW methods.
 local function makeFrame(frameType, name, parent)
     local f = {
         _type       = frameType or "Frame",
@@ -67,13 +67,13 @@ local function makeFrame(frameType, name, parent)
         _texture    = nil,
     }
 
-    -- Posicionamiento
+    -- Positioning
     function f:SetPoint(...)     self._points[1] = {...} end
     function f:ClearAllPoints()  self._points = {} end
     function f:GetPoint()        return unpack(self._points[1] or {}) end
     function f:SetAllPoints(rel) self._points = {{"ALL", rel}} end
 
-    -- Dimensiones
+    -- Dimensions
     function f:SetSize(w, h)   self._width = w or 0; self._height = h or 0 end
     function f:SetWidth(w)     self._width = w or 0 end
     function f:SetHeight(h)    self._height = h or 0 end
@@ -81,7 +81,7 @@ local function makeFrame(frameType, name, parent)
     function f:GetHeight()     return self._height end
     function f:GetSize()       return self._width, self._height end
 
-    -- Visibilidad
+    -- Visibility
     function f:Show()          self._shown = true end
     function f:Hide()          self._shown = false end
     function f:SetShown(v)     self._shown = v end
@@ -90,7 +90,7 @@ local function makeFrame(frameType, name, parent)
     function f:SetAlpha(a)     self._alpha = a end
     function f:GetAlpha()      return self._alpha end
 
-    -- Jerarquía
+    -- Hierarchy
     function f:SetParent(p)
         self._parent = p
         if p and p._children then p._children[#p._children+1] = self end
@@ -99,7 +99,7 @@ local function makeFrame(frameType, name, parent)
     function f:GetChildren()   return unpack(self._children) end
     function f:GetName()       return self._name end
 
-    -- Scripts / eventos
+    -- Scripts / events
     function f:SetScript(event, fn)   self._scripts[event] = fn end
     function f:GetScript(event)       return self._scripts[event] end
     function f:HookScript(event, fn)
@@ -111,19 +111,19 @@ local function makeFrame(frameType, name, parent)
     end
     function f:HasScript(event)       return self._scripts[event] ~= nil end
 
-    -- Helper de test: disparar un script manualmente
+    -- Test helper: fire a script manually
     function f:_fire(event, ...)
         local fn = self._scripts[event]
         if fn then fn(self, ...) end
     end
 
-    -- Mouse
+    -- Mouse input
     function f:EnableMouse(v)       self._mouseEnabled = v end
     function f:IsMouseEnabled()     return self._mouseEnabled end
     function f:EnableMouseWheel(v)  end
     function f:RegisterForDrag(...)  end
 
-    -- Movable / resizable
+    -- Movable / resizable behavior
     function f:SetMovable(v)        self._movable = v end
     function f:SetResizable(v)      self._resizable = v end
     function f:SetMinResize(...)     end
@@ -140,13 +140,13 @@ local function makeFrame(frameType, name, parent)
     function f:StopMovingOrSizing() end
     function f:StartSizing(...)     end
 
-    -- Coordenadas (simplificadas)
+    -- Coordinates (simplified)
     function f:GetLeft()            return 0 end
     function f:GetTop()             return self._height end
     function f:GetRight()           return self._width end
     function f:GetBottom()          return 0 end
 
-    -- Textura (solo para frames tipo Texture)
+    -- Texture (only for Texture-type frames)
     function f:SetColorTexture(r,g,b,a)
         self._color = {r=r or 0, g=g or 0, b=b or 0, a=a or 1}
     end
@@ -159,7 +159,7 @@ local function makeFrame(frameType, name, parent)
     function f:SetBlendMode(...)    end
     function f:SetDrawLayer(...)    end
 
-    -- FontString
+    -- FontString methods
     function f:SetFont(path, size, flags) self._font = path; self._fontSize = size end
     function f:GetFont()                  return self._font, self._fontSize end
     function f:SetText(t)                 self._text = tostring(t or "") end
@@ -169,17 +169,17 @@ local function makeFrame(frameType, name, parent)
     function f:SetWordWrap(v)             end
     function f:SetNonSpaceWrap(v)         end
     function f:SetJustifyH(v)             end
-    function f:GetStringWidth()           return #self._text * 7 end  -- aprox 7px por carácter
+    function f:GetStringWidth()           return #self._text * 7 end  -- approx 7px per character
     function f:GetStringHeight()          return self._fontSize or 12 end
 
-    -- Button
+    -- Button methods
     function f:SetNormalTexture(t)        end
     function f:SetHighlightTexture(t)     end
     function f:SetPushedTexture(t)        end
     function f:SetDisabledTexture(t)      end
     function f:RegisterForClicks(...)     end
 
-    -- Hijos de frame
+    -- Frame children
     function f:CreateTexture(name, layer)
         local t = makeFrame("Texture", name, f)
         f._textures[#f._textures + 1] = t
@@ -191,7 +191,7 @@ local function makeFrame(frameType, name, parent)
         return fs
     end
 
-    -- UIParent:GetHeight() simulado
+    -- UIParent:GetHeight() stub
     function f:GetHeight_UIParent()      return 768 end
 
     return f
@@ -204,7 +204,7 @@ UIParent._width  = 1366
 UIParent._height = 768
 function UIParent:GetEffectiveScale() return 1.0 end
 
--- CreateFrame global
+-- Global CreateFrame
 function CreateFrame(frameType, name, parent, template)
     local f = makeFrame(frameType, name, parent)
     if parent and parent._children then
@@ -213,11 +213,11 @@ function CreateFrame(frameType, name, parent, template)
     return f
 end
 
--- Cursor
+-- Cursor functions
 function SetCursor(cursor)  end
 function GetCursorPosition() return 0, 0 end
 
--- Misc
+-- Miscellaneous globals
 function GetTime()               return 0 end
 function debugprofilestop()      return 0 end
 function collectgarbage(mode)    return 0 end
@@ -225,7 +225,7 @@ function wipe(t)                 for k in pairs(t) do t[k] = nil end; return t e
 function tinsert(t, v)           table.insert(t, v) end
 function tremove(t, i)           return table.remove(t, i) end
 
--- PixelUtil (Retail — stub simple para tests)
+-- PixelUtil (Retail — simple stub for tests)
 PixelUtil = {
     SetHeight  = function(frame, h, min) frame:SetHeight(h) end,
     SetWidth   = function(frame, w, min) frame:SetWidth(w) end,

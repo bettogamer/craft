@@ -2,7 +2,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 
 CraftBrowserPages["Slider"] = {
     title = "Slider",
-    desc  = "Control deslizante para valores numéricos",
+    desc  = "Slider control for numeric values",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -30,10 +30,10 @@ CraftBrowserPages["Slider"] = {
         y = addLabel("Default (0 – 100)", y)
         y = addSlider({ min=0, max=100, value=40 }, y)
 
-        y = addLabel("Con valor visible", y)
+        y = addLabel("With visible value", y)
         y = addSlider({ min=0, max=100, value=65, showValue=true }, y)
 
-        y = addLabel("Con labels min/max", y)
+        y = addLabel("With min/max labels", y)
         y = addSlider({ min=0, max=200, value=80, showMinMax=true }, y)
 
         y = addLabel("Step = 10", y)

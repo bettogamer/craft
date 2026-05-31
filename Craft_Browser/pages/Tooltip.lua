@@ -2,7 +2,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 
 CraftBrowserPages["Tooltip"] = {
     title = "Tooltip",
-    desc  = "Tooltip sobre hover (Attach) y activación manual (Show)",
+    desc  = "Tooltip on hover (Attach) and manual activation (Show)",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -18,25 +18,25 @@ CraftBrowserPages["Tooltip"] = {
             return yOff + 20
         end
 
-        -- Botón 1: tooltip de texto con delay
-        y = addLabel("Hover para ver tooltip (delay 300ms)", y)
-        local btn1 = Craft.Button:Create(parent, { text="Hover aquí", variant="secondary" })
+        -- Button 1: text tooltip with delay
+        y = addLabel("Hover to see tooltip (delay 300ms)", y)
+        local btn1 = Craft.Button:Create(parent, { text="Hover here", variant="secondary" })
         btn1:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
-        Craft.Tooltip.Attach(btn1:GetFrame(), { text="Este es un tooltip", delay=300 })
+        Craft.Tooltip.Attach(btn1:GetFrame(), { text="This is a tooltip", delay=300 })
         table.insert(comps, btn1)
         y = y + 48
 
-        -- Botón 2: tooltip con ícono
-        y = addLabel("Tooltip con ícono (hover, delay 300ms)", y)
-        local btn2 = Craft.Button:Create(parent, { text="Con ícono info", variant="secondary" })
+        -- Button 2: tooltip with icon
+        y = addLabel("Tooltip with icon (hover, delay 300ms)", y)
+        local btn2 = Craft.Button:Create(parent, { text="With info icon", variant="secondary" })
         btn2:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
-        Craft.Tooltip.Attach(btn2:GetFrame(), { text="Con ícono info", icon="info", delay=300 })
+        Craft.Tooltip.Attach(btn2:GetFrame(), { text="With info icon", icon="info", delay=300 })
         table.insert(comps, btn2)
         y = y + 48
 
-        -- Botón 3: tooltip manual (Show en OnClick)
-        y = addLabel("Tooltip manual: clic para mostrar / ocultar", y)
-        local btn3 = Craft.Button:Create(parent, { text="Mostrar manual", variant="outline" })
+        -- Button 3: manual tooltip (Show on OnClick)
+        y = addLabel("Manual tooltip: click to show / hide", y)
+        local btn3 = Craft.Button:Create(parent, { text="Show manual", variant="outline" })
         local btn3Frame = btn3:GetFrame()
         btn3Frame:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
         local tooltipVisible = false
@@ -45,7 +45,7 @@ CraftBrowserPages["Tooltip"] = {
                 Craft.Tooltip.Hide()
                 tooltipVisible = false
             else
-                Craft.Tooltip.Show(btn3Frame, { text="Tooltip manual" })
+                Craft.Tooltip.Show(btn3Frame, { text="Manual tooltip" })
                 tooltipVisible = true
             end
         end)
