@@ -1,4 +1,4 @@
--- Flex.lua — motor de layout CSS Flexbox para frames WoW
+-- Flex.lua — CSS Flexbox layout engine for WoW frames
 -- Spec: docs/components/flex.md
 -- ADR:  docs/adr/0006-craft-flex-motor-layout.md
 -- Pixel: math.floor() en offsets antes de SetPoint (ADR-0011)
@@ -9,7 +9,7 @@ Craft.Flex = {}
 local Flex = Craft.Flex
 
 -- ─── new() ─────────────────────────────────────────────────────────────────
--- Crea una instancia de layout flex para el frame contenedor dado.
+-- Creates a flex layout instance for the given container frame.
 -- config: {
 --   direction = "row" | "row-reverse" | "column" | "column-reverse"
 --   wrap      = "nowrap" | "wrap" | "wrap-reverse"
@@ -39,7 +39,7 @@ function Flex.new(container, config)
 end
 
 -- ─── Add() ─────────────────────────────────────────────────────────────────
--- Agrega un frame al contenedor flex con sus propiedades individuales.
+-- Adds a frame to the flex container with its individual properties.
 -- itemConfig: { grow=0, shrink=1, basis="auto", alignSelf="auto", order=0 }
 
 function Flex:Add(frame, itemConfig)
@@ -83,7 +83,7 @@ function Flex:SetConfig(config)
 end
 
 -- ─── Layout() ──────────────────────────────────────────────────────────────
--- Calcula y aplica SetPoint a todos los items según el modelo Flexbox.
+-- Calculates and applies SetPoint to all items according to the Flexbox model.
 
 function Flex:Layout()
     if #self._items == 0 then return end
@@ -96,7 +96,7 @@ function Flex:Layout()
     local pH, pV = cfg.paddingH, cfg.paddingV
     local gap    = cfg.gap
 
-    -- Espacio disponible en el eje principal
+    -- Available space on the main axis
     local mainSize = isRow and (cW - pH * 2) or (cH - pV * 2)
     local crossSize = isRow and (cH - pV * 2) or (cW - pH * 2)
 
@@ -107,10 +107,10 @@ function Flex:Layout()
     end
     table.sort(sorted, function(a, b)
         if a.order ~= b.order then return a.order < b.order end
-        return false  -- stable: mantener orden de inserción
+        return false  -- stable: preserve insertion order
     end)
 
-    -- 2. Resolver basis de cada item
+    -- 2. Resolve each item's basis
     local bases = {}
     local totalBasis = 0
     local totalGap   = gap * (math.max(#sorted - 1, 0))
@@ -126,7 +126,7 @@ function Flex:Layout()
         totalBasis = totalBasis + b
     end
 
-    -- 3. Calcular free space y distribuir grow/shrink
+    -- 3. Calculate free space and distribute grow/shrink
     local freeSpace = mainSize - totalBasis - totalGap
     local sizes = {}
 
@@ -141,7 +141,7 @@ function Flex:Layout()
             end
         end
     elseif freeSpace < 0 then
-        -- Shrink ponderado por basis (CSS Flexbox spec §9.7)
+        -- Shrink weighted by basis (CSS Flexbox spec §9.7)
         local totalShrinkWeighted = 0
         for _, item in ipairs(sorted) do
             totalShrinkWeighted = totalShrinkWeighted + item.shrink * bases[item]
@@ -160,8 +160,8 @@ function Flex:Layout()
         end
     end
 
-    -- 3b. Wrap básico: direction="row", wrap="wrap" — agrupa items en líneas
-    -- TODO: wrap-reverse, align-content, justify-content por línea
+    -- 3b. Basic wrap: direction="row", wrap="wrap" — groups items into lines
+    -- TODO: wrap-reverse, align-content, justify-content per line
     if cfg.wrap ~= "nowrap" and isRow then
         local lines = {}
         local currentLine = {}
@@ -180,7 +180,7 @@ function Flex:Layout()
         end
         if #currentLine > 0 then table.insert(lines, currentLine) end
 
-        -- Layout cada línea con flex-start; offset Y acumulado por línea
+        -- Lay out each line with flex-start; accumulated Y offset per line
         local yOffset = pV
         for _, line in ipairs(lines) do
             local lineHeight = 0
@@ -212,10 +212,10 @@ function Flex:Layout()
             end
             yOffset = yOffset + lineHeight + gap
         end
-        return  -- skip layout normal
+        return  -- skip normal layout
     end
 
-    -- 4. Calcular posición de inicio en eje principal según justify-content
+    -- 4. Calculate start position on main axis based on justify-content
     local n         = #sorted
     local usedSpace = totalGap
     for _, item in ipairs(sorted) do usedSpace = usedSpace + sizes[item] end
@@ -244,7 +244,7 @@ function Flex:Layout()
         itemGap     = gap
     end
 
-    -- 5. Aplicar posiciones (math.floor para evitar sub-pixel blending, ADR-0011)
+    -- 5. Apply positions (math.floor to avoid sub-pixel blending, ADR-0011)
     local cursor = startOffset
     if isRev then
         cursor = mainSize - startOffset
@@ -254,7 +254,7 @@ function Flex:Layout()
         local mainPos  = math.floor(cursor)
         local itemMain = math.floor(sizes[item])
 
-        -- Calcular posición en eje transversal (align-items / alignSelf)
+        -- Calculate position on the cross axis (align-items / alignSelf)
         local crossAlign = item.alignSelf ~= "auto" and item.alignSelf or cfg.align
         local crossPos, itemCross
 
@@ -267,12 +267,12 @@ function Flex:Layout()
         elseif crossAlign == "stretch" then
             crossPos  = 0
             itemCross = math.floor(crossSize)
-        else  -- flex-start / baseline ("baseline" tratado como "flex-start"; WoW no tiene baseline nativo)
+        else  -- flex-start / baseline ("baseline" treated as "flex-start"; WoW has no native baseline)
             itemCross = isRow and item.frame:GetHeight() or item.frame:GetWidth()
             crossPos  = 0
         end
 
-        -- Aplicar dimensiones y posición
+        -- Apply dimensions and position
         item.frame:ClearAllPoints()
 
         if isRow then
@@ -297,7 +297,7 @@ function Flex:Layout()
                 math.floor(x), -math.floor(y))
         end
 
-        -- Avanzar cursor
+        -- Advance cursor
         if isRev then
             cursor = cursor - itemMain - itemGap
         else
@@ -307,7 +307,7 @@ function Flex:Layout()
 end
 
 -- ─── GetItems() ────────────────────────────────────────────────────────────
--- Retorna copia read-only del array de items.
+-- Returns a read-only copy of the items array.
 
 function Flex:GetItems()
     local copy = {}

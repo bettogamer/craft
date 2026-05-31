@@ -41,16 +41,16 @@ function Input:Create(parent, config)
         self.frame:SetWidth(self._cfg.width)
     end
 
-    -- ── _border: 4 texturas de 1px (top/bottom/left/right) — BACKGROUND ───────
+    -- ── _border: 4 textures of 1px (top/bottom/left/right) — BACKGROUND ───────
     self._borderTop    = self.frame:CreateTexture(nil, "BACKGROUND")
     self._borderBottom = self.frame:CreateTexture(nil, "BACKGROUND")
     self._borderLeft   = self.frame:CreateTexture(nil, "BACKGROUND")
     self._borderRight  = self.frame:CreateTexture(nil, "BACKGROUND")
 
-    -- ── _bg: fondo interior inset 1px — BACKGROUND ────────────────────────────
+    -- ── _bg: inner background inset 1px — BACKGROUND ─────────────────────────
     self._bg = self.frame:CreateTexture(nil, "BACKGROUND")
 
-    -- ── _iconLeading: ícono izquierdo 16×16 — ARTWORK ─────────────────────────
+    -- ── _iconLeading: left icon 16×16 — ARTWORK ──────────────────────────────
     self._iconLeading = self.frame:CreateTexture(nil, "ARTWORK")
     self._iconLeading:SetSize(ICON_SIZE, ICON_SIZE)
     if self._cfg.iconLeading then
@@ -61,7 +61,7 @@ function Input:Create(parent, config)
         self._iconLeading:Hide()
     end
 
-    -- ── _iconTrailing: ícono derecho 16×16 — ARTWORK ──────────────────────────
+    -- ── _iconTrailing: right icon 16×16 — ARTWORK ────────────────────────────
     self._iconTrailing = self.frame:CreateTexture(nil, "ARTWORK")
     self._iconTrailing:SetSize(ICON_SIZE, ICON_SIZE)
     if self._cfg.iconTrailing then
@@ -99,7 +99,7 @@ function Input:Create(parent, config)
         self._placeholder:Hide()
     end
 
-    -- ── Scripts del EditBox ───────────────────────────────────────────────────
+    -- ── EditBox scripts ───────────────────────────────────────────────────────
     self._edit:SetScript("OnEditFocusGained", function()
         self._placeholder:Hide()
         self:_showFocusBorder()
@@ -133,11 +133,11 @@ function Input:Create(parent, config)
         end
     end)
 
-    -- ── Registro de tema ──────────────────────────────────────────────────────
+    -- ── Theme registration ────────────────────────────────────────────────────
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
 
-    -- ── Estado inicial disabled ───────────────────────────────────────────────
+    -- ── Initial disabled state ────────────────────────────────────────────────
     if self._cfg.disabled then
         self:SetEnabled(false)
     end
@@ -145,7 +145,7 @@ function Input:Create(parent, config)
     return self
 end
 
--- ─── Helpers de padding ───────────────────────────────────────────────────────
+-- ─── Padding helpers ──────────────────────────────────────────────────────────
 function Input:_leftPad()
     return self._cfg.iconLeading and (PAD_H + ICON_DELTA) or PAD_H
 end
@@ -154,9 +154,9 @@ function Input:_rightPad()
     return self._cfg.iconTrailing and (PAD_H + ICON_DELTA) or PAD_H
 end
 
--- ─── Focus border (ring sobre el borde existente) ─────────────────────────────
--- Se muestra en OnEditFocusGained y oculta en OnEditFocusLost.
--- Reutiliza los mismos 4 frames de borde cambiando su color.
+-- ─── Focus border (ring over the existing border) ────────────────────────────
+-- Shown on OnEditFocusGained and hidden on OnEditFocusLost.
+-- Reuses the same 4 border frames by changing their color.
 function Input:_showFocusBorder()
     local t = self._t
     if not t then return end
@@ -168,13 +168,13 @@ function Input:_showFocusBorder()
 end
 
 function Input:_hideFocusBorder()
-    -- Restaurar colores base
+    -- Restore base colors
     self:_applyBorderColor()
 end
 
 -- ─── _applyBorderColor ────────────────────────────────────────────────────────
--- Aplica el color de borde según el estado actual (error / default).
--- NO llama Craft.Theme.get() — usa self._t.
+-- Applies the border color based on the current state (error / default).
+-- Does NOT call Craft.Theme.get() — uses self._t.
 function Input:_applyBorderColor()
     local t = self._t
     if not t then return end
@@ -196,24 +196,24 @@ end
 function Input:_applyTheme(t)
     self._t = t
 
-    -- Fuente en EditBox y placeholder
+    -- Font for EditBox and placeholder
     self._edit:SetFont(t.font, FONT_SIZE)
     self._placeholder:SetFont(t.font, FONT_SIZE)
 
-    -- Colores de texto
+    -- Text colors
     if self._cfg.disabled then
         self._edit:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
         self._placeholder:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
-        -- Fondo disabled dark: input/80
+        -- Disabled dark background: input/80
         self._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a * 0.80)
     else
         self._edit:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
         self._placeholder:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
-        -- Fondo default: input/30
+        -- Default background: input/30
         self._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a * 0.30)
     end
 
-    -- Íconos: color = mutedForeground
+    -- Icons: color = mutedForeground
     if self._cfg.iconLeading then
         self._iconLeading:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)
     end
@@ -221,7 +221,7 @@ function Input:_applyTheme(t)
         self._iconTrailing:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)
     end
 
-    -- Posición pixel-perfect de las 4 texturas de borde
+    -- Pixel-perfect position of the 4 border textures
     -- top
     self._borderTop:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
     self._borderTop:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
@@ -247,14 +247,14 @@ function Input:_applyTheme(t)
     self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     px1,  -px1)
     self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1,  px1)
 
-    -- Borde color
+    -- Border color
     self:_applyBorderColor()
 
-    -- Actualizar TextInsets del EditBox (pueden cambiar al aplicar tema de nuevo)
+    -- Update TextInsets for the EditBox (may change when theme is re-applied)
     self._edit:SetTextInsets(self:_leftPad() - px1, self:_rightPad() - px1, 0, 0)
 end
 
--- ─── API pública ──────────────────────────────────────────────────────────────
+-- ─── Public API ───────────────────────────────────────────────────────────────
 
 function Input:SetValue(text)
     text = text or ""
@@ -275,7 +275,7 @@ end
 
 function Input:SetEnabled(enabled)
     self._cfg.disabled = not enabled
-    self.frame:SetAlpha(enabled and 1 or 0.5)  -- disabled:opacity-50 en frame entero
+    self.frame:SetAlpha(enabled and 1 or 0.5)  -- disabled:opacity-50 on the whole frame
     if enabled then
         self._edit:EnableMouse(true)
         self._edit:SetEnabled(true)

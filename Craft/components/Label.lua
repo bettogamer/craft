@@ -96,7 +96,7 @@ function Label:_restoreColor()
     end
 end
 
--- ─── API pública ───────────────────────────────────────────────────────────
+-- ─── Public API ────────────────────────────────────────────────────────────
 
 -- Changes the displayed text. Respects maxWidth if configured.
 function Label:SetText(text)

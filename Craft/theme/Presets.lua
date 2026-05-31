@@ -34,7 +34,7 @@ CraftPresets["lyra-dark"] = {
     accent                  = {r=0.153, g=0.153, b=0.165, a=1},
     accentForeground        = {r=0.980, g=0.980, b=0.980, a=1},
     -- Destructive (red-400 in dark — lighter for contrast)
-    -- destructiveForeground: text-white en Lyra CSS — blanco puro, no foreground (zinc-50)
+    -- destructiveForeground: text-white in Lyra CSS — pure white, not foreground (zinc-50)
     destructive             = {r=0.973, g=0.443, b=0.443, a=1},
     destructiveForeground   = {r=1.000, g=1.000, b=1.000, a=1},
     -- Border and Input (white with alpha — use SetColorTexture(r,g,b,a) directly)
@@ -56,10 +56,10 @@ CraftPresets["lyra-dark"] = {
     -- Typography (Inter bundled in Craft/media/)
     font                    = FONT,
     fontBold                = FONT_B,
-    fontSize                = 12,   -- text-xs (Lyra base — todos los componentes)
-    fontSizeSm              = 11,   -- CRAFT ADAPTATION: no existe en Lyra CSS (mínimo Lyra = 12)
-                                    -- Para texto muy compacto (captions, helper text WoW)
-    fontSizeLg              = 14,   -- text-sm (Lyra — títulos de Card y Dialog)
+    fontSize                = 12,   -- text-xs (Lyra base — all components)
+    fontSizeSm              = 11,   -- CRAFT ADAPTATION: does not exist in Lyra CSS (Lyra minimum = 12)
+                                    -- For very compact text (captions, WoW helper text)
+    fontSizeLg              = 14,   -- text-sm (Lyra — titles for Card and Dialog)
     -- Spacing (px, used directly as WoW UI units — see docs/pixel-perfect.md)
     spacingXs               = 4,
     spacingSm               = 8,
@@ -67,18 +67,18 @@ CraftPresets["lyra-dark"] = {
     spacingLg               = 16,
     spacingXl               = 24,
     borderWidth             = 1,
-    focusRingWidth          = 2,    -- RESERVADO: WoW es mouse-only, no usado en MVP
-                                    -- Mantenido para addons que implementen navegación propia
+    focusRingWidth          = 2,    -- RESERVED: WoW is mouse-only, not used in MVP
+                                    -- Kept for addons that implement their own navigation
     iconSizeSm              = 16,
     iconSizeMd              = 24,
 }
 
--- ─── lyra-light — ELIMINADO ────────────────────────────────────────────────
--- El ecosistema WoW addon usa dark mode exclusivamente. ElvUI, WeakAuras,
--- Details!, Plater y todos los addons populares son dark. El juego mismo
--- tiene una interfaz oscura. lyra-light sería código muerto en producción.
+-- ─── lyra-light — REMOVED ─────────────────────────────────────────────────
+-- The WoW addon ecosystem exclusively uses dark mode. ElvUI, WeakAuras,
+-- Details!, Plater and all popular addons are dark. The game itself
+-- has a dark UI. lyra-light would be dead code in production.
 --
--- Si un addon necesita un tema claro en el futuro, puede definirlo con:
+-- If an addon needs a light theme in the future, it can define one with:
 --   Craft.Theme.register_preset("my-light", { background={r=1,g=1,b=1,a=1}, ... })
--- Ver docs/design-reference.md §3 para los valores RGBA de lyra-light.
--- (Los valores se conservan en design-reference.md como referencia de diseño.)
+-- See docs/design-reference.md §3 for the lyra-light RGBA values.
+-- (Values are preserved in design-reference.md as a design reference.)

@@ -1,16 +1,16 @@
--- Icons.lua — resolución de íconos Lucide a descriptores de textura WoW
+-- Icons.lua — resolves Lucide icons to WoW texture descriptors
 -- Spec: docs/components/icons.md
--- Depende de: Atlas.lua (cargado antes en Craft.toc)
+-- Depends on: Atlas.lua (loaded earlier in Craft.toc)
 
 local Craft = LibStub("Craft-1.0")
-local I = Craft.Icons  -- ya inicializado como {} en Atlas.lua
+local I = Craft.Icons  -- already initialized as {} in Atlas.lua
 
 local PATH16 = "Interface\\AddOns\\Craft\\media\\lucide-16.tga"
 local PATH24 = "Interface\\AddOns\\Craft\\media\\lucide-24.tga"
 
 -- ─── Get() ─────────────────────────────────────────────────────────────────
--- Retorna el descriptor UV del ícono o nil si no existe en el atlas.
--- No hace error() — los componentes manejan nil ocultando la textura.
+-- Returns the UV descriptor for the icon, or nil if not found in the atlas.
+-- Does not call error() — components handle nil by hiding the texture.
 
 function I.Get(name, size)
     if not name then return nil end
@@ -42,8 +42,8 @@ function I.Get(name, size)
 end
 
 -- ─── Apply() ───────────────────────────────────────────────────────────────
--- Aplica el ícono a una Texture existente. No-op si name es nil o no existe.
--- El componente es responsable de llamar SetVertexColor() para colorizar.
+-- Applies the icon to an existing Texture. No-op if name is nil or not found.
+-- The component is responsible for calling SetVertexColor() to colorize it.
 
 function I.Apply(texture, name, size)
     if not name then return end

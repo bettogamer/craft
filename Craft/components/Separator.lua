@@ -66,7 +66,7 @@ function Separator:_applyTheme(t)
     end
 end
 
--- ─── API pública ───────────────────────────────────────────────────────────
+-- ─── Public API ────────────────────────────────────────────────────────────
 
 -- Changes orientation between "horizontal" (default) and "vertical".
 -- Reconfigures all SetPoint anchors and the pixel-perfect dimension.

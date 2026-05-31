@@ -257,7 +257,7 @@ function Dialog:_applyTheme(t)
     self:_layoutFrames(t)
 end
 
--- ─── API pública ───────────────────────────────────────────────────────────
+-- ─── Public API ────────────────────────────────────────────────────────────
 
 -- Returns the root dialog frame.
 function Dialog:GetFrame()

@@ -88,7 +88,7 @@ function Slider:Create(parent, config)
         self._valueLabel = self.frame:CreateFontString(nil, "OVERLAY")
     end
 
-    -- Min/Max labels (opcionales)
+    -- Min/Max labels (optional)
     self._minLabel = self.frame:CreateFontString(nil, "OVERLAY")
     self._minLabel:Hide()
     self._maxLabel = self.frame:CreateFontString(nil, "OVERLAY")
@@ -297,7 +297,7 @@ function Slider:_onThumbLeave()
     end
 end
 
--- ─── API pública ───────────────────────────────────────────────────────────
+-- ─── Public API ────────────────────────────────────────────────────────────
 function Slider:SetValue(v)
     if self._updating then return end
     self._updating = true

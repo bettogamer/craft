@@ -200,7 +200,7 @@ function Panel:_applyTheme(t)
     self:_layoutFrames(t)
 end
 
--- ─── API pública ───────────────────────────────────────────────────────────
+-- ─── Public API ────────────────────────────────────────────────────────────
 
 -- Returns the root frame (what the developer anchors/sizes).
 function Panel:GetFrame()

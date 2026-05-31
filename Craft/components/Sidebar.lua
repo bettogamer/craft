@@ -35,7 +35,7 @@ local WIDTHS = {
 }
 
 local ITEM_PAD       = 8    -- p-2 (todos los lados)
-local ITEM_GAP       = 8    -- gap-2 (entre ícono y texto)
+local ITEM_GAP       = 8    -- gap-2 (between icon and text)
 local ITEM_FONT      = 12   -- text-xs
 local ICON_SIZE      = 16
 local GROUP_H        = 32   -- h-8
@@ -56,10 +56,10 @@ function Sidebar:Create(parent, config)
         width      = config.width,
     }
 
-    -- Listado interno de secciones e items en orden de inserción
+    -- Internal list of sections and items in insertion order
     self._sections = {}   -- array: {type="section"|"item"|"separator", ...}
 
-    -- Ancho del sidebar
+    -- Sidebar width
     local w = self._cfg.width or WIDTHS[self._cfg.size] or WIDTHS["default"]
     self._width = w
 
@@ -77,21 +77,21 @@ function Sidebar:Create(parent, config)
     self._borderR:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
     Craft.Theme.SetPixelWidth(self._borderR, 1)
 
-    -- SidebarHeader (oculto por defecto)
+    -- SidebarHeader (hidden by default)
     self._header = CreateFrame("Frame", nil, self.frame)
     self._header:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
     self._header:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
     self._header:SetHeight(0)
     self._header:Hide()
 
-    -- SidebarFooter (oculto por defecto)
+    -- SidebarFooter (hidden by default)
     self._footer = CreateFrame("Frame", nil, self.frame)
     self._footer:SetPoint("BOTTOMLEFT",  self.frame, "BOTTOMLEFT",  0, 0)
     self._footer:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
     self._footer:SetHeight(0)
     self._footer:Hide()
 
-    -- SidebarRail: franja visual clickeable en el borde derecho
+    -- SidebarRail: clickable visual strip on the right edge
     self._rail = CreateFrame("Button", nil, self.frame)
     self._rail:SetWidth(6)
     self._rail:SetPoint("TOPRIGHT",    self.frame, "TOPRIGHT",    0, 0)
@@ -109,26 +109,26 @@ function Sidebar:Create(parent, config)
         end
     end)
 
-    -- _scroll: ScrollFrame — se ancla entre _header y _footer
+    -- _scroll: ScrollFrame — anchored between _header and _footer
     self._scroll = CreateFrame("ScrollFrame", nil, self.frame)
     self._scroll:SetPoint("TOPLEFT",     self._header, "BOTTOMLEFT",  0,  0)
     self._scroll:SetPoint("BOTTOMRIGHT", self._footer, "TOPRIGHT",    -1, 0)
 
-    -- _child: Frame contenido scrolleable
+    -- _child: scrollable content Frame
     self._child = CreateFrame("Frame", nil, self._scroll)
     self._child:SetWidth(w - 1)
-    self._child:SetHeight(1)  -- se actualizará en _rebuild
+    self._child:SetHeight(1)  -- will be updated in _rebuild
     self._scroll:SetScrollChild(self._child)
 
-    -- Mapa de item frames por id (para SetActiveItem eficiente)
+    -- Map of item frames by id (for efficient SetActiveItem)
     self._itemFrames = {}
 
-    -- ── Registro de tema ──────────────────────────────────────────────────────
+    -- ── Theme registration ────────────────────────────────────────────────────
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
 
-    -- ── Cargar items iniciales ────────────────────────────────────────────────
-    -- Los headers de sección se insertan al primer item que los referencie.
+    -- ── Load initial items ────────────────────────────────────────────────────
+    -- Section headers are inserted when the first item referencing them is added.
     local addedSections = {}
     for _, item in ipairs(self._cfg.items) do
         local sec = item.section
@@ -146,26 +146,26 @@ end
 function Sidebar:_applyTheme(t)
     self._t = t
 
-    -- Fondo del sidebar
+    -- Sidebar background
     self._bg:SetColorTexture(t.sidebar.r, t.sidebar.g, t.sidebar.b, 1)
 
-    -- Borde derecho: t.sidebarBorder
+    -- Right border: t.sidebarBorder
     self._borderR:SetColorTexture(t.sidebarBorder.r, t.sidebarBorder.g, t.sidebarBorder.b,
                                    t.sidebarBorder.a or 0.10)
 
-    -- Rail: colorizar la franja
+    -- Rail: colorize the strip
     if self._railTex then
         self._railTex:SetColorTexture(
             t.sidebarBorder.r, t.sidebarBorder.g,
             t.sidebarBorder.b, t.sidebarBorder.a)
     end
 
-    -- Re-aplicar colores a todos los items y secciones ya construidos
+    -- Re-apply colors to all already-built items and sections
     self:_recolorAll()
 end
 
 -- ─── _recolorAll ──────────────────────────────────────────────────────────────
--- Actualiza colores de todos los widgets hijos sin reconstruir los frames.
+-- Updates colors of all child widgets without rebuilding the frames.
 function Sidebar:_recolorAll()
     local t = self._t
     if not t then return end
@@ -196,7 +196,7 @@ function Sidebar:_recolorAll()
 end
 
 -- ─── _colorItem ───────────────────────────────────────────────────────────────
--- Aplica colores a un item según si está activo o no.
+-- Applies colors to an item based on whether it is active or not.
 function Sidebar:_colorItem(entry, isActive)
     local t = self._t
     if not t or not entry.frame then return end
@@ -236,11 +236,11 @@ function Sidebar:_colorItem(entry, isActive)
 end
 
 -- ─── _rebuildLayout ───────────────────────────────────────────────────────────
--- Recalcula las posiciones verticales de todos los elementos en _child.
--- Llamado tras AddItem / AddSection para mantener el layout correcto.
+-- Recalculates the vertical positions of all elements in _child.
+-- Called after AddItem / AddSection to keep the layout correct.
 function Sidebar:_rebuildLayout()
     local sz      = ITEM_SIZES[self._cfg.size] or ITEM_SIZES["default"]
-    local cursorY = 0   -- offset negativo acumulado (top→down)
+    local cursorY = 0   -- accumulated negative offset (top→down)
 
     for _, entry in ipairs(self._sections) do
         local f = entry.frame
@@ -264,21 +264,21 @@ function Sidebar:_rebuildLayout()
         end
     end
 
-    -- Ajustar altura total del _child
+    -- Adjust total height of _child
     self._child:SetHeight(math.max(cursorY, 1))
 end
 
 -- ─── AddSection ───────────────────────────────────────────────────────────────
--- Agrega un header de sección (group label) al sidebar.
--- Retorna el entry de sección (para uso interno).
+-- Adds a section header (group label) to the sidebar.
+-- Returns the section entry (for internal use).
 function Sidebar:AddSection(label)
     local t = self._t
 
-    -- Frame contenedor de la etiqueta
+    -- Container frame for the label
     local secFrame = CreateFrame("Frame", nil, self._child)
     secFrame:SetHeight(GROUP_H)
 
-    -- FontString del label
+    -- Label FontString
     local labelFs = secFrame:CreateFontString(nil, "OVERLAY")
     labelFs:SetPoint("LEFT",  secFrame, "LEFT",  GROUP_PX, 0)
     labelFs:SetPoint("RIGHT", secFrame, "RIGHT", -GROUP_PX, 0)
@@ -310,9 +310,9 @@ function Sidebar:AddSection(label)
 end
 
 -- ─── AddItem ──────────────────────────────────────────────────────────────────
--- Agrega un item de menú al sidebar.
+-- Adds a menu item to the sidebar.
 -- itemConfig: {id, label, icon, section, onClick}
--- Retorna el entry del item.
+-- Returns the item entry.
 function Sidebar:AddItem(itemConfig)
     local t  = self._t
     local sz = ITEM_SIZES[self._cfg.size] or ITEM_SIZES["default"]
@@ -323,16 +323,16 @@ function Sidebar:AddItem(itemConfig)
     local iconName = itemConfig.icon
     local onClick = itemConfig.onClick
 
-    -- Frame Button del item
+    -- Item Button frame
     local itemFrame = CreateFrame("Button", nil, self._child)
     itemFrame:SetHeight(sz)
 
-    -- Fondo del item (transparente por defecto, accent en hover/active)
+    -- Item background (transparent by default, accent on hover/active)
     local bg = itemFrame:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(itemFrame)
     bg:SetColorTexture(0, 0, 0, 0)
 
-    -- Ícono (16px, gap=8px del borde izquierdo → ITEM_PAD para el borde, luego el ícono)
+    -- Icon (16px, gap=8px from left edge → ITEM_PAD for the edge, then the icon)
     local iconTex = itemFrame:CreateTexture(nil, "ARTWORK")
     iconTex:SetSize(ICON_SIZE, ICON_SIZE)
     iconTex:SetPoint("LEFT", itemFrame, "LEFT", ITEM_PAD, 0)
@@ -340,8 +340,8 @@ function Sidebar:AddItem(itemConfig)
     local hasIcon = false
     if iconName then
         Craft.Icons.Apply(iconTex, iconName, 16)
-        -- Verificar si el ícono fue aplicado (Icons.Apply es nil-safe pero no garantiza
-        -- que el atlas tenga el ícono; si no existe, la textura queda sin cambios)
+        -- Check if the icon was applied (Icons.Apply is nil-safe but does not guarantee
+        -- that the atlas has the icon; if missing, the texture remains unchanged)
         if Craft.Icons.Has(iconName) then
             iconTex:Show()
             hasIcon = true
@@ -352,7 +352,7 @@ function Sidebar:AddItem(itemConfig)
         iconTex:Hide()
     end
 
-    -- Texto del item
+    -- Item text
     local labelFs = itemFrame:CreateFontString(nil, "OVERLAY")
     if t then
         labelFs:SetFont(t.font, ITEM_FONT)
@@ -361,7 +361,7 @@ function Sidebar:AddItem(itemConfig)
     labelFs:SetJustifyV("MIDDLE")
     labelFs:SetText(label)
 
-    -- Posición del label: si hay ícono, ITEM_PAD + ICON_SIZE + ITEM_GAP desde la izquierda
+    -- Label position: if there is an icon, ITEM_PAD + ICON_SIZE + ITEM_GAP from the left
     local labelLeft = hasIcon and (ITEM_PAD + ICON_SIZE + ITEM_GAP) or ITEM_PAD
     labelFs:SetPoint("LEFT",   itemFrame, "LEFT",  labelLeft, 0)
     labelFs:SetPoint("RIGHT",  itemFrame, "RIGHT", -ITEM_PAD, 0)
@@ -382,19 +382,19 @@ function Sidebar:AddItem(itemConfig)
         hasIcon   = hasIcon,
     }
 
-    -- Aplicar colores iniciales
+    -- Apply initial colors
     if t then
         self:_colorItem(entry, isActive)
     end
 
-    -- Guardar referencia por id para SetActiveItem()
+    -- Store reference by id for SetActiveItem()
     if id then
         self._itemFrames[id] = entry
     end
 
-    -- Scripts de hover y click
+    -- Hover and click scripts
     itemFrame:SetScript("OnEnter", function()
-        -- hover solo si no es el item activo (el activo ya tiene el accent permanente)
+        -- hover only if not the active item (the active one already has the accent permanently)
         if id ~= self._cfg.activeItem then
             local tt = self._t
             if tt then
@@ -435,13 +435,13 @@ function Sidebar:AddItem(itemConfig)
 end
 
 -- ─── AddSeparator ─────────────────────────────────────────────────────────────
--- Agrega un separador horizontal (1px, con mx-2 = 8px de margen lateral).
+-- Adds a horizontal separator (1px, with mx-2 = 8px side margin).
 function Sidebar:AddSeparator()
     local t = self._t
 
     local sepFrame = CreateFrame("Frame", nil, self._child)
 
-    -- La textura del separador respeta el margen mx-2 = SEPARATOR_MX
+    -- Separator texture respects the mx-2 = SEPARATOR_MX margin
     local sepTex = sepFrame:CreateTexture(nil, "BACKGROUND")
     sepTex:SetPoint("LEFT",  sepFrame, "LEFT",  SEPARATOR_MX,  0)
     sepTex:SetPoint("RIGHT", sepFrame, "RIGHT", -SEPARATOR_MX, 0)
@@ -462,19 +462,19 @@ function Sidebar:AddSeparator()
     return entry
 end
 
--- ─── API pública ──────────────────────────────────────────────────────────────
+-- ─── Public API ───────────────────────────────────────────────────────────────
 
--- Cambia el item activo (actualiza colores sin reconstruir frames).
+-- Changes the active item (updates colors without rebuilding frames).
 function Sidebar:SetActiveItem(id)
     local prev = self._cfg.activeItem
     self._cfg.activeItem = id
 
-    -- Desactivar el anterior
+    -- Deactivate the previous one
     if prev and self._itemFrames[prev] then
         self:_colorItem(self._itemFrames[prev], false)
     end
 
-    -- Activar el nuevo
+    -- Activate the new one
     if id and self._itemFrames[id] then
         self:_colorItem(self._itemFrames[id], true)
     end
@@ -498,8 +498,8 @@ function Sidebar:GetFooter()
     return self._footer
 end
 
--- RefreshLayout: reancla el _scroll según las alturas actuales de header y footer.
--- Llamar después de SetHeight() en header o footer.
+-- RefreshLayout: re-anchors _scroll based on the current heights of header and footer.
+-- Call after SetHeight() on header or footer.
 function Sidebar:RefreshLayout()
     self._scroll:ClearAllPoints()
     self._scroll:SetPoint("TOPLEFT",     self._header, "BOTTOMLEFT",  0,  0)
@@ -516,17 +516,17 @@ end
 
 function Sidebar:_toggleCollapse()
     if self._collapsed then
-        -- Expandir
+        -- Expand
         self.frame:SetWidth(self._width)
         self._scroll:Show()
         self._collapsed = false
     else
-        -- Colapsar — solo el rail queda visible
+        -- Collapse — only the rail remains visible
         self.frame:SetWidth(self._rail:GetWidth())
         self._scroll:Hide()
         self._collapsed = true
     end
-    -- Notificar al parent para relayout si existe callback
+    -- Notify the parent for relayout if a callback exists
     if self._onCollapse then
         self._onCollapse(self._collapsed)
     end

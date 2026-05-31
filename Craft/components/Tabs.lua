@@ -254,7 +254,7 @@ function Tabs:_applyTheme(t)
     end
 end
 
--- ─── API pública ───────────────────────────────────────────────────────────
+-- ─── Public API ────────────────────────────────────────────────────────────
 function Tabs:SetActiveTab(id)
     local prev = self._activeId
 

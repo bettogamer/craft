@@ -220,7 +220,7 @@ function Scroll:_onThumbLeave()
     self._thumbTex:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 1)
 end
 
--- ─── API pública ───────────────────────────────────────────────────────────
+-- ─── Public API ────────────────────────────────────────────────────────────
 
 -- Returns the scroll child frame where the dev adds their widgets.
 -- The dev is responsible for setting the child's height after adding content.
@@ -233,7 +233,7 @@ end
 function Scroll:SetScrollChild(frame)
     frame:SetParent(self._child)
     frame:SetPoint("TOPLEFT", self._child, "TOPLEFT", 0, 0)
-    -- Actualizar height del _child para que el scroll range funcione
+    -- Update _child height so the scroll range works correctly
     self._child:SetHeight(math.max(self._scrollFrame:GetHeight(), frame:GetHeight()))
 end
 

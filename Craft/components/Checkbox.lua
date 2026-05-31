@@ -29,12 +29,12 @@ function Checkbox:Create(parent, config)
     end
 
     -- ── Root frame ────────────────────────────────────────────────────────────
-    -- Frame genérico: recibe OnMouseDown en toda el área (box + label)
+    -- Generic frame: receives OnMouseDown over the entire area (box + label)
     self.frame = CreateFrame("Frame", nil, parent)
     self.frame:SetHeight(BOX_SIZE)
     self.frame:EnableMouse(true)
 
-    -- ── _box: contenedor del cuadro visual (Frame BACKGROUND) ─────────────────
+    -- ── _box: container for the visual checkbox square (Frame BACKGROUND) ────
     self._box = CreateFrame("Frame", nil, self.frame)
     self._box:SetSize(BOX_SIZE, BOX_SIZE)
     self._box:SetPoint("LEFT", self.frame, "LEFT", 0, 0)
@@ -45,22 +45,22 @@ function Checkbox:Create(parent, config)
     self._borderLeft   = self._box:CreateTexture(nil, "BACKGROUND")
     self._borderRight  = self._box:CreateTexture(nil, "BACKGROUND")
 
-    -- _bg: fondo interior (inset 1px) — BACKGROUND
+    -- _bg: inner background (inset 1px) — BACKGROUND
     self._bg = self._box:CreateTexture(nil, "BACKGROUND")
 
-    -- _check: ícono Lucide "check" 14×14 — ARTWORK
+    -- _check: Lucide "check" icon 14×14 — ARTWORK
     self._check = self._box:CreateTexture(nil, "ARTWORK")
     self._check:SetSize(ICON_SIZE, ICON_SIZE)
     self._check:SetPoint("CENTER", self._box, "CENTER")
     self._check:Hide()
 
-    -- _dash: ícono Lucide "minus" para estado indeterminado — ARTWORK
+    -- _dash: Lucide "minus" icon for indeterminate state — ARTWORK
     self._dash = self._box:CreateTexture(nil, "ARTWORK")
     self._dash:SetSize(ICON_SIZE, ICON_SIZE)
     self._dash:SetPoint("CENTER", self._box, "CENTER")
     self._dash:Hide()
 
-    -- ── _label: FontString opcional a la derecha del box ──────────────────────
+    -- ── _label: optional FontString to the right of the box ──────────────────
     self._label = self.frame:CreateFontString(nil, "OVERLAY")
     if self._cfg.label and self._cfg.label ~= "" then
         self._label:SetText(self._cfg.label)
@@ -70,18 +70,18 @@ function Checkbox:Create(parent, config)
         self._label:Hide()
     end
 
-    -- ── Interacción ───────────────────────────────────────────────────────────
+    -- ── Interaction ───────────────────────────────────────────────────────────
     self.frame:SetScript("OnMouseDown", function()
         if not self._cfg.disabled then
             self:_toggle()
         end
     end)
 
-    -- ── Registro de tema ──────────────────────────────────────────────────────
+    -- ── Theme registration ────────────────────────────────────────────────────
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
 
-    -- ── Estado inicial disabled ───────────────────────────────────────────────
+    -- ── Initial disabled state ────────────────────────────────────────────────
     if self._cfg.disabled then
         self:SetEnabled(false)
     end
@@ -89,9 +89,9 @@ function Checkbox:Create(parent, config)
     return self
 end
 
--- ─── Toggle interno ───────────────────────────────────────────────────────────
+-- ─── Internal toggle ──────────────────────────────────────────────────────────
 function Checkbox:_toggle()
-    -- Ciclo: false → true → false (indeterminado se trata como false para el toggle)
+    -- Cycle: false → true → false (indeterminate is treated as false for toggling)
     local next
     if self._cfg.checked == true then
         next = false
@@ -115,7 +115,7 @@ function Checkbox:_refreshVisual()
     local checked = self._cfg.checked   -- true | false | nil
     local hasError = self._cfg.error or false
 
-    -- Borde y fondo según estado
+    -- Border and background based on state
     if checked == true then
         -- Checked: bg=primary, border=primary
         self:_setBorderColor(t.primary.r, t.primary.g, t.primary.b, 1)
@@ -145,7 +145,7 @@ function Checkbox:_refreshVisual()
         self._dash:Hide()
     end
 
-    -- Disabled alpha en el frame raíz completo
+    -- Disabled alpha on the entire root frame
     if self._cfg.disabled then
         self.frame:SetAlpha(0.5)
     else
@@ -153,7 +153,7 @@ function Checkbox:_refreshVisual()
     end
 end
 
--- ─── Helper: colorear las 4 texturas de borde ────────────────────────────────
+-- ─── Helper: color the 4 border textures ─────────────────────────────────────
 function Checkbox:_setBorderColor(r, g, b, a)
     self._borderTop:SetColorTexture(r, g, b, a)
     self._borderBottom:SetColorTexture(r, g, b, a)
@@ -165,7 +165,7 @@ end
 function Checkbox:_applyTheme(t)
     self._t = t
 
-    -- Fuente del label
+    -- Label font
     self._label:SetFont(t.font, 12)
     if self._cfg.disabled then
         self._label:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
@@ -173,7 +173,7 @@ function Checkbox:_applyTheme(t)
         self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
     end
 
-    -- Dimensionar y posicionar borde pixel-perfect (4 texturas de 1px)
+    -- Size and position border pixel-perfect (4 textures of 1px)
     -- top
     self._borderTop:SetPoint("TOPLEFT",     self._box, "TOPLEFT",     0,  0)
     self._borderTop:SetPoint("TOPRIGHT",    self._box, "TOPRIGHT",    0,  0)
@@ -199,16 +199,16 @@ function Checkbox:_applyTheme(t)
     self._bg:SetPoint("TOPLEFT",     self._box, "TOPLEFT",     px1,  -px1)
     self._bg:SetPoint("BOTTOMRIGHT", self._box, "BOTTOMRIGHT", -px1,  px1)
 
-    -- Íconos Lucide
+    -- Lucide icons
     Craft.Icons.Apply(self._check, "check", 16)
     self._check:SetSize(ICON_SIZE, ICON_SIZE)
     Craft.Icons.Apply(self._dash,  "minus", 16)
     self._dash:SetSize(ICON_SIZE, ICON_SIZE)
 
-    -- Frame raíz: ancho mínimo = box; si hay label, ampliar
+    -- Root frame: minimum width = box; expand if there is a label
     self:_recalcWidth()
 
-    -- Sincronizar colores con el estado actual
+    -- Sync colors with the current state
     self:_refreshVisual()
 end
 
@@ -222,7 +222,7 @@ function Checkbox:_recalcWidth()
     end
 end
 
--- ─── API pública ──────────────────────────────────────────────────────────────
+-- ─── Public API ───────────────────────────────────────────────────────────────
 
 -- SetChecked: true=checked, false=unchecked, nil/"indeterminate"=indeterminate
 function Checkbox:SetChecked(value)

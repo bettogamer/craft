@@ -1,5 +1,5 @@
 -- Craft.lua — entry point
--- ADR-0001: arquitectura de librería compartida con LibStub
+-- ADR-0001: shared library architecture using LibStub
 -- Registers the library with LibStub so multiple addons can share one instance.
 
 local CRAFT_NAME  = "Craft-1.0"  -- API name. Changes to "Craft-2.0" on breaking API change.
