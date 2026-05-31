@@ -11,6 +11,8 @@
 --   .cn-sidebar-group-label     { text-sidebar-foreground/70 h-8 rounded-none px-2 text-xs }
 --   .cn-sidebar-group           { p-2 }
 --   .cn-sidebar-separator       { bg-sidebar-border mx-2 }
+--   .cn-sidebar-header          { gap-2 p-2 }
+--   .cn-sidebar-footer          { gap-2 p-2 }
 
 local Craft = LibStub("Craft-1.0")
 
@@ -74,10 +76,24 @@ function Sidebar:Create(parent, config)
     self._borderR:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
     Craft.Theme.SetPixelWidth(self._borderR, 1)
 
-    -- _scroll: ScrollFrame — ocupa toda el área interior (inset 1px para el borde derecho)
+    -- SidebarHeader (oculto por defecto)
+    self._header = CreateFrame("Frame", nil, self.frame)
+    self._header:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
+    self._header:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
+    self._header:SetHeight(0)
+    self._header:Hide()
+
+    -- SidebarFooter (oculto por defecto)
+    self._footer = CreateFrame("Frame", nil, self.frame)
+    self._footer:SetPoint("BOTTOMLEFT",  self.frame, "BOTTOMLEFT",  0, 0)
+    self._footer:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
+    self._footer:SetHeight(0)
+    self._footer:Hide()
+
+    -- _scroll: ScrollFrame — se ancla entre _header y _footer
     self._scroll = CreateFrame("ScrollFrame", nil, self.frame)
-    self._scroll:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     0,  0)
-    self._scroll:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -1, 0)
+    self._scroll:SetPoint("TOPLEFT",     self._header, "BOTTOMLEFT",  0,  0)
+    self._scroll:SetPoint("BOTTOMRIGHT", self._footer, "TOPRIGHT",    -1, 0)
 
     -- _child: Frame contenido scrolleable
     self._child = CreateFrame("Frame", nil, self._scroll)
@@ -444,6 +460,24 @@ end
 
 function Sidebar:GetFrame()
     return self.frame
+end
+
+function Sidebar:GetHeader()
+    self._header:Show()
+    return self._header
+end
+
+function Sidebar:GetFooter()
+    self._footer:Show()
+    return self._footer
+end
+
+-- RefreshLayout: reancla el _scroll según las alturas actuales de header y footer.
+-- Llamar después de SetHeight() en header o footer.
+function Sidebar:RefreshLayout()
+    self._scroll:ClearAllPoints()
+    self._scroll:SetPoint("TOPLEFT",     self._header, "BOTTOMLEFT",  0,  0)
+    self._scroll:SetPoint("BOTTOMRIGHT", self._footer, "TOPRIGHT",    -1, 0)
 end
 
 -- ─── Destructor ───────────────────────────────────────────────────────────────
