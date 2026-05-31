@@ -61,7 +61,7 @@ github.com/bettogamer/craft/releases → descargar Craft.zip
 ```
 MyAddon/
 ├── MyAddon.toc
-│   libs\Craft\libs\LibStub.lua
+│   libs\LibStub\LibStub.lua
 │   libs\Craft\Craft.lua
 │   libs\Craft\theme\Presets.lua
 │   libs\Craft\theme\Theme.lua
@@ -120,7 +120,7 @@ Craft_Browser/
 
 - Supercede: `docs/adr/0001-arquitectura-libreria-libstub.md`
 - Modelo de referencia: Ace3 embedding (`https://www.wowace.com/projects/ace3/pages/getting-started`)
-- LibStub versioning: `Craft/libs/LibStub.lua`
+- LibStub versioning: separado de Craft (libs/LibStub/LibStub.lua) — Public Domain
 
 ---
 
