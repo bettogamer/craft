@@ -72,8 +72,9 @@ jobs:
       - name: Embed Craft into Craft_Browser
         run: |
           mkdir -p Craft_Browser/libs
-          # LibStub al mismo nivel que Craft (convención estándar WoW)
-          cp Craft/libs/LibStub.lua Craft_Browser/libs/LibStub.lua
+          # LibStub en su propio folder (convención estándar WoW)
+          mkdir -p Craft_Browser/libs/LibStub
+          cp Craft/libs/LibStub.lua Craft_Browser/libs/LibStub/LibStub.lua
           # Craft sin su propia carpeta libs/ interna
           cp -r Craft/ Craft_Browser/libs/Craft/
           echo "✅ LibStub at Craft_Browser/libs/LibStub.lua"

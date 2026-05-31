@@ -6,9 +6,9 @@
 ## X-License: MIT
 ## SavedVariables: CraftBrowserDB
 
-# LibStub — mismo nivel que las librerías (convención estándar WoW)
-# generado en CI: copiado de Craft/libs/LibStub.lua a libs/LibStub.lua
-libs\LibStub.lua
+# LibStub — en su propio folder, al mismo nivel que las librerías
+# generado en CI: copiado de Craft/libs/LibStub.lua a libs/LibStub/LibStub.lua
+libs\LibStub\LibStub.lua
 
 # Craft library (embedded — generated in CI, not in repo)
 libs\Craft\Craft.lua

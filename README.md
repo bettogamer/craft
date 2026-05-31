@@ -24,20 +24,21 @@ Ve a [github.com/bettogamer/craft/releases](https://github.com/bettogamer/craft/
 
 **2. Copiar en tu addon**
 
-Extrae el zip — contiene `LibStub.lua` y la carpeta `Craft/`. Colócalos en `libs/`:
+Extrae el zip — contiene la carpeta `LibStub/` y la carpeta `Craft/`. Colócalas en `libs/`:
 
 ```
 MyAddon/
 └── libs/
-    ├── LibStub.lua   ← mismo nivel que Craft (convención estándar WoW)
+    ├── LibStub/
+    │   └── LibStub.lua   ← en su propio folder (convención estándar WoW)
     └── Craft/
 ```
 
 **3. Listar los archivos en tu `.toc`**
 
 ```
-# LibStub primero — al mismo nivel que Craft, no dentro de él
-libs\LibStub.lua
+# LibStub primero — en su propio folder, antes que Craft
+libs\LibStub\LibStub.lua
 libs\Craft\Craft.lua
 libs\Craft\theme\Presets.lua
 libs\Craft\theme\Theme.lua
