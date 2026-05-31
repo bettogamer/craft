@@ -83,19 +83,30 @@ jobs:
       - name: Embed Craft into Craft_Browser
         run: |
           mkdir -p Craft_Browser/libs
+          # LibStub al mismo nivel que Craft (convención estándar WoW)
+          cp Craft/libs/LibStub.lua Craft_Browser/libs/LibStub.lua
+          # Craft sin su propia carpeta libs/ (LibStub ya está arriba)
           cp -r Craft/ Craft_Browser/libs/Craft/
           echo "✅ Craft embedded in Craft_Browser/libs/Craft/"
-          ls Craft_Browser/libs/Craft/
+          echo "✅ LibStub at Craft_Browser/libs/LibStub.lua"
+          ls Craft_Browser/libs/
 
       # ─── Craft.zip para GitHub Release (para developers) ─────────────────
       - name: Build Craft.zip (for developers)
         run: |
           VERSION=${GITHUB_REF_NAME}
-          mkdir -p dist
-          zip -r "dist/Craft-${VERSION}.zip" Craft/ \
+          mkdir -p dist/craft_pkg
+          # LibStub al mismo nivel que Craft/ (convención estándar WoW)
+          cp Craft/libs/LibStub.lua dist/craft_pkg/LibStub.lua
+          cp -r Craft/ dist/craft_pkg/Craft/
+          cd dist/craft_pkg
+          zip -r "../Craft-${VERSION}.zip" . \
             --exclude "*.git*" --exclude "*/__pycache__/*"
+          cd ../..
+          rm -rf dist/craft_pkg
           echo "CRAFT_ZIP=dist/Craft-${VERSION}.zip" >> $GITHUB_ENV
           echo "📦 Built Craft-${VERSION}.zip for developers"
+          echo "   Structure: LibStub.lua + Craft/"
 
       # ─── Craft_Browser → CurseForge + Wago via packager ──────────────────
       # ADR-0012: Craft_Browser es el único addon en CurseForge.
