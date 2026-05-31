@@ -24,20 +24,22 @@ Ve a [github.com/bettogamer/craft/releases](https://github.com/bettogamer/craft/
 
 **2. Copiar en tu addon**
 
-Extrae el zip — contiene la carpeta `LibStub/` y la carpeta `Craft/`. Colócalas en `libs/`:
+Extrae el zip y copia la carpeta `Craft/` en el directorio `libs/` de tu addon:
 
 ```
 MyAddon/
 └── libs/
     ├── LibStub/
-    │   └── LibStub.lua   ← en su propio folder (convención estándar WoW)
+    │   └── LibStub.lua   ← debes tenerlo (ver prerequisito abajo)
     └── Craft/
 ```
+
+> **Prerequisito — LibStub**: Craft requiere [LibStub](https://www.curseforge.com/wow/addons/libstub) para su registro de versiones. Si ya usas Ace3 o cualquier librería del ecosistema WoW, ya lo tienes. Si no, descárgalo por separado y colócalo en `libs/LibStub/`.
 
 **3. Listar los archivos en tu `.toc`**
 
 ```
-# LibStub primero — en su propio folder, antes que Craft
+# LibStub primero
 libs\LibStub\LibStub.lua
 libs\Craft\Craft.lua
 libs\Craft\theme\Presets.lua

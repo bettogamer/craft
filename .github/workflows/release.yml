@@ -96,19 +96,13 @@ jobs:
       - name: Build Craft.zip (for developers)
         run: |
           VERSION=${GITHUB_REF_NAME}
-          mkdir -p dist/craft_pkg
-          # LibStub en su propio folder (convención estándar WoW)
-          mkdir -p dist/craft_pkg/LibStub
-          cp Craft/libs/LibStub.lua dist/craft_pkg/LibStub/LibStub.lua
-          cp -r Craft/ dist/craft_pkg/Craft/
-          cd dist/craft_pkg
-          zip -r "../Craft-${VERSION}.zip" . \
+          mkdir -p dist
+          # Solo Craft/ — LibStub es responsabilidad del developer
+          # (ya disponible en cualquier proyecto que use Ace3, o en CurseForge)
+          zip -r "dist/Craft-${VERSION}.zip" Craft/ \
             --exclude "*.git*" --exclude "*/__pycache__/*"
-          cd ../..
-          rm -rf dist/craft_pkg
           echo "CRAFT_ZIP=dist/Craft-${VERSION}.zip" >> $GITHUB_ENV
-          echo "📦 Built Craft-${VERSION}.zip for developers"
-          echo "   Structure: LibStub.lua + Craft/"
+          echo "📦 Built Craft-${VERSION}.zip (Craft/ only, LibStub not included)"
 
       # ─── Craft_Browser → CurseForge + Wago via packager ──────────────────
       # ADR-0012: Craft_Browser es el único addon en CurseForge.
