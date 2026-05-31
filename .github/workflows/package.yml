@@ -1,8 +1,8 @@
 name: Package (dev build)
 
-# Genera un .zip instalable en WoW en cada push a dev o main.
-# NO publica en CurseForge ni Wago — solo crea el artefacto en GitHub Actions.
-# Para descargar: Actions → run → Artifacts → Craft-dev.zip
+# Genera 2 zips instalables en WoW en cada push a dev o main.
+# NO publica en CurseForge ni Wago — solo artefactos en GitHub Actions.
+# Para descargar: Actions → run → Artifacts → craft-dev-<sha>
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   package:
-    name: Build artifact
+    name: Build artifacts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +55,6 @@ jobs:
           curl -L -o Craft/libs/LibStub.lua \
             "https://raw.githubusercontent.com/Ace3/LibStub/master/LibStub.lua"
 
-      # ─── Verificar assets ────────────────────────────────────────────────
       - name: Verify assets
         run: |
           [ -f "Craft/media/lucide-16.tga"     ] || (echo "❌ lucide-16.tga"     && exit 1)
@@ -65,25 +64,34 @@ jobs:
           [ -f "Craft/libs/LibStub.lua"        ] || (echo "❌ LibStub.lua"       && exit 1)
           echo "✅ All assets present"
 
-      # ─── Empaquetar ──────────────────────────────────────────────────────
+      # ─── Embeber Craft en Craft_Browser/libs/ ────────────────────────────
+      - name: Embed Craft into Craft_Browser
+        run: |
+          mkdir -p Craft_Browser/libs
+          cp -r Craft/ Craft_Browser/libs/Craft/
+          echo "✅ Craft embedded in Craft_Browser/libs/Craft/"
+
+      # ─── Build zips ──────────────────────────────────────────────────────
       - name: Build zip files
         run: |
           SHA=$(git rev-parse --short HEAD)
           BRANCH=${GITHUB_REF_NAME}
           mkdir -p dist
 
-          # Craft (librería)
+          # Craft.zip — para developers que quieran usar la librería
           zip -r "dist/Craft-${BRANCH}-${SHA}.zip" Craft/ \
             --exclude "*.git*" --exclude "*/__pycache__/*"
 
-          # Craft_Browser (addon showcase)
+          # Craft_Browser.zip — addon showcase con Craft embebido
           zip -r "dist/CraftBrowser-${BRANCH}-${SHA}.zip" Craft_Browser/ \
             --exclude "*.git*" --exclude "*/__pycache__/*"
 
           echo "ZIP_NAME=craft-${BRANCH}-${SHA}" >> $GITHUB_ENV
+          echo ""
+          echo "📦 Artifacts:"
           ls -lh dist/
 
-      # ─── Subir como artefacto de GitHub Actions ──────────────────────────
+      # ─── Subir como artefactos de GitHub Actions ─────────────────────────
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:

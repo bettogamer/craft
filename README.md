@@ -10,19 +10,44 @@ Craft es una librería open source de componentes UI para WoW addons escrita en 
 
 ---
 
-## Instalación
+## Ver Craft en acción
 
-**1. Instalar Craft desde CurseForge o Wago**
+Instala **[Craft Browser](https://www.curseforge.com/wow/addons/craft-browser)** desde CurseForge — un addon showcase que demuestra los 16 componentes interactivamente dentro de WoW. Usa `/craft` para abrirlo.
 
-Descarga e instala el addon Craft como cualquier otra librería WoW.
+---
 
-**2. Declarar la dependencia en tu `.toc`**
+## Usar Craft en tu addon
+
+**1. Descargar Craft**
+
+Ve a [github.com/bettogamer/craft/releases](https://github.com/bettogamer/craft/releases) y descarga `Craft.zip` de la última versión.
+
+**2. Copiar en tu addon**
+
+Extrae y copia la carpeta `Craft/` en el directorio `libs/` de tu addon:
 
 ```
-## Dependencies: Craft
+MyAddon/
+└── libs/
+    └── Craft/
 ```
 
-**3. Obtener la librería**
+**3. Listar los archivos en tu `.toc`**
+
+```
+libs\Craft\libs\LibStub.lua
+libs\Craft\Craft.lua
+libs\Craft\theme\Presets.lua
+libs\Craft\theme\Theme.lua
+libs\Craft\icons\Atlas.lua
+libs\Craft\icons\Icons.lua
+libs\Craft\layout\Flex.lua
+libs\Craft\components\Button.lua
+libs\Craft\components\Input.lua
+# ... agrega solo los componentes que uses
+```
+
+**4. Obtener la librería**
 
 ```lua
 local Craft = LibStub("Craft-1.0")

@@ -26,7 +26,7 @@ jobs:
       - name: Test
         run: busted tests/ --verbose
 
-      # ─── Generar atlas TGA de íconos Lucide ──────────────────────────────
+      # ─── Generar assets ───────────────────────────────────────────────────
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -44,7 +44,6 @@ jobs:
       - name: Generate Lucide icon atlas
         run: python3 scripts/export-icons.py
 
-      # ─── Descargar fuente Inter ──────────────────────────────────────────
       - name: Cache Inter font
         id: cache-inter
         uses: actions/cache@v4
@@ -62,46 +61,55 @@ jobs:
             -d Craft/media/
           rm /tmp/inter.zip
 
-      # ─── Verificar que todos los assets están listos ─────────────────────
+      - name: Download LibStub
+        run: |
+          mkdir -p Craft/libs
+          curl -L -o Craft/libs/LibStub.lua \
+            "https://raw.githubusercontent.com/Ace3/LibStub/master/LibStub.lua"
+
       - name: Verify assets
         run: |
-          echo "=== Craft/media/ ==="
-          ls -lh Craft/media/
-          [ -f "Craft/media/lucide-16.tga" ] || (echo "❌ lucide-16.tga missing" && exit 1)
-          [ -f "Craft/media/lucide-24.tga" ] || (echo "❌ lucide-24.tga missing" && exit 1)
-          [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf missing" && exit 1)
-          [ -f "Craft/media/Inter-Bold.ttf"    ] || (echo "❌ Inter-Bold.ttf missing"    && exit 1)
+          [ -f "Craft/media/lucide-16.tga"     ] || (echo "❌ lucide-16.tga"     && exit 1)
+          [ -f "Craft/media/lucide-24.tga"     ] || (echo "❌ lucide-24.tga"     && exit 1)
+          [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf" && exit 1)
+          [ -f "Craft/media/Inter-Bold.ttf"    ] || (echo "❌ Inter-Bold.ttf"    && exit 1)
+          [ -f "Craft/libs/LibStub.lua"        ] || (echo "❌ LibStub.lua"       && exit 1)
           echo "✅ All assets present"
 
-      # ─── Empaquetar y subir a CurseForge + Wago ──────────────────────────
-      # bigwigsmods/packager descarga LibStub via .pkgmeta externals,
-      # empaqueta Craft/ (incluyendo media/ generada arriba) y sube el .zip
-      - name: Package and upload
-        uses: BigWigsMods/packager@main
-        env:
-          CF_API_KEY: ${{ secrets.CF_API_KEY }}
-          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
-          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Craft_Browser package
+      # ─── Embeber Craft en Craft_Browser/libs/ ─────────────────────────────
+      - name: Embed Craft into Craft_Browser
         run: |
-          # Verificar assets (generados en pasos anteriores)
-          [ -f "Craft/media/lucide-16.tga" ] || (echo "❌ lucide-16.tga missing" && exit 1)
-          [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf missing" && exit 1)
+          mkdir -p Craft_Browser/libs
+          cp -r Craft/ Craft_Browser/libs/Craft/
+          echo "✅ Craft embedded in Craft_Browser/libs/Craft/"
+          ls Craft_Browser/libs/Craft/
 
-          # Crear .zip de Craft_Browser
-          SHA=$(git rev-parse --short HEAD)
+      # ─── Craft.zip para GitHub Release (para developers) ─────────────────
+      - name: Build Craft.zip (for developers)
+        run: |
           VERSION=${GITHUB_REF_NAME}
           mkdir -p dist
-          zip -r "dist/Craft_Browser-${VERSION}.zip" Craft_Browser/ \
-            --exclude "*.git*" \
-            --exclude "*/__pycache__/*"
-          echo "CB_ZIP=dist/Craft_Browser-${VERSION}.zip" >> $GITHUB_ENV
-          echo "📦 Built: dist/Craft_Browser-${VERSION}.zip"
+          zip -r "dist/Craft-${VERSION}.zip" Craft/ \
+            --exclude "*.git*" --exclude "*/__pycache__/*"
+          echo "CRAFT_ZIP=dist/Craft-${VERSION}.zip" >> $GITHUB_ENV
+          echo "📦 Built Craft-${VERSION}.zip for developers"
 
-      - name: Upload Craft_Browser to GitHub Release
+      # ─── Craft_Browser → CurseForge + Wago via packager ──────────────────
+      # ADR-0012: Craft_Browser es el único addon en CurseForge.
+      # Craft está embebido en Craft_Browser/libs/Craft/ (generado arriba).
+      - name: Package Craft_Browser and upload to CurseForge/Wago
+        uses: BigWigsMods/packager@main
+        with:
+          pkgmeta-file: Craft_Browser/.pkgmeta
+        env:
+          CF_API_KEY:     ${{ secrets.CF_API_KEY }}
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+          GITHUB_OAUTH:   ${{ secrets.GITHUB_TOKEN }}
+
+      # ─── Adjuntar Craft.zip al GitHub Release ────────────────────────────
+      - name: Upload Craft.zip to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.CB_ZIP }}
+          files: ${{ env.CRAFT_ZIP }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

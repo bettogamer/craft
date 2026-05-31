@@ -4,9 +4,31 @@
 ## Author: Alberto Gomez
 ## Version: @project-version@
 ## X-License: MIT
-## Dependencies: Craft
 ## SavedVariables: CraftBrowserDB
 
+# Craft library (embedded — generated in CI, not in repo)
+libs\Craft\libs\LibStub.lua
+libs\Craft\Craft.lua
+libs\Craft\theme\Presets.lua
+libs\Craft\theme\Theme.lua
+libs\Craft\icons\Atlas.lua
+libs\Craft\icons\Icons.lua
+libs\Craft\layout\Flex.lua
+libs\Craft\components\Button.lua
+libs\Craft\components\Checkbox.lua
+libs\Craft\components\Dialog.lua
+libs\Craft\components\Input.lua
+libs\Craft\components\Label.lua
+libs\Craft\components\Panel.lua
+libs\Craft\components\Scroll.lua
+libs\Craft\components\Select.lua
+libs\Craft\components\Separator.lua
+libs\Craft\components\Sidebar.lua
+libs\Craft\components\Slider.lua
+libs\Craft\components\Tabs.lua
+libs\Craft\components\Tooltip.lua
+
+# Showcase
 Browser.lua
 pages\Button.lua
 pages\Checkbox.lua
