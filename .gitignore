@@ -3,7 +3,7 @@ templates/
 skill-examples/
 
 # Generados en el build — bigwigsmods/packager los descarga/crea
-Craft/libs/LibStub.lua
+Craft/libs/LibStub/
 
 # Assets generados por scripts/export-icons.py — no commitear binarios
 Craft/media/*.tga

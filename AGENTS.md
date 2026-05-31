@@ -51,7 +51,7 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
 ├── Craft/                  ← LA LIBRERÍA (lo que se distribuye)
 │   ├── Craft.toc
 │   ├── Craft.lua           ← entry point, LibStub:NewLibrary("Craft-1.0", BUILD)
-│   ├── libs/LibStub.lua  ← para desarrollo standalone (en su propio folder: libs/LibStub/)
+│   ├── libs/LibStub/LibStub.lua  ← para desarrollo standalone
 │   ├── theme/
 │   │   ├── Theme.lua       ← Craft.Theme (register, use, get, extend)
 │   │   └── Presets.lua     ← lyra-dark (único preset built-in, dark mode solo)

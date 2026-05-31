@@ -7,7 +7,7 @@
 ## SavedVariables: CraftBrowserDB
 
 # LibStub — en su propio folder, al mismo nivel que las librerías
-# generado en CI: copiado de Craft/libs/LibStub.lua a libs/LibStub/LibStub.lua
+# generado en CI: descargado directo a libs/LibStub/LibStub.lua (no pasa por Craft/libs/)
 libs\LibStub\LibStub.lua
 
 # Craft library (embedded — generated in CI, not in repo)
