@@ -28,15 +28,17 @@ from pathlib import Path
 
 # ─── Verificar dependencias ───────────────────────────────────────────────────
 
-def require(pkg, install):
-    try:
-        return __import__(pkg)
-    except ImportError:
-        print(f"ERROR: '{pkg}' no instalado. Ejecutar: pip install {install}")
-        sys.exit(1)
+try:
+    from PIL import Image
+except ImportError:
+    print("ERROR: 'Pillow' no instalado. Ejecutar: pip install Pillow")
+    sys.exit(1)
 
-Image = require("PIL", "Pillow").Image
-cairosvg = require("cairosvg", "cairosvg")
+try:
+    import cairosvg
+except ImportError:
+    print("ERROR: 'cairosvg' no instalado. Ejecutar: pip install cairosvg")
+    sys.exit(1)
 
 # ─── Catálogo de íconos ───────────────────────────────────────────────────────
 # Orden exacto define la posición (col, row) en el atlas.
