@@ -1,0 +1,26 @@
+## Interface: 120000
+## Title: Craft Browser
+## Notes: Interactive showcase of Craft UI components
+## Author: Alberto Gomez
+## Version: @project-version@
+## X-License: MIT
+## Dependencies: Craft
+## SavedVariables: CraftBrowserDB
+
+Browser.lua
+pages\Button.lua
+pages\Checkbox.lua
+pages\Dialog.lua
+pages\Flex.lua
+pages\Icons.lua
+pages\Input.lua
+pages\Label.lua
+pages\Panel.lua
+pages\Scroll.lua
+pages\Select.lua
+pages\Separator.lua
+pages\Sidebar.lua
+pages\Slider.lua
+pages\Tabs.lua
+pages\Theme.lua
+pages\Tooltip.lua

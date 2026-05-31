@@ -66,28 +66,27 @@ jobs:
           echo "✅ All assets present"
 
       # ─── Empaquetar ──────────────────────────────────────────────────────
-      - name: Build .zip
+      - name: Build zip files
         run: |
-          # Determinar el nombre del build: Craft-dev-<sha corto>
           SHA=$(git rev-parse --short HEAD)
           BRANCH=${GITHUB_REF_NAME}
-          ZIP_NAME="Craft-${BRANCH}-${SHA}"
-
-          # Crear el .zip con solo el contenido de Craft/
-          # Excluir lo que no va en el entregable (igual que .pkgmeta)
           mkdir -p dist
-          zip -r "dist/${ZIP_NAME}.zip" Craft/ \
-            --exclude "*.git*" \
-            --exclude "*/__pycache__/*"
 
-          echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
-          echo "📦 Built: dist/${ZIP_NAME}.zip"
+          # Craft (librería)
+          zip -r "dist/Craft-${BRANCH}-${SHA}.zip" Craft/ \
+            --exclude "*.git*" --exclude "*/__pycache__/*"
+
+          # Craft_Browser (addon showcase)
+          zip -r "dist/CraftBrowser-${BRANCH}-${SHA}.zip" Craft_Browser/ \
+            --exclude "*.git*" --exclude "*/__pycache__/*"
+
+          echo "ZIP_NAME=craft-${BRANCH}-${SHA}" >> $GITHUB_ENV
           ls -lh dist/
 
       # ─── Subir como artefacto de GitHub Actions ──────────────────────────
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ZIP_NAME }}
           path: dist/*.zip
-          retention-days: 14   # disponible 14 días para descargar
+          retention-days: 14

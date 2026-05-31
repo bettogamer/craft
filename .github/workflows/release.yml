@@ -82,3 +82,26 @@ jobs:
           CF_API_KEY: ${{ secrets.CF_API_KEY }}
           WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Craft_Browser package
+        run: |
+          # Verificar assets (generados en pasos anteriores)
+          [ -f "Craft/media/lucide-16.tga" ] || (echo "❌ lucide-16.tga missing" && exit 1)
+          [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf missing" && exit 1)
+
+          # Crear .zip de Craft_Browser
+          SHA=$(git rev-parse --short HEAD)
+          VERSION=${GITHUB_REF_NAME}
+          mkdir -p dist
+          zip -r "dist/Craft_Browser-${VERSION}.zip" Craft_Browser/ \
+            --exclude "*.git*" \
+            --exclude "*/__pycache__/*"
+          echo "CB_ZIP=dist/Craft_Browser-${VERSION}.zip" >> $GITHUB_ENV
+          echo "📦 Built: dist/Craft_Browser-${VERSION}.zip"
+
+      - name: Upload Craft_Browser to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.CB_ZIP }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
