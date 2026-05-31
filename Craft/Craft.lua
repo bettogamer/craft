@@ -5,7 +5,7 @@
 local CRAFT_NAME  = "Craft-1.0"  -- API name. Changes to "Craft-2.0" on breaking API change.
 local CRAFT_BUILD = 1            -- Integer. Increments every release. Run scripts/bump-build.sh.
 
-local Craft, oldBuild = LibStub:NewLibrary(CRAFT_NAME, CRAFT_BUILD)
+local Craft = LibStub:NewLibrary(CRAFT_NAME, CRAFT_BUILD)
 if not Craft then return end  -- a newer build is already loaded; nothing to do
 
 Craft.VERSION = "1.0.0-dev"
