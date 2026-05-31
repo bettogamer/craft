@@ -31,7 +31,6 @@ local OFFSET    = 4   -- pixels between anchor and tooltip
 
 -- ─── Singleton frame ───────────────────────────────────────────────────────
 local _tooltip       = nil   -- the shared Frame, created lazily
-local _themeHandle   = nil   -- luacheck: ignore 211
 
 local function _getTooltipFrame()
     if _tooltip then return _tooltip end
@@ -54,8 +53,8 @@ local function _getTooltipFrame()
     _tooltip._text = _tooltip:CreateFontString(nil, "OVERLAY")
     _tooltip._text:SetWordWrap(true)
 
-    -- Register global theme listener (once, never unregistered — singleton)
-    _themeHandle = Craft.Theme.register(function(t)
+    -- Register global theme listener (once, never unregistered — singleton lives forever)
+    Craft.Theme.register(function(t)
         TT._applyThemeToFrame(t)
     end)
     TT._applyThemeToFrame(Craft.Theme.get())
