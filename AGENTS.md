@@ -8,7 +8,7 @@
 
 - **Nombre**: Craft
 - **Dominio**: WoW Addon Development — librería de componentes UI
-- **Resumen**: librería open source de componentes UI para addons de World of Warcraft. Distribuida como addon instalable (LibStub) en CurseForge y Wago. Diseño basado en shadcn Lyra (Zinc + Emerald, Radius=0) con íconos Lucide y fuente Inter bundled en `Craft/media/`. **Dark mode únicamente** — WoW addon dev es dark-mode exclusivo.
+- **Resumen**: librería open source de componentes UI para addons de World of Warcraft. Librería embebible — developers descargan `Craft.zip` de GitHub Releases y lo colocan en `libs/` de su addon. Craft_Browser es el único addon en CurseForge/Wago. Diseño basado en shadcn Lyra (Zinc + Emerald, Radius=0) con íconos Lucide y fuente Inter bundled en `Craft/media/`. **Dark mode únicamente** — WoW addon dev es dark-mode exclusivo. Ver ADR-0012.
 - **DTI**: `docs/DTI_v0.1.md`
 - **FSD**: `docs/FSD_v0.1.md`
 - **BRD**: `docs/BRD_v0.1.md`
@@ -21,7 +21,7 @@
 En orden:
 
 1. **Este archivo completo** (AGENTS.md).
-2. `docs/adr/` — las 11 ADRs definen todas las decisiones no negociables.
+2. `docs/adr/` — las 12 ADRs definen todas las decisiones no negociables.
 3. `docs/FSD_v0.1.md` §4 y §5 — casos de uso y contrato de componente.
 4. `docs/DTI_v0.1.md` §3 y §5 — arquitectura de módulos y patrón de componente.
 5. `docs/design-reference.md` — fuente de verdad de tokens de color (CSS exacto de shadcn Lyra).
@@ -71,8 +71,13 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
 │       ├── lucide-16.tga
 │       └── lucide-24.tga
 │
-├── Craft_Browser/          ← addon showcase in-game (pendiente)
-├── tests/                  ← unit tests con busted + mock WoW API (pendiente)
+├── Craft_Browser/          ← addon showcase in-game ✅
+│   ├── Craft_Browser.toc
+│   ├── Browser.lua
+│   └── pages/              ← 16 páginas de demo
+├── tests/                  ← unit tests con busted + mock WoW API
+│   ├── mock_wow.lua        ← WoW API mock (no es test, no ejecutar directo)
+│   └── test_button.lua
 ├── scripts/
 │   ├── export-icons.py     ← genera lucide-*.tga
 │   └── bump-build.sh       ← incrementa CRAFT_BUILD en Craft.lua
@@ -94,7 +99,8 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
         ├── 0008-exclusion-portal-web.md
         ├── 0009-pipeline-ci-cd.md
         ├── 0010-estrategia-versioning.md
-        └── 0011-pixel-perfect-estrategia.md
+        ├── 0011-pixel-perfect-estrategia.md
+        └── 0012-craft-libreria-embebible.md
 ```
 
 ### Modelo de branches
@@ -142,7 +148,7 @@ El agente **MUST NOT** hacer push ni crear PRs — el maintainer (Alberto Gomez)
 | Tests | busted | Headless con `tests/mock_wow.lua` |
 | Packaging | bigwigsmods/packager | ADR-0009 |
 | CI | GitHub Actions | `ci.yml` + `package.yml` (push) + `release.yml` (tags v*) |
-| Distribución | CurseForge + Wago | Craft como Library |
+| Distribución | GitHub Releases (Craft.zip) + CurseForge/Wago (Craft_Browser) | ADR-0012: Craft es embebible, solo Craft_Browser en CurseForge |
 
 **MUST NOT** introducir dependencias fuera de este stack sin ADR aprobado.
 

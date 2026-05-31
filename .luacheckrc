@@ -39,6 +39,10 @@ globals = {
     -- Craft globals defined by Craft.lua and Presets.lua
     "Craft",
     "CraftPresets",
+    -- Craft_Browser globals
+    "CraftBrowserPages",
+    "CraftBrowserDB",
+    "CraftBrowser",
 }
 
 -- Ignore "unused argument" warnings — common in WoW OnEvent callbacks

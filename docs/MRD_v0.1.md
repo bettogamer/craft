@@ -39,6 +39,8 @@ El **North Star** es 50 addons activos en CurseForge/Wago declarando Craft como 
 
 ---
 
+> **Nota ADR-0012 (31/05/2026)**: El modelo de distribución fue actualizado. Craft es ahora una **librería embebible** — developers la descargan de GitHub Releases y la colocan en `libs/` de su addon. Solo **Craft_Browser** está en CurseForge/Wago. Ver `docs/adr/0012-craft-libreria-embebible.md`.
+
 ## 3. Análisis de mercado
 
 ### 3.1 Tamaño de mercado (TAM / SAM / SOM)
