@@ -52,7 +52,7 @@ La estructura de archivos de Craft incluye un directorio `media/` con todos los 
 Craft/
 ├── Craft.toc
 ├── Craft.lua
-├── libs/LibStub.lua
+├── libs/LibStub/LibStub.lua
 ├── theme/Theme.lua
 ├── theme/Presets.lua
 ├── layout/Flex.lua
