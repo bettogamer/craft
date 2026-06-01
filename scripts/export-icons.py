@@ -36,9 +36,20 @@ except ImportError:
 
 try:
     import cairosvg
-except ImportError:
-    print("ERROR: 'cairosvg' not installed. Run: pip install cairosvg")
-    sys.exit(1)
+    _RASTER_BACKEND = "cairosvg"
+except (ImportError, OSError):
+    # cairosvg requires libcairo system DLL (not available on Windows by default).
+    # Fall back to pycairo + svg.path which bundle their own DLLs.
+    try:
+        import cairo as _pycairo
+        import xml.etree.ElementTree as _ET
+        from svg.path import parse_path as _parse_svg_path
+        _RASTER_BACKEND = "pycairo"
+    except ImportError:
+        print("ERROR: No SVG rasterizer found.")
+        print("  Option A (Linux/macOS): pip install cairosvg")
+        print("  Option B (Windows):     pip install pycairo svg.path")
+        sys.exit(1)
 
 # ─── Icon catalog ─────────────────────────────────────────────────────────────
 # Exact order defines the position (col, row) in the atlas.
@@ -127,15 +138,120 @@ def prepare_svg(svg: str) -> str:
 
 # ─── Rasterization ────────────────────────────────────────────────────────────
 
+def _rasterize_pycairo(svg: str, size: int) -> Image.Image:
+    """
+    Renders a Lucide SVG using pycairo + svg.path (Windows fallback).
+    Lucide icons are stroke-only paths on a 24×24 viewBox.
+    """
+    import xml.etree.ElementTree as ET
+    ns = {"svg": "http://www.w3.org/2000/svg"}
+    root = ET.fromstring(svg)
+
+    # Determine viewBox scale
+    vb = root.get("viewBox", "0 0 24 24").split()
+    vb_w = float(vb[2]) if len(vb) >= 3 else 24.0
+    vb_h = float(vb[3]) if len(vb) >= 4 else 24.0
+    scale_x = size / vb_w
+    scale_y = size / vb_h
+
+    surface = _pycairo.ImageSurface(_pycairo.FORMAT_ARGB32, size, size)
+    ctx     = _pycairo.Context(surface)
+    ctx.scale(scale_x, scale_y)
+
+    # Default stroke from the SVG root
+    default_stroke_w = float(root.get("stroke-width", "2"))
+
+    def draw_element(el):
+        stroke_w = float(el.get("stroke-width", default_stroke_w))
+        ctx.set_line_width(stroke_w)
+        ctx.set_line_cap(_pycairo.LINE_CAP_ROUND)
+        ctx.set_line_join(_pycairo.LINE_JOIN_ROUND)
+        ctx.set_source_rgba(1, 1, 1, 1)
+
+        tag = el.tag.split("}")[-1]  # strip namespace
+        if tag == "path":
+            d = el.get("d", "")
+            if not d:
+                return
+            path = _parse_svg_path(d)
+            for seg in path:
+                t = type(seg).__name__
+                if t == "Move":
+                    ctx.move_to(seg.end.real, seg.end.imag)
+                elif t == "Line":
+                    ctx.line_to(seg.end.real, seg.end.imag)
+                elif t in ("CubicBezier", "Arc"):
+                    # Approximate with line segments
+                    N = 20
+                    for i in range(1, N + 1):
+                        pt = seg.point(i / N)
+                        ctx.line_to(pt.real, pt.imag)
+                elif t == "Close":
+                    ctx.close_path()
+            fill = el.get("fill", root.get("fill", "none"))
+            if fill not in ("none", "transparent", ""):
+                ctx.fill_preserve()
+            ctx.stroke()
+
+        elif tag == "circle":
+            cx = float(el.get("cx", 0))
+            cy = float(el.get("cy", 0))
+            r  = float(el.get("r",  0))
+            ctx.arc(cx, cy, r, 0, 2 * 3.14159265)
+            fill = el.get("fill", "none")
+            if fill not in ("none", "transparent", ""):
+                ctx.fill_preserve()
+            ctx.stroke()
+
+        elif tag == "line":
+            x1 = float(el.get("x1", 0)); y1 = float(el.get("y1", 0))
+            x2 = float(el.get("x2", 0)); y2 = float(el.get("y2", 0))
+            ctx.move_to(x1, y1); ctx.line_to(x2, y2)
+            ctx.stroke()
+
+        elif tag == "polyline" or tag == "polygon":
+            pts_str = el.get("points", "")
+            pts = [float(v) for v in pts_str.replace(",", " ").split()]
+            if len(pts) >= 2:
+                ctx.move_to(pts[0], pts[1])
+                for i in range(2, len(pts) - 1, 2):
+                    ctx.line_to(pts[i], pts[i + 1])
+                if tag == "polygon":
+                    ctx.close_path()
+                ctx.stroke()
+
+        elif tag == "rect":
+            x = float(el.get("x", 0)); y = float(el.get("y", 0))
+            w = float(el.get("width", 0)); h = float(el.get("height", 0))
+            ctx.rectangle(x, y, w, h)
+            fill = el.get("fill", "none")
+            if fill not in ("none", "transparent", ""):
+                ctx.fill_preserve()
+            ctx.stroke()
+
+        for child in el:
+            draw_element(child)
+
+    draw_element(root)
+
+    # Convert ARGB32 to RGBA PIL image
+    buf  = surface.get_data()
+    img  = Image.frombuffer("RGBA", (size, size), buf, "raw", "BGRA", 0, 1)
+    return img.copy()
+
+
 def rasterize_svg(svg: str, size: int) -> Image.Image:
     """Converts SVG to a PIL RGBA image of size×size."""
-    png_bytes = cairosvg.svg2png(
-        bytestring=svg.encode("utf-8"),
-        output_width=size,
-        output_height=size,
-        background_color="transparent",
-    )
-    return Image.open(__import__("io").BytesIO(png_bytes)).convert("RGBA")
+    if _RASTER_BACKEND == "cairosvg":
+        png_bytes = cairosvg.svg2png(
+            bytestring=svg.encode("utf-8"),
+            output_width=size,
+            output_height=size,
+            background_color="transparent",
+        )
+        return Image.open(__import__("io").BytesIO(png_bytes)).convert("RGBA")
+    else:
+        return _rasterize_pycairo(svg, size)
 
 # ─── Atlas construction ───────────────────────────────────────────────────────
 

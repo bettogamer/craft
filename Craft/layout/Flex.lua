@@ -44,13 +44,20 @@ end
 
 function Flex:Add(frame, itemConfig)
     itemConfig = itemConfig or {}
+    local basis = itemConfig.basis or "auto"
     local item = {
         frame      = frame,
         grow       = itemConfig.grow      or 0,
         shrink     = itemConfig.shrink    or 1,
-        basis      = itemConfig.basis     or "auto",
+        basis      = basis,
         alignSelf  = itemConfig.alignSelf or "auto",
         order      = itemConfig.order     or 0,
+        -- Cache the natural size at Add() time (before any layout modifies the frame).
+        -- basis="auto" re-reads frame size each Layout() which causes cumulative shrink
+        -- when Layout() is called multiple times (e.g. on window resize).
+        _naturalBasis = (basis == "auto")
+            and (frame:GetWidth() > 0 and frame:GetWidth() or frame:GetHeight())
+            or nil,
     }
     table.insert(self._items, item)
     return item
@@ -118,7 +125,9 @@ function Flex:Layout()
     for _, item in ipairs(sorted) do
         local b
         if item.basis == "auto" then
-            b = isRow and item.frame:GetWidth() or item.frame:GetHeight()
+            -- Use the cached natural size (captured at Add() time) so repeated
+            -- Layout() calls on resize don't shrink items cumulatively.
+            b = item._naturalBasis or (isRow and item.frame:GetWidth() or item.frame:GetHeight())
         else
             b = item.basis
         end

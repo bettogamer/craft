@@ -63,7 +63,6 @@ function Checkbox:Create(parent, config)
     -- ── _label: optional FontString to the right of the box ──────────────────
     self._label = self.frame:CreateFontString(nil, "OVERLAY")
     if self._cfg.label and self._cfg.label ~= "" then
-        self._label:SetText(self._cfg.label)
         self._label:SetPoint("LEFT", self._box, "RIGHT", LABEL_GAP, 0)
         self._label:Show()
     else
@@ -80,6 +79,9 @@ function Checkbox:Create(parent, config)
     -- ── Theme registration ────────────────────────────────────────────────────
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
+    if self._cfg.label and self._cfg.label ~= "" then
+        self._label:SetText(self._cfg.label)  -- after SetFont in _applyTheme
+    end
 
     -- ── Initial disabled state ────────────────────────────────────────────────
     if self._cfg.disabled then
@@ -279,9 +281,10 @@ end
 
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function Checkbox:Destroy()
+    if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
 
-return Checkbox
+Craft.Checkbox = Checkbox

@@ -247,7 +247,93 @@ end
 
 ---
 
-## 9. Flujo de trabajo estándar
+## 9. Errores comunes — lecciones de testing en WoW real
+
+Estos bugs se cometieron durante desarrollo y se corrigieron tras testing en WoW. Documentados para evitar repetirlos.
+
+### WoW API — comportamientos no obvios
+
+**`GetCursorPosition()` devuelve `x, y` — siempre usar `select(2, ...)`**
+```lua
+-- MAL: divide solo por x (primer retorno)
+local y = GetCursorPosition() / frame:GetEffectiveScale()
+
+-- BIEN: extraer y explícitamente
+local y = select(2, GetCursorPosition()) / frame:GetEffectiveScale()
+```
+Afecta: Slider drag, Scroll thumb drag, Sidebar scrollbar drag. En todos los componentes con drag vertical.
+
+**`EditBox` tiene margen interno propio — usar `SetTextInsets`**
+WoW `EditBox` aplica padding interno que NO se puede eliminar solo con `SetPoint`. El texto y cursor aparecen más a la derecha de lo esperado. Solución: posicionar el EditBox cubriendo el área completa y controlar el texto con `SetTextInsets(left, right, 0, 0)`.
+```lua
+self._edit:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     0, -PAD_V)
+self._edit:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0,  PAD_V)
+self._edit:SetTextInsets(self:_leftPad(), self:_rightPad(), 0, 0)
+```
+
+**`FontString:SetText()` antes de `SetFont()` → error en WoW**
+Si un componente llama `SetText` en `Create()` ANTES de que `_applyTheme()` haya ejecutado `SetFont`, WoW lanza error silencioso y el texto no aparece. El patrón correcto:
+```lua
+self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
+self:_applyTheme(Craft.Theme.get())  -- SetFont ocurre aquí
+self._label:SetText(self._cfg.text)  -- SetText DESPUÉS de SetFont
+```
+Afecta: Label, Button, Checkbox, Dialog, Input placeholder. Aplicar en cualquier componente que tenga FontStrings con texto inicial.
+
+**FontString sin `RIGHT` anchor → ancho 0, texto invisible**
+Un FontString con solo `TOPLEFT` tiene ancho 0. El texto se clipea a invisible. Siempre añadir anchor derecho o llamar `SetWidth()`:
+```lua
+label:SetPoint("TOPLEFT",  parent, "TOPLEFT",  16, -y)
+label:SetPoint("RIGHT",    parent, "RIGHT",    -16, 0)  -- OBLIGATORIO
+label:SetHeight(14)
+```
+
+**Frame hijo con height=0 clipea sus FontStrings a invisible**
+Si un Frame contenedor (e.g. `_header` en Panel) no tiene altura definida, WoW clipea todos sus children a 0 — incluidos FontStrings. Siempre dar `SetHeight()` explícito o BOTTOM anchor a frames que contienen texto.
+
+**`frame:EnableMouse(true)` es obligatorio para bloquear eventos**
+Un frame con fondo visible NO bloquea clics/hover por defecto. Sin `EnableMouse(true)`, los eventos pasan al juego debajo. Aplicar en el frame raíz de cualquier ventana o panel que actúe como superficie interactiva.
+
+### Craft.Flex — comportamientos a respetar
+
+**`basis="auto"` + `OnSizeChanged` → encogimiento acumulativo**
+Si `Layout()` se llama múltiples veces (e.g. durante resize de ventana), `basis="auto"` lee el ancho actual del frame — que ya fue modificado por el `Layout()` anterior. Resultado: cada llamada encoge los items más. La solución es capturar `_naturalBasis` en `Add()`. Ver `docs/components/flex.md` §Notas.
+
+**Button en Flex con `grow=1` colapsa en hover**
+`_applyTheme` de Button llama `_recalcWidth()` que llama `frame:SetWidth(textWidth)`, sobreescribiendo el ancho que Flex asignó. La guarda `_intrinsicWidth` evita esto. Ver `docs/components/button.md` §Notas.
+
+**Containers Flex deben tener solo anchors TOP, no BOTTOM**
+Para páginas con scroll, anclar el contenedor con `TOPLEFT + TOPRIGHT` (sin BOTTOM) y dejar que el contenido crezca hacia abajo. Un anchor BOTTOM limitaría la altura y causaría que el contenido se clipee.
+
+### Craft.mediaPath — rutas de assets
+
+**Nunca hardcodear rutas a `Craft/media/`**
+Usar siempre `Craft.mediaPath` que detecta si Craft es standalone o embedded:
+```lua
+-- MAL:
+local font = "Interface\\AddOns\\Craft\\media\\Inter-Regular.ttf"
+
+-- BIEN:
+local font = Craft.mediaPath .. "Inter-Regular.ttf"
+```
+Ver ADR-0012 §6 para el mecanismo de detección.
+
+### Destroy() — guarda contra double-free
+
+**Todos los `Destroy()` deben tener guarda `if not self.frame then return end`**
+Los componentes pueden ser destruidos más de una vez si las páginas de Craft_Browser navegan entre ellas. Sin la guarda, el segundo `Destroy()` hace nil de un frame ya nil y puede causar errores. El patrón:
+```lua
+function MyComponent:Destroy()
+    if not self.frame then return end   -- guarda OBLIGATORIA
+    Craft.Theme.unregister(self._themeHandle)
+    self.frame:Hide()
+    self.frame = nil
+end
+```
+
+---
+
+## 10. Flujo de trabajo estándar
 
 ```mermaid
 flowchart TD

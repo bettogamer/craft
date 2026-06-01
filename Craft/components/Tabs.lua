@@ -321,9 +321,10 @@ end
 
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Tabs:Destroy()
+    if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
 
-return Tabs
+Craft.Tabs = Tabs

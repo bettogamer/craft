@@ -444,6 +444,7 @@ end
 
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function Select:Destroy()
+    if not self.frame then return end
     self:Close()
     Craft.Theme.unregister(self._themeHandle)
     if self._panel then
@@ -454,4 +455,4 @@ function Select:Destroy()
     self.frame = nil
 end
 
-return Select
+Craft.Select = Select

@@ -56,8 +56,13 @@ sidebar.frame              (Frame)                      raíz, ancho fijo
         │   └── ...
         └── ...
 ├── sidebar._footer        (Frame)                      SidebarFooter — oculto por defecto
-└── sidebar._rail  (Frame, ~6px ancho)    SidebarRail — franja clickeable en el borde derecho
+├── ~~sidebar._rail~~      *(eliminado — ver nota de corrección)*
+└── sidebar._sbarFrame     (Frame, 4px ancho)           scrollbar custom, borde derecho del scroll
+    ├── sidebar._sbarTrack (Texture)                    fondo, t.sidebarForeground a=0.08
+    └── sidebar._sbarThumb (Button)                     thumb arrastrable
 ```
+
+> **Corrección post-testing en WoW:** El rail fue eliminado tras testing. La funcionalidad de colapso no se implementa en la versión actual. El espacio del rail (6px en el borde derecho) fue reemplazado por un scrollbar custom de 4px.
 
 **`_header` y `_footer`:** Creados siempre, ocultos por defecto (height=0). El dev los activa
 llamando `GetHeader()` o `GetFooter()`, setea su altura con `SetHeight(N)`, agrega contenido y
@@ -86,7 +91,8 @@ La sección (section header) es un Frame con un FontString, no es clickeable. Lo
 | Header padding | 8px todos los lados | `gap-2 p-2` (.cn-sidebar-header) |
 | Footer padding | 8px todos los lados | `gap-2 p-2` (.cn-sidebar-footer) |
 | Border derecho width | 1px | — |
-| SidebarRail width | 6px | `.cn-sidebar-rail` |
+| ~~SidebarRail width~~ | ~~6px~~ | *(eliminado)* |
+| Scrollbar custom width | 4px | — |
 | Font size (items y labels) | 12px (`t.fontSize`) | `text-xs` |
 
 El `_child` height total = suma de alturas de todos los elementos (secciones e items, con el group padding de cada sección).
@@ -170,8 +176,8 @@ El `_child` height total = suma de alturas de todos los elementos (secciones e i
 | `GetHeader()` | Frame | Retorna `_header` Frame (SidebarHeader). El dev llama `SetHeight(N)` y agrega contenido, luego `RefreshLayout()` |
 | `GetFooter()` | Frame | Retorna `_footer` Frame (SidebarFooter). Mismo patrón que GetHeader() |
 | `RefreshLayout()` | void | Reancla `_scroll` entre `_header` y `_footer` según sus alturas actuales. Llamar después de modificar header/footer |
-| `GetRail()` | Frame | Retorna el rail frame (para posicionamiento externo si se necesita) |
-| `SetCollapsible(bool)` | void | Habilita/deshabilita el comportamiento de colapso al clickear el rail |
+
+> **Corrección post-testing en WoW:** `GetRail()` y `SetCollapsible(bool)` fueron eliminados del API público junto con el rail. La funcionalidad de colapso no se implementa en la versión actual.
 
 ## Notas de implementación
 
@@ -230,28 +236,31 @@ sectionLabel:SetTextColor(t.sidebarForeground.r, t.sidebarForeground.g, t.sideba
 
 **Radius = 0:** los fondos de hover y activo son Textures rectangulares sin redondeo (`rounded-none` en Lyra), pintadas con `SetColorTexture`.
 
-**SidebarRail:**
+~~**SidebarRail:**~~ *(eliminado — ver nota abajo)*
+
+> **Corrección post-testing en WoW:** El rail fue eliminado tras testing. La funcionalidad de colapso no se implementa en la versión actual. El espacio del rail (6px en el borde derecho) fue reemplazado por un scrollbar custom de 4px.
+
+**Scrollbar custom (reemplaza al rail):**
+
+El sidebar incluye un scrollbar custom de 4px en el borde derecho del scroll. Solo es visible cuando `childH > viewH`.
+
+- `_sbarFrame`: Frame de 4px de ancho, anclado al borde derecho del scroll.
+- `_sbarTrack`: Texture background con color `t.sidebarForeground` a=0.08 — indica visualmente la zona scrollable.
+- `_sbarThumb`: Button con drag support. Colores:
+  - Normal: `t.sidebarForeground` a=0.35
+  - Hover: `t.sidebarForeground` a=0.60
+  - Drag activo: `t.sidebarPrimary` a=0.80
+- `_updateSbar()`: método interno que reposiciona el thumb según el scroll actual del `_scroll` ScrollFrame.
+- Drag usa `select(2, GetCursorPosition()) / frame:GetEffectiveScale()` (ADR-0011).
+
 ```lua
--- Frame de 6px en el borde derecho del sidebar (sobre el border de 1px)
-self._rail = CreateFrame("Button", nil, self.frame)
-self._rail:SetWidth(6)
-self._rail:SetPoint("TOPRIGHT",    self.frame, "TOPRIGHT",    0, 0)
-self._rail:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
-self._rail:EnableMouse(true)
-
--- Franja visual: aparece en hover (bg-sidebar-border)
-self._railTex = self._rail:CreateTexture(nil, "HIGHLIGHT")
-self._railTex:SetAllPoints(self._rail)
--- Color en _applyTheme: t.sidebarBorder
-
--- Colapsar/expandir al clickear
-self._collapsible = false
-self._collapsed   = false
-self._rail:SetScript("OnClick", function()
-    if self._collapsible then
-        self:_toggleCollapse()
-    end
-end)
+-- Visibilidad del scrollbar
+if childH > viewH then
+    self._sbarFrame:Show()
+    self:_updateSbar()
+else
+    self._sbarFrame:Hide()
+end
 ```
 
-`_toggleCollapse()` alterna entre `self.frame:SetWidth(WIDTHS[size])` y `self.frame:SetWidth(0)`.
+> **Corrección post-testing en WoW:** scrollbar custom añadido para dar feedback visual del contenido scrollable.

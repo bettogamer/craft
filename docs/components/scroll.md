@@ -13,12 +13,12 @@ Frame (root)                              — contenedor exterior, define el tam
 ├── ScrollFrame                           — clipping area, mismo tamaño que root menos el ancho del scrollbar
 │   └── Frame (scrollChild)              — contenido real, puede exceder la altura del ScrollFrame
 ├── Frame (scrollbarV)                    — scrollbar vertical, 8px ancho, anclado al borde derecho
-│   ├── Texture (trackBg)               — BACKGROUND layer, transparent (sin color)
+│   ├── Texture (trackBg)               — BACKGROUND layer, t.secondary a=0.30
 │   └── Slider (thumbSlider)            — vertical, thumb custom
 │       └── Button (thumbBtn)           — OVERLAY layer, 6px ancho, thumb visual
 │           └── Texture (thumbBg)       — BACKGROUND layer, t.secondary
 └── Frame (scrollbarH)                    — scrollbar horizontal (opcional), 8px alto, anclado al borde inferior
-    ├── Texture (trackBg)               — BACKGROUND layer, transparent
+    ├── Texture (trackBg)               — BACKGROUND layer, t.secondary a=0.30
     └── Slider (thumbSliderH)           — horizontal, thumb custom
         └── Button (thumbBtnH)          — OVERLAY layer, 6px alto, thumb visual
             └── Texture (thumbBgH)      — BACKGROUND layer, t.secondary
@@ -32,7 +32,7 @@ Frame (root)                              — contenedor exterior, define el tam
 |--------------|---------------|------------------------------------|
 | Track        | Width         | 8px                                |
 | Track        | Height        | igual al height del ScrollFrame    |
-| Track        | Color         | Transparent (sin fondo visual)     |
+| Track        | Color         | `t.secondary` a=0.30               |
 | Thumb        | Width         | 6px (1px gap a cada lado vs track) |
 | Thumb        | Min height    | 32px                               |
 | Thumb        | Height calc   | `(visible/total) * trackHeight`, mínimo 32px |
@@ -46,7 +46,7 @@ Frame (root)                              — contenedor exterior, define el tam
 |--------------|---------------|------------------------------------|
 | Track        | Height        | 8px                                |
 | Track        | Width         | igual al width del ScrollFrame     |
-| Track        | Color         | Transparent                        |
+| Track        | Color         | `t.secondary` a=0.30               |
 | Thumb        | Height        | 6px                                |
 | Thumb        | Min width     | 32px                               |
 | Thumb        | Width calc    | `(visible/total) * trackWidth`, mínimo 32px |
@@ -86,12 +86,14 @@ El scrollbar completo se oculta (`Hide()`) si el contenido no excede el área vi
 
 | Elemento               | Token          |
 |------------------------|----------------|
-| Track bg               | Transparent    |
+| Track bg               | `t.secondary` a=0.30 |
 | Thumb bg default       | `t.secondary`  |
 | Thumb bg hover         | `t.accent`     |
 | Thumb bg dragging      | `t.primary`    |
 | ScrollChild bg         | (ninguno — hereda del parent) |
 | Root bg                | (ninguno — transparente por defecto) |
+
+> **Corrección post-testing en WoW:** El track completamente transparente era invisible para el usuario. Se usa `t.secondary` con alpha=0.30 para dar una indicación visual sutil de la zona scrollable.
 
 ## Config — `Create(parent, config)`
 

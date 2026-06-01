@@ -124,25 +124,30 @@ function Panel:_layoutFrames(t)
 
     if hasHeader then
         self._header:Show()
+        self._header:ClearAllPoints()
+        self._header:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
+        self._header:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
 
-        -- px-4 horizontal inset for header content
+        -- Title: lg top-pad + t.fontSizeLg (14px) + lg bottom-pad
+        local titleH = t.fontSizeLg or 14
         self._title:ClearAllPoints()
         self._title:SetPoint("TOPLEFT",  self._header, "TOPLEFT",  lg, -lg)
         self._title:SetPoint("TOPRIGHT", self._header, "TOPRIGHT", -lg, -lg)
 
         if hasDesc then
+            -- Desc below title with xs gap
+            local descH = t.fontSize or 12
             self._desc:ClearAllPoints()
             self._desc:SetPoint("TOPLEFT",  self._title, "BOTTOMLEFT",  0, -xs)
             self._desc:SetPoint("TOPRIGHT", self._title, "BOTTOMRIGHT", 0, -xs)
             self._desc:Show()
-            -- Header height: lg (top) + title + xs + desc + lg (bottom)
-            -- We let the header grow by anchoring its bottom to the desc bottom.
-            self._header:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
-            self._header:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
-            -- Height is implicit: determined by SetAllPoints-style anchor below.
+            -- Header height: lg + title + xs + desc + lg
+            self._header:SetHeight(lg + titleH + xs + descH + lg)
         else
             self._desc:ClearAllPoints()
             self._desc:Hide()
+            -- Header height: lg + title + lg
+            self._header:SetHeight(lg + titleH + lg)
         end
     else
         self._header:Hide()
@@ -279,9 +284,10 @@ end
 
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Panel:Destroy()
+    if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
 
-return Panel
+Craft.Panel = Panel

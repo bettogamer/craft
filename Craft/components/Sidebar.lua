@@ -44,6 +44,9 @@ local GROUP_FONT     = 12   -- text-xs (fontSizeSm)
 local GROUP_ALPHA    = 0.7  -- sidebarForeground/70
 local SEPARATOR_MX   = 8    -- mx-2  (usado en separators: inset horizontal)
 
+local SBAR_W         = 4    -- scrollbar track width (px)
+local SBAR_THUMB_MIN = 20   -- minimum thumb height (px)
+
 -- ─── Create ───────────────────────────────────────────────────────────────────
 function Sidebar:Create(parent, config)
     local self = setmetatable({}, Sidebar)
@@ -91,34 +94,109 @@ function Sidebar:Create(parent, config)
     self._footer:SetHeight(0)
     self._footer:Hide()
 
-    -- SidebarRail: clickable visual strip on the right edge
-    self._rail = CreateFrame("Button", nil, self.frame)
-    self._rail:SetWidth(6)
-    self._rail:SetPoint("TOPRIGHT",    self.frame, "TOPRIGHT",    0, 0)
-    self._rail:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
-    self._rail:EnableMouse(true)
-
-    self._railTex = self._rail:CreateTexture(nil, "HIGHLIGHT")
-    self._railTex:SetAllPoints(self._rail)
-
-    self._collapsible = false
-    self._collapsed   = false
-    self._rail:SetScript("OnClick", function()
-        if self._collapsible then
-            self:_toggleCollapse()
-        end
-    end)
-
     -- _scroll: ScrollFrame — anchored between _header and _footer
     self._scroll = CreateFrame("ScrollFrame", nil, self.frame)
     self._scroll:SetPoint("TOPLEFT",     self._header, "BOTTOMLEFT",  0,  0)
-    self._scroll:SetPoint("BOTTOMRIGHT", self._footer, "TOPRIGHT",    -1, 0)
+    self._scroll:SetPoint("BOTTOMRIGHT", self._footer, "TOPRIGHT",     0, 0)
 
     -- _child: scrollable content Frame
+    -- width leaves SBAR_W gap on the right so items don't overlap the scrollbar
     self._child = CreateFrame("Frame", nil, self._scroll)
-    self._child:SetWidth(w - 1)
+    self._child:SetWidth(w - 1 - SBAR_W)
     self._child:SetHeight(1)  -- will be updated in _rebuild
     self._scroll:SetScrollChild(self._child)
+
+    -- Mouse wheel scrolling (32px per tick = one item height)
+    self._scroll:EnableMouseWheel(true)
+    self._scroll:SetScript("OnMouseWheel", function(_, delta)
+        local current = self._scroll:GetVerticalScroll()
+        local max     = self._scroll:GetVerticalScrollRange()
+        local new     = math.max(0, math.min(max, current - delta * 32))
+        self._scroll:SetVerticalScroll(new)
+        self:_updateSbar()
+    end)
+
+    -- Scrollbar: thin track overlaid on the right edge of the scroll area
+    self._sbarFrame = CreateFrame("Frame", nil, self.frame)
+    self._sbarFrame:SetWidth(SBAR_W)
+    self._sbarFrame:SetPoint("TOPRIGHT",    self._scroll, "TOPRIGHT",    0, 0)
+    self._sbarFrame:SetPoint("BOTTOMRIGHT", self._scroll, "BOTTOMRIGHT", 0, 0)
+
+    self._sbarTrack = self._sbarFrame:CreateTexture(nil, "BACKGROUND")
+    self._sbarTrack:SetAllPoints(self._sbarFrame)
+    -- color set in _applyTheme
+
+    self._sbarThumb = CreateFrame("Button", nil, self._sbarFrame)
+    self._sbarThumb:SetAllPoints(self._sbarFrame)  -- placeholder; real size set in _updateSbar
+    self._sbarThumb:EnableMouse(true)
+    self._sbarThumbTex = self._sbarThumb:CreateTexture(nil, "ARTWORK")
+    self._sbarThumbTex:SetAllPoints(self._sbarThumb)
+    self._sbarThumb:Hide()
+    -- color set in _applyTheme
+
+    -- Drag state
+    self._sbarDragging        = false
+    self._sbarDragStartY      = 0
+    self._sbarDragStartScroll = 0
+
+    self._sbarThumb:SetScript("OnMouseDown", function()
+        self._sbarDragging        = true
+        self._sbarDragStartY      = select(2, GetCursorPosition()) / self._sbarFrame:GetEffectiveScale()
+        self._sbarDragStartScroll = self._scroll:GetVerticalScroll()
+        if self._t then
+            self._sbarThumbTex:SetColorTexture(
+                self._t.sidebarPrimary.r, self._t.sidebarPrimary.g, self._t.sidebarPrimary.b, 0.8)
+        end
+        self._sbarThumb:SetScript("OnUpdate", function()
+            if not self._sbarDragging then return end
+            local curY      = select(2, GetCursorPosition()) / self._sbarFrame:GetEffectiveScale()
+            local deltaY    = self._sbarDragStartY - curY
+            local trackH    = self._sbarFrame:GetHeight() or 0
+            local childH    = self._child:GetHeight()     or 0
+            local viewH     = self._scroll:GetHeight()    or 0
+            local range     = math.max(0, childH - viewH)
+            local thumbH    = math.max(SBAR_THUMB_MIN, math.floor(trackH * (viewH / childH)))
+            local movable   = trackH - thumbH
+            if movable <= 0 then return end
+            local newScroll = self._sbarDragStartScroll + (deltaY / movable) * range
+            self._scroll:SetVerticalScroll(math.max(0, math.min(range, newScroll)))
+            self:_updateSbar()
+        end)
+    end)
+
+    self._sbarThumb:SetScript("OnMouseUp", function()
+        self._sbarDragging = false
+        self._sbarThumb:SetScript("OnUpdate", nil)
+        if self._t then
+            self._sbarThumbTex:SetColorTexture(
+                self._t.sidebarForeground.r, self._t.sidebarForeground.g,
+                self._t.sidebarForeground.b, 0.35)
+        end
+    end)
+
+    self._sbarThumb:SetScript("OnEnter", function()
+        if self._sbarDragging then return end
+        if self._t then
+            self._sbarThumbTex:SetColorTexture(
+                self._t.sidebarForeground.r, self._t.sidebarForeground.g,
+                self._t.sidebarForeground.b, 0.6)
+        end
+    end)
+
+    self._sbarThumb:SetScript("OnLeave", function()
+        if self._sbarDragging then return end
+        if self._t then
+            self._sbarThumbTex:SetColorTexture(
+                self._t.sidebarForeground.r, self._t.sidebarForeground.g,
+                self._t.sidebarForeground.b, 0.35)
+        end
+    end)
+
+    -- Update thumb when scroll position or size changes
+    self._scroll:SetScript("OnScrollRangeChanged", function() self:_updateSbar() end)
+    self._scroll:SetScript("OnVerticalScroll",     function() self:_updateSbar() end)
+    self._sbarFrame:SetScript("OnSizeChanged",     function() self:_updateSbar() end)
+    self.frame:SetScript("OnShow",                 function() self:_updateSbar() end)
 
     -- Map of item frames by id (for efficient SetActiveItem)
     self._itemFrames = {}
@@ -153,15 +231,46 @@ function Sidebar:_applyTheme(t)
     self._borderR:SetColorTexture(t.sidebarBorder.r, t.sidebarBorder.g, t.sidebarBorder.b,
                                    t.sidebarBorder.a or 0.10)
 
-    -- Rail: colorize the strip
-    if self._railTex then
-        self._railTex:SetColorTexture(
-            t.sidebarBorder.r, t.sidebarBorder.g,
-            t.sidebarBorder.b, t.sidebarBorder.a)
+    -- Scrollbar colors
+    if self._sbarTrack then
+        self._sbarTrack:SetColorTexture(
+            t.sidebarForeground.r, t.sidebarForeground.g, t.sidebarForeground.b, 0.08)
     end
+    if self._sbarThumbTex then
+        self._sbarThumbTex:SetColorTexture(
+            t.sidebarForeground.r, t.sidebarForeground.g, t.sidebarForeground.b, 0.35)
+    end
+    self:_updateSbar()
 
     -- Re-apply colors to all already-built items and sections
     self:_recolorAll()
+end
+
+-- ─── _updateSbar ──────────────────────────────────────────────────────────────
+-- Repositions the scrollbar thumb based on current scroll position.
+function Sidebar:_updateSbar()
+    local childH  = self._child:GetHeight()  or 0
+    local viewH   = self._scroll:GetHeight() or 0
+    local trackH  = self._sbarFrame:GetHeight() or 0
+
+    if childH <= viewH or trackH <= 0 then
+        self._sbarThumb:Hide()
+        return
+    end
+    self._sbarThumb:Show()
+
+    local thumbH  = math.max(SBAR_THUMB_MIN, math.floor(trackH * (viewH / childH)))
+    self._sbarThumb:SetHeight(thumbH)
+    self._sbarThumb:SetWidth(SBAR_W)
+
+    local range   = math.max(0, childH - viewH)
+    local current = self._scroll:GetVerticalScroll()
+    local ratio   = range > 0 and math.max(0, math.min(1, current / range)) or 0
+    local movable = trackH - thumbH
+
+    self._sbarThumb:ClearAllPoints()
+    self._sbarThumb:SetPoint("TOP",  self._sbarFrame, "TOP",  0, -(movable * ratio))
+    self._sbarThumb:SetPoint("LEFT", self._sbarFrame, "LEFT", 0, 0)
 end
 
 -- ─── _recolorAll ──────────────────────────────────────────────────────────────
@@ -266,6 +375,7 @@ function Sidebar:_rebuildLayout()
 
     -- Adjust total height of _child
     self._child:SetHeight(math.max(cursorY, 1))
+    self:_updateSbar()
 end
 
 -- ─── AddSection ───────────────────────────────────────────────────────────────
@@ -286,7 +396,6 @@ function Sidebar:AddSection(label)
     labelFs:SetPoint("BOTTOM", secFrame, "BOTTOM", 0, 0)
     labelFs:SetJustifyH("LEFT")
     labelFs:SetJustifyV("MIDDLE")
-    labelFs:SetText(string.upper(label or ""))
 
     if t then
         labelFs:SetFont(t.font, GROUP_FONT)
@@ -297,6 +406,7 @@ function Sidebar:AddSection(label)
             GROUP_ALPHA
         )
     end
+    labelFs:SetText(string.upper(label or ""))  -- after SetFont
 
     local entry = {
         type    = "section",
@@ -503,40 +613,16 @@ end
 function Sidebar:RefreshLayout()
     self._scroll:ClearAllPoints()
     self._scroll:SetPoint("TOPLEFT",     self._header, "BOTTOMLEFT",  0,  0)
-    self._scroll:SetPoint("BOTTOMRIGHT", self._footer, "TOPRIGHT",    -1, 0)
+    self._scroll:SetPoint("BOTTOMRIGHT", self._footer, "TOPRIGHT",     0, 0)
 end
 
-function Sidebar:GetRail()
-    return self._rail
-end
-
-function Sidebar:SetCollapsible(enabled)
-    self._collapsible = enabled
-end
-
-function Sidebar:_toggleCollapse()
-    if self._collapsed then
-        -- Expand
-        self.frame:SetWidth(self._width)
-        self._scroll:Show()
-        self._collapsed = false
-    else
-        -- Collapse — only the rail remains visible
-        self.frame:SetWidth(self._rail:GetWidth())
-        self._scroll:Hide()
-        self._collapsed = true
-    end
-    -- Notify the parent for relayout if a callback exists
-    if self._onCollapse then
-        self._onCollapse(self._collapsed)
-    end
-end
 
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function Sidebar:Destroy()
+    if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
 
-return Sidebar
+Craft.Sidebar = Sidebar

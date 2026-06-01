@@ -116,6 +116,27 @@ Craft_Browser/
 
 ---
 
+### 6. Detalles de implementación en Craft.lua
+
+**`_G.Craft = Craft`** — Craft se expone como global además de via LibStub. Esto permite que addons consumer (e.g. páginas de `Craft_Browser`) accedan a `Craft.*` directamente sin llamar `LibStub("Craft-1.0")` en cada archivo. LibStub sigue siendo el mecanismo de versioning; el global es solo conveniencia de acceso.
+
+**`Craft.mediaPath`** — la ruta a `Craft/media/` varía según el modo de deploy:
+
+```lua
+local ADDON_NAME = ...   -- WoW pasa el nombre del addon que carga este .lua
+local _mediaRoot = (ADDON_NAME == "Craft")
+    and "Interface\\AddOns\\Craft"
+    or  ("Interface\\AddOns\\" .. ADDON_NAME .. "\\libs\\Craft")
+Craft.mediaPath = _mediaRoot .. "\\media\\"
+```
+
+- **Standalone** (`ADDON_NAME == "Craft"`): `Interface\AddOns\Craft\media\`
+- **Embedded** (e.g. `Craft_Browser`): `Interface\AddOns\Craft_Browser\libs\Craft\media\`
+
+`Presets.lua` y cualquier módulo que necesite rutas de assets debe usar `Craft.mediaPath` — **nunca rutas hardcodeadas** — para que Craft funcione en ambos modos de deploy.
+
+---
+
 ### 6. Referencias
 
 - Supercede: `docs/adr/0001-arquitectura-libreria-libstub.md`

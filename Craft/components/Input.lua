@@ -13,8 +13,10 @@ local PAD_H       = 10    -- px-2.5
 local PAD_V       = 4     -- py-1
 local FONT_SIZE   = 12    -- text-xs
 local ICON_SIZE   = 16    -- iconSizeSm
-local ICON_PAD    = 8     -- spacingSm — distance from edge to icon center
-local ICON_DELTA  = 20    -- extra padding when an icon is present (icon + gap)
+local ICON_PAD    = 8     -- distance from frame edge to icon left edge
+local ICON_DELTA  = ICON_PAD + ICON_SIZE - PAD_H + 4
+                          -- positions text 4px after icon right edge:
+                          -- leftPad = PAD_H + ICON_DELTA = ICON_PAD + ICON_SIZE + 4 = 28px
 
 -- ─── Create ───────────────────────────────────────────────────────────────────
 function Input:Create(parent, config)
@@ -80,17 +82,20 @@ function Input:Create(parent, config)
     if self._cfg.maxLetters and self._cfg.maxLetters > 0 then
         self._edit:SetMaxLetters(self._cfg.maxLetters)
     end
-    self._edit:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     self:_leftPad(),   -PAD_V)
-    self._edit:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -self:_rightPad(),  PAD_V)
+    -- EditBox covers the full inner area; SetTextInsets controls exactly where
+    -- text (and cursor) start — bypasses WoW's internal EditBox frame margin.
+    self._edit:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     0, -PAD_V)
+    self._edit:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0,  PAD_V)
+    self._edit:SetTextInsets(self:_leftPad(), self:_rightPad(), 0, 0)
     self._edit:SetText(self._cfg.value)
 
     -- ── _placeholder: FontString OVERLAY ──────────────────────────────────────
+    -- Placeholder is a FontString (no internal WoW margin) so normal anchors work.
     self._placeholder = self.frame:CreateFontString(nil, "OVERLAY")
     self._placeholder:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     self:_leftPad(),   -PAD_V)
     self._placeholder:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -self:_rightPad(),  PAD_V)
     self._placeholder:SetJustifyH("LEFT")
     self._placeholder:SetJustifyV("MIDDLE")
-    self._placeholder:SetText(self._cfg.placeholder)
 
     -- Show placeholder only if initial value is empty
     if self._cfg.value == "" then
@@ -136,6 +141,7 @@ function Input:Create(parent, config)
     -- ── Theme registration ────────────────────────────────────────────────────
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
+    self._placeholder:SetText(self._cfg.placeholder)  -- after SetFont in _applyTheme
 
     -- ── Initial disabled state ────────────────────────────────────────────────
     if self._cfg.disabled then
@@ -197,7 +203,7 @@ function Input:_applyTheme(t)
     self._t = t
 
     -- Font for EditBox and placeholder
-    self._edit:SetFont(t.font, FONT_SIZE)
+    self._edit:SetFont(t.font, FONT_SIZE, "")  -- EditBox requires flags arg (FontString does not)
     self._placeholder:SetFont(t.font, FONT_SIZE)
 
     -- Text colors
@@ -307,9 +313,10 @@ end
 
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function Input:Destroy()
+    if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
 
-return Input
+Craft.Input = Input

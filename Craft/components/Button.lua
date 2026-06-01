@@ -51,7 +51,6 @@ function Button:Create(parent, config)
 
     -- _label: button text
     self._label = self.frame:CreateFontString(nil, "OVERLAY")
-    self._label:SetText(self._cfg.text)
 
     -- _icon: Lucide icon (optional)
     self._icon = self.frame:CreateTexture(nil, "ARTWORK")
@@ -67,6 +66,8 @@ function Button:Create(parent, config)
     -- Register in the theming system and apply initial theme
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
+    self._label:SetText(self._cfg.text)  -- after SetFont in _applyTheme
+    self:_recalcWidth()                  -- recalc now that text is set (GetStringWidth was 0 before)
 
     -- Interaction scripts
     self.frame:SetScript("OnEnter",    function() self:_onEnter()    end)
@@ -108,8 +109,17 @@ function Button:_recalcWidth()
     local padH    = hasIcon and s.padHIcon or s.padH
     local labelW  = self._label:GetStringWidth()
     local iconW   = hasIcon and (s.icon + s.gap) or 0
-    local w       = padH * 2 + labelW + iconW
-    self.frame:SetWidth(math.max(w, s.h))  -- at minimum as wide as tall
+    local intrinsic = math.max(padH * 2 + labelW + iconW, s.h)
+
+    -- If an external layout (e.g. Craft.Flex) changed the frame width after our last
+    -- _recalcWidth, respect it — don't collapse the button back to its text width.
+    local currentW = self.frame:GetWidth()
+    if self._intrinsicWidth and math.abs(currentW - self._intrinsicWidth) > 0.5 then
+        return
+    end
+
+    self._intrinsicWidth = intrinsic
+    self.frame:SetWidth(intrinsic)
 end
 
 -- ─── Theme ─────────────────────────────────────────────────────────────────
@@ -182,7 +192,10 @@ function Button:_applyTheme(t)
 end
 
 -- ─── Child positioning ─────────────────────────────────────────────────────
-function Button:_positionChildren()
+-- yOffset: vertical shift for the press effect (-1 on MouseDown, 0 on MouseUp)
+-- Only the primary anchor gets yOffset; secondary elements follow via relative anchors.
+function Button:_positionChildren(yOffset)
+    yOffset = yOffset or 0
     local s       = self._size
     local hasIcon = self._cfg.icon ~= nil
     local padH    = hasIcon and s.padHIcon or s.padH
@@ -192,25 +205,25 @@ function Button:_positionChildren()
     self._underline:ClearAllPoints()
 
     if s.w then
-        -- Icon-only: center everything
+        -- Icon-only: center icon (or label) with yOffset
         if hasIcon then
-            self._icon:SetPoint("CENTER", self.frame, "CENTER")
+            self._icon:SetPoint("CENTER", self.frame, "CENTER", 0, yOffset)
         else
-            self._label:SetPoint("CENTER", self.frame, "CENTER")
+            self._label:SetPoint("CENTER", self.frame, "CENTER", 0, yOffset)
         end
     elseif hasIcon then
         if self._cfg.iconPosition == "left" then
-            -- icon to the left of the label
-            self._icon:SetPoint("LEFT",  self.frame, "LEFT", padH, 0)
+            -- Primary: icon anchored to frame; label follows icon via relative anchor
+            self._icon:SetPoint("LEFT",  self.frame, "LEFT",  padH, yOffset)
             self._label:SetPoint("LEFT", self._icon,  "RIGHT", s.gap, 0)
         else
-            -- icon to the right of the label
-            self._label:SetPoint("LEFT", self.frame, "LEFT", padH, 0)
+            -- Primary: label anchored to frame; icon follows label via relative anchor
+            self._label:SetPoint("LEFT", self.frame, "LEFT",  padH, yOffset)
             self._icon:SetPoint("LEFT",  self._label, "RIGHT", s.gap, 0)
         end
     else
-        -- Text only: centered vertically and horizontally
-        self._label:SetPoint("CENTER", self.frame, "CENTER")
+        -- Text only
+        self._label:SetPoint("CENTER", self.frame, "CENTER", 0, yOffset)
     end
 
     -- Icon size and visibility
@@ -283,25 +296,11 @@ end
 
 function Button:_onMouseDown()
     if self._cfg.disabled then return end
-    -- active:not-aria-[haspopup]:translate-y-px
-    -- Move content 1px down to simulate a press
-    -- Do not move self.frame (would affect the dev's layout)
-    self._label:SetPoint("CENTER", self.frame, "CENTER", 0, -1)
-    if self._cfg.icon then
-        -- Re-anchor the icon 1px down as well
-        local s    = self._size
-        local padH = s.padHIcon or s.padH
-        if self._cfg.iconPosition == "left" then
-            self._icon:SetPoint("LEFT", self.frame, "LEFT", padH, -1)
-        else
-            self._icon:SetPoint("LEFT", self._label, "RIGHT", s.gap, -1)
-        end
-    end
+    self:_positionChildren(-1)  -- translate-y-px: shift content 1px down
 end
 
 function Button:_onMouseUp()
     if self._cfg.disabled then return end
-    -- Restore original position
     self:_positionChildren()
 end
 
@@ -346,9 +345,10 @@ end
 
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Button:Destroy()
+    if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
 
-return Button
+Craft.Button = Button

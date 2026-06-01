@@ -24,7 +24,7 @@ local CB = CraftBrowser
 -- Constants
 local DEFAULT_W, DEFAULT_H = 800, 600
 local MIN_W,     MIN_H     = 600, 400
-local SIDEBAR_W            = 200
+local SIDEBAR_W            = 220  -- matches Craft.Sidebar WIDTHS.default
 
 -- Internal state
 local _mainFrame   = nil
@@ -40,16 +40,16 @@ local _currentRender = nil -- result of render() from the active page
 
 -- ─── Init ──────────────────────────────────────────────────────────────────
 
-local function OnAddonLoaded(_, addonName)
-    if addonName ~= "Craft_Browser" then return end
-
-    -- SavedVariables
-    CraftBrowserDB = CraftBrowserDB or {}
+local function initDB()
+    CraftBrowserDB        = CraftBrowserDB or {}
     CraftBrowserDB.width  = CraftBrowserDB.width  or DEFAULT_W
     CraftBrowserDB.height = CraftBrowserDB.height or DEFAULT_H
     CraftBrowserDB.scale  = CraftBrowserDB.scale  or 100
     CraftBrowserDB.page   = CraftBrowserDB.page   or "Button"
+end
 
+local function OnAddonLoaded(_, addonName)
+    if addonName ~= "Craft_Browser" then return end
     CB._build()
 end
 
@@ -60,6 +60,7 @@ loader:SetScript("OnEvent", OnAddonLoaded)
 -- ─── Build ─────────────────────────────────────────────────────────────────
 
 function CB._build()
+    initDB()
     local t = Craft.Theme.get()
 
     -- ── Main window ───────────────────────────────────────────────────────
@@ -68,8 +69,9 @@ function CB._build()
     _mainFrame:SetFrameStrata("HIGH")
     _mainFrame:SetMovable(true)
     _mainFrame:SetResizable(true)
-    _mainFrame:SetMinResize(MIN_W, MIN_H)
+    _mainFrame:SetResizeBounds(MIN_W, MIN_H)
     _mainFrame:SetClampedToScreen(true)
+    _mainFrame:EnableMouse(true)  -- block mouse events from passing through to the game world
 
     if CraftBrowserDB.x and CraftBrowserDB.y then
         _mainFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT",
@@ -97,6 +99,18 @@ function CB._build()
     local hdr = _nav:GetHeader()
     hdr:SetHeight(48)
 
+    -- Header background: slightly lighter than sidebar to separate it visually
+    local hdrBg = hdr:CreateTexture(nil, "BACKGROUND")
+    hdrBg:SetAllPoints(hdr)
+    hdrBg:SetColorTexture(t.sidebar.r + 0.04, t.sidebar.g + 0.04, t.sidebar.b + 0.04, 1)
+
+    -- Bottom separator
+    local hdrSep = hdr:CreateTexture(nil, "BORDER")
+    Craft.Theme.SetPixelHeight(hdrSep, 1)
+    hdrSep:SetPoint("BOTTOMLEFT",  hdr, "BOTTOMLEFT",  0, 0)
+    hdrSep:SetPoint("BOTTOMRIGHT", hdr, "BOTTOMRIGHT", 0, 0)
+    hdrSep:SetColorTexture(t.sidebarBorder.r, t.sidebarBorder.g, t.sidebarBorder.b, t.sidebarBorder.a)
+
     hdr:SetScript("OnMouseDown", function() _mainFrame:StartMoving() end)
     hdr:SetScript("OnMouseUp",   function()
         _mainFrame:StopMovingOrSizing()
@@ -105,12 +119,30 @@ function CB._build()
     end)
     hdr:EnableMouse(true)
 
+    -- Title: bold, fontSizeLg (14px) — top of the two-line block
+    -- Two-line block: title(14) + gap(4) + subtitle(11) = 29px → top offset = (48-29)/2 = ~10px
     local titleLabel = Craft.Label:Create(hdr, {
         text  = "Craft Browser",
         color = { r=t.sidebarForeground.r, g=t.sidebarForeground.g,
                   b=t.sidebarForeground.b, a=1 },
     })
-    titleLabel:GetFrame():SetPoint("LEFT", hdr, "LEFT", 12, 0)
+    local tlf = titleLabel:GetFrame()
+    tlf:SetPoint("TOPLEFT", hdr, "TOPLEFT", 12, -10)
+    tlf:SetPoint("RIGHT",   hdr, "RIGHT",   -36,  0)
+    tlf:SetHeight(16)
+    -- Override font to bold + larger
+    titleLabel._text:SetFont(t.fontBold, t.fontSizeLg)
+
+    -- Subtitle: version, smaller + muted
+    local versionLabel = Craft.Label:Create(hdr, {
+        text  = "v" .. (Craft.VERSION or "dev"),
+        color = { r=t.sidebarForeground.r, g=t.sidebarForeground.g,
+                  b=t.sidebarForeground.b, a=0.5 },
+    })
+    local vlf = versionLabel:GetFrame()
+    vlf:SetPoint("TOPLEFT", hdr, "TOPLEFT", 12, -28)  -- 10 + 14 + 4 gap
+    vlf:SetPoint("RIGHT",   hdr, "RIGHT",   -36,  0)
+    vlf:SetHeight(13)
 
     -- Close button in the header
     local closeBtn = CreateFrame("Button", nil, hdr)
@@ -155,33 +187,52 @@ function CB._build()
     _nav:AddItem({ id="Theme",     label="Theme",     onClick=function() CB.Navigate("Theme")     end })
     _nav:AddItem({ id="Tooltip",   label="Tooltip",   onClick=function() CB.Navigate("Tooltip")   end })
 
-    -- SidebarRail (collapse)
-    _nav:SetCollapsible(true)
-
-    -- SidebarFooter: scale
+    -- SidebarFooter: p-2 gap-2 per sidebar spec = 8px padding all sides, 8px gap
+    -- Label row: pad(8)+label(12) = 20px from top
+    -- Track must be at 28px from top (20+gap8). Track = frameTop+14, so frameTop=14.
+    -- Slider frame: 14px to 46px (FRAME_H=32). Bottom padding: 54-46=8px.
+    -- Total footer: 8(pad)+12(label)+8(gap)+32(slider frame)+8(pad) → but track lands at 28px ✓ → 54px
     local ftr = _nav:GetFooter()
-    ftr:SetHeight(56)
+    ftr:SetHeight(54)
     _nav:RefreshLayout()
 
+    -- Top separator (sidebar-border)
+    local ftrSep = ftr:CreateTexture(nil, "BORDER")
+    Craft.Theme.SetPixelHeight(ftrSep, 1)
+    ftrSep:SetPoint("TOPLEFT",  ftr, "TOPLEFT",  0, 0)
+    ftrSep:SetPoint("TOPRIGHT", ftr, "TOPRIGHT", 0, 0)
+    ftrSep:SetColorTexture(t.sidebarBorder.r, t.sidebarBorder.g, t.sidebarBorder.b, t.sidebarBorder.a)
+
+    -- "Display Scale" — left of label row, p-2 (8px) from edges, text-xs (12px tall)
     local scaleTitle = Craft.Label:Create(ftr, {
         text  = "Display Scale",
         color = { r=t.sidebarForeground.r, g=t.sidebarForeground.g,
-                  b=t.sidebarForeground.b, a=0.7 },
+                  b=t.sidebarForeground.b, a=0.6 },
     })
-    scaleTitle:GetFrame():SetPoint("TOPLEFT", ftr, "TOPLEFT", 8, -8)
+    local stf = scaleTitle:GetFrame()
+    stf:SetPoint("TOPLEFT", ftr, "TOPLEFT",  8, -8)
+    stf:SetPoint("RIGHT",   ftr, "RIGHT",   -44, 0)
+    stf:SetHeight(12)
 
+    -- Current value — right of label row, p-2 (8px) from edges
     _scaleLabel = Craft.Label:Create(ftr, {
         text  = CraftBrowserDB.scale .. "%",
         color = { r=t.sidebarForeground.r, g=t.sidebarForeground.g,
                   b=t.sidebarForeground.b, a=1 },
     })
-    _scaleLabel:GetFrame():SetPoint("TOPRIGHT", ftr, "TOPRIGHT", -8, -8)
+    local slf = _scaleLabel:GetFrame()
+    slf:SetPoint("TOPRIGHT", ftr, "TOPRIGHT", -8, -8)
+    slf:SetWidth(36)
+    slf:SetHeight(12)
 
+    -- Slider — bottom of the footer
+    -- height=24: track at 12px from frame top; with BOTTOM+8 anchor, gap from labels = 8px (gap-2)
     _scaleSlider = Craft.Slider:Create(ftr, {
         min      = 50,
         max      = 150,
         value    = CraftBrowserDB.scale,
         step     = 5,
+        height   = 24,
         onChange = function(v)
             CraftBrowserDB.scale = v
             _scaleLabel:SetText(v .. "%")
@@ -190,18 +241,17 @@ function CB._build()
             end
         end,
     })
-    _scaleSlider:GetFrame():SetPoint("BOTTOMLEFT",  ftr, "BOTTOMLEFT",  8,  8)
+    _scaleSlider:GetFrame():SetPoint("BOTTOMLEFT",  ftr, "BOTTOMLEFT",  8, 8)
     _scaleSlider:GetFrame():SetPoint("BOTTOMRIGHT", ftr, "BOTTOMRIGHT", -8, 8)
-    _scaleSlider:GetFrame():SetHeight(20)
 
     -- ── Demo area ────────────────────────────────────────────────────────
     local demoContainer = CreateFrame("Frame", nil, _mainFrame)
     demoContainer:SetPoint("TOPLEFT",     _mainFrame, "TOPLEFT",     SIDEBAR_W, 0)
     demoContainer:SetPoint("BOTTOMRIGHT", _mainFrame, "BOTTOMRIGHT", 0,         0)
 
-    -- demoHeader: 40px with name + description of the active component
+    -- demoHeader: 48px — same height as sidebar header, drag handle + close + title + desc
     _demoHeader = CreateFrame("Frame", nil, demoContainer)
-    _demoHeader:SetHeight(40)
+    _demoHeader:SetHeight(48)
     _demoHeader:SetPoint("TOPLEFT",  demoContainer, "TOPLEFT",  0, 0)
     _demoHeader:SetPoint("TOPRIGHT", demoContainer, "TOPRIGHT", 0, 0)
 
@@ -209,18 +259,53 @@ function CB._build()
     demoHeaderBg:SetAllPoints(_demoHeader)
     demoHeaderBg:SetColorTexture(t.card.r, t.card.g, t.card.b, 1)
 
+    -- Drag handle (whole header drags the window)
+    _demoHeader:EnableMouse(true)
+    _demoHeader:SetScript("OnMouseDown", function() _mainFrame:StartMoving() end)
+    _demoHeader:SetScript("OnMouseUp",   function()
+        _mainFrame:StopMovingOrSizing()
+        CraftBrowserDB.x = _mainFrame:GetLeft()
+        CraftBrowserDB.y = _mainFrame:GetTop() - UIParent:GetHeight()
+    end)
+
+    -- Close button (top-right)
+    local demoClose = CreateFrame("Button", nil, _demoHeader)
+    demoClose:SetSize(20, 20)
+    demoClose:SetPoint("RIGHT", _demoHeader, "RIGHT", -8, 0)
+    local demoCloseIcon = demoClose:CreateTexture(nil, "ARTWORK")
+    demoCloseIcon:SetAllPoints(demoClose)
+    Craft.Icons.Apply(demoCloseIcon, "x", 16)
+    demoCloseIcon:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 0.7)
+    demoClose:SetScript("OnClick", function() CB.Hide() end)
+    demoClose:SetScript("OnEnter", function()
+        demoCloseIcon:SetVertexColor(t.foreground.r, t.foreground.g, t.foreground.b, 1)
+    end)
+    demoClose:SetScript("OnLeave", function()
+        demoCloseIcon:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 0.7)
+    end)
+
+    -- Title: fontBold, fontSizeLg — same layout as sidebar header
     _titleLabel = Craft.Label:Create(_demoHeader, {
         text  = "",
         color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
     })
-    _titleLabel:GetFrame():SetPoint("LEFT", _demoHeader, "LEFT", 16, 4)
+    local tlf = _titleLabel:GetFrame()
+    tlf:SetPoint("TOPLEFT", _demoHeader, "TOPLEFT", 16, -10)
+    tlf:SetPoint("RIGHT",   _demoHeader, "RIGHT",   -36,  0)
+    tlf:SetHeight(16)
+    _titleLabel._text:SetFont(t.fontBold, t.fontSizeLg)
 
+    -- Description: font, text-xs, mutedForeground
     _descLabel = Craft.Label:Create(_demoHeader, {
         text  = "",
         color = { r=t.mutedForeground.r, g=t.mutedForeground.g, b=t.mutedForeground.b, a=1 },
     })
-    _descLabel:GetFrame():SetPoint("LEFT", _demoHeader, "LEFT", 16, -8)
+    local dlf = _descLabel:GetFrame()
+    dlf:SetPoint("TOPLEFT", _demoHeader, "TOPLEFT", 16, -28)
+    dlf:SetPoint("RIGHT",   _demoHeader, "RIGHT",   -36,  0)
+    dlf:SetHeight(12)
 
+    -- Bottom separator
     local headerSep = Craft.Separator:Create(_demoHeader)
     headerSep:GetFrame():SetPoint("BOTTOMLEFT",  _demoHeader, "BOTTOMLEFT",  0, 0)
     headerSep:GetFrame():SetPoint("BOTTOMRIGHT", _demoHeader, "BOTTOMRIGHT", 0, 0)

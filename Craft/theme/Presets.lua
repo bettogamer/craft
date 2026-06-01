@@ -6,8 +6,9 @@
 -- External addons may call Craft.Theme.register_preset() to add their own;
 -- they must NOT mutate CraftPresets directly.
 
-local FONT   = "Interface\\AddOns\\Craft\\media\\Inter-Regular.ttf"
-local FONT_B = "Interface\\AddOns\\Craft\\media\\Inter-Bold.ttf"
+local Craft  = LibStub("Craft-1.0")
+local FONT   = Craft.mediaPath .. "Inter-Regular.ttf"
+local FONT_B = Craft.mediaPath .. "Inter-Bold.ttf"
 
 CraftPresets = {}
 
@@ -16,22 +17,24 @@ CraftPresets = {}
 -- Ring: zinc-500 (#71717a)  Border/Input: white with alpha
 
 CraftPresets["lyra-dark"] = {
-    -- Core
-    background              = {r=0.035, g=0.035, b=0.043, a=1},
-    foreground              = {r=0.980, g=0.980, b=0.980, a=1},
-    card                    = {r=0.094, g=0.094, b=0.106, a=1},
+    -- Core — updated 2026-05-31 from ui.shadcn.com/create (Style=Lyra, Base=Zinc, Theme=Emerald)
+    -- Change: neutral grays moved from zinc-tinted (C≈0.005) to pure neutral (C=0)
+    background              = {r=0.039, g=0.039, b=0.039, a=1},   -- oklch(0.145 0 0)
+    foreground              = {r=0.980, g=0.980, b=0.980, a=1},   -- oklch(0.985 0 0)
+    card                    = {r=0.091, g=0.091, b=0.091, a=1},   -- oklch(0.205 0 0)
     cardForeground          = {r=0.980, g=0.980, b=0.980, a=1},
-    popover                 = {r=0.094, g=0.094, b=0.106, a=1},
+    popover                 = {r=0.091, g=0.091, b=0.091, a=1},   -- oklch(0.205 0 0)
     popoverForeground       = {r=0.980, g=0.980, b=0.980, a=1},
     -- Primary (emerald-800 in dark — high contrast)
-    primary                 = {r=0.024, g=0.373, b=0.275, a=1},
+    primary                 = {r=0.024, g=0.373, b=0.275, a=1},   -- oklch(0.432 0.095 166.913)
     primaryForeground       = {r=0.925, g=0.992, b=0.961, a=1},
-    -- Secondary / Muted / Accent (zinc-800)
-    secondary               = {r=0.153, g=0.153, b=0.165, a=1},
+    -- Secondary (zinc-800 with slight hue — unchanged)
+    secondary               = {r=0.153, g=0.153, b=0.165, a=1},   -- oklch(0.274 0.006 286.033)
     secondaryForeground     = {r=0.980, g=0.980, b=0.980, a=1},
-    muted                   = {r=0.153, g=0.153, b=0.165, a=1},
-    mutedForeground         = {r=0.631, g=0.631, b=0.667, a=1},
-    accent                  = {r=0.153, g=0.153, b=0.165, a=1},
+    -- Muted / Accent — oklch(0.269 0 0) pure neutral gray
+    muted                   = {r=0.150, g=0.150, b=0.150, a=1},   -- oklch(0.269 0 0)
+    mutedForeground         = {r=0.630, g=0.630, b=0.630, a=1},   -- oklch(0.708 0 0)
+    accent                  = {r=0.150, g=0.150, b=0.150, a=1},   -- oklch(0.269 0 0)
     accentForeground        = {r=0.980, g=0.980, b=0.980, a=1},
     -- Destructive (red-400 in dark — lighter for contrast)
     -- destructiveForeground: text-white in Lyra CSS — pure white, not foreground (zinc-50)
@@ -40,17 +43,17 @@ CraftPresets["lyra-dark"] = {
     -- Border and Input (white with alpha — use SetColorTexture(r,g,b,a) directly)
     border                  = {r=1.000, g=1.000, b=1.000, a=0.100},
     input                   = {r=1.000, g=1.000, b=1.000, a=0.150},
-    -- Ring (zinc-500 in dark — subtle gray, not emerald)
-    ring                    = {r=0.443, g=0.443, b=0.478, a=1},
+    -- Ring — oklch(0.556 0 0) pure neutral gray
+    ring                    = {r=0.452, g=0.452, b=0.452, a=1},   -- oklch(0.556 0 0)
     -- Sidebar tokens (exclusive to Craft.Sidebar)
-    sidebar                 = {r=0.094, g=0.094, b=0.106, a=1},
+    sidebar                 = {r=0.091, g=0.091, b=0.091, a=1},   -- oklch(0.205 0 0)
     sidebarForeground       = {r=0.980, g=0.980, b=0.980, a=1},
-    sidebarPrimary          = {r=0.063, g=0.725, b=0.506, a=1},   -- emerald-500
+    sidebarPrimary          = {r=0.063, g=0.725, b=0.506, a=1},   -- emerald-500, oklch(0.696 0.17 162.48)
     sidebarPrimaryForeground= {r=0.008, g=0.173, b=0.133, a=1},   -- emerald-950
-    sidebarAccent           = {r=0.153, g=0.153, b=0.165, a=1},
+    sidebarAccent           = {r=0.150, g=0.150, b=0.150, a=1},   -- oklch(0.269 0 0)
     sidebarAccentForeground = {r=0.980, g=0.980, b=0.980, a=1},
     sidebarBorder           = {r=1.000, g=1.000, b=1.000, a=0.100},
-    sidebarRing             = {r=0.443, g=0.443, b=0.478, a=1},
+    sidebarRing             = {r=0.452, g=0.452, b=0.452, a=1},   -- oklch(0.556 0 0)
     -- Lyra: zero border radius
     radius                  = 0,
     -- Typography (Inter bundled in Craft/media/)

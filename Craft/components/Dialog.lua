@@ -82,16 +82,13 @@ function Dialog:Create(parent, config)
     self._title = self._header:CreateFontString(nil, "OVERLAY")
     self._title:SetJustifyH("LEFT")
     self._title:SetJustifyV("TOP")
-    self._title:SetText(self._cfg.title)
 
     -- Description (optional): font, text-xs = 12px, mutedForeground
     self._desc = self._header:CreateFontString(nil, "OVERLAY")
     self._desc:SetJustifyH("LEFT")
     self._desc:SetJustifyV("TOP")
     self._desc:SetWordWrap(true)
-    if self._cfg.description then
-        self._desc:SetText(self._cfg.description)
-    else
+    if not self._cfg.description then
         self._desc:Hide()
     end
 
@@ -167,6 +164,10 @@ function Dialog:Create(parent, config)
     -- ── Theme and layout ───────────────────────────────────────────────────
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
+    self._title:SetText(self._cfg.title)           -- after SetFont in _applyTheme
+    if self._cfg.description then
+        self._desc:SetText(self._cfg.description)
+    end
 
     -- Start hidden; caller calls Show() when ready.
     self.frame:Hide()
@@ -334,9 +335,10 @@ end
 
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Dialog:Destroy()
+    if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
 
-return Dialog
+Craft.Dialog = Dialog

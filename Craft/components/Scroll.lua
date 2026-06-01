@@ -58,10 +58,10 @@ function Scroll:Create(parent, config)
     self._scrollbar:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0,  0)
     self._scrollbar:SetWidth(SCROLLBAR_W)
 
-    -- Track texture: transparent background
+    -- Track texture: subtle background so the rail is always visible
     self._track = self._scrollbar:CreateTexture(nil, "BACKGROUND")
     self._track:SetAllPoints(self._scrollbar)
-    self._track:SetColorTexture(0, 0, 0, 0)
+    -- color applied in _applyTheme (t.secondary at low alpha)
 
     -- Thumb: 6px wide Button, positioned dynamically
     self._scrollThumb = CreateFrame("Button", nil, self._scrollbar)
@@ -85,11 +85,11 @@ function Scroll:Create(parent, config)
         if self._t then
             self._thumbTex:SetColorTexture(self._t.primary.r, self._t.primary.g, self._t.primary.b, 1)
         end
-        self._thumbDragStartY      = GetCursorPosition() / self._scrollbar:GetEffectiveScale()
+        self._thumbDragStartY      = select(2, GetCursorPosition()) / self._scrollbar:GetEffectiveScale()
         self._thumbDragStartScroll = self._scrollFrame:GetVerticalScroll()
         self._scrollThumb:SetScript("OnUpdate", function()
             if not self._thumbDragging then return end
-            local curY     = GetCursorPosition() / self._scrollbar:GetEffectiveScale()
+            local curY     = select(2, GetCursorPosition()) / self._scrollbar:GetEffectiveScale()
             local deltaY   = self._thumbDragStartY - curY  -- positive = scrolled down
             local trackH   = self._scrollbar:GetHeight() or 0
             local childH   = self._child:GetHeight() or 0
@@ -149,6 +149,10 @@ function Scroll:Create(parent, config)
         end
     end)
 
+    -- Re-check scrollbar visibility when the container gets its real size (post-layout)
+    self._scrollbar:SetScript("OnSizeChanged", function() self:_updateScrollbar() end)
+    self.frame:SetScript("OnShow", function() self:_updateScrollbar() end)
+
     -- Register theming
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
@@ -199,7 +203,8 @@ end
 -- ─── _applyTheme ──────────────────────────────────────────────────────────
 function Scroll:_applyTheme(t)
     self._t = t
-    -- Track transparent — no color change needed
+    -- Track: barely visible rail (secondary at 30% alpha)
+    self._track:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 0.3)
     -- Thumb: secondary by default
     self._thumbTex:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 1)
     self:_updateScrollbar()
@@ -268,9 +273,10 @@ end
 
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Scroll:Destroy()
+    if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
 
-return Scroll
+Craft.Scroll = Scroll

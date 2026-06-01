@@ -14,6 +14,8 @@ CraftBrowserPages["Theme"] = {
                 color = { r=t.mutedForeground.r, g=t.mutedForeground.g, b=t.mutedForeground.b, a=1 },
             })
             lbl:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -yOff)
+            lbl:GetFrame():SetPoint("RIGHT",   parent, "RIGHT",   -16,  0)
+            lbl:GetFrame():SetHeight(14)
             table.insert(comps, lbl)
             return yOff + 20
         end

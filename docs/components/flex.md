@@ -214,6 +214,16 @@ flex:Layout()
 
 **Order no reordena _items**: La propiedad `order` solo afecta `_sorted` (recalculado en cada `Layout()`). `_items` mantiene el orden de inserción para que `Remove()` funcione correctamente.
 
+**`_naturalBasis` — encogimiento acumulativo en resize**: Con `basis="auto"`, `Layout()` lee `frame:GetWidth()` para calcular la base de grow/shrink. Si `Layout()` se llama múltiples veces seguidas (e.g. `OnSizeChanged` durante drag de ventana), cada llamada lee el ancho que la llamada anterior asignó — la base se achica cada vez. La solución: capturar `_naturalBasis` en `Add()` (antes de cualquier `Layout()`) y usarlo en todos los `Layout()` posteriores como base invariante:
+```lua
+item._naturalBasis = (basis == "auto")
+    and (frame:GetWidth() > 0 and frame:GetWidth() or frame:GetHeight())
+    or nil
+-- En Layout():
+b = item._naturalBasis or (isRow and item.frame:GetWidth() or item.frame:GetHeight())
+```
+**Corrección post-testing en WoW:** Craft_Browser usa `OnSizeChanged` para re-layoutear cuando el usuario redimensiona la ventana. Sin el cache, los botones de las páginas demo se encogían acumulativamente con cada movimiento del mouse durante el resize.
+
 **Wrap y múltiples líneas**: En modo `wrap`, cada línea tiene su propia dimensión cross-axis (la del item más alto/ancho en esa línea). El `align-content` entre líneas no está implementado en MVP — las líneas simplemente se colocan en secuencia desde el inicio del cross axis con el gap entre ellas.
 
 **gap entre líneas (wrap)**: El mismo valor `gap` aplica tanto entre items en una línea (main axis) como entre líneas (cross axis). No hay `rowGap`/`columnGap` separados en esta versión.

@@ -85,9 +85,10 @@ end
 
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Separator:Destroy()
+    if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
 
-return Separator
+Craft.Separator = Separator

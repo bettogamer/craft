@@ -60,7 +60,14 @@ Frame (root)                            — contenedor, height según config de 
 
 No hay variantes de tamaño (`lg` no existe en Lyra slider). El thumb es siempre 12×12px.
 
-El thumb es un `Button` posicionado con `SetPoint("CENTER", track, "LEFT", offset, 0)` donde `offset = (value - min) / (max - min) * trackWidth`.
+El thumb es un `Button` posicionado con:
+```lua
+local thumbCenterX = THUMB_SZ / 2 + ratio * (trackW - THUMB_SZ)
+thumb:SetPoint("CENTER", slider, "LEFT", thumbCenterX, 0)
+```
+donde `ratio = (value - min) / (max - min)`.
+
+> **Corrección post-testing en WoW:** La fórmula original causaba que el thumb sobresaliera del track en los extremos (en min el thumb quedaba mitad fuera por la izquierda; en max mitad fuera por la derecha). La nueva fórmula constraina el movimiento al rango [THUMB_SZ/2, trackW - THUMB_SZ/2].
 
 ### Altura total del root frame
 
@@ -128,6 +135,7 @@ En estado disabled: `Slider:EnableMouse(false)`, `thumb:EnableMouse(false)`. Fil
 | `showMinMax` | `boolean`  | `false`   | Muestra `minLabel` y `maxLabel` en los extremos del track                    |
 | `onChange`   | `function` | `nil`     | `fn(value)` — se dispara en `OnValueChanged` del Slider nativo              |
 | `width`      | `number`   | `nil`     | Ancho fijo en px. Si es nil, ocupa 100% del parent                           |
+| `height`     | `number`   | `nil`     | Altura del frame root en px. Si es nil usa el valor por defecto (32px sin labels, 48px con showValue). **Corrección post-testing en WoW:** necesario para embeber el slider en containers con altura variable (e.g. footer del Browser). |
 
 No hay parámetro `size` — el slider tiene un único tamaño de thumb (12×12px).
 
@@ -153,10 +161,11 @@ No hay parámetro `size` — el slider tiene un único tamaño de thumb (12×12p
   Usar `math.max(1, ...)` para evitar width=0 que causa errores en WoW.
 - **Posición del thumb Button**: recalcular en `OnValueChanged`:
   ```lua
-  local pct = (value - min) / (max - min)
-  local offset = pct * trackWidth - trackWidth / 2
-  thumb:SetPoint("CENTER", track, "CENTER", offset, 0)
+  local ratio = (value - min) / (max - min)
+  local thumbCenterX = THUMB_SZ / 2 + ratio * (trackW - THUMB_SZ)
+  thumb:SetPoint("CENTER", slider, "LEFT", thumbCenterX, 0)
   ```
+  > **Corrección post-testing en WoW:** La fórmula anterior (`offset = pct * trackWidth - trackWidth/2` con anchor CENTER) causaba que el thumb sobresaliera del track en los extremos. La nueva fórmula constraina el movimiento al rango [THUMB_SZ/2, trackW - THUMB_SZ/2].
 - **Drag del thumb**: implementar con `thumb:SetScript("OnMouseDown", ...)` y `thumb:SetScript("OnMouseUp", ...)`. Durante el drag, usar `OnUpdate` para leer `GetCursorPosition()` y calcular el valor proporcional. No usar el drag nativo del Slider (puede interferir con el thumb custom).
 - **Ring del thumb en hover (OnEnter)**: el CSS indica `hover:ring-1` — en WoW esto es `OnEnter/OnLeave` del mouse, no keyboard focus. SÍ implementar: mostrar `thumbRing` en `thumb:SetScript("OnEnter", ...)`, ocultar en `"OnLeave"` (salvo durante drag). El ring tiene 1px de grosor: usar `Craft.Theme.SetPixelHeight/Width(thumbRing, 1)`. Color: {r=0.443, g=0.443, b=0.478, a=0.5}. También visible durante drag activo.
 - **Ring del thumb — pixel-perfect**: el thumbRing es un frame hermano de 12×12px posicionado 1px outward (SetPoint con −1px en cada lado). Sus cuatro aristas de 1px se crean con `Craft.Theme.SetPixelHeight/Width` conforme ADR-0011.

@@ -61,32 +61,32 @@ Define la **forma** de los componentes, no sus colores:
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
+  --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
+  --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
+  --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.432 0.095 166.913);
   --primary-foreground: oklch(0.979 0.021 166.113);
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
-  --sidebar: oklch(0.21 0.006 285.885);
+  --ring: oklch(0.556 0 0);
+  --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.696 0.17 162.48);
   --sidebar-primary-foreground: oklch(0.262 0.051 172.552);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
+  --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.552 0.016 285.938);
+  --sidebar-ring: oklch(0.556 0 0);
 }
 ```
 
@@ -130,32 +130,32 @@ Define la **forma** de los componentes, no sus colores:
 
 | CSS var | OKLCH | Hex approx | Tailwind ref | Lua RGBA |
 |---------|-------|-----------|--------------|----------|
-| `--background` | oklch(0.141 0.005 285.823) | #09090b | zinc-950 | `{r=0.035, g=0.035, b=0.043, a=1}` |
-| `--foreground` | oklch(0.985 0 0) | #fafafa | zinc-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
-| `--card` | oklch(0.21 0.006 285.885) | #18181b | zinc-900 | `{r=0.094, g=0.094, b=0.106, a=1}` |
-| `--card-foreground` | oklch(0.985 0 0) | #fafafa | zinc-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
-| `--popover` | oklch(0.21 0.006 285.885) | #18181b | zinc-900 | `{r=0.094, g=0.094, b=0.106, a=1}` |
-| `--popover-foreground` | oklch(0.985 0 0) | #fafafa | zinc-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
+| `--background` | oklch(0.145 0 0) | #141414 | neutral | `{r=0.039, g=0.039, b=0.039, a=1}` |
+| `--foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
+| `--card` | oklch(0.205 0 0) | #171717 | neutral | `{r=0.091, g=0.091, b=0.091, a=1}` |
+| `--card-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
+| `--popover` | oklch(0.205 0 0) | #171717 | neutral | `{r=0.091, g=0.091, b=0.091, a=1}` |
+| `--popover-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
 | `--primary` | oklch(0.432 0.095 166.913) | #065f46 | emerald-800 | `{r=0.024, g=0.373, b=0.275, a=1}` |
 | `--primary-foreground` | oklch(0.979 0.021 166.113) | #ecfdf5 | emerald-50 | `{r=0.925, g=0.992, b=0.961, a=1}` |
 | `--secondary` | oklch(0.274 0.006 286.033) | #27272a | zinc-800 | `{r=0.153, g=0.153, b=0.165, a=1}` |
-| `--secondary-foreground` | oklch(0.985 0 0) | #fafafa | zinc-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
-| `--muted` | oklch(0.274 0.006 286.033) | #27272a | zinc-800 | `{r=0.153, g=0.153, b=0.165, a=1}` |
-| `--muted-foreground` | oklch(0.705 0.015 286.067) | #a1a1aa | zinc-400 | `{r=0.631, g=0.631, b=0.667, a=1}` |
-| `--accent` | oklch(0.274 0.006 286.033) | #27272a | zinc-800 | `{r=0.153, g=0.153, b=0.165, a=1}` |
-| `--accent-foreground` | oklch(0.985 0 0) | #fafafa | zinc-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
+| `--secondary-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
+| `--muted` | oklch(0.269 0 0) | #262626 | neutral | `{r=0.150, g=0.150, b=0.150, a=1}` |
+| `--muted-foreground` | oklch(0.708 0 0) | #a3a3a3 | neutral-400 | `{r=0.630, g=0.630, b=0.630, a=1}` |
+| `--accent` | oklch(0.269 0 0) | #262626 | neutral | `{r=0.150, g=0.150, b=0.150, a=1}` |
+| `--accent-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
 | `--destructive` | oklch(0.704 0.191 22.216) | #f87171 | red-400 | `{r=0.973, g=0.443, b=0.443, a=1}` |
 | `--border` | oklch(1 0 0 / 10%) | white 10% | — | `{r=1.000, g=1.000, b=1.000, a=0.100}` |
 | `--input` | oklch(1 0 0 / 15%) | white 15% | — | `{r=1.000, g=1.000, b=1.000, a=0.150}` |
-| `--ring` | oklch(0.552 0.016 285.938) | #71717a | zinc-500 | `{r=0.443, g=0.443, b=0.478, a=1}` |
-| `--sidebar` | oklch(0.21 0.006 285.885) | #18181b | zinc-900 | `{r=0.094, g=0.094, b=0.106, a=1}` |
-| `--sidebar-foreground` | oklch(0.985 0 0) | #fafafa | zinc-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
+| `--ring` | oklch(0.556 0 0) | #737373 | neutral-500 | `{r=0.452, g=0.452, b=0.452, a=1}` |
+| `--sidebar` | oklch(0.205 0 0) | #171717 | neutral | `{r=0.091, g=0.091, b=0.091, a=1}` |
+| `--sidebar-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
 | `--sidebar-primary` | oklch(0.696 0.17 162.48) | #10b981 | emerald-500 | `{r=0.063, g=0.725, b=0.506, a=1}` |
 | `--sidebar-primary-foreground` | oklch(0.262 0.051 172.552) | #022c22 | emerald-950 | `{r=0.008, g=0.173, b=0.133, a=1}` |
-| `--sidebar-accent` | oklch(0.274 0.006 286.033) | #27272a | zinc-800 | `{r=0.153, g=0.153, b=0.165, a=1}` |
-| `--sidebar-accent-foreground` | oklch(0.985 0 0) | #fafafa | zinc-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
+| `--sidebar-accent` | oklch(0.269 0 0) | #262626 | neutral | `{r=0.150, g=0.150, b=0.150, a=1}` |
+| `--sidebar-accent-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
 | `--sidebar-border` | oklch(1 0 0 / 10%) | white 10% | — | `{r=1.000, g=1.000, b=1.000, a=0.100}` |
-| `--sidebar-ring` | oklch(0.552 0.016 285.938) | #71717a | zinc-500 | `{r=0.443, g=0.443, b=0.478, a=1}` |
+| `--sidebar-ring` | oklch(0.556 0 0) | #737373 | neutral-500 | `{r=0.452, g=0.452, b=0.452, a=1}` |
 | `--radius` | — | 0 | — | `0` |
 
 ---
@@ -350,7 +350,8 @@ CraftPresets["lyra-light"] = {
 | Disabled (texto) | `mutedForeground` + suprimir eventos | `t.mutedForeground` |
 | Disabled (fondo) | `muted` semitransparente: `a=0.5` | `t.muted` |
 | Row hover (Table/Sidebar) | `accent` con `a=0.6` | `t.accent` |
-| Item activo (Tabs/Sidebar) | `sidebarPrimary` para sidebar; `primary` para tabs | según contexto |
+| Item activo (Sidebar) | `sidebarAccent` — CSS: `data-active:bg-sidebar-accent` | `t.sidebarAccent` |
+| Item activo (Tabs) | `primary` para el indicador activo | `t.primary` |
 
 ---
 
