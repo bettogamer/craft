@@ -106,6 +106,15 @@ function Sidebar:Create(parent, config)
     self._child:SetHeight(1)  -- will be updated in _rebuild
     self._scroll:SetScrollChild(self._child)
 
+    -- Re-sync child width and scrollbar when the scroll frame gets real dimensions
+    -- from anchor propagation (mirrors Craft.Scroll's OnSizeChanged pattern).
+    self._scroll:SetScript("OnSizeChanged", function(_, w, _)
+        if w and w > 0 then
+            self._child:SetWidth(w - 1 - SBAR_W)
+        end
+        self:_updateSbar()
+    end)
+
     -- Mouse wheel scrolling (32px per tick = one item height)
     self._scroll:EnableMouseWheel(true)
     self._scroll:SetScript("OnMouseWheel", function(_, delta)
@@ -196,7 +205,13 @@ function Sidebar:Create(parent, config)
     self._scroll:SetScript("OnScrollRangeChanged", function() self:_updateSbar() end)
     self._scroll:SetScript("OnVerticalScroll",     function() self:_updateSbar() end)
     self._sbarFrame:SetScript("OnSizeChanged",     function() self:_updateSbar() end)
-    self.frame:SetScript("OnShow",                 function() self:_updateSbar() end)
+    self.frame:SetScript("OnShow", function()
+        local sw = self._scroll:GetWidth()
+        if sw and sw > 0 then
+            self._child:SetWidth(sw - 1 - SBAR_W)
+        end
+        self:_updateSbar()
+    end)
 
     -- Map of item frames by id (for efficient SetActiveItem)
     self._itemFrames = {}
