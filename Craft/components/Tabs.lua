@@ -21,7 +21,6 @@ Tabs.__index = Tabs
 -- h-8 = 32px, p-[3px] = 3px, px-1.5 = 6px, py-0.5 = 2px
 local LIST_H       = 32
 local LIST_PAD     = 3   -- internal padding in the list bar
-local TRIGGER_PX   = 6   -- horizontal padding inside each trigger
 local TRIGGER_PY   = 2   -- luacheck: ignore 211
 local FONT_SIZE    = 12  -- text-xs
 

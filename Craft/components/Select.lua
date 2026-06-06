@@ -109,13 +109,15 @@ function Select:Create(parent, config)
     self._trigger:SetScript("OnEnter", function()
         if not self._cfg.disabled then
             local t = self._t
-            self._triggerBg:SetColorTexture(t and t.input.r or 1, t and t.input.g or 1, t and t.input.b or 1, self._bgHoverAlpha or 0.075)
+            local r, g, b = t and t.input.r or 1, t and t.input.g or 1, t and t.input.b or 1
+            self._triggerBg:SetColorTexture(r, g, b, self._bgHoverAlpha or 0.075)
         end
     end)
     self._trigger:SetScript("OnLeave", function()
         if not self._cfg.disabled then
             local t = self._t
-            self._triggerBg:SetColorTexture(t and t.input.r or 1, t and t.input.g or 1, t and t.input.b or 1, self._bgAlpha or 0.045)
+            local r, g, b = t and t.input.r or 1, t and t.input.g or 1, t and t.input.b or 1
+            self._triggerBg:SetColorTexture(r, g, b, self._bgAlpha or 0.045)
         end
     end)
     self._trigger:SetScript("OnClick", function()

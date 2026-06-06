@@ -109,9 +109,9 @@ function Sidebar:Create(parent, config)
 
     -- Re-sync child width and scrollbar when the scroll frame gets real dimensions
     -- from anchor propagation (mirrors Craft.Scroll's OnSizeChanged pattern).
-    self._scroll:SetScript("OnSizeChanged", function(_, w, _)
-        if w and w > 0 then
-            self._child:SetWidth(w - 1 - SBAR_W)
+    self._scroll:SetScript("OnSizeChanged", function(_, sw, _)
+        if sw and sw > 0 then
+            self._child:SetWidth(sw - 1 - SBAR_W)
         end
         self:_updateSbar()
     end)
