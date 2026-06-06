@@ -9,6 +9,7 @@
 --   .cn-select-separator{ bg-border h-px }
 
 local Craft = LibStub("Craft-1.0")
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Select = {}
 Select.__index = Select
@@ -455,4 +456,4 @@ function Select:Destroy()
     self.frame = nil
 end
 
-Craft.Select = Select
+Craft.register("Select", Select, _BUILD)

@@ -9,6 +9,8 @@
 --   .cn-card-content    { @apply px-4; }
 --   .cn-card-footer     { @apply border-t p-4; }
 
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
+
 local Panel = {}
 Panel.__index = Panel
 
@@ -290,4 +292,4 @@ function Panel:Destroy()
     self.frame = nil
 end
 
-Craft.Panel = Panel
+Craft.register("Panel", Panel, _BUILD)

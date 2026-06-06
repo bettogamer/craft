@@ -3,10 +3,17 @@
 -- Depends on: Atlas.lua (loaded earlier in Craft.toc)
 
 local Craft = LibStub("Craft-1.0")
-local I = Craft.Icons  -- already initialized as {} in Atlas.lua
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
-local PATH16 = "Interface\\AddOns\\Craft\\media\\lucide-16.tga"
-local PATH24 = "Interface\\AddOns\\Craft\\media\\lucide-24.tga"
+local I = Craft.Icons  -- the atlas table built in Atlas.lua (loaded earlier)
+-- Only attach our methods if our own Atlas.lua won the build race (see Atlas.lua).
+-- An older embedded copy loading later must not overwrite the newer Icons methods.
+if not I or I._buildOwner ~= _BUILD then return end
+
+-- Resolve via Craft.mediaPath so icons load whether Craft is standalone or embedded
+-- in a host addon's libs/ (AGENTS.md § Craft.mediaPath). Never hardcode media paths.
+local PATH16 = Craft.mediaPath .. "lucide-16.tga"
+local PATH24 = Craft.mediaPath .. "lucide-24.tga"
 
 -- ─── Get() ─────────────────────────────────────────────────────────────────
 -- Returns the UV descriptor for the icon, or nil if not found in the atlas.

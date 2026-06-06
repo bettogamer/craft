@@ -5,6 +5,8 @@
 --   .cn-separator-horizontal { @apply h-px w-full; }
 --   .cn-separator-vertical   { @apply h-full w-px; }
 
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
+
 local Separator = {}
 Separator.__index = Separator
 
@@ -91,4 +93,4 @@ function Separator:Destroy()
     self.frame = nil
 end
 
-Craft.Separator = Separator
+Craft.register("Separator", Separator, _BUILD)

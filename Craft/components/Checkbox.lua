@@ -3,6 +3,7 @@
 -- Design: shadcn Lyra — .cn-checkbox, .cn-checkbox-indicator
 
 local Craft = LibStub("Craft-1.0")
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Checkbox = {}
 Checkbox.__index = Checkbox
@@ -287,4 +288,4 @@ function Checkbox:Destroy()
     self.frame = nil
 end
 
-Craft.Checkbox = Checkbox
+Craft.register("Checkbox", Checkbox, _BUILD)

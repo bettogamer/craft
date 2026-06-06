@@ -7,6 +7,8 @@
 --   .cn-dialog-title    { @apply text-sm font-medium; }       -- 14px
 --   .cn-dialog-description { @apply text-muted-foreground text-xs/relaxed; }
 
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
+
 local Dialog = {}
 Dialog.__index = Dialog
 
@@ -341,4 +343,4 @@ function Dialog:Destroy()
     self.frame = nil
 end
 
-Craft.Dialog = Dialog
+Craft.register("Dialog", Dialog, _BUILD)

@@ -23,14 +23,20 @@ bash scripts/bump-build.sh              # bump CRAFT_BUILD antes de release
 ### 1. LibStub namespace collision — clave `"Craft-1.0"` compartida
 
 Craft se embebe via `LibStub("Craft-1.0")` en cada addon (`Craft/`, `Craft_Browser/`, `Sentry/`, …).
-Todos comparten la **misma clave LibStub**. Cada `components/Slider.lua` termina con
+Todos comparten la **misma clave LibStub**. Antes, cada `components/Slider.lua` terminaba con
 `Craft.Slider = Slider` incondicionalmente — el último addon en cargar (orden alfabético: Sentry)
-sobreescribe con su versión antigua.
+sobreescribía con su versión antigua.
 
-- **Síntoma:** Labels del Slider visibles con Sentry deshabilitado, invisibles con Sentry activo.
-- **Workaround actual:** Deshabilitar Sentry en WoW.
-- **Fix a largo plazo:** Versioned component registration — sólo registrar si la versión entrante
-  es mayor a la ya registrada (similar a cómo LibStub mismo versiona sus librerías).
+- **Síntoma (histórico):** Labels del Slider visibles con Sentry deshabilitado, invisibles con Sentry activo.
+- **Fix aplicado:** Versioned component registration. `Craft.lua` define `Craft.register(name, impl, build)`
+  que sólo (re)asigna `Craft[name]` si el `build` entrante es estrictamente mayor al ya registrado
+  (semántica tipo LibStub). Cada componente/módulo captura el build de **su propia copia** vía el
+  segundo retorno de `...` (la tabla per-addon que `Craft.lua` rellena con `CRAFT_BUILD` antes del
+  early-return) y llama `Craft.register("Slider", Slider, _BUILD)` en vez de asignar directo.
+  `Craft.Icons` usa el mismo principio con un marcador `_buildOwner` compartido entre `Atlas.lua`
+  e `Icons.lua` (ambos auto-generados/guardados desde `scripts/export-icons.py`).
+- **Consecuencia:** Una copia embebida más antigua que cargue después ya **no** puede pisar los
+  componentes de una copia más nueva. Ya no es necesario deshabilitar Sentry.
 
 ### 2. FontString con dos anclas horizontales — texto invisible hasta `/reload`
 

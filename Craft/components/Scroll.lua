@@ -9,6 +9,7 @@
 -- Mouse wheel: 20px per tick
 
 local Craft = LibStub("Craft-1.0")
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Scroll = {}
 Scroll.__index = Scroll
@@ -279,4 +280,4 @@ function Scroll:Destroy()
     self.frame = nil
 end
 
-Craft.Scroll = Scroll
+Craft.register("Scroll", Scroll, _BUILD)

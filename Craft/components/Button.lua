@@ -2,6 +2,8 @@
 -- Spec: docs/components/button.md
 -- Design: docs/design-reference.md (shadcn Lyra — style-lyra.css)
 
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
+
 local Button = {}
 Button.__index = Button
 
@@ -351,4 +353,4 @@ function Button:Destroy()
     self.frame = nil
 end
 
-Craft.Button = Button
+Craft.register("Button", Button, _BUILD)

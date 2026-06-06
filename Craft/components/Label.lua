@@ -2,6 +2,8 @@
 -- Spec: docs/components/label.md
 -- Design: shadcn Lyra — .cn-label { @apply gap-2 text-xs leading-none group-data-[disabled=true]:opacity-50 }
 
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
+
 local Label = {}
 Label.__index = Label
 
@@ -131,4 +133,4 @@ function Label:Destroy()
     self.frame = nil
 end
 
-Craft.Label = Label
+Craft.register("Label", Label, _BUILD)

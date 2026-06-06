@@ -22,6 +22,7 @@
 --                 showMinMax-only=32px        plain=16px
 
 local Craft = LibStub("Craft-1.0")
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Slider = {}
 Slider.__index = Slider
@@ -415,4 +416,4 @@ function Slider:Destroy()
     self.frame = nil
 end
 
-Craft.Slider = Slider
+Craft.register("Slider", Slider, _BUILD)

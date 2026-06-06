@@ -3,6 +3,7 @@
 -- Design: shadcn Lyra — .cn-input (h-8, px-2.5, py-1, text-xs, rounded-none, border)
 
 local Craft = LibStub("Craft-1.0")
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Input = {}
 Input.__index = Input
@@ -319,4 +320,4 @@ function Input:Destroy()
     self.frame = nil
 end
 
-Craft.Input = Input
+Craft.register("Input", Input, _BUILD)

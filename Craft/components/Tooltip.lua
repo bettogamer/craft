@@ -17,9 +17,9 @@
 --   Craft.Tooltip.Hide()
 
 local Craft = LibStub("Craft-1.0")
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
-Craft.Tooltip = {}
-local TT = Craft.Tooltip
+local TT = {}
 
 -- Constants
 -- px-3=12px, py-1.5=6px, gap-1.5=6px
@@ -258,3 +258,5 @@ function TT.Detach(frame)
         end
     end
 end
+
+Craft.register("Tooltip", TT, _BUILD)

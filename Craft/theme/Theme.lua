@@ -6,9 +6,9 @@
 -- Depends on: CraftPresets global (defined in theme/Presets.lua, loaded first in Craft.toc)
 
 local Craft = LibStub("Craft-1.0")
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
-Craft.Theme = {}
-local T = Craft.Theme
+local T = {}
 
 -- ─── Internal state ────────────────────────────────────────────────────────
 
@@ -191,3 +191,5 @@ end
 function T.isPixelPerfect()
     return math.abs(UIParent:GetEffectiveScale() - 1.0) < 0.01
 end
+
+Craft.register("Theme", T, _BUILD)

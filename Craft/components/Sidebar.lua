@@ -15,6 +15,7 @@
 --   .cn-sidebar-footer          { gap-2 p-2 }
 
 local Craft = LibStub("Craft-1.0")
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Sidebar = {}
 Sidebar.__index = Sidebar
@@ -640,4 +641,4 @@ function Sidebar:Destroy()
     self.frame = nil
 end
 
-Craft.Sidebar = Sidebar
+Craft.register("Sidebar", Sidebar, _BUILD)

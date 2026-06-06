@@ -248,12 +248,8 @@ end
 | `SetLabel(text)`    | Actualiza el texto del label en runtime. Solo si `config.label` fue provisto. |
 | `GetFrame()`        | Retorna el root frame para posicionamiento y `SetWidth`.                 |
 
-### ⚠️ Advertencia: LibStub namespace collision
+### ✅ Resuelto: LibStub namespace collision
 
-Craft y Sentry comparten la clave `"Craft-1.0"` en LibStub. El último addon en cargar (orden alfabético: **Sentry** carga después de Craft) sobreescribe `Craft.Slider` con su versión anterior, que **no soporta `label`**.
+Craft y Sentry comparten la clave `"Craft-1.0"` en LibStub. Antes, el último addon en cargar (orden alfabético: **Sentry** carga después de Craft) sobreescribía `Craft.Slider` con su versión anterior, que **no soportaba `label`** → labels invisibles con Sentry activo.
 
-**Síntoma:** labels invisibles con Sentry activo, visibles con Sentry deshabilitado.
-
-**Workaround actual:** deshabilitar Sentry en WoW mientras se prueba el Slider.
-
-**Fix a largo plazo (pendiente):** versioned component registration — registrar `Craft.Slider` solo si la versión entrante es mayor a la ya registrada, igual que LibStub versiona sus librerías. Ver `CLAUDE.md § Bugs encontrados en producción WoW`.
+**Fix aplicado:** versioned component registration. Cada copia de Craft registra sus componentes vía `Craft.register(name, impl, build)`, que sólo (re)asigna si el build entrante es estrictamente mayor. Una copia embebida más antigua que cargue después ya no puede pisar el `Craft.Slider` nuevo. Ya **no** es necesario deshabilitar Sentry. Ver `CLAUDE.md § Bugs encontrados en producción WoW #1`.

@@ -47,6 +47,8 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
 ├── .claude/commands/
 │   ├── check-traceability.md   ← /check-traceability
 │   └── update-design-tokens.md ← /update-design-tokens
+├── .claude/agents/
+│   └── component-builder.md    ← subagente: implementa componentes aislando lecturas de specs
 │
 ├── Craft/                  ← LA LIBRERÍA (lo que se distribuye)
 │   ├── Craft.toc
@@ -349,7 +351,7 @@ flowchart TD
 
 ---
 
-## 10. Comandos de verificación y slash commands
+## 11. Comandos de verificación y slash commands
 
 ```bash
 # Lint — MUST pasar sin warnings nuevos
@@ -374,7 +376,7 @@ bash scripts/bump-build.sh
 
 ---
 
-## 11. Tokens de diseño — referencia rápida
+## 12. Tokens de diseño — referencia rápida
 
 Todos los componentes usan `t.*` en `_applyTheme(t)`. **Fuente de verdad**: `docs/design-reference.md`.
 
@@ -423,7 +425,7 @@ Todos los componentes usan `t.*` en `_applyTheme(t)`. **Fuente de verdad**: `doc
 
 ---
 
-## 12. Versioning — referencia rápida
+## 13. Versioning — referencia rápida
 
 | Tipo de cambio | Acción |
 |---|---|
@@ -435,7 +437,7 @@ Todos los componentes usan `t.*` en `_applyTheme(t)`. **Fuente de verdad**: `doc
 
 ---
 
-## 13. Contacto
+## 14. Contacto
 
 - **Maintainer**: Alberto Gomez
 - **Repositorio**: `github.com/bettogamer/craft`
@@ -443,7 +445,7 @@ Todos los componentes usan `t.*` en `_applyTheme(t)`. **Fuente de verdad**: `doc
 
 ---
 
-## 14. Registro de cambios
+## 15. Registro de cambios
 
 | Versión | Fecha | Autor | Cambio |
 |---------|-------|-------|--------|

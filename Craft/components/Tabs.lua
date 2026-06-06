@@ -12,6 +12,7 @@
 -- No underline indicator (Lyra uses data-active bg change only)
 
 local Craft = LibStub("Craft-1.0")
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Tabs = {}
 Tabs.__index = Tabs
@@ -325,4 +326,4 @@ function Tabs:Destroy()
     self.frame = nil
 end
 
-Craft.Tabs = Tabs
+Craft.register("Tabs", Tabs, _BUILD)
