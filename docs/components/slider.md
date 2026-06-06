@@ -25,6 +25,7 @@ Control deslizante horizontal para seleccionar un valor numérico dentro de un r
 
 ```
 Frame (root)                            — contenedor, height según config de labels
+├── FontString (label)                  — OVERLAY layer, top del frame, 16px alto, t.foreground [Craft extension]
 ├── Slider (track nativo)               — BACKGROUND layer, height=4px, ancho completo
 │   └── Texture (trackBg)              — BACKGROUND layer, t.muted fill
 ├── Frame (fillTrack)                   — BACKGROUND layer, mismo SetPoint left que track
@@ -32,7 +33,7 @@ Frame (root)                            — contenedor, height según config de 
 ├── Button (thumb)                      — OVERLAY layer, 12×12px
 │   ├── Texture (thumbBg)              — BACKGROUND layer, blanco {r=1,g=1,b=1,a=1}
 │   └── Frame (thumbRing)              — sibling del thumb, 1px outward, t.ring/50 (en OnEnter/drag)
-├── FontString (valueLabel)             — OVERLAY layer, sobre el thumb, fontSizeSm, t.foreground
+├── FontString (valueLabel)             — OVERLAY layer, TOPRIGHT del root frame, 16px alto, t.mutedForeground, right-align
 ├── FontString (minLabel)               — OVERLAY layer, extremo izquierdo del track, t.mutedForeground, fontSizeSm
 └── FontString (maxLabel)               — OVERLAY layer, extremo derecho del track, t.mutedForeground, fontSizeSm
 ```
@@ -63,32 +64,48 @@ No hay variantes de tamaño (`lg` no existe en Lyra slider). El thumb es siempre
 El thumb es un `Button` posicionado con:
 ```lua
 local thumbCenterX = THUMB_SZ / 2 + ratio * (trackW - THUMB_SZ)
-thumb:SetPoint("CENTER", slider, "LEFT", thumbCenterX, 0)
+thumb:SetPoint("CENTER", trackFrame, "LEFT", thumbCenterX, 0)
 ```
 donde `ratio = (value - min) / (max - min)`.
 
-> **Corrección post-testing en WoW:** La fórmula original causaba que el thumb sobresaliera del track en los extremos (en min el thumb quedaba mitad fuera por la izquierda; en max mitad fuera por la derecha). La nueva fórmula constraina el movimiento al rango [THUMB_SZ/2, trackW - THUMB_SZ/2].
+El `trackFrame` es **full-width** del root frame (sin inset horizontal). La fórmula constraina el thumb para que su borde LEFT quede flush con el root frame en `min`, y su borde RIGHT flush en `max`. No hay padding implícito — el slider se comporta igual que los demás componentes al posicionarlo en un form.
 
 ### Altura total del root frame
 
-| Configuración                     | Height  |
-|-----------------------------------|---------|
-| Sin labels                        | 32px    |
-| Solo `showMinMax=true`            | 32px    |
-| Solo `showValue=true`             | 48px    |
-| `showValue=true` + `showMinMax=true` | 48px |
+Layout simétrico: todos los labels se anclan al `trackFrame`. El gap se deriva de shadcn:
+shadcn usa `gap-2` (8px) entre el label component y el slider, donde el slider comienza en el thumb.
+El thumb se extiende `THUMB_SZ/2 − TRACK_H/2 = 4px` sobre el track → `LABEL_PAD = 8 + 4 = 12px`.
 
-Posición vertical del track dentro del root:
-- Sin `showValue`: centrado verticalmente en el root.
-- Con `showValue`: desplazado hacia abajo — track a 24px del top del root (deja 20px para el `valueLabel` arriba).
+`topPad = hasHeader ? (LABEL_H + LABEL_PAD_TOP) : THUMB_SZ/2` — `botPad = showMinMax ? (LABEL_H + LABEL_PAD_BOT) : THUMB_SZ/2`
+`frameH = topPad + TRACK_H + botPad`
+
+| Configuración                                    | Height | topPad | botPad | Gap top↕thumb | Gap thumb↕bottom |
+|--------------------------------------------------|--------|--------|--------|----------------|------------------|
+| Sin label, sin showMinMax                        | 16px   | 6      | 6      | —              | —                |
+| Sin label, solo `showMinMax=true`                | 34px   | 6      | 18     | —              | 2px              |
+| Con label/value, sin showMinMax                  | 26px   | 20     | 6      | 4px            | —                |
+| **Con label/value + `showMinMax=true`**          | **38px** | 20   | 18     | 4px            | 2px              |
+
+`LABEL_H = 12` · `LABEL_PAD_TOP = 8` · `LABEL_PAD_BOT = 6` · `THUMB_SZ = 12` · `TRACK_H = 4`
+
+> **[Craft design decision]** Los gaps son intencionalmente asimétricos y más ajustados que el `gap-2` de shadcn.
+> shadcn muestra asimetría en su demo porque la fila superior usa `text-2xl` para el valor (fila alta), mientras min/max usa `cn-field-description` (compacto). Craft usa `fontSizeSm` para ambos, así que los gaps se definen directamente por la distancia visual al thumb:
+> - `LABEL_PAD_TOP = 8` → **4px** visual (label bottom → thumb top): label/valor es contenido primario.
+> - `LABEL_PAD_BOT = 6` → **2px** visual (thumb bottom → min/max top): min/max es referencia secundaria, se acerca al track.
 
 ### Labels
 
-| Label        | Posición                                            | Font size       | Color               |
-|--------------|-----------------------------------------------------|-----------------|---------------------|
-| `valueLabel` | `SetPoint("BOTTOM", thumb, "TOP", 0, 4)`           | `fontSizeSm` 11px | `t.foreground`    |
-| `minLabel`   | `SetPoint("LEFT", track, "LEFT", 0, -12)`          | `fontSizeSm` 11px | `t.mutedForeground` |
-| `maxLabel`   | `SetPoint("RIGHT", track, "RIGHT", 0, -12)`        | `fontSizeSm` 11px | `t.mutedForeground` |
+Todos los labels se anclan al `trackFrame` (no al root frame), con `LABEL_PAD = 12px` simétrico.
+Esto replica el `gap-2` de shadcn en ambos lados: label/value arriba, min/max abajo.
+
+| Label        | Anchor                                                              | Font size         | Color               | Origen |
+|--------------|---------------------------------------------------------------------|-------------------|---------------------|--------|
+| `label`      | `BOTTOMLEFT` de `trackFrame.TOPLEFT` + `(0, LABEL_PAD_TOP)` — L-align | `fontSizeSm` 11px | `t.foreground`      | **Craft extension** |
+| `valueLabel` | `BOTTOMRIGHT` de `trackFrame.TOPRIGHT` + `(0, LABEL_PAD_TOP)` — R-align | `fontSizeSm` 11px | `t.mutedForeground` | shadcn |
+| `minLabel`   | `TOPLEFT` de `trackFrame.BOTTOMLEFT` + `(0, -LABEL_PAD_BOT)`      | `fontSizeSm` 11px | `t.mutedForeground` | shadcn |
+| `maxLabel`   | `TOPRIGHT` de `trackFrame.BOTTOMRIGHT` + `(0, -LABEL_PAD_BOT)`    | `fontSizeSm` 11px | `t.mutedForeground` | shadcn |
+
+Cuando `label` y `showValue` están presentes simultáneamente, forman un row justify-between justo encima del track, replicando el demo oficial de shadcn.
 
 ## Variantes visuales
 
@@ -119,7 +136,7 @@ En estado disabled: `Slider:EnableMouse(false)`, `thumb:EnableMouse(false)`. Fil
 | Thumb bg disabled         | `t.muted`                                              |
 | Track bg disabled         | `t.muted`                                              |
 | Fill track disabled       | `t.muted`                                              |
-| Value label               | `t.foreground`                                         |
+| Value label               | `t.mutedForeground`                                    |
 | Min/max labels            | `t.mutedForeground`                                    |
 
 ## Config — `Create(parent, config)`
@@ -131,11 +148,12 @@ En estado disabled: `Slider:EnableMouse(false)`, `thumb:EnableMouse(false)`. Fil
 | `value`      | `number`   | `0`       | Valor inicial                                                                |
 | `step`       | `number`   | `1`       | Incremento mínimo por paso                                                   |
 | `disabled`   | `boolean`  | `false`   | Deshabilita la interacción                                                   |
-| `showValue`  | `boolean`  | `false`   | Muestra el `valueLabel` sobre el thumb con el valor actual                   |
+| `showValue`  | `boolean`  | `false`   | Muestra el valor actual en el header row (TOPRIGHT), `t.mutedForeground`. Si `label` también está presente, comparten el mismo row (justify-between). |
 | `showMinMax` | `boolean`  | `false`   | Muestra `minLabel` y `maxLabel` en los extremos del track                    |
 | `onChange`   | `function` | `nil`     | `fn(value)` — se dispara en `OnValueChanged` del Slider nativo              |
 | `width`      | `number`   | `nil`     | Ancho fijo en px. Si es nil, ocupa 100% del parent                           |
-| `height`     | `number`   | `nil`     | Altura del frame root en px. Si es nil usa el valor por defecto (32px sin labels, 48px con showValue). **Corrección post-testing en WoW:** necesario para embeber el slider en containers con altura variable (e.g. footer del Browser). |
+| `height`     | `number`   | `nil`     | Altura del frame root en px. Si es nil usa el valor por defecto (ver tabla de alturas). **Corrección post-testing en WoW:** necesario para embeber el slider en containers con altura variable (e.g. footer del Browser). |
+| `label`      | `string`   | `nil`     | **Craft extension** — texto descriptivo sobre el track. Agrega 20px al frame (LABEL_H=16 + LABEL_GAP=4). No está en shadcn Lyra; shadcn usa `<Label>` externo. |
 
 No hay parámetro `size` — el slider tiene un único tamaño de thumb (12×12px).
 
@@ -147,6 +165,7 @@ No hay parámetro `size` — el slider tiene un único tamaño de thumb (12×12p
 | `GetValue()`            | Retorna el valor actual del Slider                                            |
 | `SetEnabled(bool)`      | Habilita/deshabilita. Aplica colores de disabled al track, fill y thumb       |
 | `SetRange(min, max)`    | Actualiza el rango. Llama `Slider:SetMinMaxValues(min, max)`. Reposiciona thumb |
+| `SetLabel(text)`        | **Craft extension** — actualiza el texto del label en runtime. Solo funciona si `config.label` fue provisto en `Create`. |
 | `GetFrame()`            | Retorna el frame root del componente                                          |
 
 ## Notas de implementación

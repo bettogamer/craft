@@ -1,3 +1,7 @@
+---
+model: haiku
+---
+
 Actualiza los tokens de diseño de Craft desde el CSS de shadcn Lyra y revisa los layouts de componentes.
 
 Este comando hace DOS cosas en secuencia:

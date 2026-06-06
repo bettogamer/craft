@@ -45,6 +45,15 @@ function Tabs:Create(parent, config)
     self._list:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
     self._list:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
 
+    -- Flex layout: row, flex-1 per trigger (equal width), align=stretch (fills LIST_H-padding)
+    self._flex = Craft.Flex.new(self._list, {
+        direction = "row",
+        align     = "stretch",
+        paddingH  = LIST_PAD,
+        paddingV  = LIST_PAD,
+        gap       = 0,
+    })
+
     self._listBg = self._list:CreateTexture(nil, "BACKGROUND")
     self._listBg:SetAllPoints(self._list)
 
@@ -59,6 +68,10 @@ function Tabs:Create(parent, config)
     self._content = CreateFrame("Frame", nil, self.frame)
     self._content:SetPoint("TOPLEFT",     self._list,  "BOTTOMLEFT",  0,  0)
     self._content:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0,  0)
+
+    -- Re-layout when container width changes (e.g. after SetWidth from caller).
+    self.frame:HookScript("OnShow", function() self._flex:Layout() end)
+    self._list:SetScript("OnSizeChanged", function() self._flex:Layout() end)
 
     -- Register theming
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
@@ -93,9 +106,8 @@ function Tabs:AddTab(id, label)
     contentFrame:Hide()
     self._frames[id] = contentFrame
 
-    -- Trigger button
+    -- Trigger button — height and width managed by Flex (grow=1, align=stretch)
     local btn = CreateFrame("Button", nil, self._list)
-    btn:SetHeight(LIST_H - LIST_PAD * 2)
 
     local btnText = btn:CreateFontString(nil, "OVERLAY")
     if self._t then
@@ -130,28 +142,13 @@ function Tabs:AddTab(id, label)
     self._buttons[id] = btn
     table.insert(self._tabs, { id = id, label = label or id })
 
-    -- Recalculate trigger positions
-    self:_layoutTriggers()
+    -- Register with Flex (grow=1 → equal width, align=stretch handles height)
+    self._flex:Add(btn, { grow = 1, shrink = 1, basis = 0 })
+    self._flex:Layout()
 
     -- Apply theme to the new button
     if self._t then
         self:_styleButton(btn, false)
-    end
-end
-
--- ─── Layout triggers ───────────────────────────────────────────────────────
--- Positions tab triggers left-to-right inside the list with LIST_PAD inset.
-function Tabs:_layoutTriggers()
-    local x = LIST_PAD
-    for _, tabDef in ipairs(self._tabs) do
-        local btn = self._buttons[tabDef.id]
-        if btn then
-            local tw = btn._text:GetStringWidth() + TRIGGER_PX * 2
-            btn:SetWidth(math.max(tw, 32))
-            btn:ClearAllPoints()
-            btn:SetPoint("TOPLEFT", self._list, "TOPLEFT", x, -LIST_PAD)
-            x = x + btn:GetWidth() + LIST_PAD
-        end
     end
 end
 
@@ -182,25 +179,26 @@ function Tabs:_styleButton(btn, isActive)
     Craft.Theme.SetPixelWidth(btn._borderRight, 1)
 
     if isActive then
-        -- Active: bg=t.secondary (slightly elevated), text=t.foreground, border transparent
-        btn:SetNormalTexture("")  -- clear WoW default
-        -- Background texture for active state
+        -- Active (dark mode): dark:data-active:bg-input/30 + dark:data-active:border-input
+        -- bg-input/30 = white at 30% opacity — lighter than t.muted, creates a "raised" effect
+        -- border-input = t.input = white at 15% opacity — subtle 1px highlight border
+        btn:SetNormalTexture("")
         if not btn._bg then
             btn._bg = btn:CreateTexture(nil, "BACKGROUND")
             btn._bg:SetAllPoints(btn)
         end
-        btn._bg:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 1)
+        btn._bg:SetColorTexture(1, 1, 1, 0.30)
         btn._bg:Show()
 
         btn._text:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
 
-        -- Borders transparent
-        btn._borderTop:SetColorTexture(0, 0, 0, 0)
-        btn._borderBottom:SetColorTexture(0, 0, 0, 0)
-        btn._borderLeft:SetColorTexture(0, 0, 0, 0)
-        btn._borderRight:SetColorTexture(0, 0, 0, 0)
+        local bi = t.input  -- white a=0.15
+        btn._borderTop:SetColorTexture(bi.r, bi.g, bi.b, bi.a)
+        btn._borderBottom:SetColorTexture(bi.r, bi.g, bi.b, bi.a)
+        btn._borderLeft:SetColorTexture(bi.r, bi.g, bi.b, bi.a)
+        btn._borderRight:SetColorTexture(bi.r, bi.g, bi.b, bi.a)
     else
-        -- Inactive: transparent bg, muted text, transparent border
+        -- Inactive: transparent bg, muted text, no border
         if btn._bg then btn._bg:SetColorTexture(0, 0, 0, 0) end
         btn._text:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
 

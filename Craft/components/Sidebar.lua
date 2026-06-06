@@ -403,12 +403,12 @@ function Sidebar:AddSection(label)
     local secFrame = CreateFrame("Frame", nil, self._child)
     secFrame:SetHeight(GROUP_H)
 
-    -- Label FontString
+    -- Label FontString — SINGLE-point anchor (LEFT-to-LEFT vertically centers it
+    -- in secFrame). Two-point LEFT+RIGHT anchoring forces a width computation that
+    -- fails to render when _child width resolves late, until a /reload. See the
+    -- same fix in Slider.lua / the proven pattern in Craft.Label.
     local labelFs = secFrame:CreateFontString(nil, "OVERLAY")
-    labelFs:SetPoint("LEFT",  secFrame, "LEFT",  GROUP_PX, 0)
-    labelFs:SetPoint("RIGHT", secFrame, "RIGHT", -GROUP_PX, 0)
-    labelFs:SetPoint("TOP",    secFrame, "TOP",    0, 0)
-    labelFs:SetPoint("BOTTOM", secFrame, "BOTTOM", 0, 0)
+    labelFs:SetPoint("LEFT", secFrame, "LEFT", GROUP_PX, 0)
     labelFs:SetJustifyH("LEFT")
     labelFs:SetJustifyV("MIDDLE")
 
@@ -486,12 +486,12 @@ function Sidebar:AddItem(itemConfig)
     labelFs:SetJustifyV("MIDDLE")
     labelFs:SetText(label)
 
-    -- Label position: if there is an icon, ITEM_PAD + ICON_SIZE + ITEM_GAP from the left
+    -- Label position: if there is an icon, ITEM_PAD + ICON_SIZE + ITEM_GAP from the left.
+    -- SINGLE-point anchor (LEFT-to-LEFT vertically centers it in itemFrame). Two-point
+    -- LEFT+RIGHT anchoring fails to render when _child width resolves late (same root
+    -- cause as the section label / Slider header — proven pattern in Craft.Label).
     local labelLeft = hasIcon and (ITEM_PAD + ICON_SIZE + ITEM_GAP) or ITEM_PAD
-    labelFs:SetPoint("LEFT",   itemFrame, "LEFT",  labelLeft, 0)
-    labelFs:SetPoint("RIGHT",  itemFrame, "RIGHT", -ITEM_PAD, 0)
-    labelFs:SetPoint("TOP",    itemFrame, "TOP",    0, 0)
-    labelFs:SetPoint("BOTTOM", itemFrame, "BOTTOM", 0, 0)
+    labelFs:SetPoint("LEFT", itemFrame, "LEFT", labelLeft, 0)
 
     local isActive = (id ~= nil) and (id == self._cfg.activeItem)
 

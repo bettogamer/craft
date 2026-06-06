@@ -4,7 +4,7 @@
 
 local ADDON_NAME  = ...           -- "Craft" standalone, or the embedding addon's name (e.g. "Craft_Browser")
 local CRAFT_NAME  = "Craft-1.0"  -- API name. Changes to "Craft-2.0" on breaking API change.
-local CRAFT_BUILD = 1            -- Integer. Increments every release. Run scripts/bump-build.sh.
+local CRAFT_BUILD = 2            -- Integer. Increments every release. Run scripts/bump-build.sh.
 
 local Craft = LibStub:NewLibrary(CRAFT_NAME, CRAFT_BUILD)
 if not Craft then return end  -- a newer build is already loaded; nothing to do

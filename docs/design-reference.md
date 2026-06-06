@@ -4,7 +4,7 @@
 > Todo valor visual de los componentes Craft DEBE derivarse de este documento.
 >
 > **Origen**: CSS exportado de `ui.shadcn.com/create` con Style=**Lyra**,
-> Base=**Zinc**, Theme=**Emerald**. Valores exactos — sin estimaciones.
+> Base=**Neutral**, Theme=**Emerald**. Valores exactos — sin estimaciones.
 
 ---
 
@@ -17,7 +17,7 @@ Define la **forma** de los componentes, no sus colores:
 |-----|-------|-------|
 | Style | **Lyra** | Sharp, boxy, precise — para herramientas técnicas |
 | Radius | **0** | `--radius: 0` — esquinas 100% rectas, sin redondeo |
-| Base Color | **Zinc** | Neutros para fondos, bordes, muted |
+| Base Color | **Neutral** | Neutros para fondos, bordes, muted |
 | Theme Color | **Emerald** | Acento — primary del sidebar, focus areas |
 | Font | **Inter** | Bundled en `Craft/media/` (shadcn usa Inter con Lyra) |
 
