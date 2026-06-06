@@ -28,8 +28,9 @@ if $DRY_RUN; then
     exit 0
 fi
 
-# Apply the change
-sed -i.bak "s/^local CRAFT_BUILD = $CURRENT$/local CRAFT_BUILD = $NEXT/" "$FILE"
+# Apply the change. Match the number with a trailing boundary ([^0-9]|$) so the
+# inline comment after `local CRAFT_BUILD = N` is preserved and "2" never matches "20".
+sed -i.bak -E "s/^(local CRAFT_BUILD = )$CURRENT([^0-9]|$)/\1$NEXT\2/" "$FILE"
 rm -f "${FILE}.bak"
 
 # Verify the change was applied

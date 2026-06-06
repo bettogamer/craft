@@ -17,3 +17,23 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 - Pipeline CI/CD: GitHub Actions + bigwigsmods/packager
 - Linter: luacheck configurado con globals WoW
 - Script bump-build.sh para gestión de CRAFT_BUILD
+- Subagente `component-builder` (.claude/agents/) para aislar lecturas de specs
+
+### Changed
+- Registro de componentes versionado: cada copia embebida registra vía
+  `Craft.register(name, impl, build)` y solo gana el build más nuevo. Evita que
+  un addon que carga después (comparten la clave LibStub `"Craft-1.0"`) pise
+  componentes más nuevos con su versión antigua. Verificado en WoW con Sentry.
+- Tabs: layout flex (triggers de ancho igual vía `Craft.Flex`) y estado activo
+  alineado a shadcn (`bg-input/30` + `border-input`).
+- Slider: track full-width sin padding horizontal implícito; gaps de labels
+  asimétricos (decisión de diseño Craft).
+- `/update-design-tokens`: la conversión OKLCH→RGBA se ejecuta vía script Python
+  (determinista) en vez de a mano.
+
+### Fixed
+- Iconos rotos al embeber Craft: `Icons.lua` resuelve rutas vía `Craft.mediaPath`
+  en vez de una ruta standalone hardcodeada.
+- Sidebar: items invisibles cuando el tamaño del padre se deriva de anclas.
+- `bump-build.sh`: el `sed` no respetaba el comentario inline de `CRAFT_BUILD` y
+  fallaba; ahora preserva el comentario.
