@@ -1,0 +1,8 @@
+-- busted configuration
+-- Solo ejecutar archivos que empiecen con test_
+-- mock_wow.lua es un helper de soporte, no un test file
+
+return {
+    pattern = "test_",   -- solo archivos que empiecen con test_
+    verbose = true,
+}

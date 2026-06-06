@@ -9,6 +9,7 @@
 --   .cn-select-separator{ bg-border h-px }
 
 local Craft = LibStub("Craft-1.0")
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Select = {}
 Select.__index = Select
@@ -16,7 +17,7 @@ Select.__index = Select
 -- ─── Constants ────────────────────────────────────────────────────────────────
 -- 1 Tailwind unit = 4px
 -- h-8=32, h-7=28, pl-2.5=10, pr-2=8, py-2=8, gap-1.5=6, text-xs=12
--- pl-2=8, pr-8=32 (item: pr-8 reserva espacio para el checkmark)
+-- pl-2=8, pr-8=32 (item: pr-8 reserves space for the checkmark)
 -- Max visible items: 6 → panel max height = 6 * 28 = 168... but py-2 adds 8px
 -- item height: py-2 (8px top + 8px bottom) + 12px text ≈ 28px total
 local SIZES = {
@@ -25,20 +26,17 @@ local SIZES = {
 }
 
 local TRIGGER_PL      = 10   -- pl-2.5
-local TRIGGER_PR      = 8    -- pr-2 (asimétrico — deja espacio al chevron)
+local TRIGGER_PR      = 8    -- pr-2 (asymmetric — leaves room for the chevron)
 local GAP             = 6    -- gap-1.5
 local FONT_SIZE       = 12   -- text-xs
 local CHEVRON_SIZE    = 16
 local ITEM_HEIGHT     = 28   -- py-2×2 + 12px text
 local ITEM_PL         = 8    -- pl-2
-local ITEM_PR         = 32   -- pr-8 (reserva espacio checkmark)
+local ITEM_PR         = 32   -- pr-8 (reserves space for checkmark)
 local ITEM_FONT       = 12   -- text-xs
-local MAX_ITEMS_VIS   = 6    -- max visible antes de scroll
+local MAX_ITEMS_VIS   = 6    -- max visible before scrolling
 local CHECK_SIZE      = 12   -- checkmark icon 12px
 
--- bg input/30 y hover input/50 — input = {r=1,g=1,b=1}
-local BG_ALPHA        = 0.045  -- input/30 ≈ 0.30 * 0.15 (alpha compuesta)
-local BG_HOVER_ALPHA  = 0.075  -- input/50 ≈ 0.50 * 0.15
 
 -- ─── Create ───────────────────────────────────────────────────────────────────
 function Select:Create(parent, config)
@@ -47,7 +45,7 @@ function Select:Create(parent, config)
     config = config or {}
     self._cfg = {
         options     = config.options     or {},   -- {{value, label}, ...}
-        value       = config.value,               -- valor seleccionado inicial
+        value       = config.value,               -- initially selected value
         placeholder = config.placeholder or "Select...",
         size        = config.size        or "default",
         disabled    = config.disabled    or false,
@@ -55,7 +53,7 @@ function Select:Create(parent, config)
     }
     self._open = false
 
-    -- ── Root frame (Frame — contenedor invisible) ─────────────────────────────
+    -- ── Root frame (Frame — invisible container) ──────────────────────────────
     local sz = SIZES[self._cfg.size] or SIZES["default"]
     self.frame = CreateFrame("Frame", nil, parent)
     self.frame:SetHeight(sz.h)
@@ -64,58 +62,62 @@ function Select:Create(parent, config)
     self._trigger = CreateFrame("Button", nil, self.frame)
     self._trigger:SetAllPoints(self.frame)
 
-    -- _triggerBorder: Frame 1px outward que muestra t.input como borde
-    -- Técnica: el border frame es el fondo visible, el bg se inset 1px encima
+    -- _triggerBorder: Frame 1px outward that shows t.input as the border
+    -- Technique: the border frame is the visible background, bg is inset 1px on top
     self._triggerBorder = self._trigger:CreateTexture(nil, "BACKGROUND")
     self._triggerBorder:SetAllPoints(self._trigger)
 
-    -- _triggerBg: Texture inset 1px — el fondo real del trigger
+    -- _triggerBg: Texture inset 1px — the actual trigger background
     self._triggerBg = self._trigger:CreateTexture(nil, "BACKGROUND")
 
-    -- _selectedText: texto del valor seleccionado o placeholder
+    -- _selectedText: text of the selected value or placeholder
     self._selectedText = self._trigger:CreateFontString(nil, "OVERLAY")
     self._selectedText:SetJustifyH("LEFT")
     self._selectedText:SetJustifyV("MIDDLE")
 
-    -- _chevron: ícono "chevron-down" 16px a la derecha
+    -- _chevron: "chevron-down" icon 16px on the right
     self._chevron = self._trigger:CreateTexture(nil, "ARTWORK")
     self._chevron:SetSize(CHEVRON_SIZE, CHEVRON_SIZE)
     self._chevron:SetPoint("RIGHT", self._trigger, "RIGHT", -TRIGGER_PR, 0)
     Craft.Icons.Apply(self._chevron, "chevron-down", 16)
 
-    -- ── _panel: Frame strata TOOLTIP, padre UIParent ──────────────────────────
-    -- Anclado a UIParent para evitar clipping del addon container.
-    -- La escala se corrige dinámicamente en Open().
+    -- ── _panel: Frame strata TOOLTIP, parent UIParent ────────────────────────
+    -- Anchored to UIParent to avoid clipping by the addon container.
+    -- Scale is corrected dynamically in Open().
     self._panel = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
     self._panel:SetFrameStrata("TOOLTIP")
     self._panel:Hide()
     self._panel:SetClipsChildren(true)
 
-    -- _panelRing: Frame 1px ring alrededor del panel (foreground/10)
-    -- Técnica: textura que cubre todo el panel; el _panelBg se inset 1px
+    -- _panelRing: 1px ring around the panel (foreground/10)
+    -- Technique: texture covering the entire panel; _panelBg is inset 1px
     self._panelRing = self._panel:CreateTexture(nil, "BACKGROUND")
     self._panelRing:SetAllPoints(self._panel)
 
-    -- _panelBg: Texture inset 1px — fondo t.popover
+    -- _panelBg: Texture inset 1px — t.popover background
     self._panelBg = self._panel:CreateTexture(nil, "BACKGROUND")
 
-    -- _scroll: ScrollFrame para más de MAX_ITEMS_VIS items
+    -- _scroll: ScrollFrame for more than MAX_ITEMS_VIS items
     self._scroll = CreateFrame("ScrollFrame", nil, self._panel)
     self._scrollChild = CreateFrame("Frame", nil, self._scroll)
     self._scroll:SetScrollChild(self._scrollChild)
 
-    -- _items: array de frames de items (creados en _buildItems)
+    -- _items: array of item frames (created in _buildItems)
     self._items = {}
 
-    -- ── Scripts del trigger ───────────────────────────────────────────────────
+    -- ── Trigger scripts ───────────────────────────────────────────────────────
     self._trigger:SetScript("OnEnter", function()
         if not self._cfg.disabled then
-            self._triggerBg:SetColorTexture(1, 1, 1, BG_HOVER_ALPHA)
+            local t = self._t
+            local r, g, b = t and t.input.r or 1, t and t.input.g or 1, t and t.input.b or 1
+            self._triggerBg:SetColorTexture(r, g, b, self._bgHoverAlpha or 0.075)
         end
     end)
     self._trigger:SetScript("OnLeave", function()
         if not self._cfg.disabled then
-            self._triggerBg:SetColorTexture(1, 1, 1, BG_ALPHA)
+            local t = self._t
+            local r, g, b = t and t.input.r or 1, t and t.input.g or 1, t and t.input.b or 1
+            self._triggerBg:SetColorTexture(r, g, b, self._bgAlpha or 0.045)
         end
     end)
     self._trigger:SetScript("OnClick", function()
@@ -127,7 +129,7 @@ function Select:Create(parent, config)
         end
     end)
 
-    -- ── Cerrar al click fuera (OnUpdate cuando el panel está abierto) ─────────
+    -- ── Close on outside click (OnUpdate while panel is open) ─────────────────
     self._panel:SetScript("OnShow", function()
         self._panel:SetScript("OnUpdate", function()
             if not MouseIsOver(self._panel) and not MouseIsOver(self._trigger) then
@@ -141,11 +143,11 @@ function Select:Create(parent, config)
         self._panel:SetScript("OnUpdate", nil)
     end)
 
-    -- ── Registro de tema ──────────────────────────────────────────────────────
+    -- ── Theme registration ────────────────────────────────────────────────────
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
 
-    -- ── Estado inicial ────────────────────────────────────────────────────────
+    -- ── Initial state ─────────────────────────────────────────────────────────
     if self._cfg.disabled then
         self:SetEnabled(false)
     end
@@ -154,13 +156,13 @@ function Select:Create(parent, config)
 end
 
 -- ─── _buildItems ──────────────────────────────────────────────────────────────
--- Reconstruye todos los items del panel a partir de self._cfg.options.
--- Se llama tras _applyTheme (para tener self._t disponible) y en SetOptions().
+-- Rebuilds all panel items from self._cfg.options.
+-- Called after _applyTheme (to have self._t available) and from SetOptions().
 function Select:_buildItems()
     local t = self._t
     if not t then return end
 
-    -- Destruir items anteriores
+    -- Destroy previous items
     for _, item in ipairs(self._items) do
         item.frame:Hide()
         item.frame = nil
@@ -174,12 +176,12 @@ function Select:_buildItems()
         local itemFrame = CreateFrame("Button", nil, self._scrollChild)
         itemFrame:SetHeight(ITEM_HEIGHT)
 
-        -- Fondo del item (transparente por defecto, accent en hover/selected)
+        -- Item background (transparent by default, accent on hover/selected)
         local itemBg = itemFrame:CreateTexture(nil, "BACKGROUND")
         itemBg:SetAllPoints(itemFrame)
         itemBg:SetColorTexture(0, 0, 0, 0)
 
-        -- Texto del item
+        -- Item text
         local itemText = itemFrame:CreateFontString(nil, "OVERLAY")
         itemText:SetFont(t.font, ITEM_FONT)
         itemText:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
@@ -191,7 +193,7 @@ function Select:_buildItems()
         itemText:SetPoint("BOTTOM",      itemFrame, "BOTTOM", 0, 0)
         itemText:SetText(opt.label or opt.value or "")
 
-        -- Checkmark: ícono "check" 12px, visible si este item es el seleccionado
+        -- Checkmark: "check" icon 12px, visible when this item is selected
         local checkmark = itemFrame:CreateTexture(nil, "ARTWORK")
         checkmark:SetSize(CHECK_SIZE, CHECK_SIZE)
         checkmark:SetPoint("RIGHT", itemFrame, "RIGHT", -(ITEM_PR - CHECK_SIZE) / 2, 0)
@@ -204,11 +206,11 @@ function Select:_buildItems()
             checkmark:Hide()
         end
 
-        -- Posición vertical en el scrollChild
+        -- Vertical position in scrollChild
         itemFrame:SetPoint("TOPLEFT",  self._scrollChild, "TOPLEFT",  0, -totalH)
         itemFrame:SetPoint("TOPRIGHT", self._scrollChild, "TOPRIGHT", 0, -totalH)
 
-        -- Scripts de hover y click
+        -- Hover and click scripts
         local optValue = opt.value
         local optLabel = opt.label
         itemFrame:SetScript("OnEnter", function()
@@ -219,7 +221,7 @@ function Select:_buildItems()
             local tt = self._t
             if not tt then return end
             if self._cfg.value == optValue then
-                itemBg:SetColorTexture(tt.accent.r, tt.accent.g, tt.accent.b, 0.5)
+                itemBg:SetColorTexture(tt.primary.r, tt.primary.g, tt.primary.b, 1)
             else
                 itemBg:SetColorTexture(0, 0, 0, 0)
             end
@@ -243,25 +245,27 @@ function Select:_buildItems()
         totalH = totalH + ITEM_HEIGHT
     end
 
-    -- Ajustar tamaño del scrollChild
+    -- Adjust scrollChild size
     self._scrollChild:SetSize(1, math.max(totalH, 1))
 
-    -- Refrescar el fondo de los items seleccionados
+    -- Refresh the background of selected items
     self:_refreshItemStates()
 end
 
 -- ─── _refreshItemStates ───────────────────────────────────────────────────────
--- Actualiza checkmarks y fondos de acuerdo con el valor actual seleccionado.
+-- Updates checkmarks and backgrounds to match the currently selected value.
 function Select:_refreshItemStates()
     local t = self._t
     if not t then return end
     for _, item in ipairs(self._items) do
         if item.value == self._cfg.value then
             item.checkmark:Show()
-            item.bg:SetColorTexture(t.accent.r, t.accent.g, t.accent.b, 0.5)
+            item.bg:SetColorTexture(t.primary.r, t.primary.g, t.primary.b, 1)
+            item.text:SetTextColor(t.primaryForeground.r, t.primaryForeground.g, t.primaryForeground.b)
         else
             item.checkmark:Hide()
             item.bg:SetColorTexture(0, 0, 0, 0)
+            item.text:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
         end
     end
 end
@@ -270,26 +274,30 @@ end
 function Select:_applyTheme(t)
     self._t = t
 
+    -- Cache alphas derived from the input token (bg input/30 and hover input/50)
+    self._bgAlpha      = t.input.a * 0.30   -- input/30
+    self._bgHoverAlpha = t.input.a * 0.50   -- input/50
+
     local px1 = Craft.Theme.px(1, self._trigger)
 
-    -- Fuente del trigger
+    -- Trigger font
     self._selectedText:SetFont(t.font, FONT_SIZE)
 
-    -- Color del texto (placeholder o valor seleccionado)
+    -- Text color (placeholder or selected value)
     self:_updateTriggerText()
 
     -- Chevron: color = mutedForeground
     self._chevron:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)
 
-    -- Border del trigger: t.input — llena todo el frame (el bg se inset encima)
+    -- Trigger border: t.input — fills the entire frame (bg is inset on top)
     self._triggerBorder:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a or 0.15)
 
     -- _triggerBg inset 1px — input/30
     self._triggerBg:SetPoint("TOPLEFT",     self._trigger, "TOPLEFT",     px1,  -px1)
     self._triggerBg:SetPoint("BOTTOMRIGHT", self._trigger, "BOTTOMRIGHT", -px1,  px1)
-    self._triggerBg:SetColorTexture(1, 1, 1, BG_ALPHA)
+    self._triggerBg:SetColorTexture(t.input.r, t.input.g, t.input.b, self._bgAlpha)
 
-    -- Posición del _selectedText: pl=10px, pr deja espacio al chevron (16px + gap)
+    -- _selectedText position: pl=10px, pr leaves room for chevron (16px + gap)
     self._selectedText:ClearAllPoints()
     self._selectedText:SetPoint("LEFT",  self._trigger, "LEFT",  TRIGGER_PL, 0)
     self._selectedText:SetPoint("RIGHT", self._trigger, "RIGHT", -(TRIGGER_PR + CHEVRON_SIZE + GAP), 0)
@@ -306,10 +314,10 @@ function Select:_applyTheme(t)
     self._panelBg:SetPoint("BOTTOMRIGHT", self._panel, "BOTTOMRIGHT", -ppx1,  ppx1)
     self._panelBg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
 
-    -- Reconstruir items con los nuevos colores
+    -- Rebuild items with the new colors
     self:_buildItems()
 
-    -- Ajustar tamaño visible del panel (máx 6 items)
+    -- Adjust visible panel size (max 6 items)
     self:_updatePanelSize()
 end
 
@@ -319,7 +327,7 @@ function Select:_updateTriggerText()
     if not t then return end
 
     if self._cfg.value then
-        -- Buscar el label correspondiente al valor
+        -- Look up the label corresponding to the value
         local label = self._cfg.value
         for _, opt in ipairs(self._cfg.options) do
             if opt.value == self._cfg.value then
@@ -336,21 +344,21 @@ function Select:_updateTriggerText()
 end
 
 -- ─── _updatePanelSize ─────────────────────────────────────────────────────────
--- Calcula el ancho y alto del panel y configura el ScrollFrame.
+-- Calculates the panel width and height and configures the ScrollFrame.
 function Select:_updatePanelSize()
     local numItems  = #self._cfg.options
     local visItems  = math.min(numItems, MAX_ITEMS_VIS)
-    local panelH    = visItems * ITEM_HEIGHT + 2  -- +2 para el ring de 1px top+bottom
+    local panelH    = visItems * ITEM_HEIGHT + 2  -- +2 for the 1px ring top+bottom
     local panelW    = self._trigger:GetWidth() or 160
 
     self._panel:SetSize(panelW, panelH)
 
-    -- ScrollFrame ocupa el interior del panel (inset 1px por el ring)
+    -- ScrollFrame fills the panel interior (inset 1px for the ring)
     local px1 = Craft.Theme.px(1, self._panel)
     self._scroll:SetPoint("TOPLEFT",     self._panel, "TOPLEFT",     px1,  -px1)
     self._scroll:SetPoint("BOTTOMRIGHT", self._panel, "BOTTOMRIGHT", -px1,  px1)
 
-    -- ScrollChild: ancho = ancho del scroll, alto = total de items
+    -- ScrollChild: width = scroll width, height = total items height
     local scrollW = panelW - 2
     self._scrollChild:SetWidth(math.max(scrollW, 1))
 end
@@ -360,21 +368,30 @@ function Select:Open()
     if self._open or self._cfg.disabled then return end
     self._open = true
 
-    -- Corrección de escala: el panel está en UIParent pero el trigger puede
-    -- estar en un contenedor con escala diferente (ej. Craft_Browser a 0.75x)
+    -- Scale correction: the panel is in UIParent but the trigger may be
+    -- in a container with a different scale (e.g. Craft_Browser at 0.75x)
     local triggerEff  = self._trigger:GetEffectiveScale()
     local uiParentEff = UIParent:GetEffectiveScale()
     self._panel:SetScale(triggerEff / uiParentEff)
 
-    -- Actualizar ancho y tamaño del panel (puede haber cambiado desde _buildItems)
+    -- Update panel width and size (may have changed since _buildItems)
     self:_updatePanelSize()
 
-    -- Anclar el panel bajo el trigger
+    -- Anchor the panel below the trigger
     self._panel:ClearAllPoints()
-    self._panel:SetPoint("TOPLEFT", self._trigger, "BOTTOMLEFT", 0, 0)
+    self._panel:SetPoint("TOPLEFT", self._trigger, "BOTTOMLEFT", 0, -2)
 
-    -- Scroll al inicio
+    -- Scroll to top
     self._scroll:SetVerticalScroll(0)
+
+    -- Chevron: indicate open state
+    Craft.Icons.Apply(self._chevron, "chevron-up", 16)
+
+    -- Trigger border: t.ring while the panel is open
+    local t = self._t
+    if t then
+        self._triggerBorder:SetColorTexture(t.ring.r, t.ring.g, t.ring.b, t.ring.a)
+    end
 
     self._panel:Show()
 end
@@ -383,9 +400,18 @@ function Select:Close()
     if not self._open then return end
     self._open = false
     self._panel:Hide()
+
+    -- Chevron: restore closed state
+    Craft.Icons.Apply(self._chevron, "chevron-down", 16)
+
+    -- Trigger border: restore to t.input
+    local t = self._t
+    if t then
+        self._triggerBorder:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a or 0.15)
+    end
 end
 
--- ─── API pública ──────────────────────────────────────────────────────────────
+-- ─── Public API ───────────────────────────────────────────────────────────────
 function Select:SetValue(v)
     self._cfg.value = v
     self:_updateTriggerText()
@@ -407,10 +433,10 @@ function Select:SetEnabled(enabled)
     self._cfg.disabled = not enabled
     if enabled then
         self._trigger:EnableMouse(true)
-        self._trigger:SetAlpha(1)
+        self.frame:SetAlpha(1)
     else
         self._trigger:EnableMouse(false)
-        self._trigger:SetAlpha(0.5)
+        self.frame:SetAlpha(0.5)
         self:Close()
     end
 end
@@ -421,6 +447,7 @@ end
 
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function Select:Destroy()
+    if not self.frame then return end
     self:Close()
     Craft.Theme.unregister(self._themeHandle)
     if self._panel then
@@ -431,4 +458,4 @@ function Select:Destroy()
     self.frame = nil
 end
 
-return Select
+Craft.register("Select", Select, _BUILD)

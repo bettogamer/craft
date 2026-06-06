@@ -131,6 +131,8 @@ panel._bg:SetPoint("BOTTOMRIGHT", panel.frame, "BOTTOMRIGHT", -1,  1)
 
 ## API pública
 
+> **Corrección post-testing en WoW:** `SetSize()` fue eliminado del API público. El tamaño del Panel se controla directamente via `GetFrame():SetSize(w, h)` o anchors WoW, igual que cualquier frame nativo.
+
 | Método | Retorno | Descripción |
 |---|---|---|
 | `GetFrame()` | Frame | Retorna `panel.frame` — el contenedor raíz |

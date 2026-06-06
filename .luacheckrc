@@ -39,12 +39,20 @@ globals = {
     -- Craft globals defined by Craft.lua and Presets.lua
     "Craft",
     "CraftPresets",
+    -- Craft_Browser globals
+    "CraftBrowserPages",
+    "CraftBrowserDB",
+    "CraftBrowser",
 }
 
 -- Ignore "unused argument" warnings — common in WoW OnEvent callbacks
 ignore = {
     "212",   -- unused argument
     "213",   -- unused loop variable
+    "412",   -- variable previously defined as an argument — patrón intencional de OOP Lua:
+             --   function Comp:Create(parent, config)
+             --     local self = setmetatable({}, Comp)  ← shadowing implicit self
+             -- Este patrón es el contrato estándar de todos los componentes Craft
 }
 
 -- Exclude files not part of the distributed addon

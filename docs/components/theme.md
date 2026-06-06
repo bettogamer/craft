@@ -279,7 +279,7 @@ Ver también: `docs/pixel-perfect.md` para las reglas completas de ADR-0011 y lo
 
 **Orden de carga en Craft.toc**: el orden correcto de archivos en el addon es:
 ```
-libs/LibStub.lua
+libs/LibStub/LibStub.lua
 Craft.lua            ← crea el namespace Craft via LibStub
 theme/Presets.lua    ← define CraftPresets (global)
 theme/Theme.lua      ← define Craft.Theme, referencia CraftPresets

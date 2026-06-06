@@ -18,7 +18,9 @@ Frame (root)                        — BACKGROUND layer
 └── FontString (placeholder)        — OVERLAY layer, visible cuando EditBox vacío y sin foco
 ```
 
-Sin frame `ring` — no se implementa focus ring en WoW (mouse-only).
+Sin frame `ring` separado — el focus se implementa como cambio de color en los 4 bordes existentes (ver estados).
+
+> **Corrección post-testing en WoW:** El ring-1 de Lyra se implementa como cambio de color en los 4 bordes existentes (`t.ring`) en lugar de un frame adicional. `OnEditFocusGained` cambia los 4 bordes a color `t.ring`; `OnEditFocusLost` los restaura al color base del border. `SetTextInsets(left, right, 0, 0)` se usa para controlar la posición exacta del texto dentro del EditBox, reemplazando el padding via `SetPoint` que resultaba en spacing incorrecto por el margen interno del EditBox en WoW.
 
 ## CSS de referencia (Lyra)
 
@@ -80,7 +82,7 @@ Posición del icono:
 
 Notas sobre estados:
 - `disabled:bg-input/50` en light mode; `dark:disabled:bg-input/80` → {r=1,g=1,b=1,a=0.12} en dark mode.
-- Focus ring: **NO implementar** en WoW (mouse-only, sin keyboard navigation). El `focus-visible:ring-1` de Lyra no aplica.
+- Focus ring: el `focus-visible:ring-1` de Lyra **sí se implementa** en WoW, pero como cambio de color en los 4 bordes existentes (no como frame adicional). `OnEditFocusGained` → bordes a `t.ring`; `OnEditFocusLost` → bordes a color base.
 - El borde del input es **siempre visible** (no transparente como en Button). Usar `Craft.Theme.SetPixelHeight/Width` para el borde de 1px.
 - Hover: no definido en el CSS de Lyra. Omitir efecto hover en esta versión.
 
@@ -133,7 +135,7 @@ Notas sobre estados:
 - **Placeholder**: mostrar `placeholder FontString` cuando `EditBox:GetText() == ""` y el EditBox no tiene foco. Ocultar en `OnEditFocusGained`. Mostrar en `OnEditFocusLost` si el texto queda vacío.
 - **Insets del EditBox**: usar `EditBox:SetTextInsets(left, right, top, bottom)` para que el cursor y texto no toquen los bordes. Los valores de `left` y `right` son 10px (paddingH del tamaño único), más el delta de icono si aplica.
 - **Borde 1px (pixel-perfect)**: el borde de 1px es siempre visible en el input. Usar `Craft.Theme.SetPixelHeight` y `Craft.Theme.SetPixelWidth` para las texturas de borde, **no** `SetHeight(1)` / `SetWidth(1)`. Esto garantiza exactamente 1px físico independientemente del UI scale.
-- **Sin focus ring en WoW**: el `focus-visible:ring-1` de Lyra no se implementa. WoW es mouse-only, sin keyboard navigation. No crear el frame `_ring` para el input.
+- **Focus como cambio de color en bordes**: el `focus-visible:ring-1` de Lyra se implementa cambiando el color de los 4 bordes existentes a `t.ring` en `OnEditFocusGained`, y restaurándolos al color base en `OnEditFocusLost`. No se crea un frame `_ring` adicional.
 - **Sin variantes de tamaño**: Lyra define un único tamaño (`h-8` = 32px). Eliminar la lógica de `sm`/`lg` si existe de implementaciones anteriores.
 - **Disabled**: llamar `EditBox:EnableMouse(false)` y `EditBox:SetEnabled(false)`. El frame raíz también debe tener `EnableMouse(false)` para suprimir hover. Fondo disabled dark: {r=1,g=1,b=1,a=0.12} (`input/80`).
 - **OnTextChanged**: el script recibe `(self, userInput)`. Solo disparar `onChange` si `userInput == true` para evitar loops al llamar `SetText` programáticamente.

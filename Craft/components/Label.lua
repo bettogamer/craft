@@ -2,6 +2,8 @@
 -- Spec: docs/components/label.md
 -- Design: shadcn Lyra — .cn-label { @apply gap-2 text-xs leading-none group-data-[disabled=true]:opacity-50 }
 
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
+
 local Label = {}
 Label.__index = Label
 
@@ -26,7 +28,6 @@ function Label:Create(parent, config)
 
     -- _text: FontString child — OVERLAY, text-xs = 12px, leading-none
     self._text = self.frame:CreateFontString(nil, "OVERLAY")
-    self._text:SetText(self._cfg.text)
 
     -- maxWidth: truncate with "..." — WoW truncates automatically via SetWordWrap(false)
     if self._cfg.maxWidth then
@@ -38,9 +39,12 @@ function Label:Create(parent, config)
     -- Anchor text to the frame (frame size follows text when no maxWidth set)
     self._text:SetPoint("TOPLEFT", self.frame, "TOPLEFT")
 
-    -- Register in theming system and apply initial theme
+    -- Register in theming system and apply initial theme (sets font before SetText below)
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
+
+    -- SetText must come after _applyTheme so the font is set before WoW renders the string
+    self._text:SetText(self._cfg.text)
 
     -- Mouse interaction for onClick variant
     if self._cfg.onClick then
@@ -96,7 +100,7 @@ function Label:_restoreColor()
     end
 end
 
--- ─── API pública ───────────────────────────────────────────────────────────
+-- ─── Public API ────────────────────────────────────────────────────────────
 
 -- Changes the displayed text. Respects maxWidth if configured.
 function Label:SetText(text)
@@ -123,9 +127,10 @@ end
 
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Label:Destroy()
+    if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
 
-return Label
+Craft.register("Label", Label, _BUILD)

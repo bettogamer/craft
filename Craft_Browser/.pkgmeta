@@ -1,0 +1,18 @@
+package-as: Craft_Browser
+enable-nolib-creation: no
+
+ignore:
+  - .github
+  - .luacheckrc
+  - .pkgmeta
+  - .gitignore
+  - tests
+  - docs
+  - scripts
+  - templates
+  - skill-examples
+  - Craft
+  - README.md
+  - CHANGELOG.md
+  - AGENTS.md
+  - CLAUDE.md

@@ -9,6 +9,8 @@
 --   .cn-card-content    { @apply px-4; }
 --   .cn-card-footer     { @apply border-t p-4; }
 
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
+
 local Panel = {}
 Panel.__index = Panel
 
@@ -23,6 +25,7 @@ function Panel:Create(parent, config)
         title       = config.title,
         description = config.description,
         padding     = config.padding ~= nil and config.padding or 16,
+        footer      = config.footer,
     }
 
     -- ── Root frame ─────────────────────────────────────────────────────────
@@ -74,6 +77,12 @@ function Panel:Create(parent, config)
     self._footer:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
     self._footer:Hide()
 
+    -- If a pre-built frame was passed as config.footer, reparent it into _footer.
+    if config.footer then
+        config.footer:SetParent(self._footer)
+        config.footer:SetAllPoints(self._footer)
+    end
+
     -- Footer top separator (border-t, ADR-0011)
     self._footerBorder = CreateFrame("Frame", nil, self._footer)
     Craft.Theme.SetPixelHeight(self._footerBorder, 1)
@@ -106,9 +115,10 @@ function Panel:_layoutFrames(t)
     local xs  = t.spacingXs        -- 4px  — gap-1 inside header
 
     -- ── Anchor _bg inset 1px (ring pattern) ────────────────────────────────
+    local px1 = Craft.Theme.px(1, self.frame)
     self._bg:ClearAllPoints()
-    self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",      1, -1)
-    self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -1,  1)
+    self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     px1, -px1)
+    self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1, px1)
 
     -- ── Header ─────────────────────────────────────────────────────────────
     local hasHeader = self._cfg.title ~= nil
@@ -116,25 +126,30 @@ function Panel:_layoutFrames(t)
 
     if hasHeader then
         self._header:Show()
+        self._header:ClearAllPoints()
+        self._header:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
+        self._header:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
 
-        -- px-4 horizontal inset for header content
+        -- Title: lg top-pad + t.fontSizeLg (14px) + lg bottom-pad
+        local titleH = t.fontSizeLg or 14
         self._title:ClearAllPoints()
         self._title:SetPoint("TOPLEFT",  self._header, "TOPLEFT",  lg, -lg)
         self._title:SetPoint("TOPRIGHT", self._header, "TOPRIGHT", -lg, -lg)
 
         if hasDesc then
+            -- Desc below title with xs gap
+            local descH = t.fontSize or 12
             self._desc:ClearAllPoints()
             self._desc:SetPoint("TOPLEFT",  self._title, "BOTTOMLEFT",  0, -xs)
             self._desc:SetPoint("TOPRIGHT", self._title, "BOTTOMRIGHT", 0, -xs)
             self._desc:Show()
-            -- Header height: lg (top) + title + xs + desc + lg (bottom)
-            -- We let the header grow by anchoring its bottom to the desc bottom.
-            self._header:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
-            self._header:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
-            -- Height is implicit: determined by SetAllPoints-style anchor below.
+            -- Header height: lg + title + xs + desc + lg
+            self._header:SetHeight(lg + titleH + xs + descH + lg)
         else
             self._desc:ClearAllPoints()
             self._desc:Hide()
+            -- Header height: lg + title + lg
+            self._header:SetHeight(lg + titleH + lg)
         end
     else
         self._header:Hide()
@@ -192,7 +207,7 @@ function Panel:_applyTheme(t)
     self:_layoutFrames(t)
 end
 
--- ─── API pública ───────────────────────────────────────────────────────────
+-- ─── Public API ────────────────────────────────────────────────────────────
 
 -- Returns the root frame (what the developer anchors/sizes).
 function Panel:GetFrame()
@@ -271,9 +286,10 @@ end
 
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Panel:Destroy()
+    if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
 
-return Panel
+Craft.register("Panel", Panel, _BUILD)

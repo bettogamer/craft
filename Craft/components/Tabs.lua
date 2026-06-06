@@ -8,10 +8,11 @@
 -- Trigger: px=6px, py=2px, text-xs=12px, border-transparent default
 -- Active: bg=t.secondary, text=t.foreground
 -- Inactive: text=t.mutedForeground
--- List bg: t.secondary
+-- List bg: t.muted
 -- No underline indicator (Lyra uses data-active bg change only)
 
 local Craft = LibStub("Craft-1.0")
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Tabs = {}
 Tabs.__index = Tabs
@@ -20,8 +21,7 @@ Tabs.__index = Tabs
 -- h-8 = 32px, p-[3px] = 3px, px-1.5 = 6px, py-0.5 = 2px
 local LIST_H       = 32
 local LIST_PAD     = 3   -- internal padding in the list bar
-local TRIGGER_PX   = 6   -- horizontal padding inside each trigger
-local TRIGGER_PY   = 2   -- vertical padding inside each trigger
+local TRIGGER_PY   = 2   -- luacheck: ignore 211
 local FONT_SIZE    = 12  -- text-xs
 
 -- ─── Create ────────────────────────────────────────────────────────────────
@@ -39,19 +39,39 @@ function Tabs:Create(parent, config)
     -- Root frame
     self.frame = CreateFrame("Frame", nil, parent)
 
-    -- Tab list: 32px tall, full width, bg=t.secondary
+    -- Tab list: 32px tall, full width, bg=t.muted
     self._list = CreateFrame("Frame", nil, self.frame)
     self._list:SetHeight(LIST_H)
     self._list:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
     self._list:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
 
+    -- Flex layout: row, flex-1 per trigger (equal width), align=stretch (fills LIST_H-padding)
+    self._flex = Craft.Flex.new(self._list, {
+        direction = "row",
+        align     = "stretch",
+        paddingH  = LIST_PAD,
+        paddingV  = LIST_PAD,
+        gap       = 0,
+    })
+
     self._listBg = self._list:CreateTexture(nil, "BACKGROUND")
     self._listBg:SetAllPoints(self._list)
+
+    -- 1px separator below the tab list
+    self._listBorder = self.frame:CreateTexture(nil, "BACKGROUND")
+    self._listBorder:SetColorTexture(0, 0, 0, 0)  -- colored in _applyTheme
+    Craft.Theme.SetPixelHeight(self._listBorder, 1)
+    self._listBorder:SetPoint("TOPLEFT",  self._list, "BOTTOMLEFT",  0, 0)
+    self._listBorder:SetPoint("TOPRIGHT", self._list, "BOTTOMRIGHT", 0, 0)
 
     -- Content area: below the list, fills remaining height
     self._content = CreateFrame("Frame", nil, self.frame)
     self._content:SetPoint("TOPLEFT",     self._list,  "BOTTOMLEFT",  0,  0)
     self._content:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0,  0)
+
+    -- Re-layout when container width changes (e.g. after SetWidth from caller).
+    self.frame:HookScript("OnShow", function() self._flex:Layout() end)
+    self._list:SetScript("OnSizeChanged", function() self._flex:Layout() end)
 
     -- Register theming
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
@@ -86,9 +106,8 @@ function Tabs:AddTab(id, label)
     contentFrame:Hide()
     self._frames[id] = contentFrame
 
-    -- Trigger button
+    -- Trigger button — height and width managed by Flex (grow=1, align=stretch)
     local btn = CreateFrame("Button", nil, self._list)
-    btn:SetHeight(LIST_H - LIST_PAD * 2)
 
     local btnText = btn:CreateFontString(nil, "OVERLAY")
     if self._t then
@@ -123,28 +142,13 @@ function Tabs:AddTab(id, label)
     self._buttons[id] = btn
     table.insert(self._tabs, { id = id, label = label or id })
 
-    -- Recalculate trigger positions
-    self:_layoutTriggers()
+    -- Register with Flex (grow=1 → equal width, align=stretch handles height)
+    self._flex:Add(btn, { grow = 1, shrink = 1, basis = 0 })
+    self._flex:Layout()
 
     -- Apply theme to the new button
     if self._t then
         self:_styleButton(btn, false)
-    end
-end
-
--- ─── Layout triggers ───────────────────────────────────────────────────────
--- Positions tab triggers left-to-right inside the list with LIST_PAD inset.
-function Tabs:_layoutTriggers()
-    local x = LIST_PAD
-    for _, tabDef in ipairs(self._tabs) do
-        local btn = self._buttons[tabDef.id]
-        if btn then
-            local tw = btn._text:GetStringWidth() + TRIGGER_PX * 2
-            btn:SetWidth(math.max(tw, 32))
-            btn:ClearAllPoints()
-            btn:SetPoint("TOPLEFT", self._list, "TOPLEFT", x, -LIST_PAD)
-            x = x + btn:GetWidth() + LIST_PAD
-        end
     end
 end
 
@@ -175,25 +179,26 @@ function Tabs:_styleButton(btn, isActive)
     Craft.Theme.SetPixelWidth(btn._borderRight, 1)
 
     if isActive then
-        -- Active: bg=t.secondary (slightly elevated), text=t.foreground, border transparent
-        btn:SetNormalTexture("")  -- clear WoW default
-        -- Background texture for active state
+        -- Active (dark mode): dark:data-active:bg-input/30 + dark:data-active:border-input
+        -- bg-input/30 = white at 30% opacity — lighter than t.muted, creates a "raised" effect
+        -- border-input = t.input = white at 15% opacity — subtle 1px highlight border
+        btn:SetNormalTexture("")
         if not btn._bg then
             btn._bg = btn:CreateTexture(nil, "BACKGROUND")
             btn._bg:SetAllPoints(btn)
         end
-        btn._bg:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 1)
+        btn._bg:SetColorTexture(1, 1, 1, 0.30)
         btn._bg:Show()
 
         btn._text:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
 
-        -- Borders transparent
-        btn._borderTop:SetColorTexture(0, 0, 0, 0)
-        btn._borderBottom:SetColorTexture(0, 0, 0, 0)
-        btn._borderLeft:SetColorTexture(0, 0, 0, 0)
-        btn._borderRight:SetColorTexture(0, 0, 0, 0)
+        local bi = t.input  -- white a=0.15
+        btn._borderTop:SetColorTexture(bi.r, bi.g, bi.b, bi.a)
+        btn._borderBottom:SetColorTexture(bi.r, bi.g, bi.b, bi.a)
+        btn._borderLeft:SetColorTexture(bi.r, bi.g, bi.b, bi.a)
+        btn._borderRight:SetColorTexture(bi.r, bi.g, bi.b, bi.a)
     else
-        -- Inactive: transparent bg, muted text, transparent border
+        -- Inactive: transparent bg, muted text, no border
         if btn._bg then btn._bg:SetColorTexture(0, 0, 0, 0) end
         btn._text:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
 
@@ -213,7 +218,7 @@ function Tabs:_onTriggerEnter(btn)
         btn._bg = btn:CreateTexture(nil, "BACKGROUND")
         btn._bg:SetAllPoints(btn)
     end
-    btn._bg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 0.5)
+    btn._bg:SetColorTexture(t.accent.r, t.accent.g, t.accent.b, 0.5)
 end
 
 function Tabs:_onTriggerLeave(btn)
@@ -228,7 +233,12 @@ function Tabs:_applyTheme(t)
     self._t = t
 
     -- List background
-    self._listBg:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 1)
+    self._listBg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 1)
+
+    -- 1px separator border below tab list
+    if self._listBorder then
+        self._listBorder:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
+    end
 
     -- Content area: transparent
     -- (content bg is managed by individual tab content frames or the dev)
@@ -242,7 +252,7 @@ function Tabs:_applyTheme(t)
     end
 end
 
--- ─── API pública ───────────────────────────────────────────────────────────
+-- ─── Public API ────────────────────────────────────────────────────────────
 function Tabs:SetActiveTab(id)
     local prev = self._activeId
 
@@ -280,15 +290,39 @@ function Tabs:GetContentFrame(id)
     return self._frames[id]
 end
 
+function Tabs:GetContent()
+    return self._content
+end
+
 function Tabs:GetFrame()
     return self.frame
 end
 
+-- ─── SetTabEnabled ─────────────────────────────────────────────────────────
+-- Enables or disables a tab trigger. Disabled tabs cannot be clicked and are
+-- shown at 50% alpha with mouse interaction disabled.
+function Tabs:SetTabEnabled(id, enabled)
+    local btn = self._buttons[id]
+    if not btn then return end
+    btn:EnableMouse(enabled)
+    if self._t then
+        local t = self._t
+        if enabled then
+            btn:SetAlpha(1)
+            btn._text:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+        else
+            btn:SetAlpha(0.5)
+            btn:EnableMouse(false)
+        end
+    end
+end
+
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Tabs:Destroy()
+    if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
 
-return Tabs
+Craft.register("Tabs", Tabs, _BUILD)

@@ -37,6 +37,8 @@ Estos principios actúan como invariantes de producto. Cualquier decisión de di
 
 ---
 
+> **Nota ADR-0012 (31/05/2026)**: El modelo de distribución fue actualizado. Craft es ahora una **librería embebible** — developers la descargan de GitHub Releases y la colocan en `libs/` de su addon. Solo **Craft_Browser** está en CurseForge/Wago. Ver `docs/adr/0012-craft-libreria-embebible.md`.
+
 ## 1. Resumen del producto
 
 **Craft** es una librería open source de componentes UI para addons de World of Warcraft, distribuida como addon instalable desde CurseForge y Wago, cargada mediante LibStub. Los desarrolladores declaran `Craft` como dependencia en su `.toc` e instancian componentes modernos con una API OOP consistente.

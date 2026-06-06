@@ -8,7 +8,7 @@
 | Título | Arquitectura de librería compartida con LibStub |
 | Fecha | 30/05/2026 |
 | Autor(es) | Alberto Gomez |
-| Estado | **Aceptada** |
+| Estado | **Superada por ADR-0012** |
 | Alcance | Todo el sistema — modelo de distribución y carga de Craft |
 | Stakeholders consultados | Comunidad addon-dev WoW, lecciones del POC CraftUI (mayo 2026) |
 
@@ -119,3 +119,10 @@ Los criterios decisivos fueron:
 |---------|-------|-------|--------|
 | 1 | 30/05/2026 | Alberto Gomez | Propuesta inicial basada en lecciones del POC CraftUI |
 | 2 | 30/05/2026 | Alberto Gomez | Aceptada — criterios definitivos documentados |
+
+---
+
+> **SUPERADA**: Esta ADR fue superada por [ADR-0012](0012-craft-libreria-embebible.md) (31/05/2026).
+> El modelo de distribución cambió: Craft es ahora una librería embebible (como Ace3 embedding),
+> no un addon standalone en CurseForge. Solo Craft_Browser está en CurseForge.
+> Developers descargan Craft de GitHub Releases y lo ponen en `libs/` de su addon.

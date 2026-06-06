@@ -28,6 +28,8 @@
 
 ---
 
+> **Nota ADR-0012 (31/05/2026)**: El modelo de distribución fue actualizado. Craft es ahora una **librería embebible** — developers la descargan de GitHub Releases y la colocan en `libs/` de su addon. Solo **Craft_Browser** está en CurseForge/Wago. Ver `docs/adr/0012-craft-libreria-embebible.md`.
+
 ## 1. Visión del Producto
 
 **Problema**: El ecosistema WoW addon carece de una librería de componentes UI moderna con arquitectura de librería compartida. AceGUI-3.0, la solución dominante, tiene más de 15 años de antigüedad: estética de 2008, API inconsistente, y ningún sistema de theming. Para desarrolladores con background web (React, Tailwind, shadcn/ui), la brecha conceptual es radical.

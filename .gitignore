@@ -3,7 +3,7 @@ templates/
 skill-examples/
 
 # Generados en el build — bigwigsmods/packager los descarga/crea
-Craft/libs/LibStub.lua
+Craft/libs/LibStub/
 
 # Assets generados por scripts/export-icons.py — no commitear binarios
 Craft/media/*.tga
@@ -11,6 +11,9 @@ Craft/media/*.ttf
 
 # Caché local del generador de íconos
 .icon-cache/
+
+# Craft embebido en Craft_Browser — generado en CI, no commitear
+Craft_Browser/libs/
 
 # Paquetes de release
 *.zip

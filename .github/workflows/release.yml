@@ -26,7 +26,7 @@ jobs:
       - name: Test
         run: busted tests/ --verbose
 
-      # ─── Generar atlas TGA de íconos Lucide ──────────────────────────────
+      # ─── Generar assets ───────────────────────────────────────────────────
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -44,7 +44,6 @@ jobs:
       - name: Generate Lucide icon atlas
         run: python3 scripts/export-icons.py
 
-      # ─── Descargar fuente Inter ──────────────────────────────────────────
       - name: Cache Inter font
         id: cache-inter
         uses: actions/cache@v4
@@ -55,30 +54,54 @@ jobs:
       - name: Download Inter font (SIL OFL 1.1)
         if: steps.cache-inter.outputs.cache-hit != 'true'
         run: |
-          mkdir -p Craft/media
+          mkdir -p Craft/media /tmp/inter_extract
           curl -L -o /tmp/inter.zip \
             "https://github.com/rsms/inter/releases/download/v4.0/Inter-4.0.zip"
-          unzip -j /tmp/inter.zip "Inter-Regular.ttf" "Inter-Bold.ttf" \
-            -d Craft/media/
-          rm /tmp/inter.zip
+          unzip -q /tmp/inter.zip -d /tmp/inter_extract
+          find /tmp/inter_extract -name "Inter-Regular.ttf" | head -1 \
+            | xargs -I{} cp {} Craft/media/Inter-Regular.ttf
+          find /tmp/inter_extract -name "Inter-Bold.ttf" | head -1 \
+            | xargs -I{} cp {} Craft/media/Inter-Bold.ttf
+          rm -rf /tmp/inter.zip /tmp/inter_extract
 
-      # ─── Verificar que todos los assets están listos ─────────────────────
       - name: Verify assets
         run: |
-          echo "=== Craft/media/ ==="
-          ls -lh Craft/media/
-          [ -f "Craft/media/lucide-16.tga" ] || (echo "❌ lucide-16.tga missing" && exit 1)
-          [ -f "Craft/media/lucide-24.tga" ] || (echo "❌ lucide-24.tga missing" && exit 1)
-          [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf missing" && exit 1)
-          [ -f "Craft/media/Inter-Bold.ttf"    ] || (echo "❌ Inter-Bold.ttf missing"    && exit 1)
+          [ -f "Craft/media/lucide-16.tga"     ] || (echo "❌ lucide-16.tga"     && exit 1)
+          [ -f "Craft/media/lucide-24.tga"     ] || (echo "❌ lucide-24.tga"     && exit 1)
+          [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf" && exit 1)
+          [ -f "Craft/media/Inter-Bold.ttf"    ] || (echo "❌ Inter-Bold.ttf"    && exit 1)
           echo "✅ All assets present"
 
-      # ─── Empaquetar y subir a CurseForge + Wago ──────────────────────────
-      # bigwigsmods/packager descarga LibStub via .pkgmeta externals,
-      # empaqueta Craft/ (incluyendo media/ generada arriba) y sube el .zip
-      - name: Package and upload
-        uses: BigWigsMods/packager@main
+      # ─── Embeber Craft en Craft_Browser/libs/ ─────────────────────────────
+      - name: Embed Craft into Craft_Browser
+        run: |
+          mkdir -p Craft_Browser/libs/LibStub
+          # LibStub directo a su lugar final — mismo nivel que Craft/
+          curl -L -o Craft_Browser/libs/LibStub/LibStub.lua \
+            "https://raw.githubusercontent.com/Ace3/LibStub/master/LibStub.lua"
+          # Craft — sin la carpeta libs/ interna
+          cp -r Craft/ Craft_Browser/libs/Craft/
+          rm -rf Craft_Browser/libs/Craft/libs/
+          echo "✅ LibStub → Craft_Browser/libs/LibStub/LibStub.lua"
+          echo "✅ Craft   → Craft_Browser/libs/Craft/"
+          ls Craft_Browser/libs/
+
+      # ─── Craft.zip para GitHub Release (para developers) ─────────────────
+      - name: Build Craft.zip (for developers)
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+          mkdir -p dist
+          # Solo Craft/ — LibStub es responsabilidad del developer
+          # (ya disponible en cualquier proyecto que use Ace3, o en CurseForge)
+          zip -r "dist/Craft-${VERSION}.zip" Craft/ \
+            --exclude "*.git*" --exclude "*/__pycache__/*"
+          echo "CRAFT_ZIP=dist/Craft-${VERSION}.zip" >> $GITHUB_ENV
+          echo "📦 Built Craft-${VERSION}.zip (Craft/ only, LibStub not included)"
+
+      # ─── Adjuntar Craft.zip al GitHub Release ────────────────────────────
+      - name: Upload Craft.zip to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.CRAFT_ZIP }}
         env:
-          CF_API_KEY: ${{ secrets.CF_API_KEY }}
-          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
-          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

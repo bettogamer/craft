@@ -5,6 +5,8 @@
 ## CSS real de Lyra (referencia)
 
 ```css
+.cn-sidebar-header { @apply gap-2 p-2; }
+.cn-sidebar-footer { @apply gap-2 p-2; }
 .cn-sidebar-inner { @apply bg-sidebar; }
 .cn-sidebar-group-label {
   @apply text-sidebar-foreground/70 h-8 rounded-none px-2 text-xs;
@@ -26,6 +28,7 @@
 .cn-sidebar-group { @apply p-2; }
 .cn-sidebar-menu { @apply gap-0; }
 .cn-sidebar-separator { @apply bg-sidebar-border mx-2; }
+.cn-sidebar-rail { @apply hover:after:bg-sidebar-border; }
 ```
 
 ## Propósito
@@ -38,9 +41,10 @@ Navegación vertical en dos niveles (secciones e items clickeables) con scroll i
 sidebar.frame              (Frame)                      raíz, ancho fijo
 ├── sidebar._bg            (Texture)                    fondo completo
 ├── sidebar._border        (Texture, 1px ancho)         borde derecho
-└── sidebar._scroll        (ScrollFrame)                área scrolleable
-    └── sidebar._child     (Frame)                      contenido del scroll
-        ├── sidebar._section[1]   (Frame, 32px alto)    header de sección 1
+├── sidebar._header        (Frame)                      SidebarHeader — oculto por defecto
+├── sidebar._scroll        (ScrollFrame)                SidebarContent — área scrolleable
+│   └── sidebar._child     (Frame)                      contenido del scroll
+        ├── sidebar._section[1]   (Frame, 32px alto)    group label 1
         │   └── sidebar._sectionLabel[1] (FontString)   etiqueta de sección
         ├── sidebar._item[1]      (Button, 32px alto)   item 1
         │   ├── sidebar._item[1]._bg   (Texture)        fondo hover/active
@@ -51,7 +55,18 @@ sidebar.frame              (Frame)                      raíz, ancho fijo
         ├── sidebar._item[2]      (Button, 32px alto)   item 2
         │   └── ...
         └── ...
+├── sidebar._footer        (Frame)                      SidebarFooter — oculto por defecto
+├── ~~sidebar._rail~~      *(eliminado — ver nota de corrección)*
+└── sidebar._sbarFrame     (Frame, 4px ancho)           scrollbar custom, borde derecho del scroll
+    ├── sidebar._sbarTrack (Texture)                    fondo, t.sidebarForeground a=0.08
+    └── sidebar._sbarThumb (Button)                     thumb arrastrable
 ```
+
+> **Corrección post-testing en WoW:** El rail fue eliminado tras testing. La funcionalidad de colapso no se implementa en la versión actual. El espacio del rail (6px en el borde derecho) fue reemplazado por un scrollbar custom de 4px.
+
+**`_header` y `_footer`:** Creados siempre, ocultos por defecto (height=0). El dev los activa
+llamando `GetHeader()` o `GetFooter()`, setea su altura con `SetHeight(N)`, agrega contenido y
+llama `RefreshLayout()`. El `_scroll` se re-ancla automáticamente entre header y footer.
 
 La sección (section header) es un Frame con un FontString, no es clickeable. Los items son Buttons con altura fija según la variante de tamaño. El `_child` Frame del ScrollFrame debe tener su altura ajustada al total acumulado de secciones e items.
 
@@ -73,7 +88,11 @@ La sección (section header) es un Frame con un FontString, no es clickeable. Lo
 | Section label padding horizontal | 8px (`t.spacingSm`) | `px-2` |
 | Sub-button height | 28px | `h-7` |
 | Sub-button padding horizontal | 8px (`t.spacingSm`) | `px-2` |
+| Header padding | 8px todos los lados | `gap-2 p-2` (.cn-sidebar-header) |
+| Footer padding | 8px todos los lados | `gap-2 p-2` (.cn-sidebar-footer) |
 | Border derecho width | 1px | — |
+| ~~SidebarRail width~~ | ~~6px~~ | *(eliminado)* |
+| Scrollbar custom width | 4px | — |
 | Font size (items y labels) | 12px (`t.fontSize`) | `text-xs` |
 
 El `_child` height total = suma de alturas de todos los elementos (secciones e items, con el group padding de cada sección).
@@ -143,6 +162,8 @@ El `_child` height total = suma de alturas de todos los elementos (secciones e i
 | `items[i].onClick` | function | nil | Callback invocado al hacer click en el item |
 | `activeItem` | string | nil | Id del item activo al crear el componente |
 
+> `_header` y `_footer` no tienen parámetros de config — se obtienen vía `GetHeader()`/`GetFooter()` y el dev los configura directamente.
+
 ## API pública
 
 | Método | Retorno | Descripción |
@@ -152,6 +173,11 @@ El `_child` height total = suma de alturas de todos los elementos (secciones e i
 | `GetActiveItem()` | string \| nil | Retorna el id del item actualmente activo |
 | `AddItem(config)` | void | Agrega un item al final (o al final de su sección si `config.section` está definida); recalcula la altura del `_child` |
 | `AddSection(label)` | void | Agrega un section header al final del listado; las secciones deben agregarse antes que sus items |
+| `GetHeader()` | Frame | Retorna `_header` Frame (SidebarHeader). El dev llama `SetHeight(N)` y agrega contenido, luego `RefreshLayout()` |
+| `GetFooter()` | Frame | Retorna `_footer` Frame (SidebarFooter). Mismo patrón que GetHeader() |
+| `RefreshLayout()` | void | Reancla `_scroll` entre `_header` y `_footer` según sus alturas actuales. Llamar después de modificar header/footer |
+
+> **Corrección post-testing en WoW:** `GetRail()` y `SetCollapsible(bool)` fueron eliminados del API público junto con el rail. La funcionalidad de colapso no se implementa en la versión actual.
 
 ## Notas de implementación
 
@@ -209,3 +235,32 @@ sectionLabel:SetTextColor(t.sidebarForeground.r, t.sidebarForeground.g, t.sideba
 **Group padding:** cada grupo (sección + sus items) se inserta con 8px de padding (`p-2`). El Frame de group envuelve la sección y sus items con ese margen respecto a los bordes del sidebar.
 
 **Radius = 0:** los fondos de hover y activo son Textures rectangulares sin redondeo (`rounded-none` en Lyra), pintadas con `SetColorTexture`.
+
+~~**SidebarRail:**~~ *(eliminado — ver nota abajo)*
+
+> **Corrección post-testing en WoW:** El rail fue eliminado tras testing. La funcionalidad de colapso no se implementa en la versión actual. El espacio del rail (6px en el borde derecho) fue reemplazado por un scrollbar custom de 4px.
+
+**Scrollbar custom (reemplaza al rail):**
+
+El sidebar incluye un scrollbar custom de 4px en el borde derecho del scroll. Solo es visible cuando `childH > viewH`.
+
+- `_sbarFrame`: Frame de 4px de ancho, anclado al borde derecho del scroll.
+- `_sbarTrack`: Texture background con color `t.sidebarForeground` a=0.08 — indica visualmente la zona scrollable.
+- `_sbarThumb`: Button con drag support. Colores:
+  - Normal: `t.sidebarForeground` a=0.35
+  - Hover: `t.sidebarForeground` a=0.60
+  - Drag activo: `t.sidebarPrimary` a=0.80
+- `_updateSbar()`: método interno que reposiciona el thumb según el scroll actual del `_scroll` ScrollFrame.
+- Drag usa `select(2, GetCursorPosition()) / frame:GetEffectiveScale()` (ADR-0011).
+
+```lua
+-- Visibilidad del scrollbar
+if childH > viewH then
+    self._sbarFrame:Show()
+    self:_updateSbar()
+else
+    self._sbarFrame:Hide()
+end
+```
+
+> **Corrección post-testing en WoW:** scrollbar custom añadido para dar feedback visual del contenido scrollable.

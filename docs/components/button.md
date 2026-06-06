@@ -176,15 +176,19 @@ Base: `border border-transparent` — el frame siempre tiene un borde, pero tran
 
 **Base border transparent**: el frame siempre tiene un borde (`border border-transparent`). En WoW, crear siempre `_border` Texture y colorearla transparente por defecto. En `outline` variant: colorear con `t.border`. En error state: colorear con `t.destructive`.
 
-**Active press = translate-y-px**: mover el frame 1px hacia abajo en OnMouseDown:
+**Active press = translate-y-px**: mover el contenido 1px hacia abajo en OnMouseDown. El offset se aplica solo al anchor primario de cada elemento hijo — los elementos secundarios siguen automáticamente via sus anchors relativos. No mover el frame raíz (afectaría el layout externo):
 ```lua
-button.frame:SetScript("OnMouseDown", function(self)
-  if not self._disabled then self:SetPoint(...offset Y -1) end
-end)
-button.frame:SetScript("OnMouseUp", function(self)
-  self:SetPoint(...offset Y 0)
-end)
+-- _positionChildren(yOffset) aplica yOffset solo al anchor primario
+-- Icon-only: SetPoint("CENTER", frame, "CENTER", 0, yOffset)
+-- Label+icon: SetPoint("LEFT", frame, "LEFT", padH, yOffset) — el icono sigue via anchor relativo
+-- Text-only:  SetPoint("CENTER", frame, "CENTER", 0, yOffset)
+self.frame:SetScript("OnMouseDown", function() self:_positionChildren(-1) end)
+self.frame:SetScript("OnMouseUp",   function() self:_positionChildren(0)  end)
 ```
+
+**Corrección post-testing en WoW:** el approach anterior re-anclaba label a CENTER y aplicaba `-1` extra al ícono, causando que solo el ícono bajara (no el texto) y doble desplazamiento en iconos relativos al label. La solución es pasar `yOffset` a `_positionChildren` y aplicarlo solo al primer anchor.
+
+**`_intrinsicWidth` — compatibilidad con Craft.Flex**: `_recalcWidth()` guarda el ancho calculado en `self._intrinsicWidth`. En `_onEnter` (hover), `_applyTheme` llama `_recalcWidth()`. Si `frame:GetWidth()` difiere de `_intrinsicWidth` en más de 0.5px, significa que un layout externo (Craft.Flex) cambió el ancho — `_recalcWidth()` sale sin sobrescribir. Sin esta guarda, un Button con `grow=1` en Flex colapsaba al ancho del texto en cada hover.
 
 **Destructive = tinte, no sólido**: en Lyra `destructive` es `bg-destructive/20 text-destructive` — fondo translúcido rojizo, texto rojo. Completamente distinto a new-york (sólido rojo, texto blanco). En WoW: `_bg:SetColorTexture(t.destructive.r, t.destructive.g, t.destructive.b, 0.20)` y `_label:SetTextColor(t.destructive.r, t.destructive.g, t.destructive.b)`.
 

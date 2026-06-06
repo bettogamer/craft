@@ -9,6 +9,7 @@
 -- Mouse wheel: 20px per tick
 
 local Craft = LibStub("Craft-1.0")
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Scroll = {}
 Scroll.__index = Scroll
@@ -24,6 +25,9 @@ function Scroll:Create(parent, config)
     local self = setmetatable({}, Scroll)
 
     config = config or {}
+    self._cfg = {
+        onScroll = config.onScroll,
+    }
 
     -- Root frame — sized by dev
     self.frame = CreateFrame("Frame", nil, parent)
@@ -55,10 +59,10 @@ function Scroll:Create(parent, config)
     self._scrollbar:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0,  0)
     self._scrollbar:SetWidth(SCROLLBAR_W)
 
-    -- Track texture: transparent background
+    -- Track texture: subtle background so the rail is always visible
     self._track = self._scrollbar:CreateTexture(nil, "BACKGROUND")
     self._track:SetAllPoints(self._scrollbar)
-    self._track:SetColorTexture(0, 0, 0, 0)
+    -- color applied in _applyTheme (t.secondary at low alpha)
 
     -- Thumb: 6px wide Button, positioned dynamically
     self._scrollThumb = CreateFrame("Button", nil, self._scrollbar)
@@ -79,11 +83,14 @@ function Scroll:Create(parent, config)
 
     self._scrollThumb:SetScript("OnMouseDown", function()
         self._thumbDragging = true
-        self._thumbDragStartY      = GetCursorPosition() / self._scrollbar:GetEffectiveScale()
+        if self._t then
+            self._thumbTex:SetColorTexture(self._t.primary.r, self._t.primary.g, self._t.primary.b, 1)
+        end
+        self._thumbDragStartY      = select(2, GetCursorPosition()) / self._scrollbar:GetEffectiveScale()
         self._thumbDragStartScroll = self._scrollFrame:GetVerticalScroll()
         self._scrollThumb:SetScript("OnUpdate", function()
             if not self._thumbDragging then return end
-            local curY     = GetCursorPosition() / self._scrollbar:GetEffectiveScale()
+            local curY     = select(2, GetCursorPosition()) / self._scrollbar:GetEffectiveScale()
             local deltaY   = self._thumbDragStartY - curY  -- positive = scrolled down
             local trackH   = self._scrollbar:GetHeight() or 0
             local childH   = self._child:GetHeight() or 0
@@ -136,7 +143,16 @@ function Scroll:Create(parent, config)
 
     -- Sync scrollbar when scroll position or range changes
     self._scrollFrame:SetScript("OnScrollRangeChanged", function() self:_updateScrollbar() end)
-    self._scrollFrame:SetScript("OnVerticalScroll",     function() self:_updateScrollbar() end)
+    self._scrollFrame:SetScript("OnVerticalScroll", function()
+        self:_updateScrollbar()
+        if self._cfg.onScroll then
+            self._cfg.onScroll(self._scrollFrame:GetVerticalScroll())
+        end
+    end)
+
+    -- Re-check scrollbar visibility when the container gets its real size (post-layout)
+    self._scrollbar:SetScript("OnSizeChanged", function() self:_updateScrollbar() end)
+    self.frame:SetScript("OnShow", function() self:_updateScrollbar() end)
 
     -- Register theming
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
@@ -188,7 +204,8 @@ end
 -- ─── _applyTheme ──────────────────────────────────────────────────────────
 function Scroll:_applyTheme(t)
     self._t = t
-    -- Track transparent — no color change needed
+    -- Track: barely visible rail (secondary at 30% alpha)
+    self._track:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 0.3)
     -- Thumb: secondary by default
     self._thumbTex:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 1)
     self:_updateScrollbar()
@@ -209,12 +226,21 @@ function Scroll:_onThumbLeave()
     self._thumbTex:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 1)
 end
 
--- ─── API pública ───────────────────────────────────────────────────────────
+-- ─── Public API ────────────────────────────────────────────────────────────
 
 -- Returns the scroll child frame where the dev adds their widgets.
 -- The dev is responsible for setting the child's height after adding content.
 function Scroll:GetScrollChild()
     return self._child
+end
+
+-- Reparents a frame into the scroll child and updates the child height so
+-- the scroll range works correctly.
+function Scroll:SetScrollChild(frame)
+    frame:SetParent(self._child)
+    frame:SetPoint("TOPLEFT", self._child, "TOPLEFT", 0, 0)
+    -- Update _child height so the scroll range works correctly
+    self._child:SetHeight(math.max(self._scrollFrame:GetHeight(), frame:GetHeight()))
 end
 
 function Scroll:ScrollToTop()
@@ -248,9 +274,10 @@ end
 
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Scroll:Destroy()
+    if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
 
-return Scroll
+Craft.register("Scroll", Scroll, _BUILD)

@@ -1,13 +1,35 @@
 # Contribuir a Craft
 
+## Modelo de branches
+
+```
+main    ← producción, protegida — solo via PR con CI verde
+dev     ← integración, aquí van los features
+feat/*  ← tu feature → PR hacia dev
+```
+
+**Flujo para contribuidores:**
+```bash
+git checkout dev
+git pull origin dev
+git checkout -b feat/mi-aporte
+# ... hacer cambios ...
+git push origin feat/mi-aporte
+# Abrir PR hacia dev en GitHub
+```
+
+Los dev builds se generan automáticamente en cada push a `dev` y están disponibles como artefactos en GitHub Actions (14 días).
+
 ## Cómo contribuir
 
-Los PRs son bienvenidos. Para cambios grandes o nuevos componentes, abre un issue primero para discutir el enfoque antes de escribir código.
+Los PRs son bienvenidos. Para cambios grandes o nuevos componentes, abre un issue primero para discutir el enfoque antes de escribir código. Todos los PRs deben apuntar a **`dev`**, no a `main`.
 
 ## Setup de desarrollo
 
 ```bash
-git clone https://github.com/your-org/Craft.git
+git clone https://github.com/bettogamer/craft.git
+cd craft
+git checkout dev   # trabajar siempre desde dev
 # Instalar dependencias de desarrollo
 luarocks install luacheck
 luarocks install busted
@@ -123,6 +145,6 @@ python3 scripts/export-icons.py
 
 # 4. LibStub se descarga automáticamente con el packager.
 #    Para desarrollo local, descárgalo de:
-#    https://repos.wowace.com/wow/libstub/trunk/LibStub.lua
-#    → Craft/libs/LibStub.lua
+#    https://www.curseforge.com/wow/addons/libstub
+#    → Craft/libs/LibStub/LibStub.lua  (para desarrollo standalone de Craft)
 ```

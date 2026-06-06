@@ -1,3 +1,7 @@
+---
+model: haiku
+---
+
 Actualiza los tokens de diseño de Craft desde el CSS de shadcn Lyra y revisa los layouts de componentes.
 
 Este comando hace DOS cosas en secuencia:
@@ -16,7 +20,11 @@ El usuario pegó el bloque `.dark { ... }` de `ui.shadcn.com/create` (Style=Lyra
 
 1. Parsea cada línea `--token-name: oklch(...);` del bloque `.dark { }` de `$ARGUMENTS`
 
-2. Para cada valor OKLCH convierte a RGBA usando esta fórmula exacta:
+2. Convierte cada valor OKLCH a RGBA **ejecutando un script Python** (no a mano: la
+   aritmética con matrices 3×3 + corrección gamma es propensa a error para cualquier
+   modelo, y los colores son la fuente de verdad del diseño). Escribe un script temporal
+   que parsee todos los tokens del bloque, aplique la fórmula exacta de abajo, córrelo con
+   `python3`, y usa su salida. Fórmula a implementar en el script:
    - Parsear `oklch(L C H)` o `oklch(L C H / alpha%)`
    - OKLab: `lab_a = C * cos(H_rad)`, `lab_b = C * sin(H_rad)` donde `H_rad = H * π/180`
    - Linear sRGB (matriz M1 inversa de OKLab→LMS):

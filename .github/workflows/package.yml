@@ -1,16 +1,16 @@
 name: Package (dev build)
 
-# Genera un .zip instalable en WoW en cada push a dev o main.
-# NO publica en CurseForge ni Wago — solo crea el artefacto en GitHub Actions.
-# Para descargar: Actions → run → Artifacts → Craft-dev.zip
+# Genera 2 zips instalables en WoW en cada push a dev o main.
+# NO publica en CurseForge ni Wago — solo artefactos en GitHub Actions.
+# Para descargar: Actions → run → Artifacts → craft-dev-<sha>
 
 on:
   push:
-    branches: [dev, main]
+    branches: [dev, master]
 
 jobs:
   package:
-    name: Build artifact
+    name: Build artifacts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,51 +43,61 @@ jobs:
       - name: Download Inter font
         if: steps.cache-inter.outputs.cache-hit != 'true'
         run: |
-          mkdir -p Craft/media
+          mkdir -p Craft/media /tmp/inter_extract
           curl -L -o /tmp/inter.zip \
             "https://github.com/rsms/inter/releases/download/v4.0/Inter-4.0.zip"
-          unzip -j /tmp/inter.zip "Inter-Regular.ttf" "Inter-Bold.ttf" -d Craft/media/
-          rm /tmp/inter.zip
+          unzip -q /tmp/inter.zip -d /tmp/inter_extract
+          find /tmp/inter_extract -name "Inter-Regular.ttf" | head -1 \
+            | xargs -I{} cp {} Craft/media/Inter-Regular.ttf
+          find /tmp/inter_extract -name "Inter-Bold.ttf" | head -1 \
+            | xargs -I{} cp {} Craft/media/Inter-Bold.ttf
+          rm -rf /tmp/inter.zip /tmp/inter_extract
 
-      - name: Download LibStub
-        run: |
-          mkdir -p Craft/libs
-          curl -L -o Craft/libs/LibStub.lua \
-            "https://raw.githubusercontent.com/Ace3/LibStub/master/LibStub.lua"
-
-      # ─── Verificar assets ────────────────────────────────────────────────
       - name: Verify assets
         run: |
           [ -f "Craft/media/lucide-16.tga"     ] || (echo "❌ lucide-16.tga"     && exit 1)
           [ -f "Craft/media/lucide-24.tga"     ] || (echo "❌ lucide-24.tga"     && exit 1)
           [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf" && exit 1)
           [ -f "Craft/media/Inter-Bold.ttf"    ] || (echo "❌ Inter-Bold.ttf"    && exit 1)
-          [ -f "Craft/libs/LibStub.lua"        ] || (echo "❌ LibStub.lua"       && exit 1)
           echo "✅ All assets present"
 
-      # ─── Empaquetar ──────────────────────────────────────────────────────
-      - name: Build .zip
+      # ─── Embeber Craft en Craft_Browser/libs/ ────────────────────────────
+      - name: Embed Craft into Craft_Browser
         run: |
-          # Determinar el nombre del build: Craft-dev-<sha corto>
+          mkdir -p Craft_Browser/libs/LibStub
+          # LibStub directo a su lugar final — mismo nivel que Craft/
+          curl -L -o Craft_Browser/libs/LibStub/LibStub.lua \
+            "https://raw.githubusercontent.com/Ace3/LibStub/master/LibStub.lua"
+          # Craft — sin la carpeta libs/ interna
+          cp -r Craft/ Craft_Browser/libs/Craft/
+          rm -rf Craft_Browser/libs/Craft/libs/
+          echo "✅ LibStub → Craft_Browser/libs/LibStub/LibStub.lua"
+          echo "✅ Craft   → Craft_Browser/libs/Craft/"
+
+      # ─── Build zips ──────────────────────────────────────────────────────
+      - name: Build zip files
+        run: |
           SHA=$(git rev-parse --short HEAD)
           BRANCH=${GITHUB_REF_NAME}
-          ZIP_NAME="Craft-${BRANCH}-${SHA}"
-
-          # Crear el .zip con solo el contenido de Craft/
-          # Excluir lo que no va en el entregable (igual que .pkgmeta)
           mkdir -p dist
-          zip -r "dist/${ZIP_NAME}.zip" Craft/ \
-            --exclude "*.git*" \
-            --exclude "*/__pycache__/*"
 
-          echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
-          echo "📦 Built: dist/${ZIP_NAME}.zip"
+          # Craft.zip — para developers que quieran usar la librería
+          zip -r "dist/Craft-${BRANCH}-${SHA}.zip" Craft/ \
+            --exclude "*.git*" --exclude "*/__pycache__/*"
+
+          # Craft_Browser.zip — addon showcase con Craft embebido
+          zip -r "dist/CraftBrowser-${BRANCH}-${SHA}.zip" Craft_Browser/ \
+            --exclude "*.git*" --exclude "*/__pycache__/*"
+
+          echo "ZIP_NAME=craft-${BRANCH}-${SHA}" >> $GITHUB_ENV
+          echo ""
+          echo "📦 Artifacts:"
           ls -lh dist/
 
-      # ─── Subir como artefacto de GitHub Actions ──────────────────────────
-      - name: Upload artifact
+      # ─── Subir como artefactos de GitHub Actions ─────────────────────────
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ZIP_NAME }}
           path: dist/*.zip
-          retention-days: 14   # disponible 14 días para descargar
+          retention-days: 14

@@ -5,6 +5,8 @@
 --   .cn-separator-horizontal { @apply h-px w-full; }
 --   .cn-separator-vertical   { @apply h-full w-px; }
 
+local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
+
 local Separator = {}
 Separator.__index = Separator
 
@@ -66,7 +68,7 @@ function Separator:_applyTheme(t)
     end
 end
 
--- ─── API pública ───────────────────────────────────────────────────────────
+-- ─── Public API ────────────────────────────────────────────────────────────
 
 -- Changes orientation between "horizontal" (default) and "vertical".
 -- Reconfigures all SetPoint anchors and the pixel-perfect dimension.
@@ -85,9 +87,10 @@ end
 
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Separator:Destroy()
+    if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
 
-return Separator
+Craft.register("Separator", Separator, _BUILD)

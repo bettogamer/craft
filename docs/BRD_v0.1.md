@@ -158,7 +158,7 @@ El POC CraftUI (mayo 2026) exploró un modelo copy-paste para resolver el proble
 
 | ID | KPI | North Star? | Línea base | Meta | Horizonte | Fuente del dato |
 |----|-----|-------------|------------|------|-----------|-----------------|
-| KPI-01 | Addons activos en CurseForge/Wago declarando Craft como dependencia | Sí | 0 | 50 addons | Q1 2027 | CurseForge API + encuesta comunidad |
+| KPI-01 | Addons activos usando Craft (embebido o standalone) | Sí | 0 | 50 addons | Q1 2027 | Encuesta comunidad Discord + análisis GitHub |
 | KPI-02 | GitHub Stars en el repositorio principal | No | 0 | 300 stars | Q4 2026 | GitHub API |
 | KPI-03 | Tiempo autoreportado de setup UI completa (encuesta) | No | ~8 horas (AceGUI baseline) | ≤ 60 minutos | Q1 2027 | Encuesta bianual en Discord |
 | KPI-04 | Contribuidores únicos con PRs mergeados | No | 0 | 10 contribuidores | Q1 2027 | GitHub Contributors |
@@ -191,6 +191,9 @@ El POC CraftUI (mayo 2026) exploró un modelo copy-paste para resolver el proble
 | Usuarios finales de addons WoW | Calidad visual e impacto indirecto | I (beneficiarios indirectos del ecosistema mejorado) |
 
 ---
+
+> **Nota ADR-0012 (31/05/2026)**: El modelo de distribución fue actualizado. Craft es ahora una **librería embebible** — developers la descargan de GitHub Releases y la colocan en `libs/` de su addon. Solo **Craft_Browser** está en CurseForge/Wago. Ver `docs/adr/0012-craft-libreria-embebible.md`.
+
 
 ## 11. Requerimientos de negocio
 
