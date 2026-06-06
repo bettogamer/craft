@@ -98,18 +98,6 @@ jobs:
           echo "CRAFT_ZIP=dist/Craft-${VERSION}.zip" >> $GITHUB_ENV
           echo "📦 Built Craft-${VERSION}.zip (Craft/ only, LibStub not included)"
 
-      # ─── Craft_Browser → CurseForge + Wago via packager ──────────────────
-      # ADR-0012: Craft_Browser es el único addon en CurseForge.
-      # Craft está embebido en Craft_Browser/libs/Craft/ (generado arriba).
-      - name: Package Craft_Browser and upload to CurseForge/Wago
-        uses: BigWigsMods/packager@main
-        with:
-          pkgmeta-file: Craft_Browser/.pkgmeta
-        env:
-          CF_API_KEY:     ${{ secrets.CF_API_KEY }}
-          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
-          GITHUB_OAUTH:   ${{ secrets.GITHUB_TOKEN }}
-
       # ─── Adjuntar Craft.zip al GitHub Release ────────────────────────────
       - name: Upload Craft.zip to GitHub Release
         uses: softprops/action-gh-release@v2
