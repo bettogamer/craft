@@ -4,7 +4,7 @@ Todos los cambios notables de Craft se documentan aquí.
 Formato: [Keep a Changelog](https://keepachangelog.com/es/1.0.0/)
 Versioning: [SemVer](https://semver.org/lang/es/)
 
-## [Unreleased]
+## [1.0.0] - 2026-06-06
 
 ### Added
 - 16 componentes MVP: Button, Checkbox, Dialog, Flex, Icons, Input, Label,

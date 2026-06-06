@@ -6,7 +6,7 @@ name: Package (dev build)
 
 on:
   push:
-    branches: [dev, main]
+    branches: [dev, master]
 
 jobs:
   package:

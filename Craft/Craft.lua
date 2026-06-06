@@ -16,7 +16,7 @@ if _addonTable then _addonTable.CRAFT_BUILD = CRAFT_BUILD end
 local Craft = LibStub:NewLibrary(CRAFT_NAME, CRAFT_BUILD)
 if not Craft then return end  -- a newer build is already loaded; nothing to do
 
-Craft.VERSION = "1.0.0-dev"
+Craft.VERSION = "1.0.0"
 Craft.BUILD   = CRAFT_BUILD
 _G.Craft      = Craft  -- global convenience accessor for consumer addons (e.g. Craft_Browser pages)
 
