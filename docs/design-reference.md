@@ -136,15 +136,15 @@ Define la **forma** de los componentes, no sus colores:
 | `--card-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
 | `--popover` | oklch(0.205 0 0) | #171717 | neutral | `{r=0.091, g=0.091, b=0.091, a=1}` |
 | `--popover-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
-| `--primary` | oklch(0.432 0.095 166.913) | #065f46 | emerald-800 | `{r=0.024, g=0.373, b=0.275, a=1}` |
-| `--primary-foreground` | oklch(0.979 0.021 166.113) | #ecfdf5 | emerald-50 | `{r=0.925, g=0.992, b=0.961, a=1}` |
+| `--primary` | oklch(0.432 0.095 166.913) | #006b55 | emerald-800 | `{r=0.000, g=0.378, b=0.271, a=1}` |
+| `--primary-foreground` | oklch(0.979 0.021 166.113) | #ecfdf5 | emerald-50 | `{r=0.924, g=0.992, b=0.960, a=1}` |
 | `--secondary` | oklch(0.274 0.006 286.033) | #27272a | zinc-800 | `{r=0.153, g=0.153, b=0.165, a=1}` |
 | `--secondary-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
-| `--muted` | oklch(0.269 0 0) | #262626 | neutral | `{r=0.150, g=0.150, b=0.150, a=1}` |
+| `--muted` | oklch(0.269 0 0) | #262626 | neutral | `{r=0.149, g=0.149, b=0.149, a=1}` |
 | `--muted-foreground` | oklch(0.708 0 0) | #a3a3a3 | neutral-400 | `{r=0.630, g=0.630, b=0.630, a=1}` |
-| `--accent` | oklch(0.269 0 0) | #262626 | neutral | `{r=0.150, g=0.150, b=0.150, a=1}` |
+| `--accent` | oklch(0.269 0 0) | #262626 | neutral | `{r=0.149, g=0.149, b=0.149, a=1}` |
 | `--accent-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
-| `--destructive` | oklch(0.704 0.191 22.216) | #f87171 | red-400 | `{r=0.973, g=0.443, b=0.443, a=1}` |
+| `--destructive` | oklch(0.704 0.191 22.216) | #ff6464 | red-400 | `{r=1.000, g=0.391, b=0.404, a=1}` |
 | `--border` | oklch(1 0 0 / 10%) | white 10% | — | `{r=1.000, g=1.000, b=1.000, a=0.100}` |
 | `--input` | oklch(1 0 0 / 15%) | white 15% | — | `{r=1.000, g=1.000, b=1.000, a=0.150}` |
 | `--ring` | oklch(0.556 0 0) | #737373 | neutral-500 | `{r=0.452, g=0.452, b=0.452, a=1}` |
@@ -152,7 +152,7 @@ Define la **forma** de los componentes, no sus colores:
 | `--sidebar-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
 | `--sidebar-primary` | oklch(0.696 0.17 162.48) | #10b981 | emerald-500 | `{r=0.063, g=0.725, b=0.506, a=1}` |
 | `--sidebar-primary-foreground` | oklch(0.262 0.051 172.552) | #022c22 | emerald-950 | `{r=0.008, g=0.173, b=0.133, a=1}` |
-| `--sidebar-accent` | oklch(0.269 0 0) | #262626 | neutral | `{r=0.150, g=0.150, b=0.150, a=1}` |
+| `--sidebar-accent` | oklch(0.269 0 0) | #262626 | neutral | `{r=0.149, g=0.149, b=0.149, a=1}` |
 | `--sidebar-accent-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
 | `--sidebar-border` | oklch(1 0 0 / 10%) | white 10% | — | `{r=1.000, g=1.000, b=1.000, a=0.100}` |
 | `--sidebar-ring` | oklch(0.556 0 0) | #737373 | neutral-500 | `{r=0.452, g=0.452, b=0.452, a=1}` |

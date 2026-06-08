@@ -26,19 +26,19 @@ CraftPresets["lyra-dark"] = {
     popover                 = {r=0.091, g=0.091, b=0.091, a=1},   -- oklch(0.205 0 0)
     popoverForeground       = {r=0.980, g=0.980, b=0.980, a=1},
     -- Primary (emerald-800 in dark — high contrast)
-    primary                 = {r=0.024, g=0.373, b=0.275, a=1},   -- oklch(0.432 0.095 166.913)
-    primaryForeground       = {r=0.925, g=0.992, b=0.961, a=1},
+    primary                 = {r=0.000, g=0.378, b=0.271, a=1},   -- oklch(0.432 0.095 166.913)
+    primaryForeground       = {r=0.924, g=0.992, b=0.960, a=1},
     -- Secondary (zinc-800 with slight hue — unchanged)
     secondary               = {r=0.153, g=0.153, b=0.165, a=1},   -- oklch(0.274 0.006 286.033)
     secondaryForeground     = {r=0.980, g=0.980, b=0.980, a=1},
     -- Muted / Accent — oklch(0.269 0 0) pure neutral gray
-    muted                   = {r=0.150, g=0.150, b=0.150, a=1},   -- oklch(0.269 0 0)
+    muted                   = {r=0.149, g=0.149, b=0.149, a=1},   -- oklch(0.269 0 0)
     mutedForeground         = {r=0.630, g=0.630, b=0.630, a=1},   -- oklch(0.708 0 0)
-    accent                  = {r=0.150, g=0.150, b=0.150, a=1},   -- oklch(0.269 0 0)
+    accent                  = {r=0.149, g=0.149, b=0.149, a=1},   -- oklch(0.269 0 0)
     accentForeground        = {r=0.980, g=0.980, b=0.980, a=1},
     -- Destructive (red-400 in dark — lighter for contrast)
     -- destructiveForeground: text-white in Lyra CSS — pure white, not foreground (zinc-50)
-    destructive             = {r=0.973, g=0.443, b=0.443, a=1},
+    destructive             = {r=1.000, g=0.391, b=0.404, a=1},
     destructiveForeground   = {r=1.000, g=1.000, b=1.000, a=1},
     -- Border and Input (white with alpha — use SetColorTexture(r,g,b,a) directly)
     border                  = {r=1.000, g=1.000, b=1.000, a=0.100},
