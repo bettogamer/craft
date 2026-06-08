@@ -121,6 +121,11 @@ No hay parámetro `size` — el TabList tiene un único tamaño (32px `h-8`).
 ## Notas de implementación
 
 **Modelo de dimensionamiento y overflow (decisión de diseño):**
+> ⚠️ **Divergencia deliberada de shadcn.** shadcn **no** hace wrap de los
+> triggers. Este wrap es una decisión Craft registrada en
+> `docs/design-reference.md` §9. **No revertir hacia shadcn en un
+> `/update-design-tokens` sin aprobación del maintainer.**
+
 Cada trigger es **ancho-contenido** (texto + padding horizontal), **alineado a la
 izquierda**, **sin estiramiento**. Se distribuyen con `Craft.Flex`
 (`direction="row"`, `wrap="wrap"`, `justify="flex-start"`, `align="stretch"`,

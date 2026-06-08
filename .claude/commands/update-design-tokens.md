@@ -95,11 +95,17 @@ Necesito el CSS de shadcn Lyra dark. Pasos:
    - Icons: no tiene clase cn-icons (módulo custom)
    - Theme: no tiene clase cn-theme (módulo custom)
 
+2.5. **Antes de comparar, lee `docs/design-reference.md` §9 (Divergencias deliberadas de shadcn).**
+   Cualquier diferencia entre shadcn y un componente listado ahí que coincida con la
+   divergencia documentada **NO es un gap**: no la propongas como cambio. Repórtala
+   aparte como "✋ divergencia Craft intencional (design-reference §9) — sin acción".
+
 3. Para cada componente con clases CSS en Lyra, compara con el spec en `docs/components/<name>.md`:
    - ¿Los tamaños (h-*, px-*, gap-*) coinciden con la tabla de dimensiones del spec?
    - ¿Los tokens de color (bg-*, text-*, border-*) coinciden con el mapa de tokens del spec?
    - ¿Hay clases nuevas que no están documentadas?
    - ¿Hay clases que cambiaron (e.g., h-8 → h-9)?
+   - Excepción: si la diferencia está cubierta por una divergencia de §9, no la marques como cambio.
 
 4. Genera un reporte por componente:
    ```

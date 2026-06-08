@@ -355,9 +355,27 @@ CraftPresets["lyra-light"] = {
 
 ---
 
-## 9. Registro de cambios
+## 9. Divergencias deliberadas de shadcn (decisiones Craft)
+
+Registro único de comportamientos donde Craft se aparta a propósito de shadcn,
+normalmente porque el sandbox de WoW no tiene el equivalente (no hay
+`text-overflow: ellipsis`, no hay scroll-area nativo, el ancho del frame se
+resuelve tras la creación, etc.).
+
+**Regla para `/update-design-tokens` y futuras sincronizaciones:** antes de
+proponer un cambio a un componente listado aquí, verificar esta tabla. Si el
+cambio entraría en conflicto con la divergencia documentada, **no aplicarlo** sin
+aprobación explícita del maintainer — la divergencia es intencional, no un gap.
+
+| Componente | shadcn | Craft (decisión) | Razón |
+|---|---|---|---|
+| **Tabs** — overflow de triggers | Triggers ancho-contenido en una sola fila; el overflow se desborda / el dev usa `grid` o `scroll-area`. shadcn **no** hace wrap. | Triggers ancho-contenido que **hacen wrap a filas adicionales** cuando no caben; la barra (`_list`) crece en alto por fila. | WoW no tiene `text-overflow: ellipsis` ni scroll-area nativo. El fill a ancho igual aplastaba el texto (muchos tabs) o lo dejaba flotando (pocos). Wrap degrada bien en ambos extremos y `Craft.Flex` ya lo soporta. Ver `docs/components/tabs.md`. |
+| **Slider** — gaps de labels | Gaps simétricos derivados del line-height/espaciado de Radix. | Gaps **asimétricos** (`LABEL_PAD_TOP=8`, `LABEL_PAD_BOT=6`). | Ajuste óptico para los FontStrings de WoW (métricas de fuente distintas a CSS). Ver `Craft/components/Slider.lua`. |
+
+## 10. Registro de cambios
 
 | Versión | Fecha | Autor | Cambio |
 |---------|-------|-------|--------|
 | v0.1 | 30/05/2026 | Alberto Gomez | Borrador con valores estimados de Tailwind v4 |
 | v1.0 | 30/05/2026 | Alberto Gomez | Reescrito con CSS exacto de ui.shadcn.com/create (Style=Lyra, Base=Zinc, Theme=Emerald). Valores definitivos. |
+| v1.1 | 08/06/2026 | bettogamer | Añadida §9 Divergencias deliberadas de shadcn (Tabs wrap, Slider gaps). |
