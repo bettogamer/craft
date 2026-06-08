@@ -14,6 +14,12 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 - Flex: nuevos `GetContentCross()` y `GetLineCount()` exponen el tamaño y número
   de filas del último layout con wrap (permiten a contenedores como Tabs crecer
   para acomodar las filas).
+- `/update-design-tokens`: nueva Parte 3 que sincroniza la capa estructural y de
+  comportamiento desde el código fuente `.tsx` del registro shadcn (primitiva,
+  modelo de layout, variantes, orientación, data-attrs). Antes solo leíamos
+  `style-lyra.css`, que no expone estructura — origen de la deriva en Tabs.
+- `docs/design-reference.md` §9: registro de divergencias deliberadas de shadcn
+  (Tabs wrap, Slider gaps) que el sync debe respetar.
 
 ## [1.0.0] - 2026-06-06
 
