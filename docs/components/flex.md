@@ -66,6 +66,8 @@ El layout se calcula con las dimensiones actuales del contenedor en el momento d
 | `flex:SetConfig(cfg)`           | `(table) → void`                   | Merge de `cfg` sobre `_config` y llama `Layout()` automáticamente.                              |
 | `flex:Clear()`                  | `() → void`                        | Vacía `_items`. No oculta ni destruye los frames — solo los desregistra del layout.              |
 | `flex:GetItems()`               | `() → table`                       | Retorna `_items` (read-only por convención).                                                     |
+| `flex:GetContentCross()`        | `() → number`                      | Tamaño total del eje cruzado (alto en `row`, ancho en `column`) consumido por el último `Layout()` con wrap, padding incluido. `0` hasta que corre un layout con wrap. Permite a un contenedor crecer para acomodar las filas. |
+| `flex:GetLineCount()`           | `() → number`                      | Número de filas producidas por el último `Layout()` con wrap (`1` si cupo en una sola fila).      |
 
 ## Algoritmo de Layout
 

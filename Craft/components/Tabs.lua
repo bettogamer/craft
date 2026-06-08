@@ -4,12 +4,18 @@
 --   .cn-tabs-list    { @apply rounded-none p-[3px] group-data-horizontal/tabs:h-8; }
 --   .cn-tabs-trigger { @apply gap-1.5 rounded-none border border-transparent px-1.5 py-0.5 text-xs font-medium; }
 --
--- List: h=32px, padding=3px
+-- List: h=32px (single row), padding=3px
 -- Trigger: px=6px, py=2px, text-xs=12px, border-transparent default
 -- Active: bg=t.secondary, text=t.foreground
 -- Inactive: text=t.mutedForeground
 -- List bg: t.muted
 -- No underline indicator (Lyra uses data-active bg change only)
+--
+-- Sizing model: each trigger is content-width (text + horizontal padding), laid
+-- out left-aligned via Craft.Flex (grow=0, shrink=0). When the triggers no longer
+-- fit on one line they wrap to additional rows (flex wrap="wrap") and the list bar
+-- grows in height to fit them. Faithful to shadcn (triggers size to content) and
+-- degrades gracefully with few or many tabs. See docs/components/tabs.md.
 
 local Craft = LibStub("Craft-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
@@ -21,8 +27,10 @@ Tabs.__index = Tabs
 -- h-8 = 32px, p-[3px] = 3px, px-1.5 = 6px, py-0.5 = 2px
 local LIST_H       = 32
 local LIST_PAD     = 3   -- internal padding in the list bar
+local TRIGGER_PX   = 6   -- horizontal padding inside each trigger (px-1.5)
 local TRIGGER_PY   = 2   -- luacheck: ignore 211
 local FONT_SIZE    = 12  -- text-xs
+local TRIGGER_H    = LIST_H - LIST_PAD * 2  -- 26px inner trigger height
 
 -- ─── Create ────────────────────────────────────────────────────────────────
 function Tabs:Create(parent, config)
@@ -45,9 +53,12 @@ function Tabs:Create(parent, config)
     self._list:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
     self._list:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
 
-    -- Flex layout: row, flex-1 per trigger (equal width), align=stretch (fills LIST_H-padding)
+    -- Flex layout: row, content-width triggers, left-aligned, wrap to new rows on
+    -- overflow. align=stretch fits each trigger to its line height.
     self._flex = Craft.Flex.new(self._list, {
         direction = "row",
+        wrap      = "wrap",
+        justify   = "flex-start",
         align     = "stretch",
         paddingH  = LIST_PAD,
         paddingV  = LIST_PAD,
@@ -70,8 +81,9 @@ function Tabs:Create(parent, config)
     self._content:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0,  0)
 
     -- Re-layout when container width changes (e.g. after SetWidth from caller).
-    self.frame:HookScript("OnShow", function() self._flex:Layout() end)
-    self._list:SetScript("OnSizeChanged", function() self._flex:Layout() end)
+    -- Width changes may add/remove wrapped rows, so the list height is recomputed.
+    self.frame:HookScript("OnShow", function() self:_relayout() end)
+    self._list:SetScript("OnSizeChanged", function() self:_relayout() end)
 
     -- Register theming
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
@@ -106,8 +118,10 @@ function Tabs:AddTab(id, label)
     contentFrame:Hide()
     self._frames[id] = contentFrame
 
-    -- Trigger button — height and width managed by Flex (grow=1, align=stretch)
+    -- Trigger button — content width (text + horizontal padding), fixed inner
+    -- height. Flex lays them out left-aligned and wraps to new rows on overflow.
     local btn = CreateFrame("Button", nil, self._list)
+    btn:SetHeight(TRIGGER_H)
 
     local btnText = btn:CreateFontString(nil, "OVERLAY")
     if self._t then
@@ -115,6 +129,10 @@ function Tabs:AddTab(id, label)
     end
     btnText:SetText(label or id)
     btnText:SetPoint("CENTER", btn, "CENTER")
+
+    -- Width derives from the rendered text. The font is already set above (theme
+    -- is applied before tabs are added in Create), so GetStringWidth() is valid.
+    btn:SetWidth(math.max(btnText:GetStringWidth(), 1) + TRIGGER_PX * 2)
 
     -- Border textures (transparent by default, solid on active)
     local borderTop    = btn:CreateTexture(nil, "BORDER")
@@ -142,14 +160,32 @@ function Tabs:AddTab(id, label)
     self._buttons[id] = btn
     table.insert(self._tabs, { id = id, label = label or id })
 
-    -- Register with Flex (grow=1 → equal width, align=stretch handles height)
-    self._flex:Add(btn, { grow = 1, shrink = 1, basis = 0 })
-    self._flex:Layout()
+    -- Register with Flex (content width: no grow, no shrink → wraps on overflow)
+    self._flex:Add(btn, { grow = 0, shrink = 0, basis = "auto" })
+    self:_relayout()
 
     -- Apply theme to the new button
     if self._t then
         self:_styleButton(btn, false)
     end
+end
+
+-- ─── _relayout ─────────────────────────────────────────────────────────────
+-- Re-runs the flex layout and grows the list bar to fit any wrapped rows.
+-- Setting the list height re-fires OnSizeChanged; the reentrancy guard makes the
+-- second pass a no-op once the height has settled.
+function Tabs:_relayout()
+    if not self._flex or self._inLayout then return end
+    -- Width may still be 0 during Create() (caller sets it afterwards). Wrapping
+    -- needs the real width; OnSizeChanged re-runs this once the anchor resolves.
+    if (self._list:GetWidth() or 0) <= 0 then return end
+    self._inLayout = true
+    self._flex:Layout()
+    local h = self._flex:GetContentCross()
+    if h and h > 0 then
+        self._list:SetHeight(h)
+    end
+    self._inLayout = false
 end
 
 -- ─── _styleButton ─────────────────────────────────────────────────────────

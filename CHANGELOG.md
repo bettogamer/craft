@@ -4,6 +4,17 @@ Todos los cambios notables de Craft se documentan aquí.
 Formato: [Keep a Changelog](https://keepachangelog.com/es/1.0.0/)
 Versioning: [SemVer](https://semver.org/lang/es/)
 
+## [Unreleased]
+
+### Changed
+- Tabs: modelo de dimensionamiento ancho-contenido + wrap. Cada trigger se
+  dimensiona a su texto (antes se estiraban a ancho igual, contradiciendo el
+  spec); cuando no caben en una fila hacen wrap a filas adicionales y la barra
+  crece en alto. Degrada bien con pocos o muchos tabs.
+- Flex: nuevos `GetContentCross()` y `GetLineCount()` exponen el tamaño y número
+  de filas del último layout con wrap (permiten a contenedores como Tabs crecer
+  para acomodar las filas).
+
 ## [1.0.0] - 2026-06-06
 
 ### Added
