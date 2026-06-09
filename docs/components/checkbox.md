@@ -58,7 +58,7 @@ Lyra define un único tamaño para `checkbox` (`size-4`). No hay variante `lg` e
 
 | Estado         | Borde `_box`                        | Fondo `_box._bg`                         | Checkmark visible |
 |----------------|-------------------------------------|------------------------------------------|--------------------|
-| unchecked      | {r=1,g=1,b=1,a=0.15} (`t.border`)  | {r=1,g=1,b=1,a=0.045} (`input/30`)      | no                 |
+| unchecked      | {r=1,g=1,b=1,a=0.15} (`t.input`, `border-input`) | {r=1,g=1,b=1,a=0.045} (`input/30`)      | no                 |
 | checked        | `t.primary`                         | `t.primary`                              | sí                 |
 | indeterminate  | `t.primary`                         | `t.primary`                              | no (dash visible)  |
 | disabled       | opacity 0.5 sobre estado base       | opacity 0.5 sobre estado base            | según estado base  |
@@ -84,15 +84,15 @@ Notas sobre estados:
 
 | Elemento visual               | Token / Valor dark mode                        |
 |-------------------------------|------------------------------------------------|
-| Borde del box (unchecked)     | `t.border` = {r=1,g=1,b=1,a=0.15}             |
+| Borde del box (unchecked)     | `t.input` = {r=1,g=1,b=1,a=0.15} (`border-input`) |
 | Fondo del box (unchecked)     | input/30 = {r=1,g=1,b=1,a=0.045}              |
-| Borde del box (checked)       | `t.primary` = {r=0.024,g=0.373,b=0.275}       |
-| Fondo del box (checked)       | `t.primary` = {r=0.024,g=0.373,b=0.275}       |
-| Borde del box (error)         | `t.destructive` = {r=0.973,g=0.443,b=0.443}   |
+| Borde del box (checked)       | `t.primary` = {r=0.000,g=0.378,b=0.271}       |
+| Fondo del box (checked)       | `t.primary` = {r=0.000,g=0.378,b=0.271}       |
+| Borde del box (error)         | `t.destructive` = {r=1.000,g=0.391,b=0.404}   |
 | Disabled                      | `SetAlpha(0.5)` en `_box`                      |
-| Checkmark / dash              | `t.primaryForeground` = {r=0.925,g=0.992,b=0.961} |
+| Checkmark / dash              | `t.primaryForeground` = {r=0.924,g=0.992,b=0.960} |
 | Texto del label               | `t.foreground` = {r=0.980,g=0.980,b=0.980}    |
-| Texto del label (disabled)    | `t.mutedForeground` = {r=0.631,g=0.631,b=0.667} |
+| Texto del label (disabled)    | `t.mutedForeground` = {r=0.630,g=0.630,b=0.630} |
 
 ## Config — `Create(parent, config)`
 | Clave      | Tipo     | Default      | Descripción                                                        |

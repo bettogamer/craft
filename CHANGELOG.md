@@ -14,6 +14,9 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   reactiva la primera tab restante si la removida era la activa, y reflowea.
 
 ### Fixed
+- Checkbox: el borde **unchecked** usaba `t.border` (blanco @ 0.10) en vez de
+  `t.input` (@ 0.15) — el CSS dice `border-input`. Ahora coincide con shadcn y con
+  el borde de Button `outline`. (Ícono check/dash migrado a la API de display-size.)
 - Button: el hover de `secondary` se **deriva de tokens** (`mix(secondary, foreground, 5%)`)
   en vez de un RGBA hardcodeado — cumple el invariante de §6 y no se desincroniza si
   cambian los tokens. Padding de ícono ahora **asimétrico** (solo se reduce el lado del

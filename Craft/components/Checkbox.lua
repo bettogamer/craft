@@ -140,7 +140,8 @@ function Checkbox:_refreshVisual()
         if hasError then
             self:_setBorderColor(t.destructive.r, t.destructive.g, t.destructive.b, 1)
         else
-            self:_setBorderColor(t.border.r, t.border.g, t.border.b, t.border.a or 0.1)
+            -- border-input (not --border): white @ 0.15, same token as Button outline
+            self:_setBorderColor(t.input.r, t.input.g, t.input.b, t.input.a)
         end
         -- bg = input/30
         self._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a * 0.30)
@@ -202,11 +203,9 @@ function Checkbox:_applyTheme(t)
     self._bg:SetPoint("TOPLEFT",     self._box, "TOPLEFT",     px1,  -px1)
     self._bg:SetPoint("BOTTOMRIGHT", self._box, "BOTTOMRIGHT", -px1,  px1)
 
-    -- Lucide icons
-    Craft.Icons.Apply(self._check, "check", 16)
-    self._check:SetSize(ICON_SIZE, ICON_SIZE)
-    Craft.Icons.Apply(self._dash,  "minus", 16)
-    self._dash:SetSize(ICON_SIZE, ICON_SIZE)
+    -- Lucide icons (display size = ICON_SIZE; the supersampled atlas downscales)
+    Craft.Icons.Apply(self._check, "check", ICON_SIZE)
+    Craft.Icons.Apply(self._dash,  "minus", ICON_SIZE)
 
     -- Root frame: minimum width = box; expand if there is a label
     self:_recalcWidth()
