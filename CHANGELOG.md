@@ -18,6 +18,12 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   reactiva la primera tab restante si la removida era la activa, y reflowea.
 
 ### Fixed
+- Dialog: los botones del footer se salían del diálogo. (1) La altura del frame era
+  **fija** (120px) y el contenido se estiraba entre header y footer → con header+footer
+  > 120 el área de contenido colapsaba; ahora el frame es **grow-to-fit** (crece para
+  acomodar header + content + footer, contenido con altura fijada por el dev). (2) El
+  showcase anclaba los botones con `y=-16` (debajo del centro del footer); ahora van
+  centrados. `Show()` recalcula el layout antes de mostrar.
 - Tooltip: con ícono, el texto corto quedaba flotando lejos del ícono (gap largo).
   El FontString conservaba el ancho de medición (~198px) y, con ancla única, el texto
   no-izquierdo se centraba en esa caja. Ahora se fuerza `JustifyH=LEFT` y la caja se

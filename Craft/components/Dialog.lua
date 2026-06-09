@@ -234,19 +234,29 @@ function Dialog:_layoutFrames(t)
     headerH = headerH + sm  -- padding bottom
     self._header:SetHeight(headerH)
 
-    -- ── Content ────────────────────────────────────────────────────────────
+    -- ── Content + footer: grow-to-fit ─────────────────────────────────────
+    -- The dialog height is COMPUTED from its parts (header + gap + content +
+    -- gap + footer), not fixed. Content has the height the dev set on it via
+    -- GetContent():SetHeight(); footer keeps its ShowFooter() height. This is
+    -- the "altura automática según contenido" the spec describes — the old fixed
+    -- 120px frame squeezed content to a negative size when header+footer exceeded it.
+    local contentH = self._content:GetHeight() or 0
     self._content:ClearAllPoints()
-    self._content:SetPoint("LEFT",  self.frame, "LEFT",  lg, 0)
-    self._content:SetPoint("RIGHT", self.frame, "RIGHT", -lg, 0)
-    -- Top: below header (header bottom) + gap-4
-    self._content:SetPoint("TOP", self._header, "BOTTOM", 0, -lg)
+    self._content:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",   lg, -(headerH + lg))
+    self._content:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -lg, -(headerH + lg))
 
-    local hasFooter = self._footer:IsShown()
-    if hasFooter then
-        self._content:SetPoint("BOTTOM", self._footer, "TOP", 0, lg)
+    local totalH = headerH + lg + contentH
+    if self._footer:IsShown() then
+        local footerH = self._footer:GetHeight() or 0
+        self._footer:ClearAllPoints()
+        self._footer:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, -(headerH + lg + contentH + lg))
+        self._footer:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, -(headerH + lg + contentH + lg))
+        totalH = totalH + lg + footerH
     else
-        self._content:SetPoint("BOTTOM", self.frame, "BOTTOM", 0, lg)
+        totalH = totalH + lg   -- bottom padding when there's no footer
     end
+
+    self.frame:SetHeight(math.max(totalH, 48))
 end
 
 -- ─── Theme ─────────────────────────────────────────────────────────────────
@@ -334,8 +344,10 @@ function Dialog:HideFooter()
     end
 end
 
--- Shows the dialog.
+-- Shows the dialog. Re-runs the layout first so the height reflects any content/
+-- footer size the dev set after Create() (grow-to-fit).
 function Dialog:Show()
+    if self._t then self:_layoutFrames(self._t) end
     self.frame:Show()
 end
 

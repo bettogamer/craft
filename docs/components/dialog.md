@@ -98,7 +98,13 @@ dialog._ringTex:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
 
 > **Corrección:** el width default en Lyra es `sm:max-w-sm` = **384px** (no 520px). Ajustar la variante `default` a 384px. Las variantes `sm`, `lg`, `xl` son extensiones WoW fuera del CSS base.
 
-La altura es automática según el contenido de `_content`; mínimo 120px. Si se incluye `_footer`, sumar al mínimo el alto del footer más 1px de separador.
+**Altura = grow-to-fit (no fija).** El frame **crece** para acomodar
+`header + gap(16) + content + gap(16) + footer`. La altura del contenido la fija el
+dev con `GetContent():SetHeight(n)` (un Frame WoW no auto-dimensiona según sus hijos);
+si no se fija, el área de contenido es 0 y el dialog solo muestra header + footer.
+`Show()` re-ejecuta el layout, así que basta fijar la altura del content/footer antes
+de mostrarlo. **No** estirar el contenido entre header y footer dentro de un frame fijo
+(ese era el bug: con header+footer > altura fija, el contenido colapsaba a tamaño negativo).
 
 ### Diferencias conocidas vs shadcn (fuera de MVP)
 
