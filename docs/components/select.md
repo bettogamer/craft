@@ -95,9 +95,9 @@ El trigger NO tiene ring propio — el estado "open" se expresa solo con cambio 
 
 | Elemento          | Estado default                          | Estado open                             | Estado disabled       |
 |-------------------|-----------------------------------------|-----------------------------------------|-----------------------|
-| Trigger bg        | `t.input` a=0.30 ({r=1,g=1,b=1,a=0.045}) | `t.input` a=0.30                      | `t.muted`             |
+| Trigger bg        | `t.input` a=0.30 ({r=1,g=1,b=1,a=0.045}) | `t.input` a=0.30                      | igual + `SetAlpha(0.5)` |
 | Trigger bg hover  | `t.input` a=0.50 ({r=1,g=1,b=1,a=0.075}) | —                                     | —                     |
-| Trigger border    | `t.border`                              | `t.ring`                                | `t.border`            |
+| Trigger border    | `t.input` (`border-input`)              | `t.ring`                                | `t.input`             |
 | selectedLabel     | `t.foreground`                          | `t.foreground`                          | `t.mutedForeground`   |
 | Chevron           | Normal (0°), `t.mutedForeground`        | Rotado 180°, `t.foreground`             | `t.mutedForeground`   |
 
@@ -111,10 +111,10 @@ Los fondos del trigger dark mode corresponden a `dark:bg-input/30` (default) y `
 
 | Estado     | Bg                                | Border     | Label               | Chevron                              |
 |------------|-----------------------------------|------------|---------------------|--------------------------------------|
-| Default    | {r=1,g=1,b=1,a=0.045} (input/30) | `t.border` | `t.foreground`      | Normal 0°, `t.mutedForeground`       |
-| Hover      | {r=1,g=1,b=1,a=0.075} (input/50) | `t.border` | `t.foreground`      | Normal 0°, `t.mutedForeground`       |
-| Open       | {r=1,g=1,b=1,a=0.045} (input/30) | `t.ring`   | `t.foreground`      | Rotado 180°, `t.foreground`          |
-| Disabled   | `t.muted`                         | `t.border` | `t.mutedForeground` | `t.mutedForeground`                  |
+| Default    | {r=1,g=1,b=1,a=0.045} (input/30) | `t.input` | `t.foreground`      | `chevron-down`, `t.mutedForeground`  |
+| Hover      | {r=1,g=1,b=1,a=0.075} (input/50) | `t.input` | `t.foreground`      | `chevron-down`, `t.mutedForeground`  |
+| Open       | {r=1,g=1,b=1,a=0.045} (input/30) | `t.ring`   | `t.foreground`      | `chevron-up`, `t.mutedForeground`    |
+| Disabled   | input/30 + `SetAlpha(0.5)`        | `t.input` | `t.mutedForeground` | `t.mutedForeground`                  |
 
 No hay focus ring en el trigger (WoW es mouse-only — ADR-0011).
 
@@ -124,9 +124,11 @@ Placeholder (sin valor seleccionado): `selectedLabel` muestra `config.placeholde
 
 | Estado    | Bg              | Label color             |
 |-----------|-----------------|-------------------------|
-| Default   | Transparent     | `t.foreground`          |
-| Hover     | `t.accent`      | `t.accent-foreground`   |
-| Selected  | `t.primary`     | `t.primaryForeground`   |
+| Default   | Transparent     | `t.popoverForeground`   |
+| Hover     | `t.accent`      | `t.accentForeground`    |
+| Selected  | Transparent (checkmark visible) | `t.popoverForeground` |
+
+> **Item seleccionado = solo checkmark** (como shadcn). No lleva fondo `t.primary`; se distingue de los demás únicamente por el checkmark a la derecha. (En una versión previa llevaba fondo emerald; se alineó a shadcn.)
 
 Item height: 28px (py-2=8px top + text-xs=12px + py-2=8px bottom). Padding: 8px izq (pl-2), 32px der (pr-8, reserva para checkmark de item seleccionado).
 
@@ -136,20 +138,19 @@ Item height: 28px (py-2=8px top + text-xs=12px + py-2=8px bottom). Padding: 8px 
 |---------------------------------|--------------------------------------------------------|
 | Trigger bg default              | `t.input` a×0.30 = {r=1,g=1,b=1,a=0.045}              |
 | Trigger bg hover                | `t.input` a×0.50 = {r=1,g=1,b=1,a=0.075}              |
-| Trigger border default          | `t.border`                                             |
+| Trigger border default          | `t.input` ({r=1,g=1,b=1,a=0.15}, `border-input`)       |
 | Trigger border open             | `t.ring`                                               |
-| Trigger bg disabled             | `t.muted`                                              |
+| Trigger bg disabled             | input/30 + `SetAlpha(0.5)` en el frame                 |
 | Label seleccionado              | `t.foreground`                                         |
 | Placeholder label               | `t.mutedForeground`                                    |
 | Chevron default                 | `t.mutedForeground`                                    |
 | Chevron open                    | `t.foreground`                                         |
 | Label disabled                  | `t.mutedForeground`                                    |
-| Panel bg                        | `t.popover` = {r=0.094,g=0.094,b=0.106}               |
+| Panel bg                        | `t.popover` = {r=0.091,g=0.091,b=0.091}               |
 | Panel ring (outline 1px outward)| `t.foreground` a=0.10 = {r=0.980,g=0.980,b=0.980,a=0.10} |
 | Item bg hover                   | `t.accent`                                             |
-| Item bg selected                | `t.primary`                                            |
-| Item label selected             | `t.primaryForeground`                                  |
-| Separator                       | `t.border` — 1px, usar `Craft.Theme.SetPixelHeight`    |
+| Item label hover                | `t.accentForeground`                                   |
+| Item seleccionado               | checkmark visible (sin fondo) — ver nota arriba        |
 
 ## Config — `Create(parent, config)`
 
@@ -181,12 +182,19 @@ Item height: 28px (py-2=8px top + text-xs=12px + py-2=8px bottom). Padding: 8px 
 - **Strata del panel**: el `dropdownPanel` debe usar `SetFrameStrata("TOOLTIP")` para aparecer siempre sobre otros frames de la UI (barras de acción, otros paneles, etc).
 - **Cierre al hacer click fuera**: registrar un frame invisible (`backdropCatcher`) de tamaño de pantalla completa en strata `DIALOG` pero debajo del panel. Al hacer click en él, cerrar el dropdown. Alternativa: hookear `WorldFrame` con `HookScript("OnMouseDown", ...)` y verificar si el click fue fuera del panel y el trigger. Usar `panel:IsMouseOver()` y `trigger:IsMouseOver()` para la comprobación.
 - **Posición del panel**: anclar con `SetPoint("TOPLEFT", trigger, "BOTTOMLEFT", 0, -2)`. Si el panel se sale de la pantalla por abajo, anclar con `SetPoint("BOTTOMLEFT", trigger, "TOPLEFT", 0, 2)` en su lugar. Verificar con `GetBottom()` vs `GetScreenHeight() * 0` (0 = bottom de pantalla).
-- **Rotación del chevron**: WoW no tiene rotación de texturas en tiempo real. Implementar con dos texturas: `chevronNormal` (0°) y `chevronRotated` (180°, textura pre-rotada o generada con `SetTexCoord`). Mostrar una, ocultar la otra según el estado del panel. Para simular 180°: `SetTexCoord(1, 0, 0, 1)` invierte horizontalmente — combinado con inversión vertical (`SetTexCoord(1, 0, 1, 1, 0, 0, 0, 1)`) equivale a 180°.
+- **Chevron abierto/cerrado**: se usan dos íconos Lucide distintos — `chevron-down` (cerrado) y `chevron-up` (abierto) — intercambiados con `Craft.Icons.Apply` en `Open()`/`Close()`. No se rota la textura.
 - **ScrollFrame de items**: cuando `#options > 6`, activar el `ScrollFrame` con altura fija ≈ 168px (6 × 28px). El `scrollChild` tiene `SetHeight(#options * 28)`. Cada item usa `SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -(i-1) * 28)`.
 - **Item hover**: usar `OnEnter`/`OnLeave` en cada frame de item para cambiar el color del `itemBg`. El item selected se marca visualmente aunque el panel se cierre y reabra — recordar el índice seleccionado y aplicar color `t.primary` al crear los items.
 - **Borde 1px trigger**: cuatro texturas de 1px o `SetBackdrop` con `edgeSize=1`.
 - **Ring del panel (1px outward)**: frame hermano del panel, anclado con −1px en cada lado. Usar `Craft.Theme.SetPixelHeight/Width` para las cuatro aristas. Color: {r=0.980, g=0.980, b=0.980, a=0.10}.
 - **Trigger bg dark mode**: la textura bg del trigger usa alpha calculado: default `a=0.045` ({r=1,g=1,b=1}), hover `a=0.075`. Cambiar `SetVertexColor` o `SetAlpha` de la textura en OnEnter/OnLeave. No aplicar hover si el panel está abierto o si `disabled`.
 - **Separación visual**: el panel abre con 2px de separación del trigger (`SetPoint("TOPLEFT", trigger, "BOTTOMLEFT", 0, -2)`).
-- **Separator dentro del panel**: `Craft.Theme.SetPixelHeight(separatorFrame, 1)`, color `t.border`.
 - **Sin focus ring en trigger**: WoW es mouse-only (ADR-0011) — no implementar ring de keyboard en el trigger.
+
+### Diferencias conocidas vs shadcn (fuera de MVP)
+
+Craft.Select solo soporta una **lista plana** de opciones `{value, label}`. shadcn
+ofrece además `SelectGroup`, `SelectLabel` y `SelectSeparator` (opciones agrupadas
+con encabezados y separadores). No implementados — omisión de alcance MVP, no bug
+(ver `docs/design-reference.md` §9.1). El item seleccionado se marca solo con
+checkmark, igual que shadcn.

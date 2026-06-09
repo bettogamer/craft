@@ -387,6 +387,7 @@ cada spec bajo "Diferencias conocidas vs shadcn".
 | **Sidebar** | Variantes `floating`/`inset`, collapse modes (`offcanvas`/`icon`), `SidebarTrigger`, `SidebarRail`, sub-menús, slots action/badge, skeleton | Alto (simplificación MVP deliberada) |
 | **Panel** | Slot `CardAction` (área top-right del header para acciones/badges) | Medio |
 | **Dialog** | `DialogClose` como sub-componente reutilizable (Craft integra el botón de cierre en el header) | Bajo |
+| **Select** | `SelectGroup` / `SelectLabel` / `SelectSeparator` (opciones agrupadas); Craft solo soporta lista plana | Medio |
 
 ## 10. Registro de cambios
 

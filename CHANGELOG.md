@@ -14,6 +14,10 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   reactiva la primera tab restante si la removida era la activa, y reflowea.
 
 ### Fixed
+- Select: el item seleccionado ahora se marca **solo con checkmark** (como shadcn),
+  sin fondo `t.primary`. Panel respeta el piso `min-w-36` (144px). Hover de item
+  aplica `accent-foreground` al texto. (El borde del trigger ya usaba `t.input`
+  correctamente; se corrigió el spec que decía `t.border`.)
 - Input: el borde **default** usaba `t.border` (@0.10) en vez de `t.input` (@0.15) —
   el CSS dice `border-input` (mismo desliz que Checkbox). Además, safeguard del
   placeholder: se re-ancla en `OnSizeChanged` para blindar contra el bug #2 (texto
