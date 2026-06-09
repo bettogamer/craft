@@ -93,13 +93,15 @@ Base: `border border-transparent` — el frame siempre tiene un borde, pero tran
 | Variante | Fondo | Texto | Borde | Hover fondo |
 |----------|-------|-------|-------|------------|
 | `default` | `t.primary` | `t.primaryForeground` | transparente | `t.primary` a=0.80 (`/80`) |
-| `outline` | `t.input` a=0.30 | `t.foreground` | `t.border` (visible) | `t.input` a=0.50 |
+| `outline` | `t.input` a≈0.045 (`bg-input/30`†) | `t.foreground` | `t.input` (a=0.15, visible) | `t.input` a≈0.075 (`/50`†) |
 | `secondary` | `t.secondary` | `t.secondaryForeground` | transparente | `t.secondary` ligeramente más claro† |
 | `ghost` | transparente | `t.foreground` | transparente | `t.muted` a=0.50 (`dark:bg-muted/50`) |
 | `destructive` | `t.destructive` a=0.20 (`dark:bg-destructive/20`) | `t.destructive` | transparente (error: borde destructive) | `t.destructive` a=0.30 |
 | `link` | transparente | `t.primary` | — | transparente (hover: underline) |
 
-> † `color-mix(in oklch, --secondary, --foreground 5%)` ≈ mezcla zinc-800 con zinc-50 al 5% → aproximar como `t.secondary` con r/g/b levemente más altos: `{r=0.194, g=0.194, b=0.206, a=1}`.
+> † **`bg-input/N` no es "alpha = N%"**: en Tailwind v4 es `color-mix(--input N%, transparent)`, y `--input` ya es blanco con alpha 0.15. Así que `bg-input/30` → alpha efectivo ≈ 0.15 × 0.30 = **0.045**, y `bg-input/50` → ≈ 0.075. El código aplica `t.input.a * 0.30` / `* 0.50`. El borde sí usa `--input` completo (a=0.15).
+>
+> † `color-mix(in oklch, --secondary, --foreground 5%)` ≈ mezcla zinc-800 con zinc-50 al 5%. El código lo **deriva de tokens** en runtime (`mix(secondary, foreground, 0.05)`), no hardcodeado — con los tokens actuales da ≈ `{r=0.194, g=0.194, b=0.206}`.
 
 > **Destructive en Lyra es radicalmente diferente a new-york**: no es un botón rojo sólido. Es un tinte sutil de rojo con texto rojo — para acciones destructivas que no quieren ser agresivas visualmente. `bg-destructive/20` + `text-destructive`.
 
@@ -128,11 +130,11 @@ Base: `border border-transparent` — el frame siempre tiene un borde, pero tran
 | Base border | transparente `{r=0,g=0,b=0,a=0}` (border-transparent) |
 | Fondo `default` | `t.primary` |
 | Fondo `default` hover | `{r=t.primary.r, g=t.primary.g, b=t.primary.b, a=0.8}` |
-| Fondo `outline` dark | `{r=t.input.r, g=t.input.g, b=t.input.b, a=0.30}` |
-| Borde `outline` dark | `t.border` (input token: `{r=1,g=1,b=1,a=0.15}`) |
-| Fondo `outline` hover dark | `{r=t.input.r, g=t.input.g, b=t.input.b, a=0.50}` |
+| Fondo `outline` dark | `t.input` con `a = t.input.a * 0.30` ≈ 0.045 (`bg-input/30`) |
+| Borde `outline` dark | `t.input` completo (`{r=1,g=1,b=1,a=0.15}`) |
+| Fondo `outline` hover dark | `t.input` con `a = t.input.a * 0.50` ≈ 0.075 (`bg-input/50`) |
 | Fondo `secondary` | `t.secondary` |
-| Fondo `secondary` hover | `{r=0.194, g=0.194, b=0.206, a=1}` (color-mix aproximado) |
+| Fondo `secondary` hover | `mix(t.secondary, t.foreground, 0.05)` ≈ `{r=0.194, g=0.194, b=0.206}` (derivado de tokens) |
 | Fondo `ghost` hover dark | `{r=t.muted.r, g=t.muted.g, b=t.muted.b, a=0.5}` |
 | Fondo `destructive` dark | `{r=t.destructive.r, g=t.destructive.g, b=t.destructive.b, a=0.20}` |
 | Fondo `destructive` hover dark | `{r=t.destructive.r, g=t.destructive.g, b=t.destructive.b, a=0.30}` |

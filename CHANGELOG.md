@@ -14,6 +14,10 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   reactiva la primera tab restante si la removida era la activa, y reflowea.
 
 ### Fixed
+- Button: el hover de `secondary` se **deriva de tokens** (`mix(secondary, foreground, 5%)`)
+  en vez de un RGBA hardcodeado — cumple el invariante de §6 y no se desincroniza si
+  cambian los tokens. Padding de ícono ahora **asimétrico** (solo se reduce el lado del
+  ícono, como shadcn/spec), antes reducía ambos lados.
 - Iconos pixelados/delgados en WoW: el atlas pasó a **supersampled** — un solo
   `lucide.tga` (512×512, celdas de 64px, ícono renderizado a 56px + gutter de 4px)
   en vez de dos atlas pixel-exactos 16/24px. WoW reduce al tamaño de display, así que

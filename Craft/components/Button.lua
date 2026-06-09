@@ -24,6 +24,11 @@ local SIZES = {
     ["icon-lg"] = { h=36, w=36, icon=16 },
 }
 
+-- color-mix(in oklch, A, B p%) approximated as a linear sRGB lerp. Used for the
+-- secondary hover (color-mix(--secondary, --foreground 5%)). Derived from tokens
+-- so it stays correct if the palette changes (never hardcode colors — AGENTS.md §6).
+local function mix(a, b, p) return a + p * (b - a) end
+
 -- ─── Create ────────────────────────────────────────────────────────────────
 function Button:Create(parent, config)
     local self = setmetatable({}, Button)
@@ -108,10 +113,12 @@ function Button:_recalcWidth()
     if not s or s.w then return end  -- icon-only: fixed width
 
     local hasIcon = self._cfg.icon ~= nil
-    local padH    = hasIcon and s.padHIcon or s.padH
     local labelW  = self._label:GetStringWidth()
     local iconW   = hasIcon and (s.icon + s.gap) or 0
-    local intrinsic = math.max(padH * 2 + labelW + iconW, s.h)
+    -- Asymmetric padding: only the icon side is reduced (has-data-[icon=inline-*]);
+    -- the opposite side keeps the normal padding. Without an icon both sides are normal.
+    local padTotal = hasIcon and (s.padHIcon + s.padH) or (s.padH * 2)
+    local intrinsic = math.max(padTotal + labelW + iconW, s.h)
 
     -- If an external layout (e.g. Craft.Flex) changed the frame width after our last
     -- _recalcWidth, respect it — don't collapse the button back to its text width.
@@ -200,7 +207,6 @@ function Button:_positionChildren(yOffset)
     yOffset = yOffset or 0
     local s       = self._size
     local hasIcon = self._cfg.icon ~= nil
-    local padH    = hasIcon and s.padHIcon or s.padH
 
     self._label:ClearAllPoints()
     self._icon:ClearAllPoints()
@@ -214,13 +220,13 @@ function Button:_positionChildren(yOffset)
             self._label:SetPoint("CENTER", self.frame, "CENTER", 0, yOffset)
         end
     elseif hasIcon then
+        -- Asymmetric padding: the icon side is reduced (padHIcon), the text side normal
+        -- (padH). The opposite-side padding emerges from the recalculated frame width.
         if self._cfg.iconPosition == "left" then
-            -- Primary: icon anchored to frame; label follows icon via relative anchor
-            self._icon:SetPoint("LEFT",  self.frame, "LEFT",  padH, yOffset)
+            self._icon:SetPoint("LEFT",  self.frame, "LEFT",  s.padHIcon, yOffset)
             self._label:SetPoint("LEFT", self._icon,  "RIGHT", s.gap, 0)
         else
-            -- Primary: label anchored to frame; icon follows label via relative anchor
-            self._label:SetPoint("LEFT", self.frame, "LEFT",  padH, yOffset)
+            self._label:SetPoint("LEFT", self.frame, "LEFT",  s.padH, yOffset)
             self._icon:SetPoint("LEFT",  self._label, "RIGHT", s.gap, 0)
         end
     else
@@ -271,8 +277,9 @@ function Button:_onEnter()
         self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
 
     elseif v == "secondary" then
-        -- color-mix(in oklch, --secondary, --foreground 5%) ≈ slightly lighter
-        self._bg:SetColorTexture(0.194, 0.194, 0.206, 1)
+        -- hover:bg-[color-mix(in oklch, --secondary, --foreground 5%)] — token-derived
+        local sec, fg = t.secondary, t.foreground
+        self._bg:SetColorTexture(mix(sec.r, fg.r, 0.05), mix(sec.g, fg.g, 0.05), mix(sec.b, fg.b, 0.05), 1)
 
     elseif v == "ghost" then
         -- dark:hover:bg-muted/50
