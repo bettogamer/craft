@@ -65,6 +65,19 @@ Los content frames son los frames que el dev pasa en `config.tabs[i].content_fra
 
 Solo hay un tamaño de TabList: `h-8` = 32px. No existe variante `sm` separada en Lyra tabs.
 
+### Diferencias conocidas vs shadcn (fuera de MVP)
+
+shadcn ofrece estas features que Craft **aún no** implementa (omisiones de alcance,
+no bugs — ver `docs/design-reference.md` §9.1):
+- **Variante `line`** (`data-[variant=line]`): triggers con indicador de línea en vez
+  de fondo.
+- **Orientación vertical** (`group-data-vertical/tabs`): TabList en columna a un lado
+  del contenido.
+- **Icon slots** en triggers (`has-data-[icon=inline-start/end]`): ícono antes/después
+  del texto con padding ajustado.
+
+Si se decide implementar alguna, requiere aprobación del maintainer (cambio de API).
+
 ## Estados
 
 | Elemento | Estado | Visual |

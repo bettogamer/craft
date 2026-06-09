@@ -113,6 +113,19 @@ El `_child` height total = suma de alturas de todos los elementos (secciones e i
 | `default` | 32px | `cn-sidebar-menu-button-size-default` |
 | `lg` | 48px | `cn-sidebar-menu-button-size-lg` |
 
+### Diferencias conocidas vs shadcn (fuera de MVP)
+
+Craft.Sidebar es una implementación **simplificada** deliberada. shadcn ofrece una
+API mucho más amplia que Craft **no** implementa (decisión de alcance MVP, no bug —
+ver `docs/design-reference.md` §9.1):
+- **Variantes de layout**: `floating`, `inset` (Craft solo tiene la barra fija).
+- **Collapse modes**: `offcanvas`, `icon` (colapso a solo-íconos), `none`.
+- **Sub-componentes**: `SidebarTrigger`, `SidebarRail`, sub-menús
+  (`SidebarMenuSub*`), slots de acción/badge (`SidebarMenuAction`, `SidebarMenuBadge`),
+  `SidebarMenuSkeleton`.
+
+Si se decide ampliar, requiere aprobación del maintainer (cambio de API / arquitectura).
+
 ## Estados
 
 | Elemento | Estado | Visual | Origen CSS |

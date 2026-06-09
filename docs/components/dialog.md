@@ -93,6 +93,13 @@ dialog._ringTex:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
 
 La altura es automática según el contenido de `_content`; mínimo 120px. Si se incluye `_footer`, sumar al mínimo el alto del footer más 1px de separador.
 
+### Diferencias conocidas vs shadcn (fuera de MVP)
+
+shadcn expone **`DialogClose`** como sub-componente reutilizable (cualquier elemento
+puede cerrar el diálogo). Craft integra el botón de cierre directamente en el header
+y no ofrece un `Close` componible. Diferencia de alcance, no bug — ver
+`docs/design-reference.md` §9.1. Impacto bajo; el cierre por header cubre el caso común.
+
 ## Estados
 
 | Elemento | Estado | Visual |

@@ -95,6 +95,13 @@ panel._bg:SetPoint("BOTTOMRIGHT", panel.frame, "BOTTOMRIGHT", -1,  1)
 | Con footer | `_content` termina sobre el footer; `_footer` tiene borde-top 1px |
 | Completo | Header + content + footer |
 
+### Diferencias conocidas vs shadcn (fuera de MVP)
+
+shadcn Card ofrece el slot **`CardAction`** — un área en la esquina superior derecha
+del header para acciones/badges/iconos complementarios. Craft.Panel **no** lo
+implementa (omisión de alcance MVP, no bug — ver `docs/design-reference.md` §9.1).
+Si se decide añadir, requiere aprobación del maintainer (cambio de API).
+
 ## Estados
 
 | Estado | Comportamiento visual |

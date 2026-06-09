@@ -372,6 +372,22 @@ aprobación explícita del maintainer — la divergencia es intencional, no un g
 | **Tabs** — overflow de triggers | Triggers ancho-contenido en una sola fila; el overflow se desborda / el dev usa `grid` o `scroll-area`. shadcn **no** hace wrap. | Triggers ancho-contenido que **hacen wrap a filas adicionales** cuando no caben; la barra (`_list`) crece en alto por fila. | WoW no tiene `text-overflow: ellipsis` ni scroll-area nativo. El fill a ancho igual aplastaba el texto (muchos tabs) o lo dejaba flotando (pocos). Wrap degrada bien en ambos extremos y `Craft.Flex` ya lo soporta. Ver `docs/components/tabs.md`. |
 | **Slider** — gaps de labels | Gaps simétricos derivados del line-height/espaciado de Radix. | Gaps **asimétricos** (`LABEL_PAD_TOP=8`, `LABEL_PAD_BOT=6`). | Ajuste óptico para los FontStrings de WoW (métricas de fuente distintas a CSS). Ver `Craft/components/Slider.lua`. |
 
+### 9.1 Features de shadcn no implementadas en el MVP (omisiones conocidas)
+
+A diferencia de las divergencias de arriba (Craft hace algo **distinto** a
+propósito), estas son features que shadcn **sí** ofrece y que Craft **aún no**
+implementa. No son bugs ni gaps de sincronización: son decisiones de alcance MVP.
+Documentadas para que un `/update-design-tokens` no las reporte como sorpresa y
+para que entren al roadmap de forma explícita si se deciden. Detalle inline en
+cada spec bajo "Diferencias conocidas vs shadcn".
+
+| Componente | Feature shadcn no implementada | Impacto |
+|---|---|---|
+| **Tabs** | Variante `line`, orientación **vertical**, **icon slots** en triggers (`has-data-[icon=inline-start/end]`) | Medio |
+| **Sidebar** | Variantes `floating`/`inset`, collapse modes (`offcanvas`/`icon`), `SidebarTrigger`, `SidebarRail`, sub-menús, slots action/badge, skeleton | Alto (simplificación MVP deliberada) |
+| **Panel** | Slot `CardAction` (área top-right del header para acciones/badges) | Medio |
+| **Dialog** | `DialogClose` como sub-componente reutilizable (Craft integra el botón de cierre en el header) | Bajo |
+
 ## 10. Registro de cambios
 
 | Versión | Fecha | Autor | Cambio |
@@ -379,3 +395,4 @@ aprobación explícita del maintainer — la divergencia es intencional, no un g
 | v0.1 | 30/05/2026 | Alberto Gomez | Borrador con valores estimados de Tailwind v4 |
 | v1.0 | 30/05/2026 | Alberto Gomez | Reescrito con CSS exacto de ui.shadcn.com/create (Style=Lyra, Base=Zinc, Theme=Emerald). Valores definitivos. |
 | v1.1 | 08/06/2026 | bettogamer | Añadida §9 Divergencias deliberadas de shadcn (Tabs wrap, Slider gaps). |
+| v1.2 | 08/06/2026 | bettogamer | Tokens dark actualizados (primary, destructive). Añadida §9.1 omisiones conocidas (Tabs line/vertical/icons, Sidebar subset, Panel CardAction, Dialog DialogClose). |
