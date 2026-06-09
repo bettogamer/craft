@@ -14,6 +14,11 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   reactiva la primera tab restante si la removida era la activa, y reflowea.
 
 ### Fixed
+- Slider: el thumb ahora tiene `SetHitRectInsets(-8)` (réplica de `after:-inset-2`)
+  para que el thumb de 12px sea fácil de agarrar. El spec se reescribió a la
+  arquitectura real **pure-custom** (estaba documentando el `Slider` nativo que se
+  abandonó por el bug #3 — riesgo de reintroducirlo); alturas de frame corregidas
+  (16/30/28/42), disabled (`opacity-50`, no recolor), tokens stale.
 - Select: el item seleccionado ahora se marca **solo con checkmark** (como shadcn),
   sin fondo `t.primary`. Panel respeta el piso `min-w-36` (144px). Hover de item
   aplica `accent-foreground` al texto. (El borde del trigger ya usaba `t.input`
