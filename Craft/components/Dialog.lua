@@ -45,10 +45,27 @@ function Dialog:Create(parent, config)
     -- Named frame required for UISpecialFrames (closeOnEscape).
     local frameName = "CraftDialog_" .. self._instanceId
     self.frame = CreateFrame("Frame", frameName, parent or UIParent)
-    self.frame:SetFrameStrata("HIGH")
+    self.frame:SetFrameStrata("DIALOG")  -- above the HIGH-strata modal overlay
     self.frame:SetWidth(WIDTHS[self._cfg.size] or WIDTHS.default)
     -- Height is initially set to a sensible minimum; it grows via _layoutFrames.
     self.frame:SetHeight(120)
+
+    -- ── Modal overlay (backdrop) ─────────────────────────────────────────────
+    -- shadcn .cn-dialog-overlay (bg-black/10): dims and blocks the UI behind the
+    -- dialog. WoW has no backdrop-blur, so it's the flat black/10 fill only.
+    -- Strata HIGH (the dialog is DIALOG, above it) so it covers normal addon UI.
+    self._overlay = CreateFrame("Frame", nil, UIParent)
+    self._overlay:SetFrameStrata("HIGH")
+    self._overlay:SetAllPoints(UIParent)
+    self._overlay:EnableMouse(true)   -- modal: swallow clicks to the UI behind
+    self._overlay:Hide()
+    local overlayTex = self._overlay:CreateTexture(nil, "BACKGROUND")
+    overlayTex:SetAllPoints(self._overlay)
+    overlayTex:SetColorTexture(0, 0, 0, 0.10)  -- bg-black/10
+
+    -- Mirror overlay visibility to the dialog (covers X, Escape, Hide(), Toggle()).
+    self.frame:HookScript("OnShow", function() self._overlay:Show() end)
+    self.frame:HookScript("OnHide", function() self._overlay:Hide() end)
 
     -- Drag behaviour (full dialog is the movable unit)
     self.frame:SetMovable(true)
@@ -340,7 +357,11 @@ end
 function Dialog:Destroy()
     if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
-    self.frame:Hide()
+    self.frame:Hide()  -- triggers OnHide → overlay hidden
+    if self._overlay then
+        self._overlay:Hide()
+        self._overlay = nil
+    end
     self.frame = nil
 end
 

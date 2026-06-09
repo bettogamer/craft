@@ -31,7 +31,8 @@ Ventana flotante draggable que se eleva sobre el contenido de la UI para captura
 ## Jerarquía de frames WoW
 
 ```
-dialog.frame           (Frame, strata=HIGH)           raíz draggable
+dialog._overlay        (Frame, strata=HIGH, UIParent)  backdrop modal black/10, bloquea clics
+dialog.frame           (Frame, strata=DIALOG)          raíz draggable (sobre el overlay)
 ├── dialog._bg         (Texture, BACKGROUND)          fondo del dialog
 ├── dialog._header     (Frame, opcional)              zona de título — drag handle
 │   ├── dialog._title  (FontString)                   texto del título (text-sm)
@@ -43,6 +44,12 @@ dialog.frame           (Frame, strata=HIGH)           raíz draggable
 └── dialog._footer     (Frame, opcional)              zona de acciones
     └── dialog._footerBorder (Frame, 1px alto)        línea separadora top (ADR-0011)
 ```
+
+**Overlay modal (`.cn-dialog-overlay`):** un Frame full-screen en UIParent, strata HIGH
+(el dialog está en DIALOG, por encima), con fondo negro `a=0.10` (`bg-black/10`) y
+`EnableMouse(true)` para bloquear clics a la UI de abajo → el dialog es modal. WoW no tiene
+`backdrop-blur`, así que es solo el relleno plano (sutil). Su visibilidad se sincroniza con
+el dialog vía hooks `OnShow`/`OnHide` (cubre cierre por X, Escape, `Hide()` y `Toggle()`).
 
 **Notas de estructura:** en Lyra el Dialog no tiene un title bar de altura fija separado. El layout es `p-4 gap-4`: padding de 16px en todos los lados y 16px de gap entre secciones (header → content → footer). El header es simplemente un contenedor con `gap-1` entre título y descripción; no existe una barra fija de 40px. El drag se habilita en el header area.
 
@@ -115,14 +122,15 @@ y no ofrece un `Close` componible. Diferencia de alcance, no bug — ver
 
 | Elemento | Token | Valor dark mode |
 |---|---|---|
-| Fondo del dialog | `t.popover` | {r=0.094, g=0.094, b=0.106} |
+| Overlay (backdrop) | negro `a=0.10` | `{0, 0, 0, 0.10}` (`bg-black/10`) |
+| Fondo del dialog | `t.popover` | {r=0.091, g=0.091, b=0.091} |
 | Ring perimetral | `t.border` | {r=1, g=1, b=1, a=0.10} |
 | Borde-top del footer | `t.border` | {r=1, g=1, b=1, a=0.10} |
-| Texto del título | `t.foreground` | {r=0.980, g=0.980, b=0.980} |
+| Texto del título | `t.popoverForeground` | {r=0.980, g=0.980, b=0.980} |
 | Fuente del título | `t.fontBold`, `t.fontSizeLg` (14px) | — |
-| Texto de descripción | `t.mutedForeground` | {r=0.631, g=0.631, b=0.667} |
+| Texto de descripción | `t.mutedForeground` | {r=0.630, g=0.630, b=0.630} |
 | Fuente de descripción | `t.font`, `t.fontSize` (12px) | — |
-| CloseBtn "×" default | `t.mutedForeground` | {r=0.631, g=0.631, b=0.667} |
+| CloseBtn "×" default | `t.mutedForeground` | {r=0.630, g=0.630, b=0.630} |
 | CloseBtn "×" hover | `t.foreground` | {r=0.980, g=0.980, b=0.980} |
 | CloseBtn fondo hover | `t.accent` | — |
 | CloseBtn fondo press | `t.accent` (a=0.7) | — |
@@ -156,12 +164,13 @@ y no ofrece un `Close` componible. Diferencia de alcance, no bug — ver
 
 **Strata y clamp:**
 ```lua
-dialog.frame:SetFrameStrata("HIGH")
+dialog.frame:SetFrameStrata("DIALOG")  -- por encima del overlay (HIGH)
 dialog.frame:SetMovable(true)
 dialog.frame:SetClampedToScreen(true)
 dialog.frame:RegisterForDrag("LeftButton")
 ```
 `SetClampedToScreen(true)` impide que el usuario arrastre el dialog fuera del viewport.
+El `_overlay` (HIGH) queda por debajo del dialog (DIALOG) y por encima de la UI normal.
 
 **Drag desde el header:**
 ```lua

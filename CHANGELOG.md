@@ -7,6 +7,10 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 ## [Unreleased]
 
 ### Added
+- Dialog: **overlay modal** (`.cn-dialog-overlay`, `bg-black/10`) — un backdrop
+  full-screen que atenúa y **bloquea clics** a la UI de fondo (dialog ahora modal). El
+  dialog pasó a strata DIALOG (sobre el overlay HIGH); visibilidad sincronizada vía
+  `OnShow`/`OnHide` (cubre X, Escape, Hide, Toggle).
 - Tabs: **icon slots** — ícono Lucide opcional antes del label vía
   `AddTab(id, label, { icon = "<name>" })` o `tabs[i].icon`. Se tinta al color
   del texto del trigger (activo/inactivo). Aprovecha `Craft.Icons`.
