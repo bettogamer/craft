@@ -84,9 +84,8 @@ if (-not (Test-Path $FontRegular) -or -not (Test-Path $FontBold)) {
 }
 
 # Generate icon atlas if not present (CI runs export-icons.py; locally needs pycairo + svg.path)
-$Atlas16 = Join-Path $MediaDir "lucide-16.tga"
-$Atlas24 = Join-Path $MediaDir "lucide-24.tga"
-if (-not (Test-Path $Atlas16) -or -not (Test-Path $Atlas24)) {
+$Atlas = Join-Path $MediaDir "lucide.tga"
+if (-not (Test-Path $Atlas)) {
     if ($DryRun) {
         Write-Host "[dry-run] Would generate icon atlas"
     } else {

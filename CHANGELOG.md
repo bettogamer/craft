@@ -13,7 +13,18 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 - Tabs: **`RemoveTab(id)`** — inverso de `AddTab`; quita trigger + content frame,
   reactiva la primera tab restante si la removida era la activa, y reflowea.
 
+### Fixed
+- Iconos pixelados/delgados en WoW: el atlas pasó a **supersampled** — un solo
+  `lucide.tga` (512×512, celdas de 64px, ícono renderizado a 56px + gutter de 4px)
+  en vez de dos atlas pixel-exactos 16/24px. WoW reduce al tamaño de display, así que
+  los íconos quedan nítidos a cualquier UIScale/DPI (antes una textura "de 16px" se
+  magnificaba con el UIScale y se veía borrosa, y los trazos finos de Lucide salían
+  delgados). El fallback `pycairo` ahora aproxima curvas con 64 segmentos (antes 20).
+
 ### Changed
+- Icons API: `Get`/`Apply` toman el **tamaño de display** (el atlas es agnóstico al
+  tamaño); `Icons._atlas` + `_div` reemplazan `_atlas16`/`_atlas24`. `lucide.tga`
+  reemplaza `lucide-16/24.tga` (CI y deploy-local actualizados).
 - Tabs: modelo de dimensionamiento ancho-contenido + wrap. Cada trigger se
   dimensiona a su texto (antes se estiraban a ancho igual, contradiciendo el
   spec); cuando no caben en una fila hacen wrap a filas adicionales y la barra

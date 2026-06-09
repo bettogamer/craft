@@ -66,8 +66,7 @@ jobs:
 
       - name: Verify assets
         run: |
-          [ -f "Craft/media/lucide-16.tga"     ] || (echo "❌ lucide-16.tga"     && exit 1)
-          [ -f "Craft/media/lucide-24.tga"     ] || (echo "❌ lucide-24.tga"     && exit 1)
+          [ -f "Craft/media/lucide.tga"        ] || (echo "❌ lucide.tga"        && exit 1)
           [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf" && exit 1)
           [ -f "Craft/media/Inter-Bold.ttf"    ] || (echo "❌ Inter-Bold.ttf"    && exit 1)
           echo "✅ All assets present"

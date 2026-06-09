@@ -43,7 +43,7 @@ CraftBrowserPages["Icons"] = {
             local tex = iconFrame:CreateTexture(nil, "ARTWORK")
             tex:SetSize(ICON_SIZE, ICON_SIZE)
             tex:SetAllPoints(iconFrame)
-            Craft.Icons.Apply(tex, name, 16)
+            Craft.Icons.Apply(tex, name, ICON_SIZE)
             tex:SetVertexColor(t.foreground.r, t.foreground.g, t.foreground.b, 1)
 
             table.insert(comps, { Destroy = function()

@@ -15,42 +15,45 @@ Icons **no crea frames**. Es una tabla de resolución de nombres.
 
 ```
 Craft.Icons
-├── _atlas16  (table)  — mapa nombre→{col,row} para el atlas 16px (de icons/Atlas.lua)
-├── _atlas24  (table)  — mapa nombre→{col,row} para el atlas 24px
+├── _atlas  (table)   — mapa nombre→{col,row} (de icons/Atlas.lua)
+├── _div    (number)  — celdas por fila/columna del grid (de icons/Atlas.lua)
 ├── Get(name, size?)
 ├── Apply(texture, name, size?)
 ├── Has(name)
 └── List()
 ```
 
-`icons/Atlas.lua` declara las dos tablas con coordenadas de celda (col/row, base-0). Se carga antes que cualquier componente en `Craft.toc`. `Craft.Icons` construye los descriptores UV en runtime.
+`icons/Atlas.lua` declara la tabla `_atlas` con coordenadas de celda (col/row, base-0) y `_div`. Se carga antes que cualquier componente en `Craft.toc`. `Craft.Icons` construye los descriptores UV en runtime.
 
-### Rutas de los atlas
+### Ruta del atlas
 
-| Tamaño | Ruta |
-|--------|------|
-| 16px | `"Interface\\AddOns\\Craft\\media\\lucide-16.tga"` |
-| 24px | `"Interface\\AddOns\\Craft\\media\\lucide-24.tga"` |
+| Ruta |
+|------|
+| `"Interface\\AddOns\\Craft\\media\\lucide.tga"` (vía `Craft.mediaPath`) |
 
-### Layout del atlas
+### Layout del atlas (supersampled — un solo atlas)
 
-| Atlas | Resolución TGA | Grid | Celda | Fórmula UV (col/row base-0) |
-|-------|---------------|------|-------|----------------------------|
-| 16px | 512×512 px | 32×32 | 16px | `left=col/32, right=(col+1)/32, top=row/32, bottom=(row+1)/32` |
-| 24px | 512×512 px | 21×21 | 24px | `left=col/21, right=(col+1)/21, top=row/21, bottom=(row+1)/21` |
+| Resolución TGA | Grid | Celda | Icono renderizado | Gutter | Fórmula UV (col/row base-0) |
+|---|---|---|---|---|---|
+| 512×512 px | 8×8 (64 slots) | 64px | 56px centrado | 4px transparente | `left=col/8, right=(col+1)/8, top=row/8, bottom=(row+1)/8` |
 
-El atlas 24px deja 8px sobrantes al final de cada fila (512 mod 24 = 8) — nunca se mapean.
+**Supersampling**: cada ícono se rasteriza a 56px y se centra en una celda de 64px con
+4px de gutter transparente. WoW lo reduce al tamaño de display (16/24/…) en runtime. Como
+WoW nunca muestra texturas 1:1 (la UI escala con UIScale/DPI), una sola fuente de alta
+resolución se ve nítida a cualquier escala — donde los atlas pixel-exactos de 16/24px se
+veían borrosos/pixelados. El gutter + un inset de medio texel en `Get()` evitan que el
+filtrado bilineal "sangre" celdas vecinas al reducir.
 
 ### Formato del descriptor retornado por `Get()`
 
 ```lua
 {
-  path   = "Interface\\AddOns\\Craft\\media\\lucide-16.tga",
-  size   = 16,       -- 16 o 24
-  left   = 0.0,      -- UV coords normalizadas [0.0–1.0]
-  right  = 0.0625,   -- 1/32 para atlas 16px (col=0)
-  top    = 0.0,
-  bottom = 0.0625,
+  path   = "Interface\\AddOns\\Craft\\media\\lucide.tga",
+  size   = 16,       -- tamaño de DISPLAY pedido (16, 24, … — el atlas es agnóstico)
+  left   = 0.0012,   -- UV normalizadas [0–1], con inset de medio texel
+  right  = 0.1238,   -- ≈ 1/8 para col=0
+  top    = 0.0012,
+  bottom = 0.1238,
 }
 ```
 
@@ -105,8 +108,7 @@ usados en addons WoW y se incluyen en el atlas para que los devs los tengan disp
 > (¹) Nombres canónicos actuales en Lucide. Los nombres anteriores (`check-circle`,
 > `alert-circle`, `alert-triangle`) son aliases deprecados — no usar en Atlas.lua.
 
-**Total**: 24 íconos. Caben en 1 fila del atlas 16px (32 celdas por fila) y en 2 filas del
-atlas 24px (21 celdas × 2 = 42 > 24).
+**Total**: 24 íconos. Ocupan 3 filas del grid 8×8 (24 de 64 slots disponibles).
 
 ---
 
@@ -114,9 +116,9 @@ atlas 24px (21 celdas × 2 = 42 > 24).
 
 | Función | Firma | Descripción |
 |---------|-------|-------------|
-| `Craft.Icons.Get(name, size?)` | `(string, number?) → table\|nil` | Descriptor UV o nil si no existe. `size`=16 (default) o 24. |
-| `Craft.Icons.Apply(tex, name, size?)` | `(Texture, string, number?) → void` | Aplica ícono a una Texture. No-op si name=nil o no existe. |
-| `Craft.Icons.Has(name)` | `(string) → bool` | true si el nombre existe en `_atlas16`. |
+| `Craft.Icons.Get(name, size?)` | `(string, number?) → table\|nil` | Descriptor UV o nil si no existe. `size` = tamaño de display en px (default 16); el atlas es agnóstico al tamaño. |
+| `Craft.Icons.Apply(tex, name, size?)` | `(Texture, string, number?) → void` | Aplica ícono a una Texture al tamaño de display. No-op si name=nil o no existe. |
+| `Craft.Icons.Has(name)` | `(string) → bool` | true si el nombre existe en `_atlas`. |
 | `Craft.Icons.List()` | `() → string[]` | Array de todos los nombres disponibles, orden alfabético. |
 
 ---
@@ -129,8 +131,8 @@ atlas 24px (21 celdas × 2 = 42 > 24).
 local tex = frame:CreateTexture(nil, "ARTWORK")
 tex:SetSize(16, 16)
 tex:SetPoint("LEFT", frame, "LEFT", 8, 0)
-Craft.Icons.Apply(tex, "chevron-right")        -- 16px por defecto
-Craft.Icons.Apply(tex, "settings", 24)         -- atlas 24px
+Craft.Icons.Apply(tex, "chevron-right")        -- display 16px por defecto
+Craft.Icons.Apply(tex, "settings", 24)         -- display 24px (misma fuente supersampled)
 ```
 
 ### Con validación previa
@@ -199,14 +201,27 @@ Usar siempre los nombres canónicos en `Atlas.lua` y en los argumentos de `Apply
 
 **nil silencioso, no error**: `Get()` retorna nil para nombres desconocidos. Los componentes que reciben un `config.icon` desconocido ocultan la textura con `iconTex:Hide()`.
 
-**Dos atlas separados**: `_atlas16` y `_atlas24` son tablas independientes. Un ícono puede existir en 16px pero no en 24px — el atlas 24px es un subconjunto.
+**Un solo atlas supersampled**: `_atlas` es la única tabla. El `size` de `Get()`/`Apply()`
+es el tamaño de display — no selecciona un atlas distinto. La misma fuente de 64px sirve
+cualquier tamaño porque WoW la reduce con filtrado bilineal.
+
+**Por qué supersampling**: WoW escala la UI con UIScale/DPI, así que una textura "de 16px"
+casi nunca se muestra a 16 píxeles físicos. Un atlas pixel-exacto se magnifica → blur/pixelado
+y los trazos finos de Lucide (stroke 2 en viewBox 24) se ven delgados a 16px. Renderizar a
+alta resolución y dejar que WoW reduzca mantiene el ícono nítido a cualquier escala.
 
 **SetTexCoord — orden WoW**: `SetTexCoord(left, right, top, bottom)`. No el orden CSS.
 
 **Colorización**: `SetVertexColor(r, g, b, a)` después de `Apply()`. El módulo no aplica color.
 
-**Performance**: `_atlas16` y `_atlas24` se cargan una sola vez. `Get()` es O(1). No cachear el descriptor retornado (es una tabla nueva cada llamada) — si se necesita varias veces, guardar en variable local.
+**Performance**: `_atlas` se carga una sola vez. `Get()` es O(1). No cachear el descriptor
+retornado (es una tabla nueva cada llamada) — si se necesita varias veces, guardar en local.
 
-**Generación del atlas**: `scripts/export-icons.py` toma los SVGs de Lucide por nombre canónico, los rasteriza a 16px/24px y genera el TGA + `icons/Atlas.lua`. No editar `Atlas.lua` manualmente — se sobreescribe en cada release.
+**Generación del atlas**: `scripts/export-icons.py` toma los SVGs de Lucide por nombre
+canónico, los rasteriza a 56px y los empaqueta centrados en celdas de 64px (gutter de 4px) en
+un solo TGA `lucide.tga` + `icons/Atlas.lua`. No editar `Atlas.lua` manualmente — se
+sobreescribe en cada release. CI lo genera con `cairosvg` (curvas reales); el fallback local
+`pycairo` aproxima curvas con 64 segmentos (suficiente tras el downscale).
 
-**Fila de íconos del sistema en el atlas**: se recomienda colocar los 8 íconos de sistema en la primera fila (posiciones 0–7) del atlas 16px para que sus coordenadas UV sean predecibles y fáciles de hardcodear si fuera necesario.
+**Íconos del sistema**: los 8 íconos requeridos por componentes ocupan la fila 0 (col 0–7),
+coordenadas UV predecibles.
