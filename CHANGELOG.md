@@ -6,6 +6,13 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+### Added
+- Tabs: **icon slots** — ícono Lucide opcional antes del label vía
+  `AddTab(id, label, { icon = "<name>" })` o `tabs[i].icon`. Se tinta al color
+  del texto del trigger (activo/inactivo). Aprovecha `Craft.Icons`.
+- Tabs: **`RemoveTab(id)`** — inverso de `AddTab`; quita trigger + content frame,
+  reactiva la primera tab restante si la removida era la activa, y reflowea.
+
 ### Changed
 - Tabs: modelo de dimensionamiento ancho-contenido + wrap. Cada trigger se
   dimensiona a su texto (antes se estiraban a ancho igual, contradiciendo el

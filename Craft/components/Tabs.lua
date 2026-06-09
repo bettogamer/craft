@@ -31,6 +31,8 @@ local TRIGGER_PX   = 6   -- horizontal padding inside each trigger (px-1.5)
 local TRIGGER_PY   = 2   -- luacheck: ignore 211
 local FONT_SIZE    = 12  -- text-xs
 local TRIGGER_H    = LIST_H - LIST_PAD * 2  -- 26px inner trigger height
+local ICON_SIZE    = 16  -- size-4 — Lucide 16px atlas
+local ICON_GAP     = 6   -- gap-1.5 between icon and label
 
 -- ─── Create ────────────────────────────────────────────────────────────────
 function Tabs:Create(parent, config)
@@ -92,7 +94,7 @@ function Tabs:Create(parent, config)
     -- Add initial tabs from config
     if config.tabs then
         for _, tabDef in ipairs(config.tabs) do
-            self:AddTab(tabDef.id, tabDef.label)
+            self:AddTab(tabDef.id, tabDef.label, { icon = tabDef.icon })
         end
     end
 
@@ -109,8 +111,12 @@ function Tabs:Create(parent, config)
 end
 
 -- ─── AddTab ────────────────────────────────────────────────────────────────
-function Tabs:AddTab(id, label)
+-- opts (optional): { icon = "<lucide-name>" }. The icon renders before the label
+-- (gap-1.5) and is tinted to the trigger's text color. Unknown icon names are
+-- ignored (no icon shown), mirroring Craft.Button.
+function Tabs:AddTab(id, label, opts)
     if self._buttons[id] then return end  -- already exists
+    opts = opts or {}
 
     -- Content frame for this tab
     local contentFrame = CreateFrame("Frame", nil, self._content)
@@ -118,8 +124,8 @@ function Tabs:AddTab(id, label)
     contentFrame:Hide()
     self._frames[id] = contentFrame
 
-    -- Trigger button — content width (text + horizontal padding), fixed inner
-    -- height. Flex lays them out left-aligned and wraps to new rows on overflow.
+    -- Trigger button — content width (icon + text + horizontal padding), fixed
+    -- inner height. Flex lays them out left-aligned and wraps to new rows on overflow.
     local btn = CreateFrame("Button", nil, self._list)
     btn:SetHeight(TRIGGER_H)
 
@@ -128,11 +134,29 @@ function Tabs:AddTab(id, label)
         btnText:SetFont(self._t.font, FONT_SIZE)
     end
     btnText:SetText(label or id)
-    btnText:SetPoint("CENTER", btn, "CENTER")
 
-    -- Width derives from the rendered text. The font is already set above (theme
-    -- is applied before tabs are added in Create), so GetStringWidth() is valid.
-    btn:SetWidth(math.max(btnText:GetStringWidth(), 1) + TRIGGER_PX * 2)
+    -- Optional Lucide icon before the label. Tinted to the text color in
+    -- _styleButton. Absent when opts.icon is nil or not present in the atlas.
+    local icon
+    if opts.icon and Craft.Icons.Has(opts.icon) then
+        icon = btn:CreateTexture(nil, "ARTWORK")
+        Craft.Icons.Apply(icon, opts.icon, ICON_SIZE)
+        icon:SetSize(ICON_SIZE, ICON_SIZE)
+    end
+
+    -- Position the content group and derive the trigger width. The font is set
+    -- above (theme is applied before tabs are added in Create), so GetStringWidth()
+    -- is valid. The group is left-anchored with TRIGGER_PX padding; since the width
+    -- hugs the content + TRIGGER_PX on each side, it ends up horizontally centered.
+    local textW = math.max(btnText:GetStringWidth(), 1)
+    if icon then
+        icon:SetPoint("LEFT", btn, "LEFT", TRIGGER_PX, 0)
+        btnText:SetPoint("LEFT", icon, "RIGHT", ICON_GAP, 0)
+        btn:SetWidth(ICON_SIZE + ICON_GAP + textW + TRIGGER_PX * 2)
+    else
+        btnText:SetPoint("CENTER", btn, "CENTER")
+        btn:SetWidth(textW + TRIGGER_PX * 2)
+    end
 
     -- Border textures (transparent by default, solid on active)
     local borderTop    = btn:CreateTexture(nil, "BORDER")
@@ -142,6 +166,7 @@ function Tabs:AddTab(id, label)
 
     -- Store references on button for refresh
     btn._text        = btnText
+    btn._icon        = icon
     btn._borderTop   = borderTop
     btn._borderBottom = borderBottom
     btn._borderLeft  = borderLeft
@@ -227,6 +252,7 @@ function Tabs:_styleButton(btn, isActive)
         btn._bg:Show()
 
         btn._text:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
+        if btn._icon then btn._icon:SetVertexColor(t.foreground.r, t.foreground.g, t.foreground.b, 1) end
 
         local bi = t.input  -- white a=0.15
         btn._borderTop:SetColorTexture(bi.r, bi.g, bi.b, bi.a)
@@ -237,6 +263,7 @@ function Tabs:_styleButton(btn, isActive)
         -- Inactive: transparent bg, muted text, no border
         if btn._bg then btn._bg:SetColorTexture(0, 0, 0, 0) end
         btn._text:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+        if btn._icon then btn._icon:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1) end
 
         btn._borderTop:SetColorTexture(0, 0, 0, 0)
         btn._borderBottom:SetColorTexture(0, 0, 0, 0)
@@ -318,6 +345,47 @@ end
 
 function Tabs:GetActiveTab()
     return self._activeId
+end
+
+-- ─── RemoveTab ─────────────────────────────────────────────────────────────
+-- Removes a tab's trigger and its content frame, then reflows the bar. If the
+-- removed tab was active, the first remaining tab becomes active (or none if it
+-- was the last). No-op if the id doesn't exist.
+function Tabs:RemoveTab(id)
+    local btn = self._buttons[id]
+    if not btn then return end
+
+    -- Take it out of the flex layout and hide it (WoW frames aren't destroyed).
+    self._flex:Remove(btn)
+    btn:Hide()
+    btn:ClearAllPoints()
+    self._buttons[id] = nil
+
+    local frame = self._frames[id]
+    if frame then
+        frame:Hide()
+        frame:ClearAllPoints()
+        self._frames[id] = nil
+    end
+
+    -- Drop it from the ordered list
+    for i, tabDef in ipairs(self._tabs) do
+        if tabDef.id == id then
+            table.remove(self._tabs, i)
+            break
+        end
+    end
+
+    -- If it was active, fall back to the first remaining tab (or clear).
+    if self._activeId == id then
+        self._activeId = nil
+        local nextTab = self._tabs[1]
+        if nextTab then
+            self:SetActiveTab(nextTab.id)
+        end
+    end
+
+    self:_relayout()
 end
 
 -- Returns the content Frame for a specific tab id.

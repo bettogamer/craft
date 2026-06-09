@@ -383,7 +383,7 @@ cada spec bajo "Diferencias conocidas vs shadcn".
 
 | Componente | Feature shadcn no implementada | Impacto |
 |---|---|---|
-| **Tabs** | Variante `line`, orientación **vertical**, **icon slots** en triggers (`has-data-[icon=inline-start/end]`) | Medio |
+| **Tabs** | Variante `line`, orientación **vertical** (icon slots ✅ implementados v1.1) | Medio |
 | **Sidebar** | Variantes `floating`/`inset`, collapse modes (`offcanvas`/`icon`), `SidebarTrigger`, `SidebarRail`, sub-menús, slots action/badge, skeleton | Alto (simplificación MVP deliberada) |
 | **Panel** | Slot `CardAction` (área top-right del header para acciones/badges) | Medio |
 | **Dialog** | `DialogClose` como sub-componente reutilizable (Craft integra el botón de cierre en el header) | Bajo |

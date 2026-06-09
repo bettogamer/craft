@@ -73,10 +73,11 @@ no bugs — ver `docs/design-reference.md` §9.1):
   de fondo.
 - **Orientación vertical** (`group-data-vertical/tabs`): TabList en columna a un lado
   del contenido.
-- **Icon slots** en triggers (`has-data-[icon=inline-start/end]`): ícono antes/después
-  del texto con padding ajustado.
 
 Si se decide implementar alguna, requiere aprobación del maintainer (cambio de API).
+
+**Implementado:** icon slots (`has-data-[icon=inline-start]`) — ícono Lucide antes
+del label vía `AddTab(id, label, { icon = "<name>" })` o `tabs[i].icon`.
 
 ## Estados
 
@@ -112,10 +113,10 @@ Si se decide implementar alguna, requiere aprobación del maintainer (cambio de 
 
 | Parámetro | Tipo | Default | Descripción |
 |---|---|---|---|
-| `tabs` | array | `{}` | Array de tablas `{id, label, content_frame}` que definen las pestañas iniciales |
+| `tabs` | array | `{}` | Array de tablas `{id, label, icon?}` que definen las pestañas iniciales |
 | `tabs[i].id` | string | — | Identificador único de la tab |
 | `tabs[i].label` | string | — | Texto visible en el Button de la tab |
-| `tabs[i].content_frame` | Frame | — | Frame ya construido a mostrar cuando la tab está activa |
+| `tabs[i].icon` | string | nil | Nombre de ícono Lucide opcional, mostrado antes del label |
 | `defaultTab` | string | primer id | Id de la tab activa al crear el componente |
 | `onTabChange` | function | nil | Callback `function(newId, oldId)` invocado al cambiar de tab |
 
@@ -129,7 +130,10 @@ No hay parámetro `size` — el TabList tiene un único tamaño (32px `h-8`).
 | `GetContent()` | Frame | Retorna `tabs._content` — frame padre de todos los content panels |
 | `SetActiveTab(id)` | void | Activa la tab con el id indicado; oculta las demás; dispara `onTabChange` |
 | `GetActiveTab()` | string | Retorna el id de la tab actualmente activa |
-| `AddTab(id, label, frame)` | void | Agrega una nueva tab al final de la barra y redistribuye los buttons |
+| `AddTab(id, label, opts?)` | void | Agrega una tab al final y reflowea la barra. `opts.icon` = ícono Lucide opcional antes del label |
+| `RemoveTab(id)` | void | Quita la tab y su content frame, y reflowea. Si era la activa, activa la primera restante (o ninguna) |
+| `GetContentFrame(id)` | Frame | Frame de contenido de esa tab — el dev añade aquí sus hijos |
+| `SetTabEnabled(id, enabled)` | void | Habilita/deshabilita el trigger (deshabilitado: a=0.5, sin mouse) |
 
 ## Notas de implementación
 
