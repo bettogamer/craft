@@ -2,6 +2,7 @@
 -- Spec: docs/components/button.md
 -- Design: docs/design-reference.md (shadcn Lyra — style-lyra.css)
 
+local Craft = LibStub("Craft-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Button = {}
