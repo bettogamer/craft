@@ -109,6 +109,9 @@ Necesito el CSS de shadcn Lyra dark. Pasos:
    aparte como "✋ divergencia Craft intencional (design-reference §9) — sin acción".
 
 3. Para cada componente con clases CSS en Lyra, compara con el spec en `docs/components/<name>.md`:
+   - **Las dimensiones son las de las clases `.cn-*` de `style-lyra.css`** — esta es
+     la ÚNICA fuente válida de tamaños/espaciado. No uses los `className` del `.tsx`
+     (son valores base de New York, sobreescritos por Lyra → falsos positivos).
    - ¿Los tamaños (h-*, px-*, gap-*) coinciden con la tabla de dimensiones del spec?
    - ¿Los tokens de color (bg-*, text-*, border-*) coinciden con el mapa de tokens del spec?
    - ¿Hay clases nuevas que no están documentadas?
@@ -143,6 +146,17 @@ Necesito el CSS de shadcn Lyra dark. Pasos:
 históricamente nos faltaba. Compara la estructura/comportamiento real de shadcn
 contra la "Jerarquía de frames", "Variantes/Configuraciones" y "Estados" de cada
 spec.
+
+> 🚫 **NO leas DIMENSIONES del `.tsx`.** Los `className` del `.tsx` traen los
+> valores base del estilo **New York** (`h-9`, `p-6`, `text-sm`, `rounded-md`…),
+> que en Lyra son **sobreescritos** por las clases `.cn-*` de `style-lyra.css`
+> (`h-8`, `p-[3px]`, `text-xs`, `rounded-none`…). Comparar dimensiones del `.tsx`
+> contra el spec produce **falsos positivos** (New York es menos compacto que
+> Lyra, por diseño). **Las dimensiones SOLO salen de la Parte 2 (CSS Lyra).**
+> Del `.tsx` se extrae **únicamente lo estructural** que el CSS no puede expresar:
+> primitiva, modelo de layout (flex/grid/dirección/grow/wrap), variantes,
+> orientación, data-attrs y slots. Si un dato es un número de tamaño/espaciado,
+> ignóralo aquí — pertenece a la Parte 2.
 
 1. Para cada componente con equivalente shadcn, descarga su fuente:
    `https://raw.githubusercontent.com/shadcn-ui/ui/main/apps/v4/registry/new-york-v4/ui/<archivo>.tsx`
