@@ -18,6 +18,9 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   reactiva la primera tab restante si la removida era la activa, y reflowea.
 
 ### Fixed
+- Panel: `SetClipsChildren(true)` (`overflow-hidden` del `cn-card`) — el contenido que
+  excede el panel se recorta. Spec alineado (Panel es dev-sized, no auto-crece; tokens
+  refrescados; title usa `cardForeground`).
 - Dialog: los botones del footer se salían del diálogo. (1) La altura del frame era
   **fija** (120px) y el contenido se estiraba entre header y footer → con header+footer
   > 120 el área de contenido colapsaba; ahora el frame es **grow-to-fit** (crece para
