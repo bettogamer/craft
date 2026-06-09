@@ -9,20 +9,18 @@
 ## Jerarquía de frames WoW
 
 ```
-Frame (root)                              — contenedor exterior, define el tamaño visible
-├── ScrollFrame                           — clipping area, mismo tamaño que root menos el ancho del scrollbar
-│   └── Frame (scrollChild)              — contenido real, puede exceder la altura del ScrollFrame
-├── Frame (scrollbarV)                    — scrollbar vertical, 8px ancho, anclado al borde derecho
-│   ├── Texture (trackBg)               — BACKGROUND layer, t.secondary a=0.30
-│   └── Slider (thumbSlider)            — vertical, thumb custom
-│       └── Button (thumbBtn)           — OVERLAY layer, 6px ancho, thumb visual
-│           └── Texture (thumbBg)       — BACKGROUND layer, t.secondary
-└── Frame (scrollbarH)                    — scrollbar horizontal (opcional), 8px alto, anclado al borde inferior
-    ├── Texture (trackBg)               — BACKGROUND layer, t.secondary a=0.30
-    └── Slider (thumbSliderH)           — horizontal, thumb custom
-        └── Button (thumbBtnH)          — OVERLAY layer, 6px alto, thumb visual
-            └── Texture (thumbBgH)      — BACKGROUND layer, t.secondary
+Frame (root)                          — contenedor exterior, define el tamaño visible
+├── ScrollFrame                       — clipping area; ancho = root − SCROLLBAR_W (8px)
+│   └── Frame (_child / scrollChild)  — contenido real, puede exceder la altura del ScrollFrame
+└── Frame (_scrollbar)                — riel vertical, 8px ancho, anclado al borde derecho
+    ├── Texture (_track)              — BACKGROUND, t.secondary a=0.30
+    └── Button (_scrollThumb)         — 6px ancho (inset 1px), drag manual con OnUpdate
+        └── Texture (_thumbTex)       — BACKGROUND, t.secondary / accent / primary
 ```
+
+> **Solo vertical.** El thumb es un `Button` con drag manual (`OnMouseDown` + `OnUpdate`
+> leyendo `GetCursorPosition()`), **no** un `Slider` nativo — el `Slider` nativo
+> reintroduciría el bug #3 (bounding box que ocluye contenido; ver CLAUDE.md / Slider).
 
 ## Dimensiones
 
@@ -40,24 +38,17 @@ Frame (root)                              — contenedor exterior, define el tam
 
 > **Nota pixel-perfect (ADR-0011)**: Track width (8px) y thumb width (6px) son valores normales de UI — usar directamente como UI units en `SetWidth`. El gap de 1px entre thumb y track edges es el único valor que debe pasarse por `Craft.Theme.px(1, frame)` para garantizar que ocupe exactamente 1 píxel físico sin importar el scale del contenedor.
 
-### Scrollbar horizontal (cuando `horizontal=true`)
-
-| Elemento     | Propiedad     | Valor                              |
-|--------------|---------------|------------------------------------|
-| Track        | Height        | 8px                                |
-| Track        | Width         | igual al width del ScrollFrame     |
-| Track        | Color         | `t.secondary` a=0.30               |
-| Thumb        | Height        | 6px                                |
-| Thumb        | Min width     | 32px                               |
-| Thumb        | Width calc    | `(visible/total) * trackWidth`, mínimo 32px |
-
 ### Espacio reservado para scrollbar dentro del root
 
-| Configuración             | ScrollFrame width adjustment | ScrollFrame height adjustment |
-|---------------------------|------------------------------|-------------------------------|
-| Solo vertical (default)   | −8px del width total         | 0                             |
-| Solo horizontal           | 0                            | −8px del height total         |
-| Ambos                     | −8px width, −8px height      | −8px width, −8px height       |
+El `ScrollFrame` se ancla con `BOTTOMRIGHT` a −8px del root (deja el riel vertical de 8px
+a la derecha). No se reserva espacio inferior (no hay scroll horizontal).
+
+### Diferencias conocidas vs shadcn (fuera de MVP)
+
+shadcn `scroll-area` soporta scroll **horizontal**; Craft.Scroll es **solo vertical**.
+No hay `config.horizontal` ni riel horizontal (omisión de alcance MVP — ver
+`docs/design-reference.md` §9.1). Si el contenido necesita scroll horizontal, el dev lo
+gestiona externamente.
 
 ### Dimensiones generales
 
@@ -101,17 +92,16 @@ El scrollbar completo se oculta (`Hide()`) si el contenido no excede el área vi
 |--------------|------------|-----------|--------------------------------------------------------------------------------|
 | `width`      | `number`   | requerido | Ancho total del componente en px                                               |
 | `height`     | `number`   | requerido | Alto total del componente en px                                                |
-| `horizontal` | `boolean`  | `false`   | Habilita el scrollbar horizontal adicional                                     |
-| `onScroll`   | `function` | `nil`     | `fn(offsetV, offsetH)` — se dispara al cambiar cualquier scroll offset         |
+| `onScroll`   | `function` | `nil`     | `fn(offsetV)` — se dispara al cambiar el scroll vertical                        |
 
 ## API pública
 
 | Método                    | Descripción                                                                       |
 |---------------------------|-----------------------------------------------------------------------------------|
-| `SetScrollChild(frame)`   | Asigna el frame de contenido al ScrollFrame. Llama `ScrollFrame:SetScrollChild(frame)` |
-| `GetScrollChild()`        | Retorna el frame de contenido actual                                              |
+| `SetScrollChild(frame)`   | Reparenta `frame` dentro del `_child` interno y lo ancla; ajusta la altura del `_child` |
+| `GetScrollChild()`        | Retorna el `_child` interno donde el dev agrega su contenido (debe fijar su height) |
 | `ScrollToTop()`           | Establece scroll vertical a 0 (`SetVerticalScroll(0)`)                           |
-| `ScrollToBottom()`        | Establece scroll vertical al máximo (`GetVerticalScrollRange()`)                 |
+| `ScrollToBottom()`        | Establece scroll vertical al máximo (`childH − viewH`)                           |
 | `SetScrollOffset(n)`      | Establece el scroll vertical a `n` px desde el top                               |
 | `GetScrollOffset()`       | Retorna el offset vertical actual (`GetVerticalScroll()`)                        |
 | `GetFrame()`              | Retorna el frame root del componente                                              |
@@ -143,14 +133,12 @@ El scrollbar completo se oculta (`Hide()`) si el contenido no excede el área vi
   local thumbH = math.max(32, (visible / total) * trackHeight)
   thumbBtn:SetHeight(thumbH)
   ```
-- **Thumb Slider para drag**: usar un `Slider` vertical nativo para manejar el drag del thumb. Configurar `SetMinMaxValues(0, scrollRange)` y actualizar `SetValue` cuando cambia el scroll. En `OnValueChanged` del Slider, llamar `ScrollFrame:SetVerticalScroll(value)`. Esto evita implementar drag manual con `OnUpdate`.
-- **Sincronización bidireccional**: al hacer scroll con la rueda (que llama `SetVerticalScroll` directamente), también actualizar el `Slider` del thumb con `thumbSlider:SetValue(newOffset)` para que el thumb se reposicione. Usar un flag de guard para evitar loops `OnValueChanged ↔ SetVerticalScroll`.
-- **Thumb offset en el track**: el Slider vertical posiciona el thumb internamente. Para el gap de 1px a cada lado, anclar el `thumbSlider` con `SetPoint("TOPLEFT", trackFrame, "TOPLEFT", 1, 0)` y `SetPoint("BOTTOMRIGHT", trackFrame, "BOTTOMRIGHT", -1, 0)` — esto le da 6px de ancho al área del slider, que es el ancho del thumb.
-- **Hover/drag del thumb**: los estados hover y dragging se manejan con `thumbBtn:SetScript("OnEnter", ...)`, `OnLeave`, `OnMouseDown`, `OnMouseUp`. Al hacer `OnMouseDown`, cambiar el color a `t.primary`. Al `OnMouseUp`, volver a `t.secondary` (o `t.accent` si el mouse sigue sobre el thumb). Al `OnEnter`, cambiar a `t.accent`.
-- **Scrollbar horizontal**: mismo esquema pero con `Slider` horizontal (`SetOrientation("HORIZONTAL")`), `GetHorizontalScrollRange()` y `SetHorizontalScroll(n)`. El mouse wheel no afecta el scroll horizontal (es solo para vertical); el scroll horizontal requiere drag del thumb.
-- **Ocultar scrollbars vacíos**: si `GetVerticalScrollRange() == 0` al asignar el scrollChild, llamar `scrollbarV:Hide()` y no reservar el espacio de 8px — opcionalmente expandir el ScrollFrame al ancho completo del root. Sin embargo, para simplicidad de implementación, es aceptable reservar siempre el espacio del scrollbar y simplemente ocultar el thumb.
-- **Anclaje del scrollbar vertical**: `SetPoint("TOPRIGHT", root, "TOPRIGHT", 0, 0)` y `SetPoint("BOTTOMRIGHT", root, "BOTTOMRIGHT", 0, 0)`. Width fijo = 8px.
-- **Anclaje del scrollbar horizontal**: `SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", 0, 0)` y `SetPoint("BOTTOMRIGHT", root, "BOTTOMRIGHT", -8, 0)` (el -8 es para no solapar con el scrollbar vertical si ambos están activos). Height fijo = 8px.
+- **Thumb = Button con drag manual (NO Slider nativo)**: el thumb es un `Button`; el drag se maneja con `OnMouseDown` (captura `GetCursorPosition()` y el scroll inicial) + `OnUpdate` (calcula el delta y llama `SetVerticalScroll`). **No** usar un `Slider` nativo — reintroduciría el bug #3 (bounding box invisible que ocluye contenido del padre; ver Slider). El drag manual también evita los loops `OnValueChanged ↔ SetVerticalScroll`.
+- **Sincronización**: la rueda y el drag llaman `SetVerticalScroll` directamente; `_updateScrollbar()` reposiciona el thumb desde el offset actual (no hay estado intermedio que sincronizar).
+- **Thumb en el track**: 6px de ancho con 1px de inset (`SetPoint("LEFT", _scrollbar, "LEFT", 1, 0)`); el alto se calcula en `_calcThumbHeight` (`(viewH/childH) * trackH`, mínimo 32px) y la posición Y desde el ratio de scroll.
+- **Hover/drag del thumb**: `OnEnter` → `t.accent`; `OnMouseDown` → `t.primary`; `OnMouseUp`/`OnLeave` → `t.secondary` (salvo que siga el drag). 
+- **Ocultar thumb vacío**: si `childH <= viewH`, ocultar `_scrollThumb`. El riel de 8px se reserva siempre (el track tenue queda visible); solo el thumb aparece/desaparece.
+- **Anclaje del riel vertical**: `SetPoint("TOPRIGHT"/"BOTTOMRIGHT", root, …, 0, 0)`, width fijo 8px.
 - **Cursor position para drag del thumb (ADR-0011 — regla obligatoria)**: `GetCursorPosition()` retorna coordenadas en píxeles físicos de pantalla. Para convertirlas a UI units del frame, dividir por `GetEffectiveScale()` del ScrollFrame (no de UIParent):
   ```lua
   local function onThumbDrag(self)

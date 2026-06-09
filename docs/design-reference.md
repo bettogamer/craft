@@ -388,6 +388,7 @@ cada spec bajo "Diferencias conocidas vs shadcn".
 | **Panel** | Slot `CardAction` (área top-right del header para acciones/badges) | Medio |
 | **Dialog** | `DialogClose` como sub-componente reutilizable (Craft integra el botón de cierre en el header) | Bajo |
 | **Select** | `SelectGroup` / `SelectLabel` / `SelectSeparator` (opciones agrupadas); Craft solo soporta lista plana | Medio |
+| **Scroll** | Scroll **horizontal** (`scroll-area` lo soporta en ambos ejes); Craft.Scroll es solo vertical | Bajo |
 
 ## 10. Registro de cambios
 
