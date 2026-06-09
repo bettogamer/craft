@@ -4,8 +4,11 @@
 --   .cn-tooltip-content { @apply inline-flex items-center gap-1.5 rounded-none px-3 py-1.5 text-xs; }
 --
 -- px=12px, py=6px, gap=6px, text-xs=12px, rounded-none
--- bg: t.popover, text: t.popoverForeground
--- No arrow decoration (Lyra rounded-none style)
+-- bg: t.popover, text: t.popoverForeground (Craft decision: cohesive with Select/Dialog
+--   popovers; the Lyra tooltip bg is unverified — .cn-tooltip-content declares none and
+--   the new-york base uses bg-foreground/inverted).
+-- No arrow: shadcn Lyra HAS a tooltip arrow (.cn-tooltip-arrow); Craft omits it (MVP).
+-- No entrance animation: shadcn fades/zooms/slides in; Craft shows instantly (MVP).
 -- Delay: 300ms via C_Timer.After
 -- Singleton pattern: one shared frame for the entire UI
 -- Offset: 4px from anchor

@@ -389,6 +389,7 @@ cada spec bajo "Diferencias conocidas vs shadcn".
 | **Dialog** | `DialogClose` como sub-componente reutilizable (Craft integra el botón de cierre en el header) | Bajo |
 | **Select** | `SelectGroup` / `SelectLabel` / `SelectSeparator` (opciones agrupadas); Craft solo soporta lista plana | Medio |
 | **Scroll** | Scroll **horizontal** (`scroll-area` lo soporta en ambos ejes); Craft.Scroll es solo vertical | Bajo |
+| **Tooltip** | Flecha (`.cn-tooltip-arrow`) y animaciones de entrada (fade/zoom/slide); Craft omite ambas | Bajo |
 
 ## 10. Registro de cambios
 
