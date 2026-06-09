@@ -105,6 +105,17 @@ function Input:Create(parent, config)
         self._placeholder:Hide()
     end
 
+    -- Bug #2 safeguard (CLAUDE.md): the placeholder is a FontString with two
+    -- horizontal anchors (TOPLEFT + BOTTOMRIGHT), so WoW derives its width from the
+    -- frame. If the frame has width 0 at Create (no config.width, parent sized later)
+    -- WoW caches that and the text stays invisible until /reload. Re-anchoring when
+    -- the frame's size resolves forces a recompute.
+    self.frame:HookScript("OnSizeChanged", function()
+        self._placeholder:ClearAllPoints()
+        self._placeholder:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",      self:_leftPad(),  -PAD_V)
+        self._placeholder:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -self:_rightPad(),  PAD_V)
+    end)
+
     -- ── EditBox scripts ───────────────────────────────────────────────────────
     self._edit:SetScript("OnEditFocusGained", function()
         self._placeholder:Hide()
@@ -190,8 +201,8 @@ function Input:_applyBorderColor()
     if self._cfg.error then
         r, g, b, a = t.destructive.r, t.destructive.g, t.destructive.b, 1
     else
-        r, g, b = t.border.r, t.border.g, t.border.b
-        a = t.border.a or 0.15
+        -- border-input (not --border): white @ 0.15, same token as Checkbox / Button outline
+        r, g, b, a = t.input.r, t.input.g, t.input.b, t.input.a
     end
     self._borderTop:SetColorTexture(r, g, b, a)
     self._borderBottom:SetColorTexture(r, g, b, a)

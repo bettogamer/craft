@@ -56,8 +56,8 @@ Width: 100% del parent por defecto (puede fijarse con `config.width`).
 | Condición         | Padding H lado afectado |
 |-------------------|------------------------|
 | Sin icono         | 10px base              |
-| Con iconLeading   | left += 20px           |
-| Con iconTrailing  | right += 20px          |
+| Con iconLeading   | left += 18px (texto inicia en 28px) |
+| Con iconTrailing  | right += 18px          |
 
 Posición del icono:
 - Leading: x = `spacing.sm` (8px) desde el borde izquierdo, centrado verticalmente.
@@ -68,16 +68,16 @@ Posición del icono:
 
 | Variante  | Fondo                        | Border color    | Notas                                        |
 |-----------|------------------------------|-----------------|----------------------------------------------|
-| `default` | input/30 = {r=1,g=1,b=1,a=0.045} | `t.border` = {r=1,g=1,b=1,a=0.15} | Estado base          |
-| `error`   | input/30 = {r=1,g=1,b=1,a=0.045} | `t.destructive` = {r=0.973,g=0.443,b=0.443} | Borde destructive |
+| `default` | input/30 = {r=1,g=1,b=1,a=0.045} | `t.input` = {r=1,g=1,b=1,a=0.15} (`border-input`) | Estado base          |
+| `error`   | input/30 = {r=1,g=1,b=1,a=0.045} | `t.destructive` = {r=1.000,g=0.391,b=0.404} | Borde destructive |
 
 ## Estados
 
 | Estado     | Fondo                         | Border color    | Texto               | Placeholder          |
 |------------|-------------------------------|-----------------|---------------------|----------------------|
-| Default    | {r=1,g=1,b=1,a=0.045}         | {r=1,g=1,b=1,a=0.15} | `t.foreground` | `t.mutedForeground`  |
+| Default    | {r=1,g=1,b=1,a=0.045}         | `t.input` {a=0.15} | `t.foreground` | `t.mutedForeground`  |
 | Focused    | {r=1,g=1,b=1,a=0.045}         | `t.ring`        | `t.foreground`      | Oculto               |
-| Disabled   | {r=1,g=1,b=1,a=0.12}          | {r=1,g=1,b=1,a=0.15} | `t.mutedForeground` | `t.mutedForeground` |
+| Disabled   | {r=1,g=1,b=1,a=0.12}          | `t.input` {a=0.15} | `t.mutedForeground` | `t.mutedForeground` |
 | Error      | {r=1,g=1,b=1,a=0.045}         | `t.destructive` | `t.foreground`      | `t.mutedForeground`  |
 
 Notas sobre estados:
@@ -91,11 +91,11 @@ Notas sobre estados:
 | Elemento              | Token / Valor dark mode                    |
 |-----------------------|---------------------------------------------|
 | Fondo del input       | input/30 = {r=1,g=1,b=1,a=0.045}           |
-| Borde default         | `t.border` = {r=1,g=1,b=1,a=0.15}          |
+| Borde default         | `t.input` = {r=1,g=1,b=1,a=0.15} (`border-input`) |
 | Borde focused         | `t.ring`                                    |
-| Borde error           | `t.destructive` = {r=0.973,g=0.443,b=0.443}|
+| Borde error           | `t.destructive` = {r=1.000,g=0.391,b=0.404}|
 | Texto ingresado       | `t.foreground` = {r=0.980,g=0.980,b=0.980} |
-| Placeholder           | `t.mutedForeground` = {r=0.631,g=0.631,b=0.667} |
+| Placeholder           | `t.mutedForeground` = {r=0.630,g=0.630,b=0.630} |
 | Fondo disabled (dark) | input/80 = {r=1,g=1,b=1,a=0.12}            |
 | Texto disabled        | `t.mutedForeground`                         |
 | Icono leading/trailing| `t.mutedForeground` (tint)                  |

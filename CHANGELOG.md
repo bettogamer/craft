@@ -14,6 +14,10 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   reactiva la primera tab restante si la removida era la activa, y reflowea.
 
 ### Fixed
+- Input: el borde **default** usaba `t.border` (@0.10) en vez de `t.input` (@0.15) —
+  el CSS dice `border-input` (mismo desliz que Checkbox). Además, safeguard del
+  placeholder: se re-ancla en `OnSizeChanged` para blindar contra el bug #2 (texto
+  invisible hasta `/reload` si el frame tiene width 0 al crear).
 - Checkbox: el borde **unchecked** usaba `t.border` (blanco @ 0.10) en vez de
   `t.input` (@ 0.15) — el CSS dice `border-input`. Ahora coincide con shadcn y con
   el borde de Button `outline`. (Ícono check/dash migrado a la API de display-size.)
