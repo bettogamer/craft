@@ -14,6 +14,10 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   reactiva la primera tab restante si la removida era la activa, y reflowea.
 
 ### Fixed
+- Tooltip: con ícono, el texto corto quedaba flotando lejos del ícono (gap largo).
+  El FontString conservaba el ancho de medición (~198px) y, con ancla única, el texto
+  no-izquierdo se centraba en esa caja. Ahora se fuerza `JustifyH=LEFT` y la caja se
+  ajusta al ancho real del texto.
 - Sidebar: alineado a shadcn — section labels **sin uppercase** (se mostraban en
   mayúsculas), item activo en **negrita** (`data-active:font-medium`), y `group { p-2 }`
   **implementado** (cada grupo se insetea 8px → contenido a 16px y resaltados inset, con
