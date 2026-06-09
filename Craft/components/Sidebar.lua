@@ -43,7 +43,6 @@ local GROUP_H        = 32   -- h-8
 local GROUP_PX       = 8    -- px-2
 local GROUP_FONT     = 12   -- text-xs (fontSizeSm)
 local GROUP_ALPHA    = 0.7  -- sidebarForeground/70
-local SEPARATOR_MX   = 8    -- mx-2  (usado en separators: inset horizontal)
 
 local SBAR_W         = 4    -- scrollbar track width (px)
 local SBAR_THUMB_MIN = 20   -- minimum thumb height (px)
@@ -327,8 +326,9 @@ function Sidebar:_colorItem(entry, isActive)
     if not t or not entry.frame then return end
 
     if isActive then
-        -- data-active: bg-sidebar-accent text-sidebar-accent-foreground
+        -- data-active: bg-sidebar-accent text-sidebar-accent-foreground font-medium
         entry.bg:SetColorTexture(t.sidebarAccent.r, t.sidebarAccent.g, t.sidebarAccent.b, 1)
+        entry.labelFs:SetFont(t.fontBold, ITEM_FONT)  -- data-active:font-medium
         entry.labelFs:SetTextColor(
             t.sidebarAccentForeground.r,
             t.sidebarAccentForeground.g,
@@ -344,6 +344,7 @@ function Sidebar:_colorItem(entry, isActive)
         end
     else
         entry.bg:SetColorTexture(0, 0, 0, 0)
+        entry.labelFs:SetFont(t.font, ITEM_FONT)  -- regular weight when inactive
         entry.labelFs:SetTextColor(
             t.sidebarForeground.r,
             t.sidebarForeground.g,
@@ -365,14 +366,28 @@ end
 -- Called after AddItem / AddSection to keep the layout correct.
 function Sidebar:_rebuildLayout()
     local sz      = ITEM_SIZES[self._cfg.size] or ITEM_SIZES["default"]
-    local cursorY = 0   -- accumulated negative offset (top→down)
+    local pad     = ITEM_PAD   -- .cn-sidebar-group p-2: insets every element 8px and pads groups vertically
+    local cursorY = 0          -- accumulated negative offset (top→down)
+    local started = false      -- whether any group block has opened yet
 
     for _, entry in ipairs(self._sections) do
         local f = entry.frame
         if f then
+            -- Group vertical padding: open the first block; separate consecutive
+            -- sections by 2*pad (close previous group + open the next one).
+            if entry.type == "section" then
+                cursorY = cursorY + (started and pad * 2 or pad)
+                started = true
+            elseif not started then
+                cursorY = cursorY + pad   -- top pad for leading items (implicit group)
+                started = true
+            end
+
+            -- Horizontal group inset (pad) on both sides → item/label content lands
+            -- at pad + internal padding (16px), and hover/active highlights are inset.
             f:ClearAllPoints()
-            f:SetPoint("TOPLEFT",  self._child, "TOPLEFT",  0, -cursorY)
-            f:SetPoint("TOPRIGHT", self._child, "TOPRIGHT", 0, -cursorY)
+            f:SetPoint("TOPLEFT",  self._child, "TOPLEFT",   pad, -cursorY)
+            f:SetPoint("TOPRIGHT", self._child, "TOPRIGHT", -pad, -cursorY)
 
             if entry.type == "section" then
                 f:SetHeight(GROUP_H)
@@ -388,6 +403,8 @@ function Sidebar:_rebuildLayout()
             end
         end
     end
+
+    if started then cursorY = cursorY + pad end  -- bottom pad of the last group
 
     -- Adjust total height of _child
     self._child:SetHeight(math.max(cursorY, 1))
@@ -422,7 +439,7 @@ function Sidebar:AddSection(label)
             GROUP_ALPHA
         )
     end
-    labelFs:SetText(string.upper(label or ""))  -- after SetFont
+    labelFs:SetText(label or "")  -- after SetFont (shadcn shows the label as-is, no uppercase)
 
     local entry = {
         type    = "section",
@@ -567,12 +584,10 @@ function Sidebar:AddSeparator()
 
     local sepFrame = CreateFrame("Frame", nil, self._child)
 
-    -- Separator texture respects the mx-2 = SEPARATOR_MX margin
+    -- mx-2: the 8px side margin comes from the group inset applied in _rebuildLayout
+    -- (the sepFrame is already inset 8px), so the texture fills its frame.
     local sepTex = sepFrame:CreateTexture(nil, "BACKGROUND")
-    sepTex:SetPoint("LEFT",  sepFrame, "LEFT",  SEPARATOR_MX,  0)
-    sepTex:SetPoint("RIGHT", sepFrame, "RIGHT", -SEPARATOR_MX, 0)
-    sepTex:SetPoint("TOP",    sepFrame, "TOP",    0, 0)
-    sepTex:SetPoint("BOTTOM", sepFrame, "BOTTOM", 0, 0)
+    sepTex:SetAllPoints(sepFrame)
     if t then
         sepTex:SetColorTexture(t.sidebarBorder.r, t.sidebarBorder.g, t.sidebarBorder.b,
                                t.sidebarBorder.a or 0.10)

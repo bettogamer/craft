@@ -132,7 +132,7 @@ Si se decide ampliar, requiere aprobación del maintainer (cambio de API / arqui
 |---|---|---|---|
 | Item | Default | `_bg` transparente, texto `t.sidebarForeground` | — |
 | Item | Hover | `_bg` color `t.sidebarAccent`, texto `t.sidebarAccentForeground` | `hover:bg-sidebar-accent` |
-| Item | Active | `_bg` color `t.sidebarAccent`, texto `t.sidebarAccentForeground` | `data-active:bg-sidebar-accent` |
+| Item | Active | `_bg` `t.sidebarAccent`, texto `t.sidebarAccentForeground`, **fuente `t.fontBold`** | `data-active:bg-sidebar-accent data-active:font-medium` |
 | Item | Disabled | Texto `t.mutedForeground` con a=0.5, `EnableMouse(false)` | — |
 | Sub-button | Default | Texto `t.sidebarForeground` | — |
 | Sub-button | Hover | `_bg` color `t.sidebarAccent`, texto `t.sidebarAccentForeground` | `hover:bg-sidebar-accent` |
@@ -146,13 +146,13 @@ Si se decide ampliar, requiere aprobación del maintainer (cambio de API / arqui
 
 | Elemento | Token | Valor dark mode |
 |---|---|---|
-| Fondo del sidebar | `t.sidebar` | {r=0.094, g=0.094, b=0.106} |
+| Fondo del sidebar | `t.sidebar` | {r=0.091, g=0.091, b=0.091} |
 | Borde derecho | `t.sidebarBorder` | {r=1, g=1, b=1, a=0.10} |
 | Texto de item (default) | `t.sidebarForeground` | {r=0.980, g=0.980, b=0.980} |
-| Fondo de item en hover | `t.sidebarAccent` | {r=0.153, g=0.153, b=0.165} |
-| Fondo de item activo | `t.sidebarAccent` | {r=0.153, g=0.153, b=0.165} |
+| Fondo de item en hover | `t.sidebarAccent` | {r=0.149, g=0.149, b=0.149} |
+| Fondo de item activo | `t.sidebarAccent` (+ fuente `t.fontBold`) | {r=0.149, g=0.149, b=0.149} |
 | Texto de item hover/activo | `t.sidebarAccentForeground` | — |
-| Texto de item disabled | `t.mutedForeground` (a=0.5) | {r=0.631, g=0.631, b=0.667} |
+| Texto de item disabled | `t.mutedForeground` (a=0.5) | {r=0.630, g=0.630, b=0.630} |
 | Texto de section label | `t.sidebarForeground` (a=0.7) | {r=0.980, g=0.980, b=0.980, a=0.70} |
 | Fuente de items y labels | `t.font`, `t.fontSize` (12px) | — |
 | Item padding | `t.spacingSm` (8px) | — |
@@ -243,9 +243,11 @@ El ícono se posiciona a `spacingSm` (8px) del borde izquierdo del item (padding
 sectionLabel:SetTextColor(t.sidebarForeground.r, t.sidebarForeground.g, t.sidebarForeground.b, 0.70)
 ```
 
-**Section label uppercase:** WoW Lua no tiene `text-transform`. Aplicar `string.upper(label)` al asignar el texto de `_sectionLabel`.
+**Section label tal cual (sin uppercase):** shadcn Lyra muestra el label del grupo sin transformar. Asignar el texto directamente (no aplicar `string.upper`).
 
-**Group padding:** cada grupo (sección + sus items) se inserta con 8px de padding (`p-2`). El Frame de group envuelve la sección y sus items con ese margen respecto a los bordes del sidebar.
+**Group padding (`p-2`):** `_rebuildLayout` insetea **todos** los elementos 8px a izquierda y derecha (`SetPoint` TOPLEFT +8 / TOPRIGHT −8), de modo que el contenido cae a 16px (8 group + 8 padding interno) y los resaltados hover/activo quedan inset. Verticalmente: 8px arriba del primer bloque, 16px entre secciones consecutivas (cierre + apertura de grupo), 8px abajo del último. No se usa un Frame contenedor de grupo — el inset se aplica por elemento.
+
+**Item activo en negrita:** `data-active:font-medium` → el label del item activo usa `t.fontBold` (aprox. de medium); los inactivos usan `t.font` (regular).
 
 **Radius = 0:** los fondos de hover y activo son Textures rectangulares sin redondeo (`rounded-none` en Lyra), pintadas con `SetColorTexture`.
 

@@ -14,6 +14,10 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   reactiva la primera tab restante si la removida era la activa, y reflowea.
 
 ### Fixed
+- Sidebar: alineado a shadcn — section labels **sin uppercase** (se mostraban en
+  mayúsculas), item activo en **negrita** (`data-active:font-medium`), y `group { p-2 }`
+  **implementado** (cada grupo se insetea 8px → contenido a 16px y resaltados inset, con
+  padding vertical entre grupos). Tokens stale del spec refrescados.
 - Slider: el thumb ahora tiene `SetHitRectInsets(-8)` (réplica de `after:-inset-2`)
   para que el thumb de 12px sea fácil de agarrar. El spec se reescribió a la
   arquitectura real **pure-custom** (estaba documentando el `Slider` nativo que se
