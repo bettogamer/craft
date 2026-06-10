@@ -10,7 +10,10 @@
 }
 ```
 
-El background no está declarado en `cn-tooltip-content` directamente — lo hereda del contenedor via `bg-popover`.
+**Fondo (decisión Craft):** `.cn-tooltip-content` **no** declara background, y el componente
+base new-york usa `bg-foreground` (tooltip invertido, claro). Craft usa **`t.popover`**
+(oscuro) por coherencia con las demás superficies flotantes (Select content, Dialog). El
+valor exacto del tooltip de Lyra no es verificable desde el CSS — esta es una decisión Craft.
 
 ## Propósito
 
@@ -38,7 +41,7 @@ El tooltip es un **singleton**: existe un único frame `Craft.Tooltip._frame` re
 | Min width               | automático — igual al ancho del texto corto                |
 | Offset desde el anchor  | 4px de separación entre el anchor y el tooltip             |
 | Ícono                   | 16×16px (iconSizeSm), gap ícono→texto: 6px (`gap-1.5`)     |
-| Sin flecha (arrow)      | Lyra tooltip no muestra flecha — no implementar en WoW     |
+| Flecha (arrow)          | shadcn Lyra SÍ define `.cn-tooltip-arrow`; Craft la **omite** (MVP) |
 | Delay de aparición      | 300ms por defecto (configurable por anchor)                |
 | Strata                  | TOOLTIP — aparece sobre todos los frames excepto UIParent  |
 | Font size               | `t.fontSize` (12px)                                        |
@@ -48,7 +51,7 @@ El tooltip es un **singleton**: existe un único frame `Craft.Tooltip._frame` re
 1. **Por defecto**: el tooltip aparece **arriba** del anchor — `SetPoint("BOTTOM", anchor, "TOP", 0, 4)`.
 2. **Sin espacio arriba**: si `anchor:GetTop() + tooltipHeight > UIParent:GetHeight()`, mostrar **abajo** — `SetPoint("TOP", anchor, "BOTTOM", 0, -4)`.
 3. **Sin espacio arriba ni abajo**: preferir abajo igualmente.
-4. **Clampeo horizontal**: si el borde derecho del tooltip supera `UIParent:GetWidth()`, desplazar a la izquierda. Si el borde izquierdo cae por debajo de 0, desplazar a la derecha. Usar `_frame:GetRight()` / `_frame:GetLeft()` tras el primer SetPoint para detectar desbordamiento y corregir con un segundo SetPoint.
+4. **Clampeo horizontal**: el frame usa `SetClampedToScreen(true)` — WoW lo mantiene dentro de la pantalla automáticamente, sin cálculo manual de `GetRight()`/`GetLeft()`.
 
 El cálculo de posición ocurre **cada vez** que el tooltip se muestra — no se cachea, dado que el anchor puede moverse.
 
@@ -93,7 +96,13 @@ end)
 
 **Ícono opcional**: Si `config.icon` es nil, `_icon:Hide()` y el texto ancla desde 12px del borde izquierdo. Si `config.icon` existe, `_icon:Show()`, posicionarlo con `SetPoint("LEFT", _frame, "LEFT", 12, 0)`, y el texto con `SetPoint("LEFT", _icon, "RIGHT", 6, 0)` (gap-1.5 = 6px).
 
-**Sin flecha**: Lyra tooltip no renderiza arrow aunque `cn-tooltip-arrow` exista en el CSS. En WoW no implementar ningún frame de flecha — el tooltip aparece directamente adyacente al anchor sin indicador de dirección.
+**Flecha — omisión Craft (no "Lyra no tiene flecha"):** shadcn Lyra **sí** define
+`.cn-tooltip-arrow` (`size-2.5 rotate-45 rounded-none`) y el tsx renderiza
+`TooltipPrimitive.Arrow`. Craft **no** la implementa (omisión de alcance MVP — la rotación
+de texturas en WoW es engorrosa). El tooltip aparece adyacente al anchor sin indicador.
+
+**Sin animación de entrada — simplificación:** shadcn anima la entrada (fade/zoom/slide
+según el lado); Craft hace `Show()` instantáneo. Omisión de alcance MVP.
 
 **Borde 1px**: Usar `SetBackdrop` con `edgeFile = "Interface\\BUTTONS\\WHITE8X8"` y `edgeSize = 1`, o cuatro texturas de 1px. La textura de borde se colorea con `SetBackdropBorderColor(t.border.r, t.border.g, t.border.b, t.border.a)`. En dark mode, `t.border = {r=1, g=1, b=1, a=0.1}`.
 

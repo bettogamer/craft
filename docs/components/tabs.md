@@ -47,14 +47,14 @@ Los content frames son los frames que el dev pasa en `config.tabs[i].content_fra
 
 | Elemento | Valor |
 |---|---|
-| TabList height | 32px (`h-8`) — único tamaño |
+| TabList height | 32px (`h-8`) base — crece en múltiplos de fila si los tabs hacen wrap |
 | TabList padding interno | 3px en todos los lados (`p-[3px]`) |
 | Tab inner height efectiva | 32 − 3×2 = 26px |
 | Tab padding horizontal | 6px (`px-1.5`) |
 | Tab padding vertical | 2px (`py-0.5`) |
 | Tab padding H con ícono | 4px (`pr-1` o `pl-1` según lado) |
 | Tab gap con ícono | 6px (`gap-1.5`) |
-| Tab min width | automático según texto |
+| Tab width | automático según texto + padding horizontal (no se estira) |
 | Tab height | igual a inner height del TabList (26px efectivo) |
 | ListBorder height | 1px — usar `Craft.Theme.SetPixelHeight(border, 1)` |
 | ListBorder posición | BOTTOM de `_list`, cubre todo el ancho |
@@ -64,6 +64,20 @@ Los content frames son los frames que el dev pasa en `config.tabs[i].content_fra
 ## Variantes / Configuraciones
 
 Solo hay un tamaño de TabList: `h-8` = 32px. No existe variante `sm` separada en Lyra tabs.
+
+### Diferencias conocidas vs shadcn (fuera de MVP)
+
+shadcn ofrece estas features que Craft **aún no** implementa (omisiones de alcance,
+no bugs — ver `docs/design-reference.md` §9.1):
+- **Variante `line`** (`data-[variant=line]`): triggers con indicador de línea en vez
+  de fondo.
+- **Orientación vertical** (`group-data-vertical/tabs`): TabList en columna a un lado
+  del contenido.
+
+Si se decide implementar alguna, requiere aprobación del maintainer (cambio de API).
+
+**Implementado:** icon slots (`has-data-[icon=inline-start]`) — ícono Lucide antes
+del label vía `AddTab(id, label, { icon = "<name>" })` o `tabs[i].icon`.
 
 ## Estados
 
@@ -99,10 +113,10 @@ Solo hay un tamaño de TabList: `h-8` = 32px. No existe variante `sm` separada e
 
 | Parámetro | Tipo | Default | Descripción |
 |---|---|---|---|
-| `tabs` | array | `{}` | Array de tablas `{id, label, content_frame}` que definen las pestañas iniciales |
+| `tabs` | array | `{}` | Array de tablas `{id, label, icon?}` que definen las pestañas iniciales |
 | `tabs[i].id` | string | — | Identificador único de la tab |
 | `tabs[i].label` | string | — | Texto visible en el Button de la tab |
-| `tabs[i].content_frame` | Frame | — | Frame ya construido a mostrar cuando la tab está activa |
+| `tabs[i].icon` | string | nil | Nombre de ícono Lucide opcional, mostrado antes del label |
 | `defaultTab` | string | primer id | Id de la tab activa al crear el componente |
 | `onTabChange` | function | nil | Callback `function(newId, oldId)` invocado al cambiar de tab |
 
@@ -116,9 +130,27 @@ No hay parámetro `size` — el TabList tiene un único tamaño (32px `h-8`).
 | `GetContent()` | Frame | Retorna `tabs._content` — frame padre de todos los content panels |
 | `SetActiveTab(id)` | void | Activa la tab con el id indicado; oculta las demás; dispara `onTabChange` |
 | `GetActiveTab()` | string | Retorna el id de la tab actualmente activa |
-| `AddTab(id, label, frame)` | void | Agrega una nueva tab al final de la barra y redistribuye los buttons |
+| `AddTab(id, label, opts?)` | void | Agrega una tab al final y reflowea la barra. `opts.icon` = ícono Lucide opcional antes del label |
+| `RemoveTab(id)` | void | Quita la tab y su content frame, y reflowea. Si era la activa, activa la primera restante (o ninguna) |
+| `GetContentFrame(id)` | Frame | Frame de contenido de esa tab — el dev añade aquí sus hijos |
+| `SetTabEnabled(id, enabled)` | void | Habilita/deshabilita el trigger (deshabilitado: a=0.5, sin mouse) |
 
 ## Notas de implementación
+
+**Modelo de dimensionamiento y overflow (decisión de diseño):**
+> ⚠️ **Divergencia deliberada de shadcn.** shadcn **no** hace wrap de los
+> triggers. Este wrap es una decisión Craft registrada en
+> `docs/design-reference.md` §9. **No revertir hacia shadcn en un
+> `/update-design-tokens` sin aprobación del maintainer.**
+
+Cada trigger es **ancho-contenido** (texto + padding horizontal), **alineado a la
+izquierda**, **sin estiramiento**. Se distribuyen con `Craft.Flex`
+(`direction="row"`, `wrap="wrap"`, `justify="flex-start"`, `align="stretch"`,
+items con `grow=0, shrink=0, basis="auto"`). Cuando los triggers ya no caben en
+una fila, **hacen wrap a filas adicionales** y la barra crece en alto. Es fiel a
+shadcn (los triggers se dimensionan al contenido) y degrada bien con pocos o
+muchos tabs. Se evaluaron scroll horizontal y fill con piso de ancho; se eligió
+wrap por simplicidad (Flex ya lo soporta) y consistencia visual.
 
 **Auto-width de cada tab:**
 ```lua
@@ -126,7 +158,12 @@ local textWidth = tab._text:GetStringWidth()
 local tabWidth = textWidth + 6 * 2  -- px-1.5 = 6px cada lado
 tab:SetWidth(tabWidth)
 ```
-Los buttons se posicionan en secuencia horizontal con `SetPoint("LEFT", prevTab, "RIGHT", 0, 0)`.
+
+**Crecimiento de la barra al hacer wrap:**
+Tras cada `Flex:Layout()`, leer `Flex:GetContentCross()` (alto total consumido,
+padding incluido) y aplicarlo con `_list:SetHeight()`. Re-ejecutar en `OnShow` y
+`OnSizeChanged` del `_list` (un cambio de ancho puede añadir/quitar filas). Usar
+un guard de reentrancia porque `SetHeight` re-dispara `OnSizeChanged`.
 
 **Sin indicador activo**: no crear `_indicator` texture. El estado activo se expresa solo con color de texto (`t.foreground` vs `t.mutedForeground`) y fondo diferenciado de la tab activa.
 
@@ -143,7 +180,9 @@ end
 ```
 
 **Redistribución al agregar tabs dinámicamente (`AddTab`):**
-Recalcular el ancho de todos los buttons y reposicionarlos desde el primer tab. Si el ancho total supera el ancho del componente, considerar scroll horizontal o truncar etiquetas.
+`AddTab` fija el ancho del nuevo button según su texto, lo agrega al Flex y llama
+`_relayout()`. El Flex reposiciona todos los triggers y hace wrap si el total
+excede el ancho disponible; la barra crece en alto para acomodar las filas.
 
 **Tab disabled:**
 ```lua

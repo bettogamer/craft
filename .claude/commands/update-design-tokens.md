@@ -70,9 +70,17 @@ Necesito el CSS de shadcn Lyra dark. Pasos:
 
 ---
 
-## PARTE 2 — Revisar layouts de componentes desde style-lyra.css
+## PARTE 2 — Capa visual: tokens y dimensiones desde style-lyra.css
 
 **Siempre ejecutar esta parte**, independientemente de si se actualizaron los tokens.
+
+> ℹ️ **shadcn tiene DOS capas de verdad y esta Parte solo cubre una.**
+> `style-lyra.css` contiene **solo** primitivas visuales (color, spacing, border,
+> tipografía) — **no** contiene estructura ni comportamiento (`display`, `flex`,
+> `grid`, `w-fit`/`w-full`, `wrap`, `overflow`, variantes, orientación). Eso vive
+> en el código fuente `.tsx` del componente y se revisa en la **PARTE 3**.
+> Históricamente solo sincronizábamos esta capa, por eso derivamos comportamientos
+> de layout sin contraste (ej. Tabs fill vs. el `w-fit`+`flex-1` real de shadcn).
 
 1. Descarga el CSS completo de Lyra:
    URL: `https://raw.githubusercontent.com/shadcn-ui/ui/main/apps/v4/registry/styles/style-lyra.css`
@@ -95,11 +103,20 @@ Necesito el CSS de shadcn Lyra dark. Pasos:
    - Icons: no tiene clase cn-icons (módulo custom)
    - Theme: no tiene clase cn-theme (módulo custom)
 
+2.5. **Antes de comparar, lee `docs/design-reference.md` §9 (Divergencias deliberadas de shadcn).**
+   Cualquier diferencia entre shadcn y un componente listado ahí que coincida con la
+   divergencia documentada **NO es un gap**: no la propongas como cambio. Repórtala
+   aparte como "✋ divergencia Craft intencional (design-reference §9) — sin acción".
+
 3. Para cada componente con clases CSS en Lyra, compara con el spec en `docs/components/<name>.md`:
+   - **Las dimensiones son las de las clases `.cn-*` de `style-lyra.css`** — esta es
+     la ÚNICA fuente válida de tamaños/espaciado. No uses los `className` del `.tsx`
+     (son valores base de New York, sobreescritos por Lyra → falsos positivos).
    - ¿Los tamaños (h-*, px-*, gap-*) coinciden con la tabla de dimensiones del spec?
    - ¿Los tokens de color (bg-*, text-*, border-*) coinciden con el mapa de tokens del spec?
    - ¿Hay clases nuevas que no están documentadas?
    - ¿Hay clases que cambiaron (e.g., h-8 → h-9)?
+   - Excepción: si la diferencia está cubierta por una divergencia de §9, no la marques como cambio.
 
 4. Genera un reporte por componente:
    ```
@@ -123,8 +140,101 @@ Necesito el CSS de shadcn Lyra dark. Pasos:
 
 ---
 
+## PARTE 3 — Capa estructural y de comportamiento desde el código fuente `.tsx`
+
+**Siempre ejecutar esta parte.** Es la capa que `style-lyra.css` NO expone y que
+históricamente nos faltaba. Compara la estructura/comportamiento real de shadcn
+contra la "Jerarquía de frames", "Variantes/Configuraciones" y "Estados" de cada
+spec.
+
+> 🚫 **NO leas DIMENSIONES del `.tsx`.** Los `className` del `.tsx` traen los
+> valores base del estilo **New York** (`h-9`, `p-6`, `text-sm`, `rounded-md`…),
+> que en Lyra son **sobreescritos** por las clases `.cn-*` de `style-lyra.css`
+> (`h-8`, `p-[3px]`, `text-xs`, `rounded-none`…). Comparar dimensiones del `.tsx`
+> contra el spec produce **falsos positivos** (New York es menos compacto que
+> Lyra, por diseño). **Las dimensiones SOLO salen de la Parte 2 (CSS Lyra).**
+> Del `.tsx` se extrae **únicamente lo estructural** que el CSS no puede expresar:
+> primitiva, modelo de layout (flex/grid/dirección/grow/wrap), variantes,
+> orientación, data-attrs y slots. Si un dato es un número de tamaño/espaciado,
+> ignóralo aquí — pertenece a la Parte 2.
+
+1. Para cada componente con equivalente shadcn, descarga su fuente:
+   `https://raw.githubusercontent.com/shadcn-ui/ui/main/apps/v4/registry/new-york-v4/ui/<archivo>.tsx`
+
+   Mapa componente → archivo (`null` = sin equivalente shadcn, omitir):
+   | Componente | Archivo `.tsx` |
+   |---|---|
+   | Button | `button.tsx` |
+   | Checkbox | `checkbox.tsx` |
+   | Dialog | `dialog.tsx` |
+   | Input | `input.tsx` |
+   | Label | `label.tsx` |
+   | Panel | `card.tsx` |
+   | Scroll | `scroll-area.tsx` (referencia; Craft.Scroll es custom WoW) |
+   | Select | `select.tsx` |
+   | Separator | `separator.tsx` |
+   | Sidebar | `sidebar.tsx` |
+   | Slider | `slider.tsx` |
+   | Tabs | `tabs.tsx` |
+   | Tooltip | `tooltip.tsx` |
+   | Flex / Icons / Theme | `null` — motores/módulos custom, sin fuente shadcn |
+
+   Si una URL da 404, la ruta del registro cambió: repórtalo y continúa con el resto.
+
+2. De cada `.tsx` extrae el **contrato estructural** (NO los colores — eso es Parte 2):
+   - **Primitiva**: qué `@radix-ui/*` / `radix-ui` usa (o si es puramente div/custom).
+   - **Modelo de layout** por sub-parte: `display` (`flex`/`inline-flex`/`grid`),
+     dirección (`flex-row`/`flex-col`), crecimiento (`flex-1`/`grow`), ancho
+     (`w-fit` vs `w-full`), `flex-wrap`, `overflow-*`, `position`.
+   - **Variantes**: bloques `cva({ variants: {...} })` y sus opciones
+     (`variant`, `size`, `orientation`, …) + `defaultVariants`.
+   - **Estados / data-attrs**: `data-state`, `data-orientation`, `data-variant`,
+     `data-slot`, `aria-*`, y los estilos `data-[state=…]:` que disparan.
+   - **Slots / sub-componentes**: partes que el spec deba modelar (p.ej. icon slots,
+     header/footer, indicator).
+   - **Props por defecto**: orientación por defecto, `defaultValue`, etc.
+
+3. Compara contra el spec `docs/components/<name>.md`:
+   - ¿La "Jerarquía de frames" refleja la misma estructura (mismo modelo de layout)?
+   - ¿Faltan variantes/orientaciones/slots que shadcn sí ofrece? (ej. Tabs `line`
+     variant, orientación vertical, icon slots — hoy no documentados).
+   - ¿El modelo de dimensionamiento del spec coincide (`w-fit`+`flex-1` vs fill vs
+     content-width)?
+   - **Cruza con `docs/design-reference.md` §9**: si una diferencia coincide con una
+     divergencia Craft documentada, NO es un gap — repórtala como
+     "✋ divergencia Craft intencional (§9) — sin acción".
+
+4. Reporte por componente (separado del de Parte 2):
+   ```
+   ## Tabs (estructural)
+   shadcn tabs.tsx:
+     TabsList: inline-flex w-fit            (spec dice full-width fill ⚠️ — pero
+                                             cubierto por §9 divergencia Craft ✋)
+     TabsTrigger: flex-1                    (—)
+     Variante `line` + orientación vertical (NO en spec ⚠️ — gap real)
+     Icon slots inline-start/end            (NO en spec ⚠️ — gap real)
+   ```
+
+5. Al final, lista los **gaps estructurales reales** (excluyendo divergencias §9)
+   con la sección del spec a actualizar. NO modifiques `Craft/components/*.lua`;
+   solo specs `.md`. Cambios de comportamiento que impliquen tocar código →
+   reportar al maintainer, no auto-aplicar.
+
+6. Pregunta al usuario qué specs actualizar.
+
+---
+
 ## Notas
 
-- Si style-lyra.css no es accesible (404, timeout), reportarlo y continuar solo con la Parte 1.
-- No modificar `Craft/components/*.lua` automáticamente — solo los specs `.md` y `Presets.lua`.
+- Las tres partes son independientes: si una fuente no es accesible (404, timeout),
+  reportarlo y continuar con las demás. Parte 1 (tokens) no depende de la red.
+- Si una URL del registro da 404, shadcn movió la ruta (han migrado `apps/www` →
+  `apps/v4`, `new-york` → `new-york-v4`). Reportar la nueva ruta y actualizar este
+  comando, no inventar valores.
+- No modificar `Craft/components/*.lua` automáticamente — solo los specs `.md` y
+  `Presets.lua`. La Parte 3 puede descubrir gaps que requieran cambios de código:
+  esos se **reportan al maintainer**, no se auto-aplican.
+- Recordatorio de capas: **Parte 2 = visual** (`style-lyra.css`), **Parte 3 =
+  estructura/comportamiento** (`.tsx`). Un sync que omita la Parte 3 repite el
+  error histórico de derivar layout sin contraste.
 - Hacer commit de todos los cambios al final con mensaje descriptivo.

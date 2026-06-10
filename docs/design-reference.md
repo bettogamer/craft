@@ -136,15 +136,15 @@ Define la **forma** de los componentes, no sus colores:
 | `--card-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
 | `--popover` | oklch(0.205 0 0) | #171717 | neutral | `{r=0.091, g=0.091, b=0.091, a=1}` |
 | `--popover-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
-| `--primary` | oklch(0.432 0.095 166.913) | #065f46 | emerald-800 | `{r=0.024, g=0.373, b=0.275, a=1}` |
-| `--primary-foreground` | oklch(0.979 0.021 166.113) | #ecfdf5 | emerald-50 | `{r=0.925, g=0.992, b=0.961, a=1}` |
+| `--primary` | oklch(0.432 0.095 166.913) | #006b55 | emerald-800 | `{r=0.000, g=0.378, b=0.271, a=1}` |
+| `--primary-foreground` | oklch(0.979 0.021 166.113) | #ecfdf5 | emerald-50 | `{r=0.924, g=0.992, b=0.960, a=1}` |
 | `--secondary` | oklch(0.274 0.006 286.033) | #27272a | zinc-800 | `{r=0.153, g=0.153, b=0.165, a=1}` |
 | `--secondary-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
-| `--muted` | oklch(0.269 0 0) | #262626 | neutral | `{r=0.150, g=0.150, b=0.150, a=1}` |
+| `--muted` | oklch(0.269 0 0) | #262626 | neutral | `{r=0.149, g=0.149, b=0.149, a=1}` |
 | `--muted-foreground` | oklch(0.708 0 0) | #a3a3a3 | neutral-400 | `{r=0.630, g=0.630, b=0.630, a=1}` |
-| `--accent` | oklch(0.269 0 0) | #262626 | neutral | `{r=0.150, g=0.150, b=0.150, a=1}` |
+| `--accent` | oklch(0.269 0 0) | #262626 | neutral | `{r=0.149, g=0.149, b=0.149, a=1}` |
 | `--accent-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
-| `--destructive` | oklch(0.704 0.191 22.216) | #f87171 | red-400 | `{r=0.973, g=0.443, b=0.443, a=1}` |
+| `--destructive` | oklch(0.704 0.191 22.216) | #ff6464 | red-400 | `{r=1.000, g=0.391, b=0.404, a=1}` |
 | `--border` | oklch(1 0 0 / 10%) | white 10% | — | `{r=1.000, g=1.000, b=1.000, a=0.100}` |
 | `--input` | oklch(1 0 0 / 15%) | white 15% | — | `{r=1.000, g=1.000, b=1.000, a=0.150}` |
 | `--ring` | oklch(0.556 0 0) | #737373 | neutral-500 | `{r=0.452, g=0.452, b=0.452, a=1}` |
@@ -152,7 +152,7 @@ Define la **forma** de los componentes, no sus colores:
 | `--sidebar-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
 | `--sidebar-primary` | oklch(0.696 0.17 162.48) | #10b981 | emerald-500 | `{r=0.063, g=0.725, b=0.506, a=1}` |
 | `--sidebar-primary-foreground` | oklch(0.262 0.051 172.552) | #022c22 | emerald-950 | `{r=0.008, g=0.173, b=0.133, a=1}` |
-| `--sidebar-accent` | oklch(0.269 0 0) | #262626 | neutral | `{r=0.150, g=0.150, b=0.150, a=1}` |
+| `--sidebar-accent` | oklch(0.269 0 0) | #262626 | neutral | `{r=0.149, g=0.149, b=0.149, a=1}` |
 | `--sidebar-accent-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
 | `--sidebar-border` | oklch(1 0 0 / 10%) | white 10% | — | `{r=1.000, g=1.000, b=1.000, a=0.100}` |
 | `--sidebar-ring` | oklch(0.556 0 0) | #737373 | neutral-500 | `{r=0.452, g=0.452, b=0.452, a=1}` |
@@ -355,9 +355,47 @@ CraftPresets["lyra-light"] = {
 
 ---
 
-## 9. Registro de cambios
+## 9. Divergencias deliberadas de shadcn (decisiones Craft)
+
+Registro único de comportamientos donde Craft se aparta a propósito de shadcn,
+normalmente porque el sandbox de WoW no tiene el equivalente (no hay
+`text-overflow: ellipsis`, no hay scroll-area nativo, el ancho del frame se
+resuelve tras la creación, etc.).
+
+**Regla para `/update-design-tokens` y futuras sincronizaciones:** antes de
+proponer un cambio a un componente listado aquí, verificar esta tabla. Si el
+cambio entraría en conflicto con la divergencia documentada, **no aplicarlo** sin
+aprobación explícita del maintainer — la divergencia es intencional, no un gap.
+
+| Componente | shadcn | Craft (decisión) | Razón |
+|---|---|---|---|
+| **Tabs** — overflow de triggers | Triggers ancho-contenido en una sola fila; el overflow se desborda / el dev usa `grid` o `scroll-area`. shadcn **no** hace wrap. | Triggers ancho-contenido que **hacen wrap a filas adicionales** cuando no caben; la barra (`_list`) crece en alto por fila. | WoW no tiene `text-overflow: ellipsis` ni scroll-area nativo. El fill a ancho igual aplastaba el texto (muchos tabs) o lo dejaba flotando (pocos). Wrap degrada bien en ambos extremos y `Craft.Flex` ya lo soporta. Ver `docs/components/tabs.md`. |
+| **Slider** — gaps de labels | Gaps simétricos derivados del line-height/espaciado de Radix. | Gaps **asimétricos** (`LABEL_PAD_TOP=8`, `LABEL_PAD_BOT=6`). | Ajuste óptico para los FontStrings de WoW (métricas de fuente distintas a CSS). Ver `Craft/components/Slider.lua`. |
+
+### 9.1 Features de shadcn no implementadas en el MVP (omisiones conocidas)
+
+A diferencia de las divergencias de arriba (Craft hace algo **distinto** a
+propósito), estas son features que shadcn **sí** ofrece y que Craft **aún no**
+implementa. No son bugs ni gaps de sincronización: son decisiones de alcance MVP.
+Documentadas para que un `/update-design-tokens` no las reporte como sorpresa y
+para que entren al roadmap de forma explícita si se deciden. Detalle inline en
+cada spec bajo "Diferencias conocidas vs shadcn".
+
+| Componente | Feature shadcn no implementada | Impacto |
+|---|---|---|
+| **Tabs** | Variante `line`, orientación **vertical** (icon slots ✅ implementados v1.1) | Medio |
+| **Sidebar** | Variantes `floating`/`inset`, collapse modes (`offcanvas`/`icon`), `SidebarTrigger`, `SidebarRail`, sub-menús, slots action/badge, skeleton | Alto (simplificación MVP deliberada) |
+| **Panel** | Slot `CardAction` (área top-right del header para acciones/badges) | Medio |
+| **Dialog** | `DialogClose` como sub-componente reutilizable (Craft integra el botón de cierre en el header) | Bajo |
+| **Select** | `SelectGroup` / `SelectLabel` / `SelectSeparator` (opciones agrupadas); Craft solo soporta lista plana | Medio |
+| **Scroll** | Scroll **horizontal** (`scroll-area` lo soporta en ambos ejes); Craft.Scroll es solo vertical | Bajo |
+| **Tooltip** | Flecha (`.cn-tooltip-arrow`) y animaciones de entrada (fade/zoom/slide); Craft omite ambas | Bajo |
+
+## 10. Registro de cambios
 
 | Versión | Fecha | Autor | Cambio |
 |---------|-------|-------|--------|
 | v0.1 | 30/05/2026 | Alberto Gomez | Borrador con valores estimados de Tailwind v4 |
 | v1.0 | 30/05/2026 | Alberto Gomez | Reescrito con CSS exacto de ui.shadcn.com/create (Style=Lyra, Base=Zinc, Theme=Emerald). Valores definitivos. |
+| v1.1 | 08/06/2026 | bettogamer | Añadida §9 Divergencias deliberadas de shadcn (Tabs wrap, Slider gaps). |
+| v1.2 | 08/06/2026 | bettogamer | Tokens dark actualizados (primary, destructive). Añadida §9.1 omisiones conocidas (Tabs line/vertical/icons, Sidebar subset, Panel CardAction, Dialog DialogClose). |

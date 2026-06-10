@@ -4,6 +4,82 @@ Todos los cambios notables de Craft se documentan aquí.
 Formato: [Keep a Changelog](https://keepachangelog.com/es/1.0.0/)
 Versioning: [SemVer](https://semver.org/lang/es/)
 
+## [Unreleased]
+
+### Added
+- Dialog: **overlay modal** (`.cn-dialog-overlay`, `bg-black/10`) — un backdrop
+  full-screen que atenúa y **bloquea clics** a la UI de fondo (dialog ahora modal). El
+  dialog pasó a strata DIALOG (sobre el overlay HIGH); visibilidad sincronizada vía
+  `OnShow`/`OnHide` (cubre X, Escape, Hide, Toggle).
+- Tabs: **icon slots** — ícono Lucide opcional antes del label vía
+  `AddTab(id, label, { icon = "<name>" })` o `tabs[i].icon`. Se tinta al color
+  del texto del trigger (activo/inactivo). Aprovecha `Craft.Icons`.
+- Tabs: **`RemoveTab(id)`** — inverso de `AddTab`; quita trigger + content frame,
+  reactiva la primera tab restante si la removida era la activa, y reflowea.
+
+### Fixed
+- Panel: `SetClipsChildren(true)` (`overflow-hidden` del `cn-card`) — el contenido que
+  excede el panel se recorta. Spec alineado (Panel es dev-sized, no auto-crece; tokens
+  refrescados; title usa `cardForeground`).
+- Dialog: los botones del footer se salían del diálogo. (1) La altura del frame era
+  **fija** (120px) y el contenido se estiraba entre header y footer → con header+footer
+  > 120 el área de contenido colapsaba; ahora el frame es **grow-to-fit** (crece para
+  acomodar header + content + footer, contenido con altura fijada por el dev). (2) El
+  showcase anclaba los botones con `y=-16` (debajo del centro del footer); ahora van
+  centrados. `Show()` recalcula el layout antes de mostrar.
+- Tooltip: con ícono, el texto corto quedaba flotando lejos del ícono (gap largo).
+  El FontString conservaba el ancho de medición (~198px) y, con ancla única, el texto
+  no-izquierdo se centraba en esa caja. Ahora se fuerza `JustifyH=LEFT` y la caja se
+  ajusta al ancho real del texto.
+- Sidebar: alineado a shadcn — section labels **sin uppercase** (se mostraban en
+  mayúsculas), item activo en **negrita** (`data-active:font-medium`), y `group { p-2 }`
+  **implementado** (cada grupo se insetea 8px → contenido a 16px y resaltados inset, con
+  padding vertical entre grupos). Tokens stale del spec refrescados.
+- Slider: el thumb ahora tiene `SetHitRectInsets(-8)` (réplica de `after:-inset-2`)
+  para que el thumb de 12px sea fácil de agarrar. El spec se reescribió a la
+  arquitectura real **pure-custom** (estaba documentando el `Slider` nativo que se
+  abandonó por el bug #3 — riesgo de reintroducirlo); alturas de frame corregidas
+  (16/30/28/42), disabled (`opacity-50`, no recolor), tokens stale.
+- Select: el item seleccionado ahora se marca **solo con checkmark** (como shadcn),
+  sin fondo `t.primary`. Panel respeta el piso `min-w-36` (144px). Hover de item
+  aplica `accent-foreground` al texto. (El borde del trigger ya usaba `t.input`
+  correctamente; se corrigió el spec que decía `t.border`.)
+- Input: el borde **default** usaba `t.border` (@0.10) en vez de `t.input` (@0.15) —
+  el CSS dice `border-input` (mismo desliz que Checkbox). Además, safeguard del
+  placeholder: se re-ancla en `OnSizeChanged` para blindar contra el bug #2 (texto
+  invisible hasta `/reload` si el frame tiene width 0 al crear).
+- Checkbox: el borde **unchecked** usaba `t.border` (blanco @ 0.10) en vez de
+  `t.input` (@ 0.15) — el CSS dice `border-input`. Ahora coincide con shadcn y con
+  el borde de Button `outline`. (Ícono check/dash migrado a la API de display-size.)
+- Button: el hover de `secondary` se **deriva de tokens** (`mix(secondary, foreground, 5%)`)
+  en vez de un RGBA hardcodeado — cumple el invariante de §6 y no se desincroniza si
+  cambian los tokens. Padding de ícono ahora **asimétrico** (solo se reduce el lado del
+  ícono, como shadcn/spec), antes reducía ambos lados.
+- Iconos pixelados/delgados en WoW: el atlas pasó a **supersampled** — un solo
+  `lucide.tga` (512×512, celdas de 64px, ícono renderizado a 56px + gutter de 4px)
+  en vez de dos atlas pixel-exactos 16/24px. WoW reduce al tamaño de display, así que
+  los íconos quedan nítidos a cualquier UIScale/DPI (antes una textura "de 16px" se
+  magnificaba con el UIScale y se veía borrosa, y los trazos finos de Lucide salían
+  delgados). El fallback `pycairo` ahora aproxima curvas con 64 segmentos (antes 20).
+
+### Changed
+- Icons API: `Get`/`Apply` toman el **tamaño de display** (el atlas es agnóstico al
+  tamaño); `Icons._atlas` + `_div` reemplazan `_atlas16`/`_atlas24`. `lucide.tga`
+  reemplaza `lucide-16/24.tga` (CI y deploy-local actualizados).
+- Tabs: modelo de dimensionamiento ancho-contenido + wrap. Cada trigger se
+  dimensiona a su texto (antes se estiraban a ancho igual, contradiciendo el
+  spec); cuando no caben en una fila hacen wrap a filas adicionales y la barra
+  crece en alto. Degrada bien con pocos o muchos tabs.
+- Flex: nuevos `GetContentCross()` y `GetLineCount()` exponen el tamaño y número
+  de filas del último layout con wrap (permiten a contenedores como Tabs crecer
+  para acomodar las filas).
+- `/update-design-tokens`: nueva Parte 3 que sincroniza la capa estructural y de
+  comportamiento desde el código fuente `.tsx` del registro shadcn (primitiva,
+  modelo de layout, variantes, orientación, data-attrs). Antes solo leíamos
+  `style-lyra.css`, que no expone estructura — origen de la deriva en Tabs.
+- `docs/design-reference.md` §9: registro de divergencias deliberadas de shadcn
+  (Tabs wrap, Slider gaps) que el sync debe respetar.
+
 ## [1.0.0] - 2026-06-06
 
 ### Added

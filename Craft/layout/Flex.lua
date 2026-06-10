@@ -189,6 +189,8 @@ function Flex:Layout()
         end
         if #currentLine > 0 then table.insert(lines, currentLine) end
 
+        self._lineCount = #lines  -- exposed via GetLineCount()
+
         -- Lay out each line with flex-start; accumulated Y offset per line
         local yOffset = pV
         for _, line in ipairs(lines) do
@@ -221,6 +223,10 @@ function Flex:Layout()
             end
             yOffset = yOffset + lineHeight + gap
         end
+        -- Total cross-axis extent consumed (both paddings included). For row
+        -- direction this is the height the container needs to fit every line.
+        -- yOffset = pV + ΣlineHeight + lines*gap → subtract the trailing gap, add pV.
+        self._contentCross = yOffset - gap + pV
         return  -- skip normal layout
     end
 
@@ -313,6 +319,20 @@ function Flex:Layout()
             cursor = cursor + itemMain + itemGap
         end
     end
+end
+
+-- ─── GetContentCross() ─────────────────────────────────────────────────────
+-- Total cross-axis size (height for row, width for column) consumed by the last
+-- wrap Layout(), padding included. Lets a wrapping container (e.g. Tabs) grow to
+-- fit every line. Returns 0 until a wrap Layout() has run.
+function Flex:GetContentCross()
+    return self._contentCross or 0
+end
+
+-- ─── GetLineCount() ────────────────────────────────────────────────────────
+-- Number of lines produced by the last wrap Layout() (1 if it fit on one line).
+function Flex:GetLineCount()
+    return self._lineCount or 1
 end
 
 -- ─── GetItems() ────────────────────────────────────────────────────────────

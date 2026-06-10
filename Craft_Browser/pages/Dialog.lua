@@ -31,18 +31,20 @@ CraftBrowserPages["Dialog"] = {
 
         local footer = dlg:GetFooter()
         if footer then
-            local btnCancel = Craft.Button:Create(footer, { text="Cancel", variant="outline" })
-            btnCancel:GetFrame():SetPoint("RIGHT", footer, "RIGHT", -96, -16)
-            btnCancel:GetFrame():SetScript("OnClick", function() dlg:Hide() end)
-            table.insert(comps, btnCancel)
-
+            -- Confirm anchored to the footer's right; Cancel to Confirm's left.
+            -- Vertically centered (y=0) so they stay inside the footer.
             local btnConfirm = Craft.Button:Create(footer, { text="Confirm", variant="default" })
-            btnConfirm:GetFrame():SetPoint("RIGHT", footer, "RIGHT", -16, -16)
+            btnConfirm:GetFrame():SetPoint("RIGHT", footer, "RIGHT", -16, 0)
             btnConfirm:GetFrame():SetScript("OnClick", function()
                 print("Dialog confirmed")
                 dlg:Hide()
             end)
             table.insert(comps, btnConfirm)
+
+            local btnCancel = Craft.Button:Create(footer, { text="Cancel", variant="outline" })
+            btnCancel:GetFrame():SetPoint("RIGHT", btnConfirm:GetFrame(), "LEFT", -8, 0)
+            btnCancel:GetFrame():SetScript("OnClick", function() dlg:Hide() end)
+            table.insert(comps, btnCancel)
         end
         table.insert(comps, dlg)
 

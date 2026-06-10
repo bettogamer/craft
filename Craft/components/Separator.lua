@@ -5,6 +5,7 @@
 --   .cn-separator-horizontal { @apply h-px w-full; }
 --   .cn-separator-vertical   { @apply h-full w-px; }
 
+local Craft = LibStub("Craft-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Separator = {}

@@ -7,6 +7,7 @@
 --   .cn-dialog-title    { @apply text-sm font-medium; }       -- 14px
 --   .cn-dialog-description { @apply text-muted-foreground text-xs/relaxed; }
 
+local Craft = LibStub("Craft-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Dialog = {}
@@ -44,10 +45,27 @@ function Dialog:Create(parent, config)
     -- Named frame required for UISpecialFrames (closeOnEscape).
     local frameName = "CraftDialog_" .. self._instanceId
     self.frame = CreateFrame("Frame", frameName, parent or UIParent)
-    self.frame:SetFrameStrata("HIGH")
+    self.frame:SetFrameStrata("DIALOG")  -- above the HIGH-strata modal overlay
     self.frame:SetWidth(WIDTHS[self._cfg.size] or WIDTHS.default)
     -- Height is initially set to a sensible minimum; it grows via _layoutFrames.
     self.frame:SetHeight(120)
+
+    -- ── Modal overlay (backdrop) ─────────────────────────────────────────────
+    -- shadcn .cn-dialog-overlay (bg-black/10): dims and blocks the UI behind the
+    -- dialog. WoW has no backdrop-blur, so it's the flat black/10 fill only.
+    -- Strata HIGH (the dialog is DIALOG, above it) so it covers normal addon UI.
+    self._overlay = CreateFrame("Frame", nil, UIParent)
+    self._overlay:SetFrameStrata("HIGH")
+    self._overlay:SetAllPoints(UIParent)
+    self._overlay:EnableMouse(true)   -- modal: swallow clicks to the UI behind
+    self._overlay:Hide()
+    local overlayTex = self._overlay:CreateTexture(nil, "BACKGROUND")
+    overlayTex:SetAllPoints(self._overlay)
+    overlayTex:SetColorTexture(0, 0, 0, 0.10)  -- bg-black/10
+
+    -- Mirror overlay visibility to the dialog (covers X, Escape, Hide(), Toggle()).
+    self.frame:HookScript("OnShow", function() self._overlay:Show() end)
+    self.frame:HookScript("OnHide", function() self._overlay:Hide() end)
 
     -- Drag behaviour (full dialog is the movable unit)
     self.frame:SetMovable(true)
@@ -216,19 +234,29 @@ function Dialog:_layoutFrames(t)
     headerH = headerH + sm  -- padding bottom
     self._header:SetHeight(headerH)
 
-    -- ── Content ────────────────────────────────────────────────────────────
+    -- ── Content + footer: grow-to-fit ─────────────────────────────────────
+    -- The dialog height is COMPUTED from its parts (header + gap + content +
+    -- gap + footer), not fixed. Content has the height the dev set on it via
+    -- GetContent():SetHeight(); footer keeps its ShowFooter() height. This is
+    -- the "altura automática según contenido" the spec describes — the old fixed
+    -- 120px frame squeezed content to a negative size when header+footer exceeded it.
+    local contentH = self._content:GetHeight() or 0
     self._content:ClearAllPoints()
-    self._content:SetPoint("LEFT",  self.frame, "LEFT",  lg, 0)
-    self._content:SetPoint("RIGHT", self.frame, "RIGHT", -lg, 0)
-    -- Top: below header (header bottom) + gap-4
-    self._content:SetPoint("TOP", self._header, "BOTTOM", 0, -lg)
+    self._content:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",   lg, -(headerH + lg))
+    self._content:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -lg, -(headerH + lg))
 
-    local hasFooter = self._footer:IsShown()
-    if hasFooter then
-        self._content:SetPoint("BOTTOM", self._footer, "TOP", 0, lg)
+    local totalH = headerH + lg + contentH
+    if self._footer:IsShown() then
+        local footerH = self._footer:GetHeight() or 0
+        self._footer:ClearAllPoints()
+        self._footer:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, -(headerH + lg + contentH + lg))
+        self._footer:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, -(headerH + lg + contentH + lg))
+        totalH = totalH + lg + footerH
     else
-        self._content:SetPoint("BOTTOM", self.frame, "BOTTOM", 0, lg)
+        totalH = totalH + lg   -- bottom padding when there's no footer
     end
+
+    self.frame:SetHeight(math.max(totalH, 48))
 end
 
 -- ─── Theme ─────────────────────────────────────────────────────────────────
@@ -316,8 +344,10 @@ function Dialog:HideFooter()
     end
 end
 
--- Shows the dialog.
+-- Shows the dialog. Re-runs the layout first so the height reflects any content/
+-- footer size the dev set after Create() (grow-to-fit).
 function Dialog:Show()
+    if self._t then self:_layoutFrames(self._t) end
     self.frame:Show()
 end
 
@@ -339,7 +369,11 @@ end
 function Dialog:Destroy()
     if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
-    self.frame:Hide()
+    self.frame:Hide()  -- triggers OnHide → overlay hidden
+    if self._overlay then
+        self._overlay:Hide()
+        self._overlay = nil
+    end
     self.frame = nil
 end
 

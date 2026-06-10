@@ -9,6 +9,7 @@
 --   .cn-card-content    { @apply px-4; }
 --   .cn-card-footer     { @apply border-t p-4; }
 
+local Craft = LibStub("Craft-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Panel = {}
@@ -33,6 +34,7 @@ function Panel:Create(parent, config)
     self.frame = CreateFrame("Frame", nil, parent)
     if self._cfg.width  then self.frame:SetWidth(self._cfg.width)   end
     if self._cfg.height then self.frame:SetHeight(self._cfg.height) end
+    self.frame:SetClipsChildren(true)  -- overflow-hidden (cn-card)
 
     -- ── Ring: textura sobre el frame exterior (ring-1 ring-foreground/10) ──
     -- Pattern: _ringTex painted on the frame's outermost layer (BACKGROUND -1),

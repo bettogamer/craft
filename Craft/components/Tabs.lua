@@ -4,12 +4,18 @@
 --   .cn-tabs-list    { @apply rounded-none p-[3px] group-data-horizontal/tabs:h-8; }
 --   .cn-tabs-trigger { @apply gap-1.5 rounded-none border border-transparent px-1.5 py-0.5 text-xs font-medium; }
 --
--- List: h=32px, padding=3px
+-- List: h=32px (single row), padding=3px
 -- Trigger: px=6px, py=2px, text-xs=12px, border-transparent default
 -- Active: bg=t.secondary, text=t.foreground
 -- Inactive: text=t.mutedForeground
 -- List bg: t.muted
 -- No underline indicator (Lyra uses data-active bg change only)
+--
+-- Sizing model: each trigger is content-width (text + horizontal padding), laid
+-- out left-aligned via Craft.Flex (grow=0, shrink=0). When the triggers no longer
+-- fit on one line they wrap to additional rows (flex wrap="wrap") and the list bar
+-- grows in height to fit them. Faithful to shadcn (triggers size to content) and
+-- degrades gracefully with few or many tabs. See docs/components/tabs.md.
 
 local Craft = LibStub("Craft-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
@@ -21,8 +27,12 @@ Tabs.__index = Tabs
 -- h-8 = 32px, p-[3px] = 3px, px-1.5 = 6px, py-0.5 = 2px
 local LIST_H       = 32
 local LIST_PAD     = 3   -- internal padding in the list bar
+local TRIGGER_PX   = 6   -- horizontal padding inside each trigger (px-1.5)
 local TRIGGER_PY   = 2   -- luacheck: ignore 211
 local FONT_SIZE    = 12  -- text-xs
+local TRIGGER_H    = LIST_H - LIST_PAD * 2  -- 26px inner trigger height
+local ICON_SIZE    = 16  -- size-4 — Lucide 16px atlas
+local ICON_GAP     = 6   -- gap-1.5 between icon and label
 
 -- ─── Create ────────────────────────────────────────────────────────────────
 function Tabs:Create(parent, config)
@@ -45,9 +55,12 @@ function Tabs:Create(parent, config)
     self._list:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
     self._list:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
 
-    -- Flex layout: row, flex-1 per trigger (equal width), align=stretch (fills LIST_H-padding)
+    -- Flex layout: row, content-width triggers, left-aligned, wrap to new rows on
+    -- overflow. align=stretch fits each trigger to its line height.
     self._flex = Craft.Flex.new(self._list, {
         direction = "row",
+        wrap      = "wrap",
+        justify   = "flex-start",
         align     = "stretch",
         paddingH  = LIST_PAD,
         paddingV  = LIST_PAD,
@@ -70,8 +83,9 @@ function Tabs:Create(parent, config)
     self._content:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0,  0)
 
     -- Re-layout when container width changes (e.g. after SetWidth from caller).
-    self.frame:HookScript("OnShow", function() self._flex:Layout() end)
-    self._list:SetScript("OnSizeChanged", function() self._flex:Layout() end)
+    -- Width changes may add/remove wrapped rows, so the list height is recomputed.
+    self.frame:HookScript("OnShow", function() self:_relayout() end)
+    self._list:SetScript("OnSizeChanged", function() self:_relayout() end)
 
     -- Register theming
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
@@ -80,7 +94,7 @@ function Tabs:Create(parent, config)
     -- Add initial tabs from config
     if config.tabs then
         for _, tabDef in ipairs(config.tabs) do
-            self:AddTab(tabDef.id, tabDef.label)
+            self:AddTab(tabDef.id, tabDef.label, { icon = tabDef.icon })
         end
     end
 
@@ -97,8 +111,12 @@ function Tabs:Create(parent, config)
 end
 
 -- ─── AddTab ────────────────────────────────────────────────────────────────
-function Tabs:AddTab(id, label)
+-- opts (optional): { icon = "<lucide-name>" }. The icon renders before the label
+-- (gap-1.5) and is tinted to the trigger's text color. Unknown icon names are
+-- ignored (no icon shown), mirroring Craft.Button.
+function Tabs:AddTab(id, label, opts)
     if self._buttons[id] then return end  -- already exists
+    opts = opts or {}
 
     -- Content frame for this tab
     local contentFrame = CreateFrame("Frame", nil, self._content)
@@ -106,15 +124,39 @@ function Tabs:AddTab(id, label)
     contentFrame:Hide()
     self._frames[id] = contentFrame
 
-    -- Trigger button — height and width managed by Flex (grow=1, align=stretch)
+    -- Trigger button — content width (icon + text + horizontal padding), fixed
+    -- inner height. Flex lays them out left-aligned and wraps to new rows on overflow.
     local btn = CreateFrame("Button", nil, self._list)
+    btn:SetHeight(TRIGGER_H)
 
     local btnText = btn:CreateFontString(nil, "OVERLAY")
     if self._t then
         btnText:SetFont(self._t.font, FONT_SIZE)
     end
     btnText:SetText(label or id)
-    btnText:SetPoint("CENTER", btn, "CENTER")
+
+    -- Optional Lucide icon before the label. Tinted to the text color in
+    -- _styleButton. Absent when opts.icon is nil or not present in the atlas.
+    local icon
+    if opts.icon and Craft.Icons.Has(opts.icon) then
+        icon = btn:CreateTexture(nil, "ARTWORK")
+        Craft.Icons.Apply(icon, opts.icon, ICON_SIZE)
+        icon:SetSize(ICON_SIZE, ICON_SIZE)
+    end
+
+    -- Position the content group and derive the trigger width. The font is set
+    -- above (theme is applied before tabs are added in Create), so GetStringWidth()
+    -- is valid. The group is left-anchored with TRIGGER_PX padding; since the width
+    -- hugs the content + TRIGGER_PX on each side, it ends up horizontally centered.
+    local textW = math.max(btnText:GetStringWidth(), 1)
+    if icon then
+        icon:SetPoint("LEFT", btn, "LEFT", TRIGGER_PX, 0)
+        btnText:SetPoint("LEFT", icon, "RIGHT", ICON_GAP, 0)
+        btn:SetWidth(ICON_SIZE + ICON_GAP + textW + TRIGGER_PX * 2)
+    else
+        btnText:SetPoint("CENTER", btn, "CENTER")
+        btn:SetWidth(textW + TRIGGER_PX * 2)
+    end
 
     -- Border textures (transparent by default, solid on active)
     local borderTop    = btn:CreateTexture(nil, "BORDER")
@@ -124,6 +166,7 @@ function Tabs:AddTab(id, label)
 
     -- Store references on button for refresh
     btn._text        = btnText
+    btn._icon        = icon
     btn._borderTop   = borderTop
     btn._borderBottom = borderBottom
     btn._borderLeft  = borderLeft
@@ -142,14 +185,32 @@ function Tabs:AddTab(id, label)
     self._buttons[id] = btn
     table.insert(self._tabs, { id = id, label = label or id })
 
-    -- Register with Flex (grow=1 → equal width, align=stretch handles height)
-    self._flex:Add(btn, { grow = 1, shrink = 1, basis = 0 })
-    self._flex:Layout()
+    -- Register with Flex (content width: no grow, no shrink → wraps on overflow)
+    self._flex:Add(btn, { grow = 0, shrink = 0, basis = "auto" })
+    self:_relayout()
 
     -- Apply theme to the new button
     if self._t then
         self:_styleButton(btn, false)
     end
+end
+
+-- ─── _relayout ─────────────────────────────────────────────────────────────
+-- Re-runs the flex layout and grows the list bar to fit any wrapped rows.
+-- Setting the list height re-fires OnSizeChanged; the reentrancy guard makes the
+-- second pass a no-op once the height has settled.
+function Tabs:_relayout()
+    if not self._flex or self._inLayout then return end
+    -- Width may still be 0 during Create() (caller sets it afterwards). Wrapping
+    -- needs the real width; OnSizeChanged re-runs this once the anchor resolves.
+    if (self._list:GetWidth() or 0) <= 0 then return end
+    self._inLayout = true
+    self._flex:Layout()
+    local h = self._flex:GetContentCross()
+    if h and h > 0 then
+        self._list:SetHeight(h)
+    end
+    self._inLayout = false
 end
 
 -- ─── _styleButton ─────────────────────────────────────────────────────────
@@ -191,6 +252,7 @@ function Tabs:_styleButton(btn, isActive)
         btn._bg:Show()
 
         btn._text:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
+        if btn._icon then btn._icon:SetVertexColor(t.foreground.r, t.foreground.g, t.foreground.b, 1) end
 
         local bi = t.input  -- white a=0.15
         btn._borderTop:SetColorTexture(bi.r, bi.g, bi.b, bi.a)
@@ -201,6 +263,7 @@ function Tabs:_styleButton(btn, isActive)
         -- Inactive: transparent bg, muted text, no border
         if btn._bg then btn._bg:SetColorTexture(0, 0, 0, 0) end
         btn._text:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+        if btn._icon then btn._icon:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1) end
 
         btn._borderTop:SetColorTexture(0, 0, 0, 0)
         btn._borderBottom:SetColorTexture(0, 0, 0, 0)
@@ -282,6 +345,47 @@ end
 
 function Tabs:GetActiveTab()
     return self._activeId
+end
+
+-- ─── RemoveTab ─────────────────────────────────────────────────────────────
+-- Removes a tab's trigger and its content frame, then reflows the bar. If the
+-- removed tab was active, the first remaining tab becomes active (or none if it
+-- was the last). No-op if the id doesn't exist.
+function Tabs:RemoveTab(id)
+    local btn = self._buttons[id]
+    if not btn then return end
+
+    -- Take it out of the flex layout and hide it (WoW frames aren't destroyed).
+    self._flex:Remove(btn)
+    btn:Hide()
+    btn:ClearAllPoints()
+    self._buttons[id] = nil
+
+    local frame = self._frames[id]
+    if frame then
+        frame:Hide()
+        frame:ClearAllPoints()
+        self._frames[id] = nil
+    end
+
+    -- Drop it from the ordered list
+    for i, tabDef in ipairs(self._tabs) do
+        if tabDef.id == id then
+            table.remove(self._tabs, i)
+            break
+        end
+    end
+
+    -- If it was active, fall back to the first remaining tab (or clear).
+    if self._activeId == id then
+        self._activeId = nil
+        local nextTab = self._tabs[1]
+        if nextTab then
+            self:SetActiveTab(nextTab.id)
+        end
+    end
+
+    self:_relayout()
 end
 
 -- Returns the content Frame for a specific tab id.

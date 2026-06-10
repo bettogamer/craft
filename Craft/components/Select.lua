@@ -36,6 +36,7 @@ local ITEM_PR         = 32   -- pr-8 (reserves space for checkmark)
 local ITEM_FONT       = 12   -- text-xs
 local MAX_ITEMS_VIS   = 6    -- max visible before scrolling
 local CHECK_SIZE      = 12   -- checkmark icon 12px
+local MIN_PANEL_W     = 144  -- min-w-36 — panel never narrower than this
 
 
 -- ─── Create ───────────────────────────────────────────────────────────────────
@@ -213,18 +214,19 @@ function Select:_buildItems()
         -- Hover and click scripts
         local optValue = opt.value
         local optLabel = opt.label
+        -- Hover = focus:bg-accent focus:text-accent-foreground; leave restores the
+        -- normal popover text. Selection is shown by the checkmark, never by bg.
         itemFrame:SetScript("OnEnter", function()
             local tt = self._t
-            if tt then itemBg:SetColorTexture(tt.accent.r, tt.accent.g, tt.accent.b, 1) end
+            if tt then
+                itemBg:SetColorTexture(tt.accent.r, tt.accent.g, tt.accent.b, 1)
+                itemText:SetTextColor(tt.accentForeground.r, tt.accentForeground.g, tt.accentForeground.b)
+            end
         end)
         itemFrame:SetScript("OnLeave", function()
             local tt = self._t
-            if not tt then return end
-            if self._cfg.value == optValue then
-                itemBg:SetColorTexture(tt.primary.r, tt.primary.g, tt.primary.b, 1)
-            else
-                itemBg:SetColorTexture(0, 0, 0, 0)
-            end
+            itemBg:SetColorTexture(0, 0, 0, 0)
+            if tt then itemText:SetTextColor(tt.popoverForeground.r, tt.popoverForeground.g, tt.popoverForeground.b) end
         end)
         itemFrame:SetScript("OnClick", function()
             self:SetValue(optValue)
@@ -257,16 +259,16 @@ end
 function Select:_refreshItemStates()
     local t = self._t
     if not t then return end
+    -- shadcn marks the selected item with the check indicator only — no bg highlight.
+    -- The row differs from the others solely by the visible checkmark.
     for _, item in ipairs(self._items) do
         if item.value == self._cfg.value then
             item.checkmark:Show()
-            item.bg:SetColorTexture(t.primary.r, t.primary.g, t.primary.b, 1)
-            item.text:SetTextColor(t.primaryForeground.r, t.primaryForeground.g, t.primaryForeground.b)
         else
             item.checkmark:Hide()
-            item.bg:SetColorTexture(0, 0, 0, 0)
-            item.text:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
         end
+        item.bg:SetColorTexture(0, 0, 0, 0)
+        item.text:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
     end
 end
 
@@ -349,7 +351,8 @@ function Select:_updatePanelSize()
     local numItems  = #self._cfg.options
     local visItems  = math.min(numItems, MAX_ITEMS_VIS)
     local panelH    = visItems * ITEM_HEIGHT + 2  -- +2 for the 1px ring top+bottom
-    local panelW    = self._trigger:GetWidth() or 160
+    -- min-w-36 (144px) floor like shadcn's content, else match the trigger width
+    local panelW    = math.max(self._trigger:GetWidth() or 0, MIN_PANEL_W)
 
     self._panel:SetSize(panelW, panelH)
 

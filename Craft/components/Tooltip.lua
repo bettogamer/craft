@@ -4,8 +4,11 @@
 --   .cn-tooltip-content { @apply inline-flex items-center gap-1.5 rounded-none px-3 py-1.5 text-xs; }
 --
 -- px=12px, py=6px, gap=6px, text-xs=12px, rounded-none
--- bg: t.popover, text: t.popoverForeground
--- No arrow decoration (Lyra rounded-none style)
+-- bg: t.popover, text: t.popoverForeground (Craft decision: cohesive with Select/Dialog
+--   popovers; the Lyra tooltip bg is unverified — .cn-tooltip-content declares none and
+--   the new-york base uses bg-foreground/inverted).
+-- No arrow: shadcn Lyra HAS a tooltip arrow (.cn-tooltip-arrow); Craft omits it (MVP).
+-- No entrance animation: shadcn fades/zooms/slides in; Craft shows instantly (MVP).
 -- Delay: 300ms via C_Timer.After
 -- Singleton pattern: one shared frame for the entire UI
 -- Offset: 4px from anchor
@@ -56,6 +59,7 @@ local function _getTooltipFrame()
     -- Text label
     _tooltip._text = _tooltip:CreateFontString(nil, "OVERLAY")
     _tooltip._text:SetWordWrap(true)
+    _tooltip._text:SetJustifyH("LEFT")  -- else short text floats to the box centre (icon case)
 
     -- Register global theme listener (once, never unregistered — singleton lives forever)
     Craft.Theme.register(function(t)
@@ -125,8 +129,13 @@ local function _layoutTooltip(config)
     f._icon:ClearAllPoints()
 
     if icon then
-        Craft.Icons.Apply(f._icon, icon, 16)
+        Craft.Icons.Apply(f._icon, icon, FONT_SIZE)
         f._icon:SetSize(FONT_SIZE, FONT_SIZE)
+
+        -- Shrink the text box to the measured width. It was widened to textMaxW for
+        -- measurement; with a single TOPLEFT anchor (icon case) a wide box would leave
+        -- the short text floating away from the icon (visible gap).
+        f._text:SetWidth(textW)
 
         -- Icon: left side, vertically centered (single-line: PAD_V offset from top)
         f._icon:SetPoint("TOPLEFT", f, "TOPLEFT", PAD_H, -(PAD_V + (textH - FONT_SIZE) / 2))

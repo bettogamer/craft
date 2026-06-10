@@ -18,8 +18,8 @@
 --   │"0"                                    "100" │  ← 2px visual gap from thumb bottom
 --   └─────────────────────────────────────────────┘
 --
--- Frame heights:  hasHeader+showMinMax=50px  hasHeader-only=34px
---                 showMinMax-only=32px        plain=16px
+-- Frame heights (LABEL_H=12): hasHeader+showMinMax=42px  hasHeader-only=30px
+--                             showMinMax-only=28px        plain=16px
 
 local Craft = LibStub("Craft-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
@@ -133,6 +133,9 @@ function Slider:Create(parent, config)
     self._thumb:SetFrameLevel(fl + 4)
     self._thumb:SetSize(THUMB_SZ, THUMB_SZ)
     self._thumb:EnableMouse(true)
+    -- after:-inset-2 — expand the clickable area 8px on each side so the small
+    -- 12px thumb is easy to grab (negative insets enlarge the hit rect in WoW).
+    self._thumb:SetHitRectInsets(-8, -8, -8, -8)
 
     self._thumbBg = self._thumb:CreateTexture(nil, "BACKGROUND")
     self._thumbBg:SetAllPoints(self._thumb)

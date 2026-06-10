@@ -95,6 +95,13 @@ panel._bg:SetPoint("BOTTOMRIGHT", panel.frame, "BOTTOMRIGHT", -1,  1)
 | Con footer | `_content` termina sobre el footer; `_footer` tiene borde-top 1px |
 | Completo | Header + content + footer |
 
+### Diferencias conocidas vs shadcn (fuera de MVP)
+
+shadcn Card ofrece el slot **`CardAction`** — un área en la esquina superior derecha
+del header para acciones/badges/iconos complementarios. Craft.Panel **no** lo
+implementa (omisión de alcance MVP, no bug — ver `docs/design-reference.md` §9.1).
+Si se decide añadir, requiere aprobación del maintainer (cambio de API).
+
 ## Estados
 
 | Estado | Comportamiento visual |
@@ -109,12 +116,12 @@ panel._bg:SetPoint("BOTTOMRIGHT", panel.frame, "BOTTOMRIGHT", -1,  1)
 
 | Elemento | Token | Valor dark mode |
 |---|---|---|
-| Fondo del panel | `t.card` | {r=0.094, g=0.094, b=0.106} |
+| Fondo del panel | `t.card` | {r=0.091, g=0.091, b=0.091} |
 | Ring perimetral | `t.border` | {r=1, g=1, b=1, a=0.10} |
 | Separador footer-top | `t.border` | {r=1, g=1, b=1, a=0.10} |
-| Texto del título | `t.foreground` | {r=0.980, g=0.980, b=0.980} |
+| Texto del título | `t.cardForeground` | {r=0.980, g=0.980, b=0.980} |
 | Fuente del título | `t.fontBold`, `t.fontSizeLg` (14px) | — |
-| Texto de descripción | `t.mutedForeground` | {r=0.631, g=0.631, b=0.667} |
+| Texto de descripción | `t.mutedForeground` | {r=0.630, g=0.630, b=0.630} |
 | Fuente de descripción | `t.font`, `t.fontSize` (12px) | — |
 | Padding content / header / footer | `t.spacingLg` (16px) | — |
 
@@ -122,8 +129,8 @@ panel._bg:SetPoint("BOTTOMRIGHT", panel.frame, "BOTTOMRIGHT", -1,  1)
 
 | Parámetro | Tipo | Default | Descripción |
 |---|---|---|---|
-| `width` | number | 320 | Ancho total del panel en px |
-| `height` | number | nil | Alto total; si nil, el panel crece con el contenido |
+| `width` | number | nil | Ancho total en px. Si nil, el dev lo fija con anchors/`SetWidth` |
+| `height` | number | nil | Alto total en px. Si nil, el dev lo fija con anchors/`SetHeight` — el Panel **no** auto-crece con el contenido (es dev-sized, a diferencia de Dialog) |
 | `title` | string | nil | Texto del título en el header; omitir oculta el header |
 | `description` | string | nil | Texto de descripción bajo el título |
 | `footer` | Frame | nil | Frame a insertar en la zona footer; omitir oculta el footer |
@@ -172,7 +179,9 @@ panel._ringTex:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
 
 **Scroll:** el Panel no scrollea por sí mismo. Para contenido largo, el dev debe agregar un `Craft.Scroll` dentro de `GetContent()`.
 
-**Height automático:** si `config.height` es nil, el frame no tiene alto fijo y el dev debe gestionar el tamaño con `SetHeight` después de poblar `_content`, o usar el sistema de layout de Craft si está disponible.
+**Dev-sized (sin auto-grow):** el Panel **no** calcula su altura desde el contenido (a diferencia de Dialog). Si `config.height` es nil, el dev fija el tamaño con `GetFrame():SetHeight()` o anchors. El contenido se estira entre header y footer dentro de ese tamaño; el dev es responsable de que sea suficiente.
+
+**overflow-hidden:** el frame usa `SetClipsChildren(true)` (`.cn-card overflow-hidden`) — el contenido que exceda los límites del panel se recorta. Los popovers (p.ej. el panel de `Craft.Select`) van en UIParent, no como hijos del panel, así que no se recortan.
 
 **Footer externo:** `config.footer` es un Frame ya construido que se reparenta a `panel._footer`. El dev es responsable de dimensionarlo; el footer lo ancla con padding H de 16px y centra verticalmente.
 

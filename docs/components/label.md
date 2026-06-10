@@ -1,7 +1,7 @@
 # Component: Label
 
 > Referencia shadcn: `label` — https://ui.shadcn.com/docs/components/label
-> WoW frame base: `FontString` (o `Frame` con FontString hijo si se requiere fondo o padding)
+> WoW frame base: `Frame` con un `FontString` hijo (siempre, para `GetFrame()`/`SetAlpha()` uniformes)
 
 ## CSS de referencia (Lyra)
 
@@ -21,9 +21,11 @@ label.frame           (Frame — nivel raíz, solo necesario si onClick o maxWid
 └── label._text       (FontString — OVERLAY) texto de 12px, color heredado del contexto
 ```
 
-**Caso simple (sin onClick ni maxWidth)**: `label.frame` puede omitirse y `label._text` puede ser un FontString directamente anclado al parent. La función `Create` siempre devuelve un objeto con `GetFrame()` que expone el FontString raíz.
+**Siempre se crea un Frame raíz** (no se omite ni en el caso simple): garantiza que
+`GetFrame()` devuelva siempre un `Frame`, que `SetAlpha()` (disabled) opere sobre el
+mismo objeto, y que `onClick` funcione sin reestructurar. El `_text` es un FontString hijo.
 
-**Caso con onClick**: Se necesita un Frame padre para recibir `OnEnter`/`OnLeave`/`OnMouseDown`, ya que los FontStrings no pueden registrar eventos de ratón en WoW.
+**Caso con onClick**: el Frame raíz recibe `OnEnter`/`OnLeave`/`OnMouseDown`, ya que los FontStrings no pueden registrar eventos de ratón en WoW.
 
 **Caso con maxWidth**: El FontString se configura con `_text:SetWidth(maxWidth)` y `_text:SetNonSpaceWrap(false)` para truncar con "..." automáticamente vía `SetWordWrap(false)`.
 
@@ -67,7 +69,7 @@ Las variantes `heading`, `caption`, `muted` del spec anterior **no existen en el
 | Texto (default)         | heredado del contexto (no impuesto por Label)    |
 | Texto disabled          | opacity 0.5 via `SetAlpha(0.5)`                  |
 | Fuente                  | `t.font` (regular), 12px                         |
-| Texto hover (onClick)   | `t.primary` = {r=0.024,g=0.373,b=0.275}         |
+| Texto hover (onClick)   | `t.primary` = {r=0.000,g=0.378,b=0.271}         |
 
 ## Config — `Create(parent, config)`
 
@@ -84,13 +86,16 @@ Las variantes `heading`, `caption`, `muted` del spec anterior **no existen en el
 |------------------|------------------|-----------------------------------------------------------------------------------|
 | `SetText(text)`  | `string → void`  | Cambia el texto. Respeta el `maxWidth` si está configurado.                       |
 | `SetColor(color)`| `table → void`   | Cambia el color del texto `{r,g,b,a}`. `nil` restaura el comportamiento heredado. |
-| `GetFrame()`     | `→ Frame`        | Devuelve el frame WoW raíz (Frame o FontString) para posicionamiento externo.     |
+| `SetEnabled(b)`  | `boolean → void` | Habilita/deshabilita: `SetAlpha(1/0.5)` en el frame (`disabled:opacity-50`).      |
+| `GetFrame()`     | `→ Frame`        | Devuelve el `Frame` raíz para posicionamiento externo.                            |
 
 ## Notas de implementación
 
 **Sin variantes de tamaño ni color**: Lyra CSS define Label como texto `text-xs` (`12px`) puro, sin variantes `heading`, `caption` o `muted`. El dev controla el color externamente (vía `config.color`) o simplemente lo hereda del contexto del frame padre. No implementar lógica de variantes en el componente.
 
-**FontString puro vs. Frame contenedor**: Si `config.onClick == nil` y `config.maxWidth == nil`, el objeto puede exponer directamente un `FontString` sin Frame padre. Esto reduce el overhead de frames en layouts densos con muchos Labels. Si cualquiera de las dos opciones está presente, crear siempre un Frame padre.
+**Solo texto (sin icon slot)**: el `gap-2` del CSS de Lyra es el espaciado flex para cuando el `<Label>` envuelve un ícono u otro hijo. Craft.Label es un componente de texto-hoja: no soporta íconos embebidos. Si se necesita ícono + label, se componen externamente.
+
+**Siempre Frame contenedor**: el componente crea siempre un `Frame` raíz + `FontString` hijo, independientemente de `onClick`/`maxWidth`. Se eligió uniformidad de API (tipo de retorno de `GetFrame()`, `SetAlpha()` para disabled, capacidad de `onClick` sin reestructurar) sobre el micro-ahorro de omitir el Frame en el caso simple.
 
 **Disabled**: `group-data-[disabled=true]:opacity-50` → aplicar `SetAlpha(0.5)` al frame del label (o directamente al FontString si no hay Frame padre) cuando el campo asociado entra en estado disabled. Esto es responsabilidad del Form/Field contenedor, no del Label en aislamiento.
 
