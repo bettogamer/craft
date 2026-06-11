@@ -131,8 +131,14 @@ Añadidos para el árbol de packs, editores de trigger/panel y barra de acciones
 | 39 | `chart-column` | Tipo de panel Barra (Lucide renombró `bar-chart-3`) |
 | 40 | `image` | Tipo de panel Icono |
 | 41 | `type` | Tipo de panel Texto |
+| 42 | `disc` | Círculo relleno (Craft-sintetizado, no Lucide) — controles redondos (RadioGroup) |
 
-**Total**: 41 íconos. Ocupan ~6 filas del grid 8×8 (41 de 64 slots disponibles).
+**Total**: 42 glyphs (41 Lucide + 1 Craft-sintetizado `disc`). Ocupan ~6 filas del grid 8×8
+(42 de 64 slots disponibles).
+
+> **`disc`** no es de Lucide (que es stroke-only, sin formas rellenas). Se define inline en
+> `scripts/export-icons.py` (`LOCAL_SVGS`) y se rasteriza por el mismo pipeline supersampleado,
+> así que un círculo de 16px queda nítido (un disco enmascarado a 16px 1:1 se ve pixelado).
 
 ---
 

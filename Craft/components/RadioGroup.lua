@@ -2,11 +2,14 @@
 -- Spec: docs/components/radiogroup.md
 -- Design: shadcn Lyra — .cn-radio-group (grid gap-2), .cn-radio-group-item, -indicator(-icon).
 --   The radio item is the ONE element Lyra keeps `rounded-full` (everything else is
---   rounded-none). WoW has no rounded primitive, so each radio is a colored disc built by
---   masking a WHITE8X8 texture with the stock circular mask `CircleMaskScalable`:
---     _ring  (16px disc)  — border-input  / primary  when selected
---     _fill  (14px disc)  — input/30      / primary  when selected  (1px ring shows through)
---     _dot   (8px disc)   — primary-foreground, shown only when selected
+--   rounded-none). WoW has no rounded primitive; a 16px circle is only crisp if it is
+--   supersampled, so each radio is built from THREE filled-disc glyphs taken from the same
+--   supersampled icon atlas as every other Craft icon (the `disc` glyph), tinted by
+--   SetVertexColor. (An earlier version masked WHITE8X8 with CircleMaskScalable — that
+--   aliased badly at 16px because the mask samples a tiny texture 1:1.)
+--     _ring  (visible 16px disc)  — border-input  / primary  when selected
+--     _fill  (visible 14px disc)  — input/30      / primary  when selected  (1px ring shows)
+--     _dot   (visible 8px disc)   — primary-foreground, shown only when selected
 --   Single-selection; clicking an item selects its value and deselects the rest.
 
 local Craft = LibStub("Craft-1.0")
@@ -15,14 +18,18 @@ local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (
 local RadioGroup = {}
 RadioGroup.__index = RadioGroup
 
-local CIRCLE_MASK = "Interface\\Masks\\CircleMaskScalable"
-local WHITE       = "Interface\\Buttons\\WHITE8X8"
-
 local ITEM_SIZE = 16   -- size-4
 local DOT_SIZE  = 8    -- size-2 (indicator icon)
 local LABEL_GAP = 8    -- gap-2 between circle and label
 local ROW_GAP   = 8    -- grid gap-2 between items
 local FONT_SIZE = 12   -- text-xs
+
+-- The atlas cell renders the glyph at 56 of its 64px (a 4px transparent gutter), so a disc
+-- drawn at texture size T is visible at T·56/64. Compensate so the VISIBLE diameters match.
+local GUTTER_COMP = 64 / 56
+local RING_TEX = ITEM_SIZE        * GUTTER_COMP   -- visible 16
+local FILL_TEX = (ITEM_SIZE - 2)  * GUTTER_COMP   -- visible 14 (1px ring)
+local DOT_TEX  = DOT_SIZE         * GUTTER_COMP   -- visible 8
 
 -- ─── Create ───────────────────────────────────────────────────────────────────
 function RadioGroup:Create(parent, config)
@@ -58,31 +65,25 @@ function RadioGroup:_makeItem(opt, index)
     row:SetHeight(ITEM_SIZE)
     row:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 0, -((index - 1) * (ITEM_SIZE + ROW_GAP)))
 
-    -- Outer disc (acts as the border ring)
+    -- Outer disc (acts as the border ring) — centered over the 16px radio slot
     local ring = row:CreateTexture(nil, "BACKGROUND")
-    ring:SetSize(ITEM_SIZE, ITEM_SIZE)
-    ring:SetPoint("LEFT", row, "LEFT", 0, 0)
-    ring:SetTexture(WHITE)
-    ring:SetMask(CIRCLE_MASK)
+    Craft.Icons.Apply(ring, "disc", RING_TEX)
+    ring:SetPoint("CENTER", row, "LEFT", ITEM_SIZE / 2, 0)
 
-    -- Inner disc (background fill), inset 1px so the ring shows through
+    -- Inner disc (background fill), visible 1px smaller so the ring shows through
     local fill = row:CreateTexture(nil, "BORDER")
-    fill:SetSize(ITEM_SIZE - 2, ITEM_SIZE - 2)
+    Craft.Icons.Apply(fill, "disc", FILL_TEX)
     fill:SetPoint("CENTER", ring, "CENTER")
-    fill:SetTexture(WHITE)
-    fill:SetMask(CIRCLE_MASK)
 
     -- Center dot (selected indicator)
     local dot = row:CreateTexture(nil, "ARTWORK")
-    dot:SetSize(DOT_SIZE, DOT_SIZE)
+    Craft.Icons.Apply(dot, "disc", DOT_TEX)
     dot:SetPoint("CENTER", ring, "CENTER")
-    dot:SetTexture(WHITE)
-    dot:SetMask(CIRCLE_MASK)
     dot:Hide()
 
-    -- Label
+    -- Label (anchored to the slot, not the overhanging texture, for exact spacing)
     local label = row:CreateFontString(nil, "OVERLAY")
-    label:SetPoint("LEFT", ring, "RIGHT", LABEL_GAP, 0)
+    label:SetPoint("LEFT", row, "LEFT", ITEM_SIZE + LABEL_GAP, 0)
     label:SetJustifyH("LEFT")
 
     local item = { value = opt.value, label = opt.label or "", row = row,

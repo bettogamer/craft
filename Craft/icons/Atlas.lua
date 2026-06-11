@@ -61,4 +61,5 @@ Craft.Icons._atlas = {
     ["chart-column"] = { 6, 4 },
     ["image"] = { 7, 4 },
     ["type"] = { 0, 5 },
+    ["disc"] = { 1, 5 },
 }
