@@ -49,13 +49,15 @@ function ColorSwatch:Create(parent, config)
     self._border:SetAllPoints(self._swatch)
 
     -- Checkerboard (2×2) so a translucent colour reads as transparent.
+    -- On ARTWORK (above the full-swatch BORDER texture) so the translucent fill
+    -- blends with the opaque checker — NOT with the border (which changes on hover).
     self._checker = {}
     for i = 1, 4 do
-        self._checker[i] = self._swatch:CreateTexture(nil, "BACKGROUND")
+        self._checker[i] = self._swatch:CreateTexture(nil, "ARTWORK", nil, 0)
     end
 
-    -- Colour fill over the checkerboard (inset 1px to reveal the border).
-    self._fill = self._swatch:CreateTexture(nil, "ARTWORK")
+    -- Colour fill over the checkerboard (inset 1px to reveal the 1px border edge).
+    self._fill = self._swatch:CreateTexture(nil, "ARTWORK", nil, 1)
 
     -- ── Label (optional) ────────────────────────────────────────────────────
     -- SINGLE-point anchor (avoids the FontString two-anchor bug #2).

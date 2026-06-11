@@ -21,9 +21,9 @@ API `SetupColorPickerAndShow` con fallback legacy donde el alpha está invertido
 ```
 colorswatch.frame      (Button — toda la fila abre el picker)
 ├── _swatch            (Frame — cuadro de color, tamaño `size`)
-│   ├── _border        (Texture BORDER — 1px, t.input)
-│   ├── _checker[1..4] (Texture BACKGROUND — checkerboard 2×2, inset 1px)
-│   └── _fill          (Texture ARTWORK — color actual con su alpha, inset 1px)
+│   ├── _border        (Texture BORDER — cubre todo el swatch; visible solo en el borde 1px)
+│   ├── _checker[1..4] (Texture ARTWORK sub 0 — checkerboard 2×2, inset 1px, opaco)
+│   └── _fill          (Texture ARTWORK sub 1 — color actual con su alpha, inset 1px)
 └── _label             (FontString OVERLAY — opcional, a la derecha del swatch)
 ```
 
@@ -84,5 +84,9 @@ colorswatch.frame      (Button — toda la fila abre el picker)
   `OpacitySliderFrame:GetValue()`. El componente maneja ambos.
 - **Checkerboard**: 4 texturas 2×2 (grises 0.55/0.38) inset 1px; el fill va encima con
   el alpha del color, así un color translúcido se lee como transparente.
+- **Orden de capas (importante)**: el checker va en `ARTWORK` (sub 0) **por encima** del
+  `_border` (que cubre todo el swatch en la capa `BORDER`), y el fill en `ARTWORK` (sub 1).
+  Si el checker quedara debajo del border, un color con alpha se mezclaría con el border —
+  y como el border cambia a `t.ring` en hover, el hover alteraría el color mostrado.
 - **`onChange` en vivo**: el `swatchFunc`/`opacityFunc` del picker llaman `SetColor`,
   que dispara `onChange` — el consumer ve el cambio mientras se arrastra el picker.
