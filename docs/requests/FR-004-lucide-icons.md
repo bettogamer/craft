@@ -4,7 +4,7 @@
 **Componente:** `Craft/icons/Atlas.lua` + `media/lucide.tga`
 **Tipo:** Feature Request
 **Prioridad:** Alta — la UI de configuración de Sentry los usa en navegación, editores y acciones
-**Estado:** 🔵 Propuesto
+**Estado:** ✅ Resuelto (2026-06-10) — 17 íconos añadidos al atlas (`bar-chart-3` → `chart-column`, renombrado en Lucide). Atlas: 24 → 41 íconos.
 
 ---
 

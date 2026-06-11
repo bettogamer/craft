@@ -7,6 +7,10 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 ## [Unreleased]
 
 ### Added
+- Icons: **17 íconos nuevos** (FR-004, para la UI de config de Sentry) — `folder`,
+  `folder-open`, `star`, `layers`, `trash-2`, `download`, `upload`, `clipboard-copy`,
+  `move`, `clock`, `megaphone`, `flag`, `code`, `palette`, `chart-column`, `image`,
+  `type`. Atlas: 24 → 41 íconos (de 64 slots).
 - Dialog: **overlay modal** (`.cn-dialog-overlay`, `bg-black/10`) — un backdrop
   full-screen que atenúa y **bloquea clics** a la UI de fondo (dialog ahora modal). El
   dialog pasó a strata DIALOG (sobre el overlay HIGH); visibilidad sincronizada vía

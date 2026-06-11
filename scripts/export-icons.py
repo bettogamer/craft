@@ -89,6 +89,24 @@ ICONS = [
     "panel-left",     # col=21
     "grip-vertical",  # col=22
     "square-check",   # col=23
+    # Consumer-requested (FR-004 — Sentry config UI: tree, editors, actions)
+    "folder",         # Pack (folder) closed
+    "folder-open",    # Pack (folder) open
+    "star",           # Aura (leaf)
+    "layers",         # "Paneles" subfolder
+    "trash-2",        # Delete
+    "download",       # Export pack
+    "upload",         # Import pack
+    "clipboard-copy", # Copy export string
+    "move",           # "Move on screen" / sizer
+    "clock",          # BossMod Timer trigger
+    "megaphone",      # BossMod Announce trigger
+    "flag",           # BossMod Stage trigger
+    "code",           # Custom (code) trigger
+    "palette",        # Color picker
+    "chart-column",   # Panel type: Bar (Lucide renamed bar-chart-3 → chart-column)
+    "image",          # Panel type: Icon
+    "type",           # Panel type: Text
 ]
 
 # ─── Atlas configuration ──────────────────────────────────────────────────────

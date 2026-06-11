@@ -108,7 +108,31 @@ usados en addons WoW y se incluyen en el atlas para que los devs los tengan disp
 > (¹) Nombres canónicos actuales en Lucide. Los nombres anteriores (`check-circle`,
 > `alert-circle`, `alert-triangle`) son aliases deprecados — no usar en Atlas.lua.
 
-**Total**: 24 íconos. Ocupan 3 filas del grid 8×8 (24 de 64 slots disponibles).
+### Solicitados por consumers (FR-004 — UI de config de Sentry)
+
+Añadidos para el árbol de packs, editores de trigger/panel y barra de acciones.
+
+| # | Nombre Lucide | Uso |
+|---|---|---|
+| 25 | `folder` | Pack (carpeta) cerrada |
+| 26 | `folder-open` | Pack (carpeta) abierta |
+| 27 | `star` | Aura (hoja) |
+| 28 | `layers` | Subcarpeta "Paneles" |
+| 29 | `trash-2` | Borrar |
+| 30 | `download` | Exportar pack |
+| 31 | `upload` | Importar pack |
+| 32 | `clipboard-copy` | Copiar string de export |
+| 33 | `move` | Mover en pantalla / sizer |
+| 34 | `clock` | Trigger BossMod Timer |
+| 35 | `megaphone` | Trigger BossMod Aviso |
+| 36 | `flag` | Trigger BossMod Fase |
+| 37 | `code` | Trigger Custom (código) |
+| 38 | `palette` | Selector de color |
+| 39 | `chart-column` | Tipo de panel Barra (Lucide renombró `bar-chart-3`) |
+| 40 | `image` | Tipo de panel Icono |
+| 41 | `type` | Tipo de panel Texto |
+
+**Total**: 41 íconos. Ocupan ~6 filas del grid 8×8 (41 de 64 slots disponibles).
 
 ---
 
