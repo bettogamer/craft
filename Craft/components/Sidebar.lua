@@ -101,10 +101,13 @@ function Sidebar:Create(parent, config)
     self._footer:SetHeight(0)
     self._footer:Hide()
 
-    -- _scroll: ScrollFrame — anchored between _header and _footer
+    -- _scroll: ScrollFrame — anchored to the FRAME directly, inset by the header/
+    -- footer heights only when those are shown. Anchoring to the (hidden, 0-height)
+    -- _header/_footer frames does NOT resolve reliably in WoW and leaves _scroll
+    -- degenerate → all content clipped/invisible. See RefreshLayout().
     self._scroll = CreateFrame("ScrollFrame", nil, self.frame)
-    self._scroll:SetPoint("TOPLEFT",     self._header, "BOTTOMLEFT",  0,  0)
-    self._scroll:SetPoint("BOTTOMRIGHT", self._footer, "TOPRIGHT",     0, 0)
+    self._scroll:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     0, 0)
+    self._scroll:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
 
     -- _child: scrollable content Frame
     -- width leaves SBAR_W gap on the right so items don't overlap the scrollbar
@@ -806,12 +809,15 @@ function Sidebar:GetFooter()
     return self._footer
 end
 
--- RefreshLayout: re-anchors _scroll based on the current heights of header and footer.
--- Call after SetHeight() on header or footer.
+-- RefreshLayout: re-anchors _scroll to the frame, inset by the header/footer heights
+-- (only when those are shown). Anchored to the FRAME — not to the header/footer frames
+-- — so it resolves even when they are hidden. Call after SetHeight() on header/footer.
 function Sidebar:RefreshLayout()
+    local hh = (self._header:IsShown() and self._header:GetHeight()) or 0
+    local fh = (self._footer:IsShown() and self._footer:GetHeight()) or 0
     self._scroll:ClearAllPoints()
-    self._scroll:SetPoint("TOPLEFT",     self._header, "BOTTOMLEFT",  0,  0)
-    self._scroll:SetPoint("BOTTOMRIGHT", self._footer, "TOPRIGHT",     0, 0)
+    self._scroll:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",      0, -hh)
+    self._scroll:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT",  0,  fh)
 end
 
 
