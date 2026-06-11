@@ -50,20 +50,19 @@ CraftBrowserPages["ColorSwatch"] = {
         table.insert(comps, fg)
         y = y + 36
 
-        -- Background (with alpha → checkerboard shows transparency)
+        -- Background (rgba by default → checkerboard shows the 0.5 transparency)
         local bg = Craft.ColorSwatch:Create(parent, {
             label    = "Background Color",
             color    = bgC,
-            alpha    = true,
             onChange = function(r, g, b, a) bgC = { r, g, b, a } end,
         })
         bg:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(y + 6))
         table.insert(comps, bg)
         y = y + 44
 
-        -- A larger swatch, no label, disabled
-        y = addLabel("Bigger swatch (size=28) and a disabled one", y)
-        local big = Craft.ColorSwatch:Create(parent, { color = { 0.06, 0.72, 0.50, 1 }, size = 28 })
+        -- A larger swatch (rgb-only opt-out) and a disabled one
+        y = addLabel("size=28: RGB-only (alpha=false) + disabled", y)
+        local big = Craft.ColorSwatch:Create(parent, { color = { 0.06, 0.72, 0.50, 1 }, size = 28, alpha = false })
         big:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(y + 6))
         table.insert(comps, big)
 

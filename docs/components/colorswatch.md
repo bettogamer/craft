@@ -59,7 +59,7 @@ colorswatch.frame      (Button — toda la fila abre el picker)
 | Clave | Tipo | Default | Descripción |
 |---|---|---|---|
 | `color` | table | `{1,1,1,1}` | Color inicial `{r,g,b,a}` (también acepta `{r=,g=,b=,a=}`) |
-| `alpha` | boolean | `false` | Permite editar alpha (muestra el checkerboard y el slider del picker) |
+| `alpha` | boolean | `true` | Edita alpha (rgba) — muestra el checkerboard y el slider del picker. Pasar `alpha=false` para rgb-only (color siempre opaco) |
 | `label` | string | nil | Texto descriptivo a la derecha del swatch |
 | `size` | number | 20 | Lado del swatch en px |
 | `disabled` | boolean | false | Deshabilita la interacción |

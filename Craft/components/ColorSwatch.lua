@@ -20,7 +20,7 @@ function ColorSwatch:Create(parent, config)
 
     config = config or {}
     self._cfg = {
-        alpha    = config.alpha    or false,   -- allow editing alpha
+        alpha    = config.alpha ~= false,       -- rgba by default; pass alpha=false for rgb-only
         onChange = config.onChange,             -- fn(r, g, b, a)
         size     = config.size     or DEFAULT_SIZE,
         label    = config.label,
