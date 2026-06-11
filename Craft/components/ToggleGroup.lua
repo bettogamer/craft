@@ -1,5 +1,5 @@
--- SegmentedControl.lua  (Craft.SegmentedControl — shadcn ToggleGroup, single selection)
--- Spec: docs/components/segmentedcontrol.md
+-- ToggleGroup.lua  (Craft.ToggleGroup — shadcn ToggleGroup, single selection)
+-- Spec: docs/components/togglegroup.md
 -- Design: matches the shadcn page's rendered ToggleGroup — variant=outline, spacing=1:
 --   .cn-toggle              { rounded-none text-xs font-medium hover:text-foreground
 --                             data-[state=on]:bg-muted gap-1 }
@@ -13,8 +13,8 @@
 local Craft = LibStub("Craft-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
-local SegmentedControl = {}
-SegmentedControl.__index = SegmentedControl
+local ToggleGroup = {}
+ToggleGroup.__index = ToggleGroup
 
 local H        = 32   -- h-8
 local PAD_H    = 10   -- px-2.5
@@ -25,8 +25,8 @@ local ICON_GAP = 4    -- gap-1
 local FONT_SIZE = 12  -- text-xs
 
 -- ─── Create ───────────────────────────────────────────────────────────────────
-function SegmentedControl:Create(parent, config)
-    local self = setmetatable({}, SegmentedControl)
+function ToggleGroup:Create(parent, config)
+    local self = setmetatable({}, ToggleGroup)
 
     config = config or {}
     self._cfg = {
@@ -53,7 +53,7 @@ function SegmentedControl:Create(parent, config)
 end
 
 -- ─── Segment construction ─────────────────────────────────────────────────────
-function SegmentedControl:_makeSegment(opt, index)
+function ToggleGroup:_makeSegment(opt, index)
     local btn = CreateFrame("Button", nil, self.frame)
 
     -- Own border (4 × 1px, border-input)
@@ -96,7 +96,7 @@ function SegmentedControl:_makeSegment(opt, index)
 end
 
 -- ─── Layout (positions + widths) ──────────────────────────────────────────────
-function SegmentedControl:_layout()
+function ToggleGroup:_layout()
     local x = 0
     for _, seg in ipairs(self._segs) do
         local labelW = seg.fs:GetStringWidth()
@@ -124,32 +124,32 @@ function SegmentedControl:_layout()
 end
 
 -- ─── Selection / hover ────────────────────────────────────────────────────────
-function SegmentedControl:_select(value)
+function ToggleGroup:_select(value)
     if self._value == value then return end
     self._value = value
     self:_refresh()
     if self._cfg.onChange then self._cfg.onChange(self._value) end
 end
 
-function SegmentedControl:_setSegFill(seg)
+function ToggleGroup:_setSegFill(seg)
     if seg.active or seg.hovering then seg.bg:Show() else seg.bg:Hide() end
 end
 
-function SegmentedControl:_refresh()
+function ToggleGroup:_refresh()
     for _, seg in ipairs(self._segs) do
         seg.active = (seg.value == self._value)
         self:_setSegFill(seg)
     end
 end
 
-function SegmentedControl:_hover(seg, on)
+function ToggleGroup:_hover(seg, on)
     if self._cfg.disabled then return end
     seg.hovering = on
     self:_setSegFill(seg)
 end
 
 -- ─── Theme ────────────────────────────────────────────────────────────────────
-function SegmentedControl:_applyTheme(t)
+function ToggleGroup:_applyTheme(t)
     self._t = t
 
     local bc = t.input          -- border-input
@@ -182,17 +182,17 @@ function SegmentedControl:_applyTheme(t)
 end
 
 -- ─── Public API ───────────────────────────────────────────────────────────────
-function SegmentedControl:SetValue(value, silent)
+function ToggleGroup:SetValue(value, silent)
     self._value = value
     self:_refresh()
     if not silent and self._cfg.onChange then self._cfg.onChange(self._value) end
 end
 
-function SegmentedControl:GetValue()
+function ToggleGroup:GetValue()
     return self._value
 end
 
-function SegmentedControl:SetEnabled(enabled)
+function ToggleGroup:SetEnabled(enabled)
     self._cfg.disabled = not enabled
     self.frame:SetAlpha(enabled and 1 or 0.5)
     for _, seg in ipairs(self._segs) do
@@ -201,12 +201,12 @@ function SegmentedControl:SetEnabled(enabled)
     if self._t then self:_applyTheme(self._t) end
 end
 
-function SegmentedControl:GetFrame()
+function ToggleGroup:GetFrame()
     return self.frame
 end
 
 -- ─── Destructor ───────────────────────────────────────────────────────────────
-function SegmentedControl:Destroy()
+function ToggleGroup:Destroy()
     if not self.frame then return end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
@@ -214,4 +214,4 @@ function SegmentedControl:Destroy()
     self._segs = nil
 end
 
-Craft.register("SegmentedControl", SegmentedControl, _BUILD)
+Craft.register("ToggleGroup", ToggleGroup, _BUILD)

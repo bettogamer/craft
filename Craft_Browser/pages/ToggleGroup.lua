@@ -1,8 +1,8 @@
 CraftBrowserPages = CraftBrowserPages or {}
 
-CraftBrowserPages["SegmentedControl"] = {
-    title = "SegmentedControl",
-    desc  = "Connected toggle group, single choice (RFC-009 #4 = shadcn ToggleGroup)",
+CraftBrowserPages["ToggleGroup"] = {
+    title = "ToggleGroup",
+    desc  = "Outline toggle group, single choice (RFC-009 #4; shadcn ToggleGroup)",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -22,7 +22,7 @@ CraftBrowserPages["SegmentedControl"] = {
 
         -- Text segments
         y = addLabel("Display type — connected segments, active = bg-muted.", y)
-        local sc = Craft.SegmentedControl:Create(parent, {
+        local sc = Craft.ToggleGroup:Create(parent, {
             value = "bar",
             options = {
                 { value = "bar",  label = "Barra" },
@@ -37,7 +37,7 @@ CraftBrowserPages["SegmentedControl"] = {
 
         -- With icons
         y = addLabel("With icons.", y)
-        local sc2 = Craft.SegmentedControl:Create(parent, {
+        local sc2 = Craft.ToggleGroup:Create(parent, {
             value = "list",
             options = {
                 { value = "list",  label = "Lista", icon = "layers" },
@@ -50,7 +50,7 @@ CraftBrowserPages["SegmentedControl"] = {
 
         -- Disabled
         y = addLabel("Disabled.", y)
-        local sc3 = Craft.SegmentedControl:Create(parent, {
+        local sc3 = Craft.ToggleGroup:Create(parent, {
             value = "on",
             disabled = true,
             options = { { value = "on", label = "On" }, { value = "off", label = "Off" } },

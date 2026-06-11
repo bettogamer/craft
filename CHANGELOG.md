@@ -14,12 +14,12 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   orden cambió. `renderRow(content,item,index)` (corre una vez/fila; las filas se reposicionan,
   no se recrean) o label por defecto. `items`/`renderRow`/`onReorder`/`width`/`disabled`;
   `SetItems`/`GetItems`/`SetEnabled`.
-- **`Craft.SegmentedControl`** (RFC-009 #4) — componente nuevo (shadcn-backed: es el
-  `ToggleGroup` de shadcn con selección única): réplica del render real de la página
-  (`variant=outline`, `spacing=1`) → segmentos **separados**, cada uno con su propio borde
-  `border-input`, gap de 4px; activo/hover rellenan con `bg-muted`, texto `foreground`
-  siempre. `text-xs font-medium`, `h-8 min-w-8 px-2.5`, iconos Lucide opcionales por
-  segmento. `options`/`value`/`disabled`/`onChange`; `SetValue`/`GetValue`/`SetEnabled`.
+- **`Craft.ToggleGroup`** (RFC-009 #4) — componente nuevo (shadcn-backed; el RFC lo llamaba
+  "SegmentedControl", se usa el nombre de shadcn): subset de **selección única**. Réplica del
+  render real de la página (`variant=outline`, `spacing=1`) → segmentos **separados**, cada uno
+  con su propio borde `border-input`, gap de 4px; activo/hover rellenan con `bg-muted`, texto
+  `foreground` siempre. `text-xs font-medium`, `h-8 min-w-8 px-2.5`, iconos Lucide opcionales
+  por segmento. `options`/`value`/`disabled`/`onChange`; `SetValue`/`GetValue`/`SetEnabled`.
 - **`Craft.Section`** (RFC-009 #3) — componente nuevo (shadcn-backed, accordion item):
   bloque colapsable con cabecera (trigger `py-2.5 text-xs font-medium` + chevron
   `chevron-down`↔`chevron-up`) y área de contenido (`pb-2.5`), separador inferior

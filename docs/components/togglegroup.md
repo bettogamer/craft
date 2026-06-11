@@ -1,9 +1,9 @@
-# Component: SegmentedControl
+# Component: ToggleGroup
 
-> Referencia shadcn: **`toggle-group`** (selección única) — Craft lo expone como
-> `Craft.SegmentedControl`. Es el control que el RFC-009 llamaba "SegmentedControl".
-> Se replica el render real de la página de shadcn: **`variant=outline`, `spacing=1`** →
-> segmentos **separados**, cada uno con su propio borde, con un gap de 4px.
+> Referencia shadcn: **`toggle-group`** — Craft lo expone como `Craft.ToggleGroup` (mismo
+> nombre que shadcn; el RFC-009 lo llamaba "SegmentedControl"). Implementa el subset de
+> **selección única**. Se replica el render real de la página: **`variant=outline`,
+> `spacing=1`** → segmentos **separados**, cada uno con su propio borde, con un gap de 4px.
 
 ## CSS de referencia (Lyra) — render real de la página
 
@@ -27,7 +27,7 @@ modo de trigger). Alternativa compacta y horizontal al `RadioGroup`/`Select`.
 ## Jerarquía de frames WoW
 
 ```
-segmented.frame              (Frame — h-8, w-fit; ancho = Σ segmentos + gaps)
+togglegroup.frame            (Frame — h-8, w-fit; ancho = Σ segmentos + gaps)
 └── seg[i]                    (Button — un segmento, separado 4px del siguiente)
     ├── border bT/bB/bL/bR    (Texture 1px — border-input, caja PROPIA del segmento)
     ├── bg                    (Texture BACKGROUND — bg-muted, inset 1px; visible si activo/hover)

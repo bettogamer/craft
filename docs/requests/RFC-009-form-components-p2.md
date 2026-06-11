@@ -4,7 +4,7 @@
 **Componentes:** nuevos / mejoras menores
 **Tipo:** RFC (prioridad media-baja; hay workaround para todos)
 **Estado:** ✅ Resuelto (2026-06-11) — las 5 componentes implementadas (NumberInput, RadioGroup,
-Section, SegmentedControl, DragList)
+Section, ToggleGroup, DragList)
 
 ## Revisión shadcn (2026-06-11)
 
@@ -16,7 +16,7 @@ se construyen fieles; **2 son Craft-originales** (NumberInput, DragList).
 | NumberInput / Stepper | ❌ no existe (Craft-original) | S | 1 |
 | RadioGroup | ✅ `.cn-radio-group` (`grid gap-2`) + `.cn-radio-group-item` (`border-input`, `data-checked:bg-primary`, **`rounded-none`** = radio cuadrado) | S-M | 2 |
 | Accordion | ✅ `.cn-accordion-item` (`not-last:border-b`), `-trigger`, `-content` | M (reutiliza el colapso del árbol de Sidebar) | 3 |
-| SegmentedControl | ✅ **es el `ToggleGroup` de shadcn** (`.cn-toggle-group`, `rounded-none`) | S-M | 4 |
+| ToggleGroup (RFC: "SegmentedControl") | ✅ **`.cn-toggle-group`** (outline + spacing=1) | S-M | 4 ✅ |
 | DragList | ❌ no existe (Craft-original) | L | 5 ✅ |
 
 ---
@@ -41,8 +41,8 @@ M7 (cada uno tiene workaround). Se listan juntos para priorizar/diseñar en bloq
   `SetValue`/`GetValue`/`SetEnabled`.
 - **Estado:** shadcn-backed. El radio es el único `rounded-full` de Lyra → círculo real vía
   `CircleMaskScalable` sobre `WHITE8X8`. Ver `docs/components/radiogroup.md`.
-- **SegmentedControl** = `ToggleGroup` de shadcn → ✅ implementado aparte como
-  `Craft.SegmentedControl` (ver #4 / `docs/components/segmentedcontrol.md`).
+- **SegmentedControl** = `ToggleGroup` de shadcn → ✅ implementado como `Craft.ToggleGroup`
+  (se usa el nombre de shadcn; ver #4 / `docs/components/togglegroup.md`).
 - ~~Workaround: `Select` (dropdown).~~
 
 ### 3. Accordion / CollapsibleSection — ✅ Implementado (2026-06-11)
