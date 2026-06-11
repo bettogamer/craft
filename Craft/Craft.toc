@@ -28,6 +28,7 @@ layout\Flex.lua
 # Components
 components\Button.lua
 components\Checkbox.lua
+components\ColorSwatch.lua
 components\Input.lua
 components\Label.lua
 components\Panel.lua

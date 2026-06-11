@@ -7,6 +7,10 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 ## [Unreleased]
 
 ### Added
+- **`Craft.ColorSwatch`** (FR-007) — componente nuevo: swatch de color que abre el
+  `ColorPickerFrame` nativo (con alpha). Checkerboard de transparencia, label opcional,
+  `onChange(r,g,b,a)` en vivo, `SetColor`/`GetColor`/`SetEnabled`. shadcn no tiene
+  color picker — componente Craft-original.
 - Sidebar: **árbol colapsable** (FR-008) — items anidados vía `children` +
   `collapsible`/`defaultOpen`. Chevron al final (swap down/right), líneas guía
   verticales por nivel (`border-l`), sub-items a `h-7`, indent por profundidad.

@@ -4,7 +4,7 @@
 **Componente:** nuevo (`Craft/components/ColorPicker.lua` o `ColorSwatch.lua`)
 **Tipo:** Feature Request
 **Prioridad:** Alta — la presentación de Sentry es color-céntrica
-**Estado:** 🔵 Propuesto
+**Estado:** ✅ Resuelto (2026-06-10) — `Craft.ColorSwatch` (swatch + checkerboard + label opcional) envuelve `ColorPickerFrame` nativo con alpha. `SetColor`/`GetColor`/`SetEnabled`. Ver `docs/components/colorswatch.md`.
 
 ---
 

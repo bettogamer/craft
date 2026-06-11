@@ -167,9 +167,10 @@ function CB._build()
 
     -- Grouped navigation
     _nav:AddSection("Form Controls")
-    _nav:AddItem({ id="Button",    label="Button",    onClick=function() CB.Navigate("Button")    end })
-    _nav:AddItem({ id="Checkbox",  label="Checkbox",  onClick=function() CB.Navigate("Checkbox")  end })
-    _nav:AddItem({ id="Input",     label="Input",     onClick=function() CB.Navigate("Input")     end })
+    _nav:AddItem({ id="Button",      label="Button",      onClick=function() CB.Navigate("Button")      end })
+    _nav:AddItem({ id="Checkbox",    label="Checkbox",    onClick=function() CB.Navigate("Checkbox")    end })
+    _nav:AddItem({ id="ColorSwatch", label="ColorSwatch", onClick=function() CB.Navigate("ColorSwatch") end })
+    _nav:AddItem({ id="Input",       label="Input",       onClick=function() CB.Navigate("Input")       end })
     _nav:AddItem({ id="Select",    label="Select",    onClick=function() CB.Navigate("Select")    end })
     _nav:AddItem({ id="Slider",    label="Slider",    onClick=function() CB.Navigate("Slider")    end })
     _nav:AddSection("Layout")

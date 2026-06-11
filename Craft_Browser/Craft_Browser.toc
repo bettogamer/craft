@@ -21,6 +21,7 @@ libs\Craft\icons\Icons.lua
 libs\Craft\layout\Flex.lua
 libs\Craft\components\Button.lua
 libs\Craft\components\Checkbox.lua
+libs\Craft\components\ColorSwatch.lua
 libs\Craft\components\Dialog.lua
 libs\Craft\components\Input.lua
 libs\Craft\components\Label.lua
@@ -37,6 +38,7 @@ libs\Craft\components\Tooltip.lua
 Browser.lua
 pages\Button.lua
 pages\Checkbox.lua
+pages\ColorSwatch.lua
 pages\Dialog.lua
 pages\Flex.lua
 pages\Icons.lua
