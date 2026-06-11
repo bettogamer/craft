@@ -7,6 +7,12 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 ## [Unreleased]
 
 ### Added
+- Sidebar: **árbol colapsable** (FR-008) — items anidados vía `children` +
+  `collapsible`/`defaultOpen`. Chevron al final (swap down/right), líneas guía
+  verticales por nivel (`border-l`), sub-items a `h-7`, indent por profundidad.
+  Hit-region dividida (chevron=toggle, fila=select). Nuevos `SetItems`, `Expand`,
+  `Collapse`, `ToggleNode`, `Select`; `SetActiveItem` auto-expande ancestros.
+  Retrocompatible con los grupos planos existentes.
 - Icons: **17 íconos nuevos** (FR-004, para la UI de config de Sentry) — `folder`,
   `folder-open`, `star`, `layers`, `trash-2`, `download`, `upload`, `clipboard-copy`,
   `move`, `clock`, `megaphone`, `flag`, `code`, `palette`, `chart-column`, `image`,

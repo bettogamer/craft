@@ -4,7 +4,7 @@
 **Componente:** `Craft/components/Sidebar.lua`
 **Tipo:** Feature Request
 **Prioridad:** Alta — la navegación de Sentry es un árbol
-**Estado:** 🔵 Propuesto
+**Estado:** ✅ Resuelto (2026-06-10) — `children`/`collapsible`/`defaultOpen`, chevron trailing + líneas guía + sub-items h-7, `SetItems`/`Expand`/`Collapse`/`ToggleNode`/`Select`, auto-expand de ancestros. Retrocompatible con grupos planos.
 
 ---
 

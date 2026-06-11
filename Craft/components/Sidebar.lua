@@ -39,6 +39,10 @@ local ITEM_PAD       = 8    -- p-2 (todos los lados)
 local ITEM_GAP       = 8    -- gap-2 (between icon and text)
 local ITEM_FONT      = 12   -- text-xs
 local ICON_SIZE      = 16
+local CHEV_SIZE      = 14   -- collapse chevron (tree branches, trailing)
+local INDENT         = 20   -- horizontal indent per tree depth (shadcn mx-3.5 + px-2.5 ≈ 24, tightened)
+local SUB_H          = 28   -- nested item height (h-7) vs top-level ITEM_SIZES (h-8)
+local GUIDE_INSET    = 10   -- vertical guide line (border-l) offset within each indent column
 local GROUP_H        = 32   -- h-8
 local GROUP_PX       = 8    -- px-2
 local GROUP_FONT     = 12   -- text-xs (fontSizeSm)
@@ -57,7 +61,10 @@ function Sidebar:Create(parent, config)
         activeItem = config.activeItem,
         size       = config.size       or "default",
         width      = config.width,
+        onSelect   = config.onSelect,
     }
+    self._hasTree  = false  -- true once any collapsible (tree) item is added
+    self._building = false  -- defers _rebuildLayout() during bulk add
 
     -- Internal list of sections and items in insertion order
     self._sections = {}   -- array: {type="section"|"item"|"separator", ...}
@@ -220,19 +227,32 @@ function Sidebar:Create(parent, config)
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
 
-    -- ── Load initial items ────────────────────────────────────────────────────
-    -- Section headers are inserted when the first item referencing them is added.
-    local addedSections = {}
-    for _, item in ipairs(self._cfg.items) do
-        local sec = item.section
-        if sec and not addedSections[sec] then
-            addedSections[sec] = true
-            self:AddSection(sec)
-        end
-        self:AddItem(item)
-    end
+    -- ── Load initial items (flat groups and/or nested tree) ───────────────────
+    self._building = true
+    self:_addItems(self._cfg.items, 0, nil)
+    self._building = false
+    self:_rebuildLayout()
 
     return self
+end
+
+-- ─── _addItems ─────────────────────────────────────────────────────────────────
+-- Recursively adds items. depth 0 = root. `item.children` makes a nested subtree;
+-- `item.section` (depth 0 only) inserts a legacy flat group header. `parentEntry`
+-- is the branch entry this item lives under (nil at root) — used to auto-expand
+-- ancestors when an item is selected.
+function Sidebar:_addItems(items, depth, parentEntry)
+    local addedSections = {}
+    for _, item in ipairs(items) do
+        if depth == 0 and item.section and not addedSections[item.section] then
+            addedSections[item.section] = true
+            self:AddSection(item.section)
+        end
+        local entry = self:AddItem(item, depth, parentEntry)
+        if item.children and #item.children > 0 then
+            self:_addItems(item.children, depth + 1, entry)
+        end
+    end
 end
 
 -- ─── _applyTheme ──────────────────────────────────────────────────────────────
@@ -307,6 +327,11 @@ function Sidebar:_recolorAll()
 
         elseif entry.type == "item" and entry.frame then
             self:_colorItem(entry, entry.itemId == self._cfg.activeItem)
+            if entry.guides then
+                for _, g in ipairs(entry.guides) do
+                    g:SetColorTexture(t.sidebarBorder.r, t.sidebarBorder.g, t.sidebarBorder.b, t.sidebarBorder.a or 0.10)
+                end
+            end
 
         elseif entry.type == "separator" and entry.sepTex then
             entry.sepTex:SetColorTexture(
@@ -342,6 +367,10 @@ function Sidebar:_colorItem(entry, isActive)
                 1
             )
         end
+        if entry.chevTex then
+            entry.chevTex:SetVertexColor(
+                t.sidebarAccentForeground.r, t.sidebarAccentForeground.g, t.sidebarAccentForeground.b, 1)
+        end
     else
         entry.bg:SetColorTexture(0, 0, 0, 0)
         entry.labelFs:SetFont(t.font, ITEM_FONT)  -- regular weight when inactive
@@ -358,6 +387,10 @@ function Sidebar:_colorItem(entry, isActive)
                 1
             )
         end
+        if entry.chevTex then
+            entry.chevTex:SetVertexColor(
+                t.sidebarForeground.r, t.sidebarForeground.g, t.sidebarForeground.b, 1)
+        end
     end
 end
 
@@ -365,48 +398,63 @@ end
 -- Recalculates the vertical positions of all elements in _child.
 -- Called after AddItem / AddSection to keep the layout correct.
 function Sidebar:_rebuildLayout()
-    local sz      = ITEM_SIZES[self._cfg.size] or ITEM_SIZES["default"]
-    local pad     = ITEM_PAD   -- .cn-sidebar-group p-2: insets every element 8px and pads groups vertically
-    local cursorY = 0          -- accumulated negative offset (top→down)
-    local started = false      -- whether any group block has opened yet
+    local sz        = ITEM_SIZES[self._cfg.size] or ITEM_SIZES["default"]
+    local pad       = ITEM_PAD   -- .cn-sidebar-group p-2: inset + vertical group padding
+    local cursorY   = 0          -- accumulated negative offset (top→down)
+    local started   = false      -- whether any group block has opened yet
+    local skipDepth = nil        -- when set, hide rows deeper than this (collapsed subtree)
 
     for _, entry in ipairs(self._sections) do
         local f = entry.frame
         if f then
-            -- Group vertical padding: open the first block; separate consecutive
-            -- sections by 2*pad (close previous group + open the next one).
-            if entry.type == "section" then
-                cursorY = cursorY + (started and pad * 2 or pad)
-                started = true
-            elseif not started then
-                cursorY = cursorY + pad   -- top pad for leading items (implicit group)
-                started = true
-            end
+            local d = entry.depth or 0
 
-            -- Horizontal group inset (pad) on both sides → item/label content lands
-            -- at pad + internal padding (16px), and hover/active highlights are inset.
-            f:ClearAllPoints()
-            f:SetPoint("TOPLEFT",  self._child, "TOPLEFT",   pad, -cursorY)
-            f:SetPoint("TOPRIGHT", self._child, "TOPRIGHT", -pad, -cursorY)
+            if skipDepth ~= nil and d > skipDepth then
+                f:Hide()   -- inside a collapsed branch
+            else
+                skipDepth = nil
+                f:Show()
 
-            if entry.type == "section" then
-                f:SetHeight(GROUP_H)
-                cursorY = cursorY + GROUP_H
+                -- Group vertical padding: open the first block; separate consecutive
+                -- sections by 2*pad (close previous group + open the next one).
+                if entry.type == "section" then
+                    cursorY = cursorY + (started and pad * 2 or pad)
+                    started = true
+                elseif not started then
+                    cursorY = cursorY + pad
+                    started = true
+                end
 
-            elseif entry.type == "item" then
-                f:SetHeight(sz)
-                cursorY = cursorY + sz
+                -- Horizontal group inset (pad) on both sides → highlights are inset.
+                f:ClearAllPoints()
+                f:SetPoint("TOPLEFT",  self._child, "TOPLEFT",   pad, -cursorY)
+                f:SetPoint("TOPRIGHT", self._child, "TOPRIGHT", -pad, -cursorY)
 
-            elseif entry.type == "separator" then
-                Craft.Theme.SetPixelHeight(f, 1)
-                cursorY = cursorY + 1
+                if entry.type == "section" then
+                    f:SetHeight(GROUP_H)
+                    cursorY = cursorY + GROUP_H
+
+                elseif entry.type == "item" then
+                    local rowH = d > 0 and SUB_H or sz
+                    f:SetHeight(rowH)
+                    self:_positionRow(entry)
+                    cursorY = cursorY + rowH
+
+                elseif entry.type == "separator" then
+                    Craft.Theme.SetPixelHeight(f, 1)
+                    cursorY = cursorY + 1
+                end
+
+                -- A collapsed branch hides everything deeper than its own depth.
+                if entry.collapsible and not entry._open then
+                    skipDepth = d
+                end
             end
         end
     end
 
     if started then cursorY = cursorY + pad end  -- bottom pad of the last group
 
-    -- Adjust total height of _child
     self._child:SetHeight(math.max(cursorY, 1))
     self:_updateSbar()
 end
@@ -448,133 +496,205 @@ function Sidebar:AddSection(label)
         labelFs = labelFs,
     }
     table.insert(self._sections, entry)
-    self:_rebuildLayout()
+    if not self._building then self:_rebuildLayout() end
     return entry
 end
 
 -- ─── AddItem ──────────────────────────────────────────────────────────────────
--- Adds a menu item to the sidebar.
--- itemConfig: {id, label, icon, section, onClick}
--- Returns the item entry.
-function Sidebar:AddItem(itemConfig)
+-- Adds a menu item. itemConfig: {id, label, icon, section, onClick, collapsible,
+-- defaultOpen, children}. `depth`/`parentEntry` are internal (tree recursion).
+-- Returns the item entry. Content x-positions are set in _positionRow (layout time).
+function Sidebar:AddItem(itemConfig, depth, parentEntry)
     local t  = self._t
     local sz = ITEM_SIZES[self._cfg.size] or ITEM_SIZES["default"]
+    depth = depth or 0
 
     itemConfig = itemConfig or {}
-    local id      = itemConfig.id
-    local label   = itemConfig.label or ""
-    local iconName = itemConfig.icon
-    local onClick = itemConfig.onClick
+    local id          = itemConfig.id
+    local label       = itemConfig.label or ""
+    local iconName    = itemConfig.icon
+    local onClick     = itemConfig.onClick
+    local collapsible = itemConfig.collapsible
+        or (itemConfig.children ~= nil and #itemConfig.children > 0)
+
+    if collapsible then self._hasTree = true end
+
+    local rowH = depth > 0 and SUB_H or sz   -- nested items use h-7
 
     -- Item Button frame
     local itemFrame = CreateFrame("Button", nil, self._child)
-    itemFrame:SetHeight(sz)
+    itemFrame:SetHeight(rowH)
 
-    -- Item background (transparent by default, accent on hover/active)
+    -- Background (transparent by default, accent on hover/active) — full-width highlight
     local bg = itemFrame:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(itemFrame)
     bg:SetColorTexture(0, 0, 0, 0)
 
-    -- Icon (16px, gap=8px from left edge → ITEM_PAD for the edge, then the icon)
+    -- Icon — shown only if the atlas has it. Position set in _positionRow.
     local iconTex = itemFrame:CreateTexture(nil, "ARTWORK")
     iconTex:SetSize(ICON_SIZE, ICON_SIZE)
-    iconTex:SetPoint("LEFT", itemFrame, "LEFT", ITEM_PAD, 0)
-
-    local hasIcon = false
-    if iconName then
-        Craft.Icons.Apply(iconTex, iconName, 16)
-        -- Check if the icon was applied (Icons.Apply is nil-safe but does not guarantee
-        -- that the atlas has the icon; if missing, the texture remains unchanged)
-        if Craft.Icons.Has(iconName) then
-            iconTex:Show()
-            hasIcon = true
-        else
-            iconTex:Hide()
-        end
+    local hasIcon = iconName ~= nil and Craft.Icons.Has(iconName)
+    if hasIcon then
+        Craft.Icons.Apply(iconTex, iconName, ICON_SIZE)
+        iconTex:Show()
     else
         iconTex:Hide()
     end
 
-    -- Item text
+    -- Label — SINGLE-point anchor set in _positionRow (avoids the FontString two-anchor
+    -- bug #2 when _child width resolves late).
     local labelFs = itemFrame:CreateFontString(nil, "OVERLAY")
-    if t then
-        labelFs:SetFont(t.font, ITEM_FONT)
-    end
+    if t then labelFs:SetFont(t.font, ITEM_FONT) end
     labelFs:SetJustifyH("LEFT")
     labelFs:SetJustifyV("MIDDLE")
     labelFs:SetText(label)
 
-    -- Label position: if there is an icon, ITEM_PAD + ICON_SIZE + ITEM_GAP from the left.
-    -- SINGLE-point anchor (LEFT-to-LEFT vertically centers it in itemFrame). Two-point
-    -- LEFT+RIGHT anchoring fails to render when _child width resolves late (same root
-    -- cause as the section label / Slider header — proven pattern in Craft.Label).
-    local labelLeft = hasIcon and (ITEM_PAD + ICON_SIZE + ITEM_GAP) or ITEM_PAD
-    labelFs:SetPoint("LEFT", itemFrame, "LEFT", labelLeft, 0)
-
-    local isActive = (id ~= nil) and (id == self._cfg.activeItem)
-
     local entry = {
-        type      = "item",
-        itemId    = id,
-        label     = label,
-        icon      = iconName,
-        frame     = itemFrame,
-        bg        = bg,
-        labelFs   = labelFs,
-        iconTex   = iconTex,
-        hasIcon   = hasIcon,
+        type        = "item",
+        itemId      = id,
+        label       = label,
+        icon        = iconName,
+        frame       = itemFrame,
+        bg          = bg,
+        labelFs     = labelFs,
+        iconTex     = iconTex,
+        hasIcon     = hasIcon,
+        depth       = depth,
+        parent      = parentEntry,
+        collapsible = collapsible,
+        _open       = itemConfig.defaultOpen ~= false,  -- default open
     }
 
-    -- Apply initial colors
-    if t then
-        self:_colorItem(entry, isActive)
+    -- Tree guide lines: one 1px vertical line per ancestor level (border-l, like
+    -- shadcn SidebarMenuSub). Positioned/coloured in _positionRow.
+    if depth > 0 then
+        entry.guides = {}
+        for _ = 1, depth do
+            table.insert(entry.guides, itemFrame:CreateTexture(nil, "BORDER"))
+        end
     end
 
-    -- Store reference by id for SetActiveItem()
-    if id then
-        self._itemFrames[id] = entry
+    -- Chevron (branch only) at the TRAILING edge (shadcn). A small Button over it,
+    -- at a higher frame level, consumes the click to toggle so it never reaches the
+    -- row Button (select). chevron-down = open, chevron-right = closed (no rotation).
+    if collapsible then
+        entry.chevTex = itemFrame:CreateTexture(nil, "ARTWORK")
+        entry.chevTex:SetSize(CHEV_SIZE, CHEV_SIZE)
+
+        local chevBtn = CreateFrame("Button", nil, itemFrame)
+        chevBtn:SetSize(CHEV_SIZE + ITEM_PAD * 2, rowH)
+        chevBtn:SetFrameLevel(itemFrame:GetFrameLevel() + 2)
+        chevBtn:EnableMouse(true)
+        chevBtn:SetScript("OnClick", function() self:_toggleNode(entry) end)
+        entry.chevBtn = chevBtn
+
+        self:_updateChevron(entry)
     end
 
-    -- Hover and click scripts
+    if t then self:_colorItem(entry, (id ~= nil) and (id == self._cfg.activeItem)) end
+    if id then self._itemFrames[id] = entry end
+
+    -- Hover (skip the active item — it keeps the accent permanently)
     itemFrame:SetScript("OnEnter", function()
-        -- hover only if not the active item (the active one already has the accent permanently)
-        if id ~= self._cfg.activeItem then
-            local tt = self._t
-            if tt then
-                bg:SetColorTexture(tt.sidebarAccent.r, tt.sidebarAccent.g, tt.sidebarAccent.b, 1)
-                labelFs:SetTextColor(
-                    tt.sidebarAccentForeground.r,
-                    tt.sidebarAccentForeground.g,
-                    tt.sidebarAccentForeground.b
-                )
-                if iconTex then
-                    iconTex:SetVertexColor(
-                        tt.sidebarAccentForeground.r,
-                        tt.sidebarAccentForeground.g,
-                        tt.sidebarAccentForeground.b,
-                        1
-                    )
-                end
-            end
-        end
+        if id == self._cfg.activeItem then return end
+        local tt = self._t
+        if not tt then return end
+        bg:SetColorTexture(tt.sidebarAccent.r, tt.sidebarAccent.g, tt.sidebarAccent.b, 1)
+        local r, g, b = tt.sidebarAccentForeground.r, tt.sidebarAccentForeground.g, tt.sidebarAccentForeground.b
+        labelFs:SetTextColor(r, g, b)
+        if hasIcon then iconTex:SetVertexColor(r, g, b, 1) end
+        if entry.chevTex then entry.chevTex:SetVertexColor(r, g, b, 1) end
     end)
-
     itemFrame:SetScript("OnLeave", function()
-        if id ~= self._cfg.activeItem then
-            local tt = self._t
-            if tt then
-                self:_colorItem(entry, false)
-            end
-        end
+        if id ~= self._cfg.activeItem and self._t then self:_colorItem(entry, false) end
     end)
 
+    -- Click on the row body = select (chevron Button intercepts clicks on the chevron).
     itemFrame:SetScript("OnClick", function()
+        if id then self:SetActiveItem(id) end
         if onClick then onClick(id, itemConfig) end
+        if self._cfg.onSelect then self._cfg.onSelect(id) end
     end)
 
     table.insert(self._sections, entry)
-    self:_rebuildLayout()
+    if not self._building then self:_rebuildLayout() end
     return entry
+end
+
+-- ─── _positionRow ──────────────────────────────────────────────────────────────
+-- Sets the horizontal positions of a row's icon/label (indented by tree depth),
+-- the trailing chevron (branches), and the per-level vertical guide lines.
+function Sidebar:_positionRow(entry)
+    if not entry.frame then return end
+    local baseX = ITEM_PAD + (entry.depth or 0) * INDENT
+
+    -- Icon + label at the indented left edge.
+    entry.iconTex:ClearAllPoints()
+    entry.iconTex:SetPoint("LEFT", entry.frame, "LEFT", baseX, 0)
+
+    local labelX = baseX + (entry.hasIcon and (ICON_SIZE + ITEM_GAP) or 0)
+    entry.labelFs:ClearAllPoints()
+    entry.labelFs:SetPoint("LEFT", entry.frame, "LEFT", labelX, 0)
+
+    -- Chevron at the trailing edge.
+    if entry.chevTex then
+        entry.chevTex:ClearAllPoints()
+        entry.chevTex:SetPoint("RIGHT", entry.frame, "RIGHT", -ITEM_PAD, 0)
+        if entry.chevBtn then
+            entry.chevBtn:ClearAllPoints()
+            entry.chevBtn:SetPoint("RIGHT", entry.frame, "RIGHT", 0, 0)
+        end
+    end
+
+    -- Vertical guide lines (border-l): one per ancestor level, in each indent gutter.
+    if entry.guides then
+        local t = self._t
+        for L, g in ipairs(entry.guides) do
+            local gx = ITEM_PAD + (L - 1) * INDENT + GUIDE_INSET
+            g:ClearAllPoints()
+            g:SetPoint("TOPLEFT",    entry.frame, "TOPLEFT",    gx, 0)
+            g:SetPoint("BOTTOMLEFT", entry.frame, "BOTTOMLEFT", gx, 0)
+            Craft.Theme.SetPixelWidth(g, 1)
+            if t then
+                g:SetColorTexture(t.sidebarBorder.r, t.sidebarBorder.g, t.sidebarBorder.b, t.sidebarBorder.a or 0.10)
+            end
+        end
+    end
+end
+
+-- ─── Tree node helpers ──────────────────────────────────────────────────────────
+function Sidebar:_updateChevron(entry)
+    if not entry.chevTex then return end
+    Craft.Icons.Apply(entry.chevTex, entry._open and "chevron-down" or "chevron-right", CHEV_SIZE)
+    entry.chevTex:SetSize(CHEV_SIZE, CHEV_SIZE)
+    local t = self._t
+    if t then
+        local active = entry.itemId ~= nil and entry.itemId == self._cfg.activeItem
+        local c = active and t.sidebarAccentForeground or t.sidebarForeground
+        entry.chevTex:SetVertexColor(c.r, c.g, c.b, 1)
+    end
+end
+
+function Sidebar:_toggleNode(entry)
+    entry._open = not entry._open
+    self:_updateChevron(entry)
+    self:_rebuildLayout()
+end
+
+-- Expands every collapsed ancestor of `entry` so it becomes visible. Returns true
+-- if anything changed (caller re-runs the layout).
+function Sidebar:_expandAncestors(entry)
+    local changed = false
+    local p = entry and entry.parent
+    while p do
+        if p.collapsible and not p._open then
+            p._open = true
+            self:_updateChevron(p)
+            changed = true
+        end
+        p = p.parent
+    end
+    return changed
 end
 
 -- ─── AddSeparator ─────────────────────────────────────────────────────────────
@@ -599,30 +719,70 @@ function Sidebar:AddSeparator()
         sepTex = sepTex,
     }
     table.insert(self._sections, entry)
-    self:_rebuildLayout()
+    if not self._building then self:_rebuildLayout() end
     return entry
 end
 
 -- ─── Public API ───────────────────────────────────────────────────────────────
 
--- Changes the active item (updates colors without rebuilding frames).
+-- Changes the active item. Auto-expands any collapsed ancestor branches so the
+-- newly active item is visible. Recolours without rebuilding unless an ancestor
+-- had to be expanded.
 function Sidebar:SetActiveItem(id)
     local prev = self._cfg.activeItem
     self._cfg.activeItem = id
 
-    -- Deactivate the previous one
     if prev and self._itemFrames[prev] then
         self:_colorItem(self._itemFrames[prev], false)
     end
 
-    -- Activate the new one
-    if id and self._itemFrames[id] then
-        self:_colorItem(self._itemFrames[id], true)
+    local entry = id and self._itemFrames[id]
+    if entry then
+        self:_colorItem(entry, true)
+        if self:_expandAncestors(entry) then
+            self:_rebuildLayout()
+        end
     end
+end
+
+-- Select(id): alias of SetActiveItem (matches the FR-008 API).
+function Sidebar:Select(id)
+    self:SetActiveItem(id)
 end
 
 function Sidebar:GetActiveItem()
     return self._cfg.activeItem
+end
+
+-- ─── Tree API (FR-008) ──────────────────────────────────────────────────────────
+
+-- Replaces all items/sections with a new (possibly nested) tree and rebuilds.
+function Sidebar:SetItems(items)
+    for _, e in ipairs(self._sections) do
+        if e.frame then e.frame:Hide(); e.frame:ClearAllPoints() end
+    end
+    self._sections   = {}
+    self._itemFrames = {}
+    self._hasTree    = false
+    self._cfg.items  = items or {}
+    self._building   = true
+    self:_addItems(self._cfg.items, 0, nil)
+    self._building   = false
+    self:_rebuildLayout()
+end
+
+-- Expand / collapse / toggle a collapsible branch by id.
+function Sidebar:Expand(id)
+    local e = self._itemFrames[id]
+    if e and e.collapsible and not e._open then self:_toggleNode(e) end
+end
+function Sidebar:Collapse(id)
+    local e = self._itemFrames[id]
+    if e and e.collapsible and e._open then self:_toggleNode(e) end
+end
+function Sidebar:ToggleNode(id)
+    local e = self._itemFrames[id]
+    if e and e.collapsible then self:_toggleNode(e) end
 end
 
 function Sidebar:GetFrame()

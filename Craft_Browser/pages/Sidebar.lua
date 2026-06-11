@@ -46,7 +46,37 @@ CraftBrowserPages["Sidebar"] = {
         sidebar:AddItem({ id="import", label="Import", icon="arrow-left"  })
 
         table.insert(comps, sidebar)
+        y = y + 312
 
+        -- ── Collapsible tree (FR-008) ───────────────────────────────────────
+        y = addLabel("Árbol colapsable (FR-008) — chevron al final, líneas guía", y)
+        local treeC = CreateFrame("Frame", nil, parent)
+        treeC:SetSize(240, 300)
+        treeC:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+
+        local tree = Craft.Sidebar:Create(treeC, {
+            width      = 240,
+            activeItem = "aura1",
+            onSelect   = function(id) print("Sidebar select:", id) end,
+            items = {
+                { id="pack1", label="Manaforge Omega", icon="folder", collapsible=true, defaultOpen=true,
+                  children = {
+                    { id="aura1", label="Shadow Crash", icon="star" },
+                    { id="aura2", label="Interrumpir",  icon="star" },
+                    { id="panels", label="Paneles", icon="layers", collapsible=true, defaultOpen=true,
+                      children = {
+                        { id="p1", label="Barras boss", icon="chart-column" },
+                        { id="p2", label="Avisos",      icon="megaphone"    },
+                      } },
+                  } },
+                { id="pack2", label="Mythic+ general", icon="folder", collapsible=true, defaultOpen=false,
+                  children = {
+                    { id="aura3", label="Bolster", icon="star" },
+                  } },
+            },
+        })
+        tree:GetFrame():SetAllPoints(treeC)
+        table.insert(comps, tree)
         y = y + 312
 
         return {
