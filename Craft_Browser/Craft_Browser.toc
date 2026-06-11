@@ -33,6 +33,7 @@ libs\Craft\components\Sidebar.lua
 libs\Craft\components\Slider.lua
 libs\Craft\components\Tabs.lua
 libs\Craft\components\Tooltip.lua
+libs\Craft\components\Window.lua
 
 # Showcase
 Browser.lua
@@ -53,3 +54,4 @@ pages\Slider.lua
 pages\Tabs.lua
 pages\Theme.lua
 pages\Tooltip.lua
+pages\Window.lua

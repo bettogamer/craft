@@ -4,7 +4,7 @@
 **Componente:** `Craft/components/Panel.lua` (y/o `Dialog.lua`)
 **Tipo:** Feature Request
 **Prioridad:** Alta — la ventana de configuración debe poder moverse y redimensionarse
-**Estado:** 🔵 Propuesto
+**Estado:** ✅ Resuelto (2026-06-11) — vía **componente nuevo `Craft.Window`** (main frame dedicado) en vez de extender Panel/Dialog: title bar con drag + close, resize handle, min/max, clamp, Escape, `onMoved`/`onResized`/`onClose`. El dev mete su UI en `GetContent()`. Ver `docs/components/window.md`.
 
 ---
 

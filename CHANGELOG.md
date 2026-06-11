@@ -7,6 +7,11 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 ## [Unreleased]
 
 ### Added
+- **`Craft.Window`** (FR-005) — componente nuevo: ventana top-level (main frame de
+  addon) movible + redimensionable, con title bar (título/descripción + close), área de
+  contenido (`GetContent()`), resize handle, min/max, clamp, Escape, y callbacks
+  `onMoved`/`onResized`/`onClose`. Se aísla del Panel/Dialog porque un main frame tiene
+  necesidades propias. shadcn no tiene equivalente (es web).
 - **`Craft.ColorSwatch`** (FR-007) — componente nuevo: swatch de color que abre el
   `ColorPickerFrame` nativo (con alpha). Checkerboard de transparencia, label opcional,
   `onChange(r,g,b,a)` en vivo, `SetColor`/`GetColor`/`SetEnabled`. shadcn no tiene

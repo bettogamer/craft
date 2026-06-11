@@ -40,3 +40,4 @@ components\Slider.lua
 components\Scroll.lua
 components\Tabs.lua
 components\Tooltip.lua
+components\Window.lua
