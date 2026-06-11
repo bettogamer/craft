@@ -32,6 +32,7 @@ libs\Craft\components\Scroll.lua
 libs\Craft\components\Select.lua
 libs\Craft\components\Separator.lua
 libs\Craft\components\Section.lua
+libs\Craft\components\SegmentedControl.lua
 libs\Craft\components\Sidebar.lua
 libs\Craft\components\Slider.lua
 libs\Craft\components\Textarea.lua
@@ -54,6 +55,7 @@ pages\Label.lua
 pages\Panel.lua
 pages\Scroll.lua
 pages\Section.lua
+pages\SegmentedControl.lua
 pages\Select.lua
 pages\Separator.lua
 pages\Sidebar.lua

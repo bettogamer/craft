@@ -42,6 +42,7 @@ components\Sidebar.lua
 components\Slider.lua
 components\Scroll.lua
 components\Section.lua
+components\SegmentedControl.lua
 components\Tabs.lua
 components\Tooltip.lua
 components\Window.lua

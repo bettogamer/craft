@@ -40,7 +40,8 @@ M7 (cada uno tiene workaround). Se listan juntos para priorizar/diseñar en bloq
   `SetValue`/`GetValue`/`SetEnabled`.
 - **Estado:** shadcn-backed. El radio es el único `rounded-full` de Lyra → círculo real vía
   `CircleMaskScalable` sobre `WHITE8X8`. Ver `docs/components/radiogroup.md`.
-- **SegmentedControl** = `ToggleGroup` de shadcn → se implementará aparte (orden 4).
+- **SegmentedControl** = `ToggleGroup` de shadcn → ✅ implementado aparte como
+  `Craft.SegmentedControl` (ver #4 / `docs/components/segmentedcontrol.md`).
 - ~~Workaround: `Select` (dropdown).~~
 
 ### 3. Accordion / CollapsibleSection — ✅ Implementado (2026-06-11)
