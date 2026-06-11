@@ -7,6 +7,13 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 ## [Unreleased]
 
 ### Added
+- **`Craft.Section`** (RFC-009 #3) — componente nuevo (shadcn-backed, accordion item):
+  bloque colapsable con cabecera (trigger `py-2.5 text-xs font-medium` + chevron
+  `chevron-down`↔`chevron-up`) y área de contenido (`pb-2.5`), separador inferior
+  `not-last:border-b`. `SetContent(frame)`/`Toggle`/`Expand`/`Collapse`/`SetExpanded`/
+  `IsExpanded`/`SetTitle`/`Refresh`; `onToggle(expanded)` para que el consumidor reflowee
+  pilas. Toggle **instantáneo** (no anima la altura como shadcn — divergencia §9.1, igual que
+  el árbol del Sidebar).
 - **`Craft.RadioGroup`** (RFC-009 #2) — componente nuevo (shadcn-backed): selección única
   apilada (`grid gap-2`). El radio es el **único elemento `rounded-full` de Lyra** (todo lo
   demás es Radius=0); se dibuja como **círculo real** componiendo tres discos = textura

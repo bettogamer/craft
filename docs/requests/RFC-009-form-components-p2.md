@@ -43,10 +43,13 @@ M7 (cada uno tiene workaround). Se listan juntos para priorizar/diseñar en bloq
 - **SegmentedControl** = `ToggleGroup` de shadcn → se implementará aparte (orden 4).
 - ~~Workaround: `Select` (dropdown).~~
 
-### 3. Accordion / CollapsibleSection
+### 3. Accordion / CollapsibleSection — ✅ Implementado (2026-06-11)
 - **Uso:** bloque "Avanzado (multi-trigger)", secciones largas de formulario.
-- **API:** `Craft.Section:Create(p, { title, collapsed=true })` con `:SetContent(frame)` / `:Toggle()`.
-- **Workaround:** `Separator` + mostrar/ocultar a mano.
+- **API:** `Craft.Section:Create(p, { title, collapsed=true, divider=true, onToggle })` con
+  `:SetContent(frame)` / `:Toggle()` / `:Expand()` / `:Collapse()` / `:IsExpanded()`.
+- **Estado:** shadcn-backed (accordion item). Toggle instantáneo (no anima la altura, como el
+  árbol del Sidebar — divergencia §9.1). Ver `docs/components/section.md`.
+- ~~Workaround: `Separator` + mostrar/ocultar a mano.~~
 
 ### 4. List reorderable (DragList)
 - **Uso:** listas de enrutado, condiciones y multi-triggers (reordenar por prioridad).

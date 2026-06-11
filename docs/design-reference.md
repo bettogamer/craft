@@ -390,6 +390,8 @@ cada spec bajo "Diferencias conocidas vs shadcn".
 | **Select** | `SelectGroup` / `SelectLabel` / `SelectSeparator` (opciones agrupadas); Craft solo soporta lista plana | Medio |
 | **Scroll** | Scroll **horizontal** (`scroll-area` lo soporta en ambos ejes); Craft.Scroll es solo vertical | Bajo |
 | **Tooltip** | Flecha (`.cn-tooltip-arrow`) y animaciones de entrada (fade/zoom/slide); Craft omite ambas | Bajo |
+| **Section** (Accordion) | Animación de altura (`animate-accordion-down/up`); Craft togglea instantáneo (igual que el árbol del Sidebar) | Bajo |
+| **Textarea** | `field-sizing-content` (auto-grow con el contenido); Craft usa altura fija + scroll interno | Bajo |
 
 ## 10. Registro de cambios
 
