@@ -7,6 +7,13 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 ## [Unreleased]
 
 ### Added
+- **`Craft.RadioGroup`** (RFC-009 #2) — componente nuevo (shadcn-backed): selección única
+  apilada (`grid gap-2`). El radio es el **único elemento `rounded-full` de Lyra** (todo lo
+  demás es Radius=0); se dibuja como **círculo real** componiendo tres discos = textura
+  `WHITE8X8` enmascarada con `CircleMaskScalable` y tintada por vertex-color (ring
+  `border-input`→`primary`, fill `input/30`→`primary`, dot `primary-foreground` al
+  seleccionar). `options`/`value`/`width`/`disabled`/`onChange`; `SetValue`/`GetValue`/
+  `SetEnabled`.
 - **`Craft.NumberInput`** (RFC-009 #1) — componente nuevo (**Craft-original**: shadcn no
   tiene spinner numérico): campo numérico con columna de stepper ▲▼ (`chevron-up`/`-down`) +
   rueda del mouse, que avanzan por `step`. Valores escritos se clampan a `[min,max]` al

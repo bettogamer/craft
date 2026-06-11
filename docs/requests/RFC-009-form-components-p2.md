@@ -34,10 +34,14 @@ M7 (cada uno tiene workaround). Se listan juntos para priorizar/diseñar en bloq
 - **Estado:** Craft-original (shadcn no tiene spinner). Ver `docs/components/numberinput.md`.
 - ~~Workaround: `Input` + `tonumber`, o `Slider` cuando hay rango.~~
 
-### 2. RadioGroup / SegmentedControl
+### 2. RadioGroup — ✅ Implementado (2026-06-11)
 - **Uso:** elegir tipo de display (Barra/Icono/Texto), modo de trigger.
-- **API:** `Craft.RadioGroup:Create(p, { options = {{value,label}}, value, onChange })`.
-- **Workaround:** `Select` (dropdown).
+- **API:** `Craft.RadioGroup:Create(p, { options = {{value,label}}, value, width, disabled, onChange })`;
+  `SetValue`/`GetValue`/`SetEnabled`.
+- **Estado:** shadcn-backed. El radio es el único `rounded-full` de Lyra → círculo real vía
+  `CircleMaskScalable` sobre `WHITE8X8`. Ver `docs/components/radiogroup.md`.
+- **SegmentedControl** = `ToggleGroup` de shadcn → se implementará aparte (orden 4).
+- ~~Workaround: `Select` (dropdown).~~
 
 ### 3. Accordion / CollapsibleSection
 - **Uso:** bloque "Avanzado (multi-trigger)", secciones largas de formulario.
