@@ -24,6 +24,7 @@ libs\Craft\components\Checkbox.lua
 libs\Craft\components\ColorSwatch.lua
 libs\Craft\components\Dialog.lua
 libs\Craft\components\Input.lua
+libs\Craft\components\NumberInput.lua
 libs\Craft\components\Label.lua
 libs\Craft\components\Panel.lua
 libs\Craft\components\Scroll.lua
@@ -45,6 +46,7 @@ pages\Dialog.lua
 pages\Flex.lua
 pages\Icons.lua
 pages\Input.lua
+pages\NumberInput.lua
 pages\Label.lua
 pages\Panel.lua
 pages\Scroll.lua

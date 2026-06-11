@@ -7,6 +7,13 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 ## [Unreleased]
 
 ### Added
+- **`Craft.NumberInput`** (RFC-009 #1) — componente nuevo (**Craft-original**: shadcn no
+  tiene spinner numérico): campo numérico con columna de stepper ▲▼ (`chevron-up`/`-down`) +
+  rueda del mouse, que avanzan por `step`. Valores escritos se clampan a `[min,max]` al
+  confirmar (Enter / perder foco). Mismo estilo de form-control que Input (`border-input`,
+  `input/30`, `text-xs`, `rounded-none`, `h-8`). `value`/`min`/`max`/`step`/`width`/
+  `disabled`/`onChange`; `SetValue`/`GetValue`/`SetRange`/`SetEnabled`. Soporta decimales y
+  negativos (sin `SetNumeric`, que solo admite enteros).
 - **`Craft.Textarea`** (FR-006) — componente nuevo: campo de texto **multilínea** con
   scroll interno (rueda + cursor-follow). shadcn tiene `Textarea` como componente
   **separado** de Input, así que se creó aparte (no se extendió Input). Mismo estilo de

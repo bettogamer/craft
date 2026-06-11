@@ -3,7 +3,20 @@
 **Reportado por:** Sentry (consumer addon)
 **Componentes:** nuevos / mejoras menores
 **Tipo:** RFC (prioridad media-baja; hay workaround para todos)
-**Estado:** 🔵 Propuesto
+**Estado:** 🟡 En progreso (2026-06-11) — revisado contra shadcn; implementando por orden
+
+## Revisión shadcn (2026-06-11)
+
+Verificado en `style-lyra.css`: **2 de 4 existen en shadcn** (RadioGroup, Accordion) →
+se construyen fieles; **2 son Craft-originales** (NumberInput, DragList).
+
+| Componente | shadcn | Esfuerzo | Orden |
+|---|---|---|---|
+| NumberInput / Stepper | ❌ no existe (Craft-original) | S | 1 |
+| RadioGroup | ✅ `.cn-radio-group` (`grid gap-2`) + `.cn-radio-group-item` (`border-input`, `data-checked:bg-primary`, **`rounded-none`** = radio cuadrado) | S-M | 2 |
+| Accordion | ✅ `.cn-accordion-item` (`not-last:border-b`), `-trigger`, `-content` | M (reutiliza el colapso del árbol de Sidebar) | 3 |
+| SegmentedControl | ✅ **es el `ToggleGroup` de shadcn** (`.cn-toggle-group`, `rounded-none`) | S-M | 4 |
+| DragList | ❌ no existe (Craft-original) | L | 5 (diferir) |
 
 ---
 
@@ -14,10 +27,12 @@ M7 (cada uno tiene workaround). Se listan juntos para priorizar/diseñar en bloq
 
 ## Componentes
 
-### 1. NumberInput / Stepper
+### 1. NumberInput / Stepper — ✅ Implementado (2026-06-11)
 - **Uso:** campos numéricos (x/y, tamaño, duración, recuento).
-- **API:** `Craft.NumberInput:Create(p, { value, min, max, step, onChange })` con flechas ▲▼ opcionales.
-- **Workaround:** `Input` + validación `tonumber`, o `Slider` cuando hay rango.
+- **API:** `Craft.NumberInput:Create(p, { value, min, max, step, width, disabled, onChange })`;
+  flechas ▲▼ + rueda del mouse. `SetValue`/`GetValue`/`SetRange`/`SetEnabled`.
+- **Estado:** Craft-original (shadcn no tiene spinner). Ver `docs/components/numberinput.md`.
+- ~~Workaround: `Input` + `tonumber`, o `Slider` cuando hay rango.~~
 
 ### 2. RadioGroup / SegmentedControl
 - **Uso:** elegir tipo de display (Barra/Icono/Texto), modo de trigger.

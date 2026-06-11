@@ -30,6 +30,7 @@ components\Button.lua
 components\Checkbox.lua
 components\ColorSwatch.lua
 components\Input.lua
+components\NumberInput.lua
 components\Textarea.lua
 components\Label.lua
 components\Panel.lua
