@@ -56,15 +56,11 @@ end
 function ToggleGroup:_makeSegment(opt, index)
     local btn = CreateFrame("Button", nil, self.frame)
 
-    -- Own border (4 × 1px, border-input)
+    -- Own border (4 × 1px, border-input) — anchored corner-safe in _applyTheme
     local bT = btn:CreateTexture(nil, "BORDER")
     local bB = btn:CreateTexture(nil, "BORDER")
     local bL = btn:CreateTexture(nil, "BORDER")
     local bR = btn:CreateTexture(nil, "BORDER")
-    bT:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0);     bT:SetPoint("TOPRIGHT", btn, "TOPRIGHT", 0, 0)
-    bB:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 0, 0); bB:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, 0)
-    bL:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0);     bL:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 0, 0)
-    bR:SetPoint("TOPRIGHT", btn, "TOPRIGHT", 0, 0);   bR:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, 0)
 
     -- Fill highlight (bg-muted), inset 1px — shown when active or hovered
     local bg = btn:CreateTexture(nil, "BACKGROUND")
@@ -156,11 +152,8 @@ function ToggleGroup:_applyTheme(t)
     local txt = self._cfg.disabled and t.mutedForeground or t.foreground
 
     for _, seg in ipairs(self._segs) do
-        -- Border (border-input)
-        Craft.Theme.SetPixelHeight(seg.border[1], 1)
-        Craft.Theme.SetPixelHeight(seg.border[2], 1)
-        Craft.Theme.SetPixelWidth(seg.border[3], 1)
-        Craft.Theme.SetPixelWidth(seg.border[4], 1)
+        -- Border (border-input, corner-safe)
+        Craft.Theme.AnchorBorder(seg.btn, seg.border[1], seg.border[2], seg.border[3], seg.border[4])
         for _, b in ipairs(seg.border) do b:SetColorTexture(bc.r, bc.g, bc.b, bc.a) end
 
         -- Fill (bg-muted)

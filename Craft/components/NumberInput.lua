@@ -158,19 +158,9 @@ function NumberInput:_applyTheme(t)
         self._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a * 0.30)
     end
 
-    -- Border (4 × 1px)
-    self._borderTop:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
-    self._borderTop:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
-    Craft.Theme.SetPixelHeight(self._borderTop, 1)
-    self._borderBottom:SetPoint("BOTTOMLEFT",  self.frame, "BOTTOMLEFT",  0, 0)
-    self._borderBottom:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
-    Craft.Theme.SetPixelHeight(self._borderBottom, 1)
-    self._borderLeft:SetPoint("TOPLEFT",    self.frame, "TOPLEFT",    0, 0)
-    self._borderLeft:SetPoint("BOTTOMLEFT", self.frame, "BOTTOMLEFT", 0, 0)
-    Craft.Theme.SetPixelWidth(self._borderLeft, 1)
-    self._borderRight:SetPoint("TOPRIGHT",    self.frame, "TOPRIGHT",    0, 0)
-    self._borderRight:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
-    Craft.Theme.SetPixelWidth(self._borderRight, 1)
+    -- Border (4 × 1px, corner-safe)
+    Craft.Theme.AnchorBorder(self.frame, self._borderTop, self._borderBottom,
+                             self._borderLeft, self._borderRight)
 
     -- Background inset 1px
     local px1 = Craft.Theme.px(1, self.frame)

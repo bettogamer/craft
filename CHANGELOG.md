@@ -79,6 +79,13 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   reactiva la primera tab restante si la removida era la activa, y reflowea.
 
 ### Fixed
+- Bordes de 1px: **esquinas sobrepuestas**. Las 4 texturas del borde (top/bottom/left/right)
+  se solapaban en cada esquina; con un color translúcido (`border-input` @ 0.15) el alpha se
+  **duplicaba** ahí (~0.28) y las esquinas se veían como puntos más marcados. Nuevo helper
+  `Craft.Theme.AnchorBorder(frame, top, bottom, left, right)` ancla el borde **corner-safe**
+  (top/bottom a lo ancho completo; left/right insetados 1px en vertical) → cada píxel de
+  esquina se pinta una sola vez. Aplicado a Checkbox, Input, NumberInput, Textarea, Tabs y
+  ToggleGroup. (Panel/Dialog/Window usan ring+inset, no tenían el problema.)
 - Panel: `SetClipsChildren(true)` (`overflow-hidden` del `cn-card`) — el contenido que
   excede el panel se recorta. Spec alineado (Panel es dev-sized, no auto-crece; tokens
   refrescados; title usa `cardForeground`).
