@@ -15,11 +15,11 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   no se recrean) o label por defecto. `items`/`renderRow`/`onReorder`/`width`/`disabled`;
   `SetItems`/`GetItems`/`SetEnabled`.
 - **`Craft.SegmentedControl`** (RFC-009 #4) — componente nuevo (shadcn-backed: es el
-  `ToggleGroup` de shadcn con `spacing=0` + selección única): barra de segmentos conectados
-  dentro de una caja `border-input`, dividers de 1px, segmento activo `bg-muted` + texto
-  `foreground` (inactivo `mutedForeground`, hover→`foreground`). `text-xs font-medium`,
-  `h-8 min-w-8 px-2`, iconos Lucide opcionales por segmento. `options`/`value`/`disabled`/
-  `onChange`; `SetValue`/`GetValue`/`SetEnabled`.
+  `ToggleGroup` de shadcn con selección única): réplica del render real de la página
+  (`variant=outline`, `spacing=1`) → segmentos **separados**, cada uno con su propio borde
+  `border-input`, gap de 4px; activo/hover rellenan con `bg-muted`, texto `foreground`
+  siempre. `text-xs font-medium`, `h-8 min-w-8 px-2.5`, iconos Lucide opcionales por
+  segmento. `options`/`value`/`disabled`/`onChange`; `SetValue`/`GetValue`/`SetEnabled`.
 - **`Craft.Section`** (RFC-009 #3) — componente nuevo (shadcn-backed, accordion item):
   bloque colapsable con cabecera (trigger `py-2.5 text-xs font-medium` + chevron
   `chevron-down`↔`chevron-up`) y área de contenido (`pb-2.5`), separador inferior

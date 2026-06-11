@@ -1,11 +1,14 @@
--- SegmentedControl.lua  (Craft.SegmentedControl — shadcn ToggleGroup, spacing=0, single)
+-- SegmentedControl.lua  (Craft.SegmentedControl — shadcn ToggleGroup, single selection)
 -- Spec: docs/components/segmentedcontrol.md
--- Design: shadcn Lyra ToggleGroup with spacing=0 = a connected segmented control.
---   .cn-toggle-group { rounded-none }  .cn-toggle-group-item (spacing=0 → px-2, shared edges)
---   .cn-toggle { rounded-none text-xs font-medium; data-[state=on]:bg-muted; hover:text-foreground }
---   .cn-toggle-size-default { h-8 min-w-8 px-2.5 }   (grouped spacing=0 overrides px → px-2)
---   A row of buttons inside one border-input box, 1px dividers between segments, single
---   selection; the active segment gets bg-muted + foreground text.
+-- Design: matches the shadcn page's rendered ToggleGroup — variant=outline, spacing=1:
+--   .cn-toggle              { rounded-none text-xs font-medium hover:text-foreground
+--                             data-[state=on]:bg-muted gap-1 }
+--   .cn-toggle-variant-outline { border-input border bg-transparent hover:bg-muted }
+--   .cn-toggle-size-default { h-8 min-w-8 px-2.5 }
+--   group gap = spacing(1) = 4px
+--   => each segment is its OWN bordered box (border-input), separated by a 4px gap; the
+--   active segment (and any hovered segment) fills with bg-muted. Text is foreground always
+--   (on/off buttons differ only by data-state). Single selection.
 
 local Craft = LibStub("Craft-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
@@ -14,8 +17,9 @@ local SegmentedControl = {}
 SegmentedControl.__index = SegmentedControl
 
 local H        = 32   -- h-8
-local PAD_H    = 8    -- px-2 (grouped spacing=0)
+local PAD_H    = 10   -- px-2.5
 local MIN_W    = 32   -- min-w-8
+local GAP      = 4    -- group gap = spacing(1)
 local ICON_SZ  = 14   -- svg size-4 (display-downscaled)
 local ICON_GAP = 4    -- gap-1
 local FONT_SIZE = 12  -- text-xs
@@ -36,12 +40,6 @@ function SegmentedControl:Create(parent, config)
     self.frame = CreateFrame("Frame", nil, parent)
     self.frame:SetHeight(H)
 
-    -- Outer border (4 × 1px, border-input)
-    self._borderTop    = self.frame:CreateTexture(nil, "BACKGROUND")
-    self._borderBottom = self.frame:CreateTexture(nil, "BACKGROUND")
-    self._borderLeft   = self.frame:CreateTexture(nil, "BACKGROUND")
-    self._borderRight  = self.frame:CreateTexture(nil, "BACKGROUND")
-
     for i, opt in ipairs(self._cfg.options) do
         self:_makeSegment(opt, i)
     end
@@ -58,10 +56,20 @@ end
 function SegmentedControl:_makeSegment(opt, index)
     local btn = CreateFrame("Button", nil, self.frame)
 
-    -- Active highlight (bg-muted), inset 1px from top/bottom border
+    -- Own border (4 × 1px, border-input)
+    local bT = btn:CreateTexture(nil, "BORDER")
+    local bB = btn:CreateTexture(nil, "BORDER")
+    local bL = btn:CreateTexture(nil, "BORDER")
+    local bR = btn:CreateTexture(nil, "BORDER")
+    bT:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0);     bT:SetPoint("TOPRIGHT", btn, "TOPRIGHT", 0, 0)
+    bB:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 0, 0); bB:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, 0)
+    bL:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0);     bL:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 0, 0)
+    bR:SetPoint("TOPRIGHT", btn, "TOPRIGHT", 0, 0);   bR:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, 0)
+
+    -- Fill highlight (bg-muted), inset 1px — shown when active or hovered
     local bg = btn:CreateTexture(nil, "BACKGROUND")
-    bg:SetPoint("TOPLEFT",     btn, "TOPLEFT",     0, -1)
-    bg:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0,  1)
+    bg:SetPoint("TOPLEFT",     btn, "TOPLEFT",      1, -1)
+    bg:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -1,  1)
     bg:Hide()
 
     local fs = btn:CreateFontString(nil, "OVERLAY")
@@ -73,11 +81,9 @@ function SegmentedControl:_makeSegment(opt, index)
         iconTex:SetSize(ICON_SZ, ICON_SZ)
     end
 
-    -- Right divider (1px, border-input) — between this segment and the next
-    local divider = self.frame:CreateTexture(nil, "BORDER")
-
     local seg = { value = opt.value, label = opt.label or "", icon = opt.icon,
-                  btn = btn, bg = bg, fs = fs, iconTex = iconTex, divider = divider }
+                  btn = btn, bg = bg, fs = fs, iconTex = iconTex,
+                  border = { bT, bB, bL, bR }, active = false, hovering = false }
     self._segs[index] = seg
 
     btn:SetScript("OnClick", function()
@@ -91,16 +97,15 @@ end
 
 -- ─── Layout (positions + widths) ──────────────────────────────────────────────
 function SegmentedControl:_layout()
-    local x = 1   -- inside left border
-    local n = #self._segs
-    for i, seg in ipairs(self._segs) do
+    local x = 0
+    for _, seg in ipairs(self._segs) do
         local labelW = seg.fs:GetStringWidth()
         local iconW  = seg.icon and (ICON_SZ + ICON_GAP) or 0
         local w = math.max(MIN_W, PAD_H * 2 + iconW + labelW)
 
         seg.btn:ClearAllPoints()
-        seg.btn:SetPoint("TOPLEFT", self.frame, "TOPLEFT", x, -1)
-        seg.btn:SetSize(w, H - 2)
+        seg.btn:SetPoint("TOPLEFT", self.frame, "TOPLEFT", x, 0)
+        seg.btn:SetSize(w, H)
 
         -- center the icon+label combo
         seg.fs:ClearAllPoints()
@@ -111,22 +116,11 @@ function SegmentedControl:_layout()
             seg.iconTex:SetPoint("RIGHT", seg.fs, "LEFT", -ICON_GAP, 0)
         end
 
-        x = x + w
-
-        -- divider after each segment except the last
-        seg.divider:ClearAllPoints()
-        if i < n then
-            seg.divider:SetPoint("TOPLEFT",    self.frame, "TOPLEFT", x, -1)
-            seg.divider:SetPoint("BOTTOMLEFT", self.frame, "TOPLEFT", x, -(H - 1))
-            Craft.Theme.SetPixelWidth(seg.divider, 1)
-            seg.divider:Show()
-            x = x + 1
-        else
-            seg.divider:Hide()
-        end
+        x = x + w + GAP
     end
 
-    self.frame:SetWidth(x + 1)   -- + right border
+    self.frame:SetWidth(math.max(0, x - GAP))   -- drop trailing gap; w-fit
+    self.frame:SetHeight(H)
 end
 
 -- ─── Selection / hover ────────────────────────────────────────────────────────
@@ -137,61 +131,50 @@ function SegmentedControl:_select(value)
     if self._cfg.onChange then self._cfg.onChange(self._value) end
 end
 
+function SegmentedControl:_setSegFill(seg)
+    if seg.active or seg.hovering then seg.bg:Show() else seg.bg:Hide() end
+end
+
 function SegmentedControl:_refresh()
-    local t = self._t
-    if not t then return end
     for _, seg in ipairs(self._segs) do
-        local active = (seg.value == self._value)
-        if active then
-            seg.bg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 1)
-            seg.bg:Show()
-        else
-            seg.bg:Hide()
-        end
-        local c = (active and not self._cfg.disabled) and t.foreground or t.mutedForeground
-        seg.fs:SetTextColor(c.r, c.g, c.b)
-        if seg.iconTex then seg.iconTex:SetVertexColor(c.r, c.g, c.b, 1) end
+        seg.active = (seg.value == self._value)
+        self:_setSegFill(seg)
     end
 end
 
 function SegmentedControl:_hover(seg, on)
     if self._cfg.disabled then return end
-    local t = self._t
-    if not t then return end
-    if seg.value == self._value then return end   -- active already foreground
-    local c = on and t.foreground or t.mutedForeground
-    seg.fs:SetTextColor(c.r, c.g, c.b)
-    if seg.iconTex then seg.iconTex:SetVertexColor(c.r, c.g, c.b, 1) end
+    seg.hovering = on
+    self:_setSegFill(seg)
 end
 
 -- ─── Theme ────────────────────────────────────────────────────────────────────
 function SegmentedControl:_applyTheme(t)
     self._t = t
 
-    -- Outer border
-    self._borderTop:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
-    self._borderTop:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
-    Craft.Theme.SetPixelHeight(self._borderTop, 1)
-    self._borderBottom:SetPoint("BOTTOMLEFT",  self.frame, "BOTTOMLEFT",  0, 0)
-    self._borderBottom:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
-    Craft.Theme.SetPixelHeight(self._borderBottom, 1)
-    self._borderLeft:SetPoint("TOPLEFT",    self.frame, "TOPLEFT",    0, 0)
-    self._borderLeft:SetPoint("BOTTOMLEFT", self.frame, "BOTTOMLEFT", 0, 0)
-    Craft.Theme.SetPixelWidth(self._borderLeft, 1)
-    self._borderRight:SetPoint("TOPRIGHT",    self.frame, "TOPRIGHT",    0, 0)
-    self._borderRight:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
-    Craft.Theme.SetPixelWidth(self._borderRight, 1)
-
-    local bc = t.input
-    for _, side in ipairs({ self._borderTop, self._borderBottom, self._borderLeft, self._borderRight }) do
-        side:SetColorTexture(bc.r, bc.g, bc.b, bc.a)
-    end
+    local bc = t.input          -- border-input
+    local txt = self._cfg.disabled and t.mutedForeground or t.foreground
 
     for _, seg in ipairs(self._segs) do
+        -- Border (border-input)
+        Craft.Theme.SetPixelHeight(seg.border[1], 1)
+        Craft.Theme.SetPixelHeight(seg.border[2], 1)
+        Craft.Theme.SetPixelWidth(seg.border[3], 1)
+        Craft.Theme.SetPixelWidth(seg.border[4], 1)
+        for _, b in ipairs(seg.border) do b:SetColorTexture(bc.r, bc.g, bc.b, bc.a) end
+
+        -- Fill (bg-muted)
+        seg.bg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 1)
+
+        -- Text (foreground always; on/off differ only by fill)
         seg.fs:SetFont(t.fontBold or t.font, FONT_SIZE, "")   -- font-medium
+        seg.fs:SetTextColor(txt.r, txt.g, txt.b)
         seg.fs:SetText(seg.label)
-        if seg.iconTex then Craft.Icons.Apply(seg.iconTex, seg.icon, ICON_SZ) end
-        seg.divider:SetColorTexture(bc.r, bc.g, bc.b, bc.a)
+
+        if seg.iconTex then
+            Craft.Icons.Apply(seg.iconTex, seg.icon, ICON_SZ)
+            seg.iconTex:SetVertexColor(txt.r, txt.g, txt.b, 1)
+        end
     end
 
     self:_layout()
@@ -215,7 +198,7 @@ function SegmentedControl:SetEnabled(enabled)
     for _, seg in ipairs(self._segs) do
         seg.btn:EnableMouse(enabled)
     end
-    if self._t then self:_refresh() end
+    if self._t then self:_applyTheme(self._t) end
 end
 
 function SegmentedControl:GetFrame()
