@@ -31,6 +31,7 @@ libs\Craft\components\Select.lua
 libs\Craft\components\Separator.lua
 libs\Craft\components\Sidebar.lua
 libs\Craft\components\Slider.lua
+libs\Craft\components\Textarea.lua
 libs\Craft\components\Tabs.lua
 libs\Craft\components\Tooltip.lua
 libs\Craft\components\Window.lua
@@ -51,6 +52,7 @@ pages\Select.lua
 pages\Separator.lua
 pages\Sidebar.lua
 pages\Slider.lua
+pages\Textarea.lua
 pages\Tabs.lua
 pages\Theme.lua
 pages\Tooltip.lua

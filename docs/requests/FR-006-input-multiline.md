@@ -4,7 +4,7 @@
 **Componente:** `Craft/components/Input.lua`
 **Tipo:** Feature Request
 **Prioridad:** Media-Alta — editor de código y campos de texto largo
-**Estado:** 🔵 Propuesto
+**Estado:** ✅ Resuelto (2026-06-11) — vía **componente nuevo `Craft.Textarea`** (no extendiendo Input): shadcn tiene `Textarea` como componente separado. EditBox multilínea + ScrollFrame interno (rueda + cursor-follow), `value`/`placeholder`/`height`/`error`/`maxLetters`/`font`. Ver `docs/components/textarea.md`.
 
 ---
 

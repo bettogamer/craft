@@ -7,6 +7,12 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 ## [Unreleased]
 
 ### Added
+- **`Craft.Textarea`** (FR-006) — componente nuevo: campo de texto **multilínea** con
+  scroll interno (rueda + cursor-follow). shadcn tiene `Textarea` como componente
+  **separado** de Input, así que se creó aparte (no se extendió Input). Mismo estilo de
+  form-control (`border-input`, `input/30`, `text-xs`, `rounded-none`, `py-2`), con
+  `value`/`placeholder`/`height`/`error`/`maxLetters`/`font`/`onChange`. Adaptación WoW:
+  altura fija + scroll en vez del `field-sizing-content` (auto-grow) de shadcn.
 - **`Craft.Window`** (FR-005) — componente nuevo: ventana top-level (main frame de
   addon) movible + redimensionable, con title bar (título/descripción + close), área de
   contenido (`GetContent()`), resize handle, min/max, clamp, Escape, y callbacks
