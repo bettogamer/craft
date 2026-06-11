@@ -3,7 +3,8 @@
 **Reportado por:** Sentry (consumer addon)
 **Componentes:** nuevos / mejoras menores
 **Tipo:** RFC (prioridad media-baja; hay workaround para todos)
-**Estado:** 🟡 En progreso (2026-06-11) — revisado contra shadcn; implementando por orden
+**Estado:** ✅ Resuelto (2026-06-11) — las 5 componentes implementadas (NumberInput, RadioGroup,
+Section, SegmentedControl, DragList)
 
 ## Revisión shadcn (2026-06-11)
 
@@ -16,7 +17,7 @@ se construyen fieles; **2 son Craft-originales** (NumberInput, DragList).
 | RadioGroup | ✅ `.cn-radio-group` (`grid gap-2`) + `.cn-radio-group-item` (`border-input`, `data-checked:bg-primary`, **`rounded-none`** = radio cuadrado) | S-M | 2 |
 | Accordion | ✅ `.cn-accordion-item` (`not-last:border-b`), `-trigger`, `-content` | M (reutiliza el colapso del árbol de Sidebar) | 3 |
 | SegmentedControl | ✅ **es el `ToggleGroup` de shadcn** (`.cn-toggle-group`, `rounded-none`) | S-M | 4 |
-| DragList | ❌ no existe (Craft-original) | L | 5 (diferir) |
+| DragList | ❌ no existe (Craft-original) | L | 5 ✅ |
 
 ---
 
@@ -52,11 +53,13 @@ M7 (cada uno tiene workaround). Se listan juntos para priorizar/diseñar en bloq
   árbol del Sidebar — divergencia §9.1). Ver `docs/components/section.md`.
 - ~~Workaround: `Separator` + mostrar/ocultar a mano.~~
 
-### 4. List reorderable (DragList)
+### 4. List reorderable (DragList) — ✅ Implementado (2026-06-11)
 - **Uso:** listas de enrutado, condiciones y multi-triggers (reordenar por prioridad).
-- **API:** `Craft.DragList:Create(p, { items, renderRow, onReorder })` con handle `grip-vertical`
-  (ya existe en el atlas, parece anticipado).
-- **Workaround:** filas + `grip-vertical` + botones ▲▼.
+- **API:** `Craft.DragList:Create(p, { items, renderRow, onReorder, width, disabled })` con handle
+  `grip-vertical`; `SetItems`/`GetItems`/`SetEnabled`. Reorden en vivo por arrastre.
+- **Estado:** Craft-original (shadcn no tiene sortable). Drag custom (sigue el cursor vía
+  `OnUpdate`, no `StartMoving`). Ver `docs/components/draglist.md`.
+- ~~Workaround: filas + `grip-vertical` + botones ▲▼.~~
 
 ## Impacto
 

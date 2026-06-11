@@ -23,6 +23,7 @@ libs\Craft\components\Button.lua
 libs\Craft\components\Checkbox.lua
 libs\Craft\components\ColorSwatch.lua
 libs\Craft\components\Dialog.lua
+libs\Craft\components\DragList.lua
 libs\Craft\components\Input.lua
 libs\Craft\components\NumberInput.lua
 libs\Craft\components\RadioGroup.lua
@@ -46,6 +47,7 @@ pages\Button.lua
 pages\Checkbox.lua
 pages\ColorSwatch.lua
 pages\Dialog.lua
+pages\DragList.lua
 pages\Flex.lua
 pages\Icons.lua
 pages\Input.lua

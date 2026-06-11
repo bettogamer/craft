@@ -7,6 +7,13 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 ## [Unreleased]
 
 ### Added
+- **`Craft.DragList`** (RFC-009 #5) — componente nuevo (**Craft-original**: shadcn no tiene
+  sortable): lista vertical reordenable por arrastre del handle `grip-vertical`. Drag custom
+  (la fila sigue el cursor vía `OnUpdate` + `GetCursorPosition`, **no** `StartMoving`) con
+  **reorden en vivo** al cruzar bandas de filas; al soltar dispara `onReorder(items)` si el
+  orden cambió. `renderRow(content,item,index)` (corre una vez/fila; las filas se reposicionan,
+  no se recrean) o label por defecto. `items`/`renderRow`/`onReorder`/`width`/`disabled`;
+  `SetItems`/`GetItems`/`SetEnabled`.
 - **`Craft.SegmentedControl`** (RFC-009 #4) — componente nuevo (shadcn-backed: es el
   `ToggleGroup` de shadcn con `spacing=0` + selección única): barra de segmentos conectados
   dentro de una caja `border-input`, dividers de 1px, segmento activo `bg-muted` + texto

@@ -36,6 +36,7 @@ components\Textarea.lua
 components\Label.lua
 components\Panel.lua
 components\Dialog.lua
+components\DragList.lua
 components\Select.lua
 components\Separator.lua
 components\Sidebar.lua
