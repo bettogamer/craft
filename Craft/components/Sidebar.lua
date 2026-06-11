@@ -113,13 +113,15 @@ function Sidebar:Create(parent, config)
     self._child:SetHeight(1)  -- will be updated in _rebuild
     self._scroll:SetScrollChild(self._child)
 
-    -- Re-sync child width and scrollbar when the scroll frame gets real dimensions
-    -- from anchor propagation (mirrors Craft.Scroll's OnSizeChanged pattern).
+    -- Re-sync child width, re-position items and the scrollbar when the scroll frame
+    -- gets its real dimensions from anchor propagation (the frame is often sized after
+    -- Create). Without re-laying-out here, content built against a 0-size frame stays
+    -- clipped/invisible until something else triggers a rebuild.
     self._scroll:SetScript("OnSizeChanged", function(_, sw, _)
         if sw and sw > 0 then
             self._child:SetWidth(sw - 1 - SBAR_W)
         end
-        self:_updateSbar()
+        self:_rebuildLayout()
     end)
 
     -- Mouse wheel scrolling (32px per tick = one item height)
@@ -213,11 +215,16 @@ function Sidebar:Create(parent, config)
     self._scroll:SetScript("OnVerticalScroll",     function() self:_updateSbar() end)
     self._sbarFrame:SetScript("OnSizeChanged",     function() self:_updateSbar() end)
     self.frame:SetScript("OnShow", function()
+        -- Self-heal: the frame often has no resolved height in Create() (the caller
+        -- sizes it afterwards). Re-anchor _scroll and re-lay-out now that the frame
+        -- is shown/sized so the ScrollFrame clip rect and item positions are correct
+        -- — otherwise content laid out against a 0-height frame stays invisible.
+        self:RefreshLayout()
         local sw = self._scroll:GetWidth()
         if sw and sw > 0 then
             self._child:SetWidth(sw - 1 - SBAR_W)
         end
-        self:_updateSbar()
+        self:_rebuildLayout()
     end)
 
     -- Map of item frames by id (for efficient SetActiveItem)

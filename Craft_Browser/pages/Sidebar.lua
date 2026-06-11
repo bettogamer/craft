@@ -40,6 +40,7 @@ CraftBrowserPages["Sidebar"] = {
         flat:AddSection("Actions")
         flat:AddItem({ id="export", label="Export", icon="download" })
         flat:AddItem({ id="import", label="Import", icon="upload"   })
+        flat:RefreshLayout()   -- re-anchor the inner scroll now the frame is sized
         table.insert(comps, flat)
         y = y + 232
 
@@ -68,6 +69,7 @@ CraftBrowserPages["Sidebar"] = {
             },
         })
         tree:GetFrame():SetAllPoints(c2)
+        tree:RefreshLayout()   -- re-anchor the inner scroll now the frame is sized
         table.insert(comps, tree)
 
         -- API test buttons (to the right of the tree)
