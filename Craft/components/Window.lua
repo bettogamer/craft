@@ -68,6 +68,8 @@ function Window:Create(parent, config)
 
     -- ── Title bar (drag handle) ─────────────────────────────────────────────
     self._titleBar = CreateFrame("Frame", nil, self.frame)
+    -- Horizontal anchors (inset by the 1px ring) are (re)set in _applyTheme, which
+    -- knows px1. Initial flush anchors here just give it a rect before the first theme pass.
     self._titleBar:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
     self._titleBar:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
     self._titleBar:EnableMouse(true)
@@ -207,6 +209,14 @@ function Window:_applyTheme(t)
     self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     px1, -px1)
     self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1, px1)
     self._bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
+
+    -- Title bar + content sit INSIDE the 1px ring (inset by px1 on the outer edges),
+    -- so the header is flush with the body and not 1px wider on each side. Set here —
+    -- not in Create — because px1 depends on the frame's effective scale.
+    self._titleBar:ClearAllPoints()
+    self._titleBar:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",   px1, -px1)
+    self._titleBar:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -px1, -px1)
+    self._content:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1, px1)
 
     -- Title bar: slightly lighter than the body for separation; 1px bottom border.
     self._titleBarBg:SetColorTexture(t.popover.r + 0.03, t.popover.g + 0.03, t.popover.b + 0.03, 1)
