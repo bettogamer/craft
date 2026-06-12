@@ -131,7 +131,7 @@ function Tabs:AddTab(id, label, opts)
 
     local btnText = btn:CreateFontString(nil, "OVERLAY")
     if self._t then
-        btnText:SetFont(self._t.font, FONT_SIZE)
+        btnText:SetFont(self._t.fontMedium or self._t.font, FONT_SIZE)
     end
     btnText:SetText(label or id)
 
@@ -219,25 +219,12 @@ function Tabs:_styleButton(btn, isActive)
     local t = self._t
     if not t then return end
 
-    -- Font
-    btn._text:SetFont(t.font, FONT_SIZE)
+    -- Font (.cn-tabs-trigger font-medium)
+    btn._text:SetFont(t.fontMedium or t.font, FONT_SIZE)
 
-    -- Pixel-perfect border positions
-    btn._borderTop:SetPoint("TOPLEFT",  btn, "TOPLEFT",  0, 0)
-    btn._borderTop:SetPoint("TOPRIGHT", btn, "TOPRIGHT", 0, 0)
-    Craft.Theme.SetPixelHeight(btn._borderTop, 1)
-
-    btn._borderBottom:SetPoint("BOTTOMLEFT",  btn, "BOTTOMLEFT",  0, 0)
-    btn._borderBottom:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, 0)
-    Craft.Theme.SetPixelHeight(btn._borderBottom, 1)
-
-    btn._borderLeft:SetPoint("TOPLEFT",    btn, "TOPLEFT",    0,  0)
-    btn._borderLeft:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 0,  0)
-    Craft.Theme.SetPixelWidth(btn._borderLeft, 1)
-
-    btn._borderRight:SetPoint("TOPRIGHT",    btn, "TOPRIGHT",    0,  0)
-    btn._borderRight:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0,  0)
-    Craft.Theme.SetPixelWidth(btn._borderRight, 1)
+    -- Pixel-perfect 4-texture border (corner-safe)
+    Craft.Theme.AnchorBorder(btn, btn._borderTop, btn._borderBottom,
+                             btn._borderLeft, btn._borderRight)
 
     if isActive then
         -- Active (dark mode): dark:data-active:bg-input/30 + dark:data-active:border-input

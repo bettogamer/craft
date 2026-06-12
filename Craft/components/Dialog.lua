@@ -80,12 +80,14 @@ function Dialog:Create(parent, config)
     self.frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 
     -- ── Ring: textura sobre la capa exterior del frame ──────────────────────
-    -- ring-1 ring-foreground/10 — same pattern as Panel
-    self._ringTex = self.frame:CreateTexture(nil, "BACKGROUND", nil, -1)
+    -- ring-1 ring-foreground/10 — same pattern as Panel: ring BEHIND (-2), opaque
+    -- bg in FRONT (-1) inset 1px. bg must be in front or the translucent ring washes
+    -- the whole popover ~10% lighter.
+    self._ringTex = self.frame:CreateTexture(nil, "BACKGROUND", nil, -2)
     self._ringTex:SetAllPoints(self.frame)
 
     -- ── Background: inset 1px (reveals ring) ───────────────────────────────
-    self._bg = self.frame:CreateTexture(nil, "BACKGROUND", nil, -2)
+    self._bg = self.frame:CreateTexture(nil, "BACKGROUND", nil, -1)
     -- Points set in _applyTheme
 
     -- ── Header ─────────────────────────────────────────────────────────────
@@ -269,8 +271,8 @@ function Dialog:_applyTheme(t)
     -- Background: t.popover (bg-popover)
     self._bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b)
 
-    -- Title: fontBold, fontSizeLg (14px), popoverForeground
-    self._title:SetFont(t.fontBold, t.fontSizeLg or 14)
+    -- Title: font-medium, fontSizeLg (14px), popoverForeground (.cn-dialog-title font-medium)
+    self._title:SetFont(t.fontMedium or t.font, t.fontSizeLg or 14)
     self._title:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
 
     -- Description: font, fontSize (12px), mutedForeground

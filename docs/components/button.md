@@ -56,13 +56,18 @@ Elemento interactivo que ejecuta una acción al hacer clic, con múltiples varia
 
 ```
 button.frame          (Button — OnClick, OnEnter, OnLeave, OnMouseDown/Up)
-├── button._bg        (Texture — BACKGROUND)   fondo principal
-├── button._border    (Texture — BORDER)        borde 1px transparente por defecto
+├── button._bg        (Texture — BACKGROUND)   fondo (interior, inset 1px = padding-box)
+├── button._bT/_bB/_bL/_bR (Texture — BORDER)  anillo de 4×1px, transparente por defecto
 ├── button._icon      (Texture — ARTWORK)       ícono Lucide, visible si config.icon
 └── button._label     (FontString — OVERLAY)    texto del botón
 ```
 
-Base: `border border-transparent` — el frame siempre tiene un borde, pero transparente por defecto. Se vuelve visible en `outline` (`border-border`) y en estados de error.
+Base: `border border-transparent` + `bg-clip-padding` — el frame siempre tiene un borde de 1px
+(transparente por defecto), y el fondo se recorta al padding-box (no pinta bajo el borde). En
+Craft el borde es un **anillo de 4 texturas** (corner-safe vía `Craft.Theme.AnchorBorder`), **no**
+una textura completa: con un borde translúcido (`outline` = `border-input` @ 0.15) una textura
+completa compositaría sobre el interior y lo dejaría más claro que el propio borde. El `_bg` va
+inset 1px (padding-box). El borde se vuelve visible en `outline` (`dark:border-input`).
 
 > **Sin ring frame**: WoW no tiene navegación por teclado entre elementos UI — el jugador solo usa el mouse. `focus-visible:ring` de shadcn no tiene equivalente en WoW addon UIs. El `_ring` frame no se implementa en Button.
 
@@ -176,7 +181,10 @@ Base: `border border-transparent` — el frame siempre tiene un borde, pero tran
 
 **Lyra es más compacto que new-york**: todos los tamaños son un step más pequeños (default=32px no 36px). El padding uniforme de 10px para sm/default/lg hace que los botones sean visualmente más densos.
 
-**Base border transparent**: el frame siempre tiene un borde (`border border-transparent`). En WoW, crear siempre `_border` Texture y colorearla transparente por defecto. En `outline` variant: colorear con `t.border`. En error state: colorear con `t.destructive`.
+**Base border transparent**: el frame siempre tiene un borde (`border border-transparent`). En
+WoW, crear siempre el anillo de 4 texturas (`_bT/_bB/_bL/_bR`, corner-safe) y colorearlas
+transparentes por defecto. En `outline` variant: colorear con **`t.input`** (`dark:border-input`,
+no `t.border`). En error state: colorear con `t.destructive`.
 
 **Active press = translate-y-px**: mover el contenido 1px hacia abajo en OnMouseDown. El offset se aplica solo al anchor primario de cada elemento hijo — los elementos secundarios siguen automáticamente via sus anchors relativos. No mover el frame raíz (afectaría el layout externo):
 ```lua

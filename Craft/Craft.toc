@@ -28,14 +28,22 @@ layout\Flex.lua
 # Components
 components\Button.lua
 components\Checkbox.lua
+components\ColorSwatch.lua
 components\Input.lua
+components\NumberInput.lua
+components\RadioGroup.lua
+components\Textarea.lua
 components\Label.lua
 components\Panel.lua
 components\Dialog.lua
+components\DragList.lua
 components\Select.lua
 components\Separator.lua
 components\Sidebar.lua
 components\Slider.lua
 components\Scroll.lua
+components\Section.lua
+components\ToggleGroup.lua
 components\Tabs.lua
 components\Tooltip.lua
+components\Window.lua

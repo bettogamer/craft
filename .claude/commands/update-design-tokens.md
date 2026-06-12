@@ -114,9 +114,29 @@ Necesito el CSS de shadcn Lyra dark. Pasos:
      (son valores base de New York, sobreescritos por Lyra → falsos positivos).
    - ¿Los tamaños (h-*, px-*, gap-*) coinciden con la tabla de dimensiones del spec?
    - ¿Los tokens de color (bg-*, text-*, border-*) coinciden con el mapa de tokens del spec?
+   - **¿El `font-weight` (`font-normal`/`font-medium`/`font-semibold`/`font-bold`) coincide con el
+     token de fuente que usa el componente?** Ver el sub-paso 3.5.
    - ¿Hay clases nuevas que no están documentadas?
    - ¿Hay clases que cambiaron (e.g., h-8 → h-9)?
    - Excepción: si la diferencia está cubierta por una divergencia de §9, no la marques como cambio.
+
+3.5. **Pesos tipográficos** (ver `design-reference.md` §2.1). Extrae el `font-weight` de cada
+   clase `.cn-*` con texto y mapea al token de fuente que Craft debe usar:
+
+   | `font-weight` en CSS | Token Craft esperado | Archivo |
+   |---|---|---|
+   | `font-normal` o ausente | `t.font` | Inter-Regular |
+   | `font-medium` | `t.fontMedium` | Inter-Medium |
+   | `font-semibold` / `font-bold` | `t.fontBold` (aprox.) | Inter-Bold |
+
+   Para cada componente con texto, verifica el `SetFont(...)` real en `Craft/components/<name>.lua`:
+   - Si el CSS dice `font-medium` pero el código usa `t.font` o `t.fontBold` → **gap** (debe ser
+     `t.fontMedium or t.font`).
+   - **Importante**: Lyra hoy usa SOLO `normal` y `font-medium` (ni semibold ni bold). Si aparece
+     un `font-semibold`/`font-bold` nuevo en el CSS, es un cambio real de shadcn → reportarlo (y
+     evaluar bundlear `Inter-SemiBold.ttf`, hoy no incluido).
+   - Las clases sin `font-weight` (`.cn-input`, `.cn-label`, `.cn-select-*`, `.cn-tooltip-*`,
+     `.cn-sidebar-group-label`, descripciones) son `normal` → `t.font`.
 
 4. Genera un reporte por componente:
    ```

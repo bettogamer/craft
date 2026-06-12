@@ -48,12 +48,17 @@ function Button:Create(parent, config)
     -- Root frame (WoW Button — has native OnClick)
     self.frame = CreateFrame("Button", nil, parent)
 
-    -- _border: Texture covering the entire frame — shows the border color
-    -- Transparent by default (border-transparent); visible for variant=outline and error
-    self._border = self.frame:CreateTexture(nil, "BORDER")
-    self._border:SetAllPoints(self.frame)
+    -- _border: 4 × 1px edge textures (corner-safe ring). Transparent by default
+    -- (border-transparent); visible for variant=outline. A ring — NOT a full texture —
+    -- so a translucent border (border-input @ 0.15) shows only at the 1px edge and the
+    -- interior stays bg-only (replicating bg-clip-padding). A full texture would composite
+    -- over the interior, making it brighter than the border (broken outline).
+    self._bT = self.frame:CreateTexture(nil, "BORDER")
+    self._bB = self.frame:CreateTexture(nil, "BORDER")
+    self._bL = self.frame:CreateTexture(nil, "BORDER")
+    self._bR = self.frame:CreateTexture(nil, "BORDER")
 
-    -- _bg: Texture inset 1px — fills the interior of the border
+    -- _bg: Texture inset 1px — fills the interior (padding-box; the 1px edge is the border)
     -- Exact SetPoint is applied in _applyTheme with Craft.Theme.px(1)
     self._bg = self.frame:CreateTexture(nil, "BACKGROUND")
 
@@ -132,6 +137,14 @@ function Button:_recalcWidth()
     self.frame:SetWidth(intrinsic)
 end
 
+-- ─── Border helper ─────────────────────────────────────────────────────────
+function Button:_setBorderColor(r, g, b, a)
+    self._bT:SetColorTexture(r, g, b, a)
+    self._bB:SetColorTexture(r, g, b, a)
+    self._bL:SetColorTexture(r, g, b, a)
+    self._bR:SetColorTexture(r, g, b, a)
+end
+
 -- ─── Theme ─────────────────────────────────────────────────────────────────
 function Button:_applyTheme(t)
     self._t = t
@@ -140,50 +153,53 @@ function Button:_applyTheme(t)
     -- px1: 1 physical pixel expressed in UI units (ADR-0011)
     local px1 = Craft.Theme.px(1, self.frame)
 
-    -- _bg inset 1px on all sides — the border is the gap between _border and _bg
+    -- _bg inset 1px on all sides — the 1px edge ring is the border
     self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     px1,  -px1)
     self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1,  px1)
 
+    -- Border ring geometry (corner-safe); color set per-variant below
+    Craft.Theme.AnchorBorder(self.frame, self._bT, self._bB, self._bL, self._bR)
+
     -- Font
     if s then
-        self._label:SetFont(t.font, s.font or 12)
+        self._label:SetFont(t.fontMedium or t.font, s.font or 12)  -- .cn-button font-medium
     end
 
     -- Colors by variant (dark mode)
     -- Source: docs/components/button.md §"Visual Variants"
     if v == "default" then
         -- bg-primary text-primary-foreground
-        self._border:SetColorTexture(0, 0, 0, 0)
+        self:_setBorderColor(0, 0, 0, 0)
         self._bg:SetColorTexture(t.primary.r, t.primary.g, t.primary.b, 1)
         self._label:SetTextColor(t.primaryForeground.r, t.primaryForeground.g, t.primaryForeground.b)
 
     elseif v == "destructive" then
         -- dark:bg-destructive/20 text-destructive
-        self._border:SetColorTexture(0, 0, 0, 0)
+        self:_setBorderColor(0, 0, 0, 0)
         self._bg:SetColorTexture(t.destructive.r, t.destructive.g, t.destructive.b, 0.20)
         self._label:SetTextColor(t.destructive.r, t.destructive.g, t.destructive.b)
 
     elseif v == "outline" then
         -- dark:border-input dark:bg-input/30 foreground text
-        self._border:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a)
+        self:_setBorderColor(t.input.r, t.input.g, t.input.b, t.input.a)
         self._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a * 0.30)
         self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
 
     elseif v == "secondary" then
         -- bg-secondary text-secondary-foreground
-        self._border:SetColorTexture(0, 0, 0, 0)
+        self:_setBorderColor(0, 0, 0, 0)
         self._bg:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 1)
         self._label:SetTextColor(t.secondaryForeground.r, t.secondaryForeground.g, t.secondaryForeground.b)
 
     elseif v == "ghost" then
         -- transparent bg, foreground text
-        self._border:SetColorTexture(0, 0, 0, 0)
+        self:_setBorderColor(0, 0, 0, 0)
         self._bg:SetColorTexture(0, 0, 0, 0)
         self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
 
     elseif v == "link" then
         -- transparent bg, primary text
-        self._border:SetColorTexture(0, 0, 0, 0)
+        self:_setBorderColor(0, 0, 0, 0)
         self._bg:SetColorTexture(0, 0, 0, 0)
         self._label:SetTextColor(t.primary.r, t.primary.g, t.primary.b)
         -- _underline: 1px below the label, primary color

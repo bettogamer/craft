@@ -162,7 +162,15 @@ local function makeFrame(frameType, name, parent)
     -- FontString methods
     function f:SetFont(path, size, flags) self._font = path; self._fontSize = size end
     function f:GetFont()                  return self._font, self._fontSize end
-    function f:SetText(t)                 self._text = tostring(t or "") end
+    function f:SetText(t)
+        -- Real WoW errors "FontString:SetText(): Font not set" when a FontString has no
+        -- font yet. Mirror it so headless tests catch SetText-before-SetFont ordering bugs
+        -- (see Craft.DragList regression). Buttons/EditBox inherit a font → not guarded.
+        if self._type == "FontString" and not self._font then
+            error("FontString:SetText(): Font not set", 2)
+        end
+        self._text = tostring(t or "")
+    end
     function f:GetText()                  return self._text end
     function f:SetTextColor(r,g,b,a)      self._color = {r=r,g=g,b=b,a=a or 1} end
     function f:GetTextColor()             return self._color.r,self._color.g,self._color.b,self._color.a end

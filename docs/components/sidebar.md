@@ -120,11 +120,36 @@ API mucho más amplia que Craft **no** implementa (decisión de alcance MVP, no 
 ver `docs/design-reference.md` §9.1):
 - **Variantes de layout**: `floating`, `inset` (Craft solo tiene la barra fija).
 - **Collapse modes**: `offcanvas`, `icon` (colapso a solo-íconos), `none`.
-- **Sub-componentes**: `SidebarTrigger`, `SidebarRail`, sub-menús
-  (`SidebarMenuSub*`), slots de acción/badge (`SidebarMenuAction`, `SidebarMenuBadge`),
-  `SidebarMenuSkeleton`.
+- **Sub-componentes**: `SidebarTrigger`, `SidebarRail`, slots de acción/badge
+  (`SidebarMenuAction`, `SidebarMenuBadge`), `SidebarMenuSkeleton`.
 
-Si se decide ampliar, requiere aprobación del maintainer (cambio de API / arquitectura).
+> **Implementado (FR-008):** el **árbol colapsable** (sub-menús anidados) sí existe vía
+> `items[i].children` + `collapsible`. Ver "Árbol colapsable" abajo.
+
+Si se decide ampliar lo demás, requiere aprobación del maintainer (cambio de API).
+
+## Árbol colapsable (FR-008)
+
+Los items admiten anidamiento y colapso. Un item con `children` (o `collapsible=true`)
+es una **rama** que expande/colapsa; las hojas seleccionan.
+
+- **Indent** por nivel (`INDENT`=20px) + **línea guía** vertical de 1px por nivel
+  anidado (`border-l` en `t.sidebarBorder`, como `SidebarMenuSub` de shadcn).
+- **Sub-items** (depth>0) usan **h-7** (28px), más bajos que el top (`h-8`).
+- **Chevron al final** de la fila (`chevron-down` abierto / `chevron-right` cerrado;
+  swap de íconos, no rotación — WoW). Hit-region dividida: click en el chevron =
+  toggle (un sub-Button de mayor frame-level lo consume); click en el resto = select.
+- `SetActiveItem`/`Select` **auto-expande los ancestros** colapsados del item.
+
+```lua
+items = {
+  { id="pack1", label="Manaforge", icon="folder", collapsible=true, defaultOpen=true,
+    children = {
+      { id="aura1", label="Shadow Crash", icon="star" },
+      { id="panels", label="Paneles", icon="layers", collapsible=true, children={ ... } },
+    } },
+}
+```
 
 ## Estados
 
@@ -171,9 +196,13 @@ Si se decide ampliar, requiere aprobación del maintainer (cambio de API / arqui
 | `items[i].id` | string | — | Identificador único del item |
 | `items[i].label` | string | — | Texto visible del item |
 | `items[i].icon` | string | nil | Nombre del ícono para `Craft.Icons.Get(name)`; nil = sin ícono |
-| `items[i].section` | string | nil | Label de la sección a la que pertenece; nil = sin sección |
-| `items[i].onClick` | function | nil | Callback invocado al hacer click en el item |
+| `items[i].section` | string | nil | (grupos planos, depth 0) Label de la sección; nil = sin sección |
+| `items[i].onClick` | function | nil | Callback `fn(id, itemConfig)` al hacer click en el item |
+| `items[i].children` | array | nil | (árbol) Sub-items anidados — hace al item una rama colapsable |
+| `items[i].collapsible` | boolean | auto | true si tiene `children`; fuerza rama colapsable |
+| `items[i].defaultOpen` | boolean | true | Estado inicial expandido de la rama |
 | `activeItem` | string | nil | Id del item activo al crear el componente |
+| `onSelect` | function | nil | Callback `fn(id)` al seleccionar cualquier item |
 
 > `_header` y `_footer` no tienen parámetros de config — se obtienen vía `GetHeader()`/`GetFooter()` y el dev los configura directamente.
 
@@ -184,8 +213,11 @@ Si se decide ampliar, requiere aprobación del maintainer (cambio de API / arqui
 | `GetFrame()` | Frame | Retorna `sidebar.frame` |
 | `SetActiveItem(id)` | void | Marca el item como activo (bg `t.sidebarAccent`, texto `t.sidebarAccentForeground`); desactiva el anterior |
 | `GetActiveItem()` | string \| nil | Retorna el id del item actualmente activo |
-| `AddItem(config)` | void | Agrega un item al final (o al final de su sección si `config.section` está definida); recalcula la altura del `_child` |
-| `AddSection(label)` | void | Agrega un section header al final del listado; las secciones deben agregarse antes que sus items |
+| `Select(id)` | void | Alias de `SetActiveItem` |
+| `AddItem(config)` | void | Agrega un item al final; recalcula la altura del `_child` |
+| `AddSection(label)` | void | Agrega un section header (grupo plano) al final del listado |
+| `SetItems(tree)` | void | Reemplaza todos los items/secciones por un nuevo árbol (posiblemente anidado) y reconstruye |
+| `Expand(id)` / `Collapse(id)` / `ToggleNode(id)` | void | Expande/colapsa/alterna una rama colapsable por id |
 | `GetHeader()` | Frame | Retorna `_header` Frame (SidebarHeader). El dev llama `SetHeight(N)` y agrega contenido, luego `RefreshLayout()` |
 | `GetFooter()` | Frame | Retorna `_footer` Frame (SidebarFooter). Mismo patrón que GetHeader() |
 | `RefreshLayout()` | void | Reancla `_scroll` entre `_header` y `_footer` según sus alturas actuales. Llamar después de modificar header/footer |

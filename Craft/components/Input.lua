@@ -239,26 +239,9 @@ function Input:_applyTheme(t)
         self._iconTrailing:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)
     end
 
-    -- Pixel-perfect position of the 4 border textures
-    -- top
-    self._borderTop:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
-    self._borderTop:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
-    Craft.Theme.SetPixelHeight(self._borderTop, 1)
-
-    -- bottom
-    self._borderBottom:SetPoint("BOTTOMLEFT",  self.frame, "BOTTOMLEFT",  0, 0)
-    self._borderBottom:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
-    Craft.Theme.SetPixelHeight(self._borderBottom, 1)
-
-    -- left
-    self._borderLeft:SetPoint("TOPLEFT",    self.frame, "TOPLEFT",    0, 0)
-    self._borderLeft:SetPoint("BOTTOMLEFT", self.frame, "BOTTOMLEFT", 0, 0)
-    Craft.Theme.SetPixelWidth(self._borderLeft, 1)
-
-    -- right
-    self._borderRight:SetPoint("TOPRIGHT",    self.frame, "TOPRIGHT",    0, 0)
-    self._borderRight:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
-    Craft.Theme.SetPixelWidth(self._borderRight, 1)
+    -- Pixel-perfect 4-texture border (corner-safe)
+    Craft.Theme.AnchorBorder(self.frame, self._borderTop, self._borderBottom,
+                             self._borderLeft, self._borderRight)
 
     -- _bg inset 1px
     local px1 = Craft.Theme.px(1, self.frame)

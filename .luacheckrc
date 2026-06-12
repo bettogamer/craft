@@ -27,6 +27,9 @@ globals = {
     -- Mouse helpers
     "MouseIsOver",
     "IsMouseButtonDown",
+    -- Native color picker (Craft.ColorSwatch wraps it; mutated pre-Dragonflight style)
+    "ColorPickerFrame",
+    "OpacitySliderFrame",
     -- Chat output
     "DEFAULT_CHAT_FRAME",
     "print",

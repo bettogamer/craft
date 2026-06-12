@@ -37,13 +37,14 @@ function Panel:Create(parent, config)
     self.frame:SetClipsChildren(true)  -- overflow-hidden (cn-card)
 
     -- ── Ring: textura sobre el frame exterior (ring-1 ring-foreground/10) ──
-    -- Pattern: _ringTex painted on the frame's outermost layer (BACKGROUND -1),
-    -- then _bg inset 1px so the ring colour is visible as a 1px perimeter.
-    self._ringTex = self.frame:CreateTexture(nil, "BACKGROUND", nil, -1)
+    -- Pattern: _ringTex BEHIND (BACKGROUND -2); _bg in FRONT (-1) inset 1px so the
+    -- ring colour shows only as a 1px perimeter. The bg MUST be in front: a translucent
+    -- ring (foreground/10) over the bg would wash the whole card ~10% lighter.
+    self._ringTex = self.frame:CreateTexture(nil, "BACKGROUND", nil, -2)
     self._ringTex:SetAllPoints(self.frame)
 
     -- ── Background: inset 1px to show the ring ─────────────────────────────
-    self._bg = self.frame:CreateTexture(nil, "BACKGROUND", nil, -2)
+    self._bg = self.frame:CreateTexture(nil, "BACKGROUND", nil, -1)
     -- Points are set in _applyTheme after we know px1 for this frame.
 
     -- ── Header (optional) ──────────────────────────────────────────────────
@@ -192,8 +193,8 @@ function Panel:_applyTheme(t)
     -- Background: t.card
     self._bg:SetColorTexture(t.card.r, t.card.g, t.card.b)
 
-    -- Title: fontBold, fontSizeLg (14px), cardForeground
-    self._title:SetFont(t.fontBold, t.fontSizeLg or 14)
+    -- Title: font-medium, fontSizeLg (14px), cardForeground (.cn-card-title font-medium)
+    self._title:SetFont(t.fontMedium or t.font, t.fontSizeLg or 14)
     self._title:SetTextColor(t.cardForeground.r, t.cardForeground.g, t.cardForeground.b)
 
     -- Description: font, fontSize (12px), mutedForeground

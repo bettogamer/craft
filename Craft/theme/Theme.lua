@@ -137,7 +137,8 @@ end
 
 function T.getFont(weight)
     local t = T.get()
-    if weight == "bold" then return t.fontBold end
+    if weight == "bold"   then return t.fontBold end
+    if weight == "medium" then return t.fontMedium end
     return t.font
 end
 
@@ -190,6 +191,37 @@ end
 
 function T.isPixelPerfect()
     return math.abs(UIParent:GetEffectiveScale() - 1.0) < 0.01
+end
+
+-- ─── Corner-safe 1px border ─────────────────────────────────────────────────
+-- Anchors four 1px textures as a border around `frame`. Top/bottom span the full
+-- width; left/right are inset vertically by 1px so each CORNER pixel is painted
+-- exactly once. Without this, the horizontal and vertical edges overlap at the
+-- corners and a translucent border color (e.g. border-input @ 0.15) doubles its
+-- alpha there — visible as darker corner dots. Sets geometry only; the caller
+-- colors the textures (SetColorTexture) so it works for any border token/state.
+function T.AnchorBorder(frame, top, bottom, left, right)
+    local p = T.px(1, frame)
+
+    top:ClearAllPoints()
+    top:SetPoint("TOPLEFT",  frame, "TOPLEFT",  0, 0)
+    top:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
+    T.SetPixelHeight(top, 1)
+
+    bottom:ClearAllPoints()
+    bottom:SetPoint("BOTTOMLEFT",  frame, "BOTTOMLEFT",  0, 0)
+    bottom:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+    T.SetPixelHeight(bottom, 1)
+
+    left:ClearAllPoints()
+    left:SetPoint("TOPLEFT",    frame, "TOPLEFT",    0, -p)
+    left:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0,  p)
+    T.SetPixelWidth(left, 1)
+
+    right:ClearAllPoints()
+    right:SetPoint("TOPRIGHT",    frame, "TOPRIGHT",    0, -p)
+    right:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0,  p)
+    T.SetPixelWidth(right, 1)
 end
 
 Craft.register("Theme", T, _BUILD)

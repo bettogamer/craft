@@ -62,6 +62,8 @@ jobs:
           unzip -q /tmp/inter.zip -d /tmp/inter_extract
           find /tmp/inter_extract -name "Inter-Regular.ttf" | head -1 \
             | xargs -I{} cp {} Craft/media/Inter-Regular.ttf
+          find /tmp/inter_extract -name "Inter-Medium.ttf" | head -1 \
+            | xargs -I{} cp {} Craft/media/Inter-Medium.ttf
           find /tmp/inter_extract -name "Inter-Bold.ttf" | head -1 \
             | xargs -I{} cp {} Craft/media/Inter-Bold.ttf
           rm -rf /tmp/inter.zip /tmp/inter_extract
@@ -70,6 +72,7 @@ jobs:
         run: |
           [ -f "Craft/media/lucide.tga"        ] || (echo "❌ lucide.tga"        && exit 1)
           [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf" && exit 1)
+          [ -f "Craft/media/Inter-Medium.ttf"  ] || (echo "❌ Inter-Medium.ttf"  && exit 1)
           [ -f "Craft/media/Inter-Bold.ttf"    ] || (echo "❌ Inter-Bold.ttf"    && exit 1)
           echo "✅ All assets present"
 

@@ -8,6 +8,7 @@
 
 local Craft  = LibStub("Craft-1.0")
 local FONT   = Craft.mediaPath .. "Inter-Regular.ttf"
+local FONT_M = Craft.mediaPath .. "Inter-Medium.ttf"
 local FONT_B = Craft.mediaPath .. "Inter-Bold.ttf"
 
 CraftPresets = {}
@@ -56,8 +57,11 @@ CraftPresets["lyra-dark"] = {
     sidebarRing             = {r=0.452, g=0.452, b=0.452, a=1},   -- oklch(0.556 0 0)
     -- Lyra: zero border radius
     radius                  = 0,
-    -- Typography (Inter bundled in Craft/media/)
+    -- Typography (Inter bundled in Craft/media/). Lyra usa solo dos pesos: normal y
+    -- font-medium (no hay semibold/bold en ningún componente). `fontMedium` = Inter Medium
+    -- (weight 500), usado por todo lo `font-medium`. `fontBold` se mantiene para consumidores.
     font                    = FONT,
+    fontMedium              = FONT_M,
     fontBold                = FONT_B,
     fontSize                = 12,   -- text-xs (Lyra base — all components)
     fontSizeSm              = 11,   -- CRAFT ADAPTATION: does not exist in Lyra CSS (Lyra minimum = 12)

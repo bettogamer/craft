@@ -89,7 +89,40 @@ ICONS = [
     "panel-left",     # col=21
     "grip-vertical",  # col=22
     "square-check",   # col=23
+    # Consumer-requested (FR-004 — Sentry config UI: tree, editors, actions)
+    "folder",         # Pack (folder) closed
+    "folder-open",    # Pack (folder) open
+    "star",           # Aura (leaf)
+    "layers",         # "Paneles" subfolder
+    "trash-2",        # Delete
+    "download",       # Export pack
+    "upload",         # Import pack
+    "clipboard-copy", # Copy export string
+    "move",           # "Move on screen" / sizer
+    "clock",          # BossMod Timer trigger
+    "megaphone",      # BossMod Announce trigger
+    "flag",           # BossMod Stage trigger
+    "code",           # Custom (code) trigger
+    "palette",        # Color picker
+    "chart-column",   # Panel type: Bar (Lucide renamed bar-chart-3 → chart-column)
+    "image",          # Panel type: Icon
+    "type",           # Panel type: Text
+    # Craft-synthesized (not Lucide) — see LOCAL_SVGS
+    "disc",           # Filled circle for round controls (RadioGroup) — supersampled = crisp
 ]
+
+# ─── Local (non-Lucide) glyphs ────────────────────────────────────────────────
+# Glyphs Lucide doesn't provide (it is stroke-only — no filled shapes). Rendered
+# through the same supersampled pipeline so they stay crisp at small sizes.
+# NOTE: in the pycairo fallback, <circle> reads its OWN `fill` attribute (it does
+# not inherit from <svg>), so fill must live on the element. stroke-width="0"
+# silences the unconditional stroke pass.
+LOCAL_SVGS = {
+    "disc": (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="0">'
+        '<circle cx="12" cy="12" r="12" fill="white"/></svg>'
+    ),
+}
 
 # ─── Atlas configuration ──────────────────────────────────────────────────────
 # Single supersampled atlas. Each icon is rendered at INNER px and pasted centered
@@ -115,7 +148,11 @@ SVG_CACHE  = REPO_ROOT / ".icon-cache"    # local cache of downloaded SVGs
 # ─── SVG download ─────────────────────────────────────────────────────────────
 
 def download_svg(name: str, force: bool = False) -> str:
-    """Downloads the Lucide SVG and returns it as a string. Uses local cache."""
+    """Downloads the Lucide SVG and returns it as a string. Uses local cache.
+    Craft-synthesized glyphs (LOCAL_SVGS) are returned inline without a network call."""
+    if name in LOCAL_SVGS:
+        return LOCAL_SVGS[name]
+
     cache_file = SVG_CACHE / f"{name}.svg"
     if not force and cache_file.exists():
         return cache_file.read_text(encoding="utf-8")

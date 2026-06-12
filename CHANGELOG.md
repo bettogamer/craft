@@ -6,7 +6,79 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-06-11
+
+> Incluye también los cambios etiquetados como `v1.0.1` (2026-06-09), que se taguearon
+> sin cortar su propia sección; 1.1.0 los absorbe (post-audit de los 16 MVP, overlay
+> modal de Dialog, Tabs wrap/icon-slots, atlas supersampleado, etc.).
+
 ### Added
+- **Tipografía: peso `font-medium`** — se bundlea **`Inter-Medium.ttf`** (weight 500, de
+  `extras/ttf/` de rsms/inter v4.0, mismo zip y upm 2048 que Regular/Bold) y se expone el token
+  **`t.fontMedium`** (+ `Craft.Theme.getFont("medium")`). CI (`package.yml`/`release.yml`) y
+  `deploy-local.ps1` ahora descargan/validan también el Medium. Mapeo de pesos documentado en
+  `design-reference §2.1`.
+- **`Craft.DragList`** (RFC-009 #5) — componente nuevo (**Craft-original**: shadcn no tiene
+  sortable): lista vertical reordenable por arrastre del handle `grip-vertical`. Drag custom
+  (la fila sigue el cursor vía `OnUpdate` + `GetCursorPosition`, **no** `StartMoving`) con
+  **reorden en vivo** al cruzar bandas de filas; al soltar dispara `onReorder(items)` si el
+  orden cambió. `renderRow(content,item,index)` (corre una vez/fila; las filas se reposicionan,
+  no se recrean) o label por defecto. `items`/`renderRow`/`onReorder`/`width`/`disabled`;
+  `SetItems`/`GetItems`/`SetEnabled`.
+- **`Craft.ToggleGroup`** (RFC-009 #4) — componente nuevo (shadcn-backed; el RFC lo llamaba
+  "SegmentedControl", se usa el nombre de shadcn): subset de **selección única**. Réplica del
+  render real de la página (`variant=outline`, `spacing=1`) → segmentos **separados**, cada uno
+  con su propio borde `border-input`, gap de 4px; activo/hover rellenan con `bg-muted`, texto
+  `foreground` siempre. `text-xs font-medium`, `h-8 min-w-8 px-2.5`, iconos Lucide opcionales
+  por segmento. `options`/`value`/`disabled`/`onChange`; `SetValue`/`GetValue`/`SetEnabled`.
+- **`Craft.Section`** (RFC-009 #3) — componente nuevo (shadcn-backed, accordion item):
+  bloque colapsable con cabecera (trigger `py-2.5 text-xs font-medium` + chevron
+  `chevron-down`↔`chevron-up`) y área de contenido (`pb-2.5`), separador inferior
+  `not-last:border-b`. `SetContent(frame)`/`Toggle`/`Expand`/`Collapse`/`SetExpanded`/
+  `IsExpanded`/`SetTitle`/`Refresh`; `onToggle(expanded)` para que el consumidor reflowee
+  pilas. Toggle **instantáneo** (no anima la altura como shadcn — divergencia §9.1, igual que
+  el árbol del Sidebar).
+- **`Craft.RadioGroup`** (RFC-009 #2) — componente nuevo (shadcn-backed): selección única
+  apilada (`grid gap-2`). El radio es el **único elemento `rounded-full` de Lyra** (todo lo
+  demás es Radius=0); se dibuja como **círculo real** componiendo tres discos = el glyph `disc`
+  del atlas supersampleado, tintado por vertex-color (ring `border-input`→`primary`, fill
+  `input/30`→`primary`, dot `primary-foreground` al seleccionar). `options`/`value`/`width`/
+  `disabled`/`onChange`; `SetValue`/`GetValue`/`SetEnabled`.
+- Icons: **glyph `disc`** (círculo relleno, **Craft-sintetizado** — Lucide es stroke-only).
+  Definido inline en `scripts/export-icons.py` (`LOCAL_SVGS`) y rasterizado por el pipeline
+  supersampleado. Atlas: 41 → 42 glyphs.
+- **`Craft.NumberInput`** (RFC-009 #1) — componente nuevo (**Craft-original**: shadcn no
+  tiene spinner numérico): campo numérico con columna de stepper ▲▼ (`chevron-up`/`-down`) +
+  rueda del mouse, que avanzan por `step`. Valores escritos se clampan a `[min,max]` al
+  confirmar (Enter / perder foco). Mismo estilo de form-control que Input (`border-input`,
+  `input/30`, `text-xs`, `rounded-none`, `h-8`). `value`/`min`/`max`/`step`/`width`/
+  `disabled`/`onChange`; `SetValue`/`GetValue`/`SetRange`/`SetEnabled`. Soporta decimales y
+  negativos (sin `SetNumeric`, que solo admite enteros).
+- **`Craft.Textarea`** (FR-006) — componente nuevo: campo de texto **multilínea** con
+  scroll interno (rueda + cursor-follow). shadcn tiene `Textarea` como componente
+  **separado** de Input, así que se creó aparte (no se extendió Input). Mismo estilo de
+  form-control (`border-input`, `input/30`, `text-xs`, `rounded-none`, `py-2`), con
+  `value`/`placeholder`/`height`/`error`/`maxLetters`/`font`/`onChange`. Adaptación WoW:
+  altura fija + scroll en vez del `field-sizing-content` (auto-grow) de shadcn.
+- **`Craft.Window`** (FR-005) — componente nuevo: ventana top-level (main frame de
+  addon) movible + redimensionable, con title bar (título/descripción + close), área de
+  contenido (`GetContent()`), resize handle, min/max, clamp, Escape, y callbacks
+  `onMoved`/`onResized`/`onClose`. Se aísla del Panel/Dialog porque un main frame tiene
+  necesidades propias. shadcn no tiene equivalente (es web).
+- **`Craft.ColorSwatch`** (FR-007) — componente nuevo: swatch de color que abre el
+  `ColorPickerFrame` nativo (con alpha). Checkerboard de transparencia, label opcional,
+  `onChange(r,g,b,a)` en vivo, `SetColor`/`GetColor`/`SetEnabled`. shadcn no tiene
+  color picker — componente Craft-original.
+- Sidebar: **árbol colapsable** (FR-008) — items anidados vía `children` +
+  `collapsible`/`defaultOpen`. Chevron al final (swap down/right), líneas guía
+  verticales por nivel (`border-l`), sub-items a `h-7`, indent por profundidad.
+  Hit-region dividida (chevron=toggle, fila=select). Nuevos `SetItems`, `Expand`,
+  `Collapse`, `ToggleNode`, `Select`; `SetActiveItem` auto-expande ancestros.
+  Retrocompatible con los grupos planos existentes.
+- Icons: **17 íconos nuevos** (FR-004, para la UI de config de Sentry) — `folder`,
+  `folder-open`, `star`, `layers`, `trash-2`, `download`, `upload`, `clipboard-copy`,
+  `move`, `clock`, `megaphone`, `flag`, `code`, `palette`, `chart-column`, `image`,
+  `type`. Atlas: 24 → 41 íconos (de 64 slots).
 - Dialog: **overlay modal** (`.cn-dialog-overlay`, `bg-black/10`) — un backdrop
   full-screen que atenúa y **bloquea clics** a la UI de fondo (dialog ahora modal). El
   dialog pasó a strata DIALOG (sobre el overlay HIGH); visibilidad sincronizada vía
@@ -18,6 +90,28 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   reactiva la primera tab restante si la removida era la activa, y reflowea.
 
 ### Fixed
+- **Peso `font-medium` mal en ~8 componentes**. Lyra usa solo dos pesos (normal y `font-medium`;
+  **no hay semibold/bold** en ningún componente), pero Craft solo traía Regular + Bold, así que
+  todo lo `font-medium` salía mal: Button y Tabs trigger como Regular (muy liviano); títulos de
+  Panel/Dialog/Window, Section, ToggleGroup y el ítem activo del Sidebar como Bold (muy pesado).
+  Ahora todos usan `t.fontMedium` (Inter Medium 500). Auditado contra `style-lyra.css` por clase
+  `.cn-*`. `t.fontBold` queda sin uso interno (se mantiene para consumidores). El comando
+  `/update-design-tokens` ahora extrae el `font-weight` por componente para detectar deriva.
+- Button `outline`: el borde **se veía mal** (interior más claro que el borde). `_border` era
+  una textura **completa** sobre `_bg`; con el borde translúcido (`border-input` @ 0.15) la
+  textura compositaba sobre todo el interior (~0.19) dejándolo más claro que el anillo de 1px
+  (0.15) — lo contrario de un outline. Ahora el borde es un **anillo de 4 texturas** (corner-safe
+  vía `Theme.AnchorBorder`), así el borde translúcido se ve solo en el 1px del borde y el interior
+  queda solo con `bg-input/30` (replica `bg-clip-padding`). De paso se corrigió el spec, que decía
+  que outline usa `t.border` cuando el CSS es `dark:border-input` (= `t.input`, lo que el código ya
+  hacía).
+- Bordes de 1px: **esquinas sobrepuestas**. Las 4 texturas del borde (top/bottom/left/right)
+  se solapaban en cada esquina; con un color translúcido (`border-input` @ 0.15) el alpha se
+  **duplicaba** ahí (~0.28) y las esquinas se veían como puntos más marcados. Nuevo helper
+  `Craft.Theme.AnchorBorder(frame, top, bottom, left, right)` ancla el borde **corner-safe**
+  (top/bottom a lo ancho completo; left/right insetados 1px en vertical) → cada píxel de
+  esquina se pinta una sola vez. Aplicado a Checkbox, Input, NumberInput, Textarea, Tabs y
+  ToggleGroup. (Panel/Dialog/Window usan ring+inset, no tenían el problema.)
 - Panel: `SetClipsChildren(true)` (`overflow-hidden` del `cn-card`) — el contenido que
   excede el panel se recorta. Spec alineado (Panel es dev-sized, no auto-crece; tokens
   refrescados; title usa `cardForeground`).

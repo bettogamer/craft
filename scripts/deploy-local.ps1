@@ -58,8 +58,9 @@ function Set-TocTokens {
 # Fetch Inter font from GitHub Release if not present (CI downloads from rsms/inter v4.0)
 $MediaDir    = Join-Path $CraftSrc "media"
 $FontRegular = Join-Path $MediaDir "Inter-Regular.ttf"
+$FontMedium  = Join-Path $MediaDir "Inter-Medium.ttf"
 $FontBold    = Join-Path $MediaDir "Inter-Bold.ttf"
-if (-not (Test-Path $FontRegular) -or -not (Test-Path $FontBold)) {
+if (-not (Test-Path $FontRegular) -or -not (Test-Path $FontMedium) -or -not (Test-Path $FontBold)) {
     if ($DryRun) {
         Write-Host "[dry-run] Would download Inter font to $MediaDir"
     } else {
@@ -72,10 +73,13 @@ if (-not (Test-Path $FontRegular) -or -not (Test-Path $FontBold)) {
         if (Test-Path $ExtractPath) { Remove-Item $ExtractPath -Recurse -Force }
         Expand-Archive $ZipPath -DestinationPath $ExtractPath -Force
         $regular = Get-ChildItem $ExtractPath -Recurse -Filter "Inter-Regular.ttf" | Select-Object -First 1
+        $medium  = Get-ChildItem $ExtractPath -Recurse -Filter "Inter-Medium.ttf"  | Select-Object -First 1
         $bold    = Get-ChildItem $ExtractPath -Recurse -Filter "Inter-Bold.ttf"    | Select-Object -First 1
         if (-not $regular) { Write-Error "Inter-Regular.ttf not found in archive"; exit 1 }
+        if (-not $medium)  { Write-Error "Inter-Medium.ttf not found in archive";  exit 1 }
         if (-not $bold)    { Write-Error "Inter-Bold.ttf not found in archive";    exit 1 }
         Copy-Item $regular.FullName $FontRegular -Force
+        Copy-Item $medium.FullName  $FontMedium  -Force
         Copy-Item $bold.FullName    $FontBold    -Force
         Remove-Item $ZipPath     -Force
         Remove-Item $ExtractPath -Recurse -Force
