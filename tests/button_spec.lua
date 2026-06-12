@@ -123,7 +123,9 @@ describe("Craft.Button", function()
         it("outline → visible border (t.input)", function()
             local btn = newBtn({ variant="outline" })
             local t   = Craft.Theme.get()
-            local r, g, b, a = btn._border:GetColorTexture()
+            -- Border is a 4-texture corner-safe ring (_bT/_bB/_bL/_bR), all set to the
+            -- same colour via _setBorderColor; check the top edge.
+            local r, g, b, a = btn._bT:GetColorTexture()
             assert.near(t.input.r, r, 0.01)
             assert.is_true(a > 0)
         end)
