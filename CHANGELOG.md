@@ -6,6 +6,12 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-06-11
+
+> Incluye también los cambios etiquetados como `v1.0.1` (2026-06-09), que se taguearon
+> sin cortar su propia sección; 1.1.0 los absorbe (post-audit de los 16 MVP, overlay
+> modal de Dialog, Tabs wrap/icon-slots, atlas supersampleado, etc.).
+
 ### Added
 - **Tipografía: peso `font-medium`** — se bundlea **`Inter-Medium.ttf`** (weight 500, de
   `extras/ttf/` de rsms/inter v4.0, mismo zip y upm 2048 que Regular/Bold) y se expone el token
