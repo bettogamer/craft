@@ -79,6 +79,14 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   reactiva la primera tab restante si la removida era la activa, y reflowea.
 
 ### Fixed
+- Button `outline`: el borde **se veía mal** (interior más claro que el borde). `_border` era
+  una textura **completa** sobre `_bg`; con el borde translúcido (`border-input` @ 0.15) la
+  textura compositaba sobre todo el interior (~0.19) dejándolo más claro que el anillo de 1px
+  (0.15) — lo contrario de un outline. Ahora el borde es un **anillo de 4 texturas** (corner-safe
+  vía `Theme.AnchorBorder`), así el borde translúcido se ve solo en el 1px del borde y el interior
+  queda solo con `bg-input/30` (replica `bg-clip-padding`). De paso se corrigió el spec, que decía
+  que outline usa `t.border` cuando el CSS es `dark:border-input` (= `t.input`, lo que el código ya
+  hacía).
 - Bordes de 1px: **esquinas sobrepuestas**. Las 4 texturas del borde (top/bottom/left/right)
   se solapaban en cada esquina; con un color translúcido (`border-input` @ 0.15) el alpha se
   **duplicaba** ahí (~0.28) y las esquinas se veían como puntos más marcados. Nuevo helper
