@@ -98,8 +98,10 @@ function DragList:_build()
             local fs = content:CreateFontString(nil, "OVERLAY")
             fs:SetPoint("LEFT", content, "LEFT", 0, 0)
             fs:SetJustifyH("LEFT")
-            fs:SetText(type(item) == "table" and (item.label or tostring(item)) or tostring(item))
-            row.fs = fs
+            -- Text is applied in _applyTheme, AFTER SetFont — calling SetText on a
+            -- font-less FontString errors with "Font not set" in real WoW (CLAUDE.md bug #2 family).
+            row.fs        = fs
+            row.labelText = type(item) == "table" and (item.label or tostring(item)) or tostring(item)
         end
 
         grip:SetScript("OnDragStart", function() self:_dragStart(row) end)
@@ -213,8 +215,9 @@ function DragList:_applyTheme(t)
         row.divider:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
         row.dragBg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 1)
         if row.fs then
-            row.fs:SetFont(t.font, FONT_SIZE, "")
+            row.fs:SetFont(t.font, FONT_SIZE, "")   -- font BEFORE SetText (see _build)
             row.fs:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
+            row.fs:SetText(row.labelText or "")
         end
     end
 end
