@@ -22,9 +22,9 @@ de posición/tamaño (`onMoved`/`onResized`), strata DIALOG, clamp, Escape. Se a
 ```
 window.frame          (Frame, strata=DIALOG, movable + resizable + clamped)
 ├── _ringTex          (Texture BACKGROUND -1)   ring 1px foreground/10
-├── _bg               (Texture BACKGROUND -2)   fondo t.popover (inset 1px)
+├── _bg               (Texture BACKGROUND -2)   fondo t.background (inset 1px)
 ├── _titleBar         (Frame)                    drag handle; alto = según contenido
-│   ├── _titleBarBg   (Texture)                  fondo (popover +0.03, más claro)
+│   ├── _titleBarBg   (Texture)                  fondo (background +0.03, más claro)
 │   ├── _titleBarSep  (Texture BORDER, 1px)      borde inferior t.border
 │   ├── _title        (FontString)               fontBold, fontSizeLg, t.foreground
 │   ├── _desc         (FontString, opcional)     font, fontSize, t.mutedForeground
@@ -51,9 +51,9 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
 
 | Elemento | Valor / Token |
 |---|---|
-| Fondo | `t.popover` |
+| Fondo | `t.background` (oklch 0.145) |
 | Ring perimetral | `t.foreground` a=0.10 (1px) |
-| Title bar fondo | `t.popover` + 0.03 (más claro) |
+| Title bar fondo | `t.background` + 0.03 (más claro) |
 | Title bar borde-inferior | `t.border` (1px) |
 | Título | `t.fontBold`, `t.fontSizeLg` (14px), `t.foreground` |
 | Descripción | `t.font`, `t.fontSize` (12px), `t.mutedForeground` |

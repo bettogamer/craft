@@ -5,7 +5,8 @@
 -- an addon config UI needs: a title bar (drag + title/description + close), a content
 -- area, a bottom-right resize handle, min/max size, screen clamp and Escape-to-close.
 -- The dev puts their UI (e.g. a Craft.Sidebar + Craft.Panel) inside GetContent().
--- Models Craft_Browser's main frame. Surface colours follow the popover family.
+-- Models Craft_Browser's main frame: body = background (oklch 0.145), title bar a
+-- touch lighter (+0.03) for separation, 1px ring (foreground/10) around the whole frame.
 
 local Craft = LibStub("Craft-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
@@ -208,7 +209,7 @@ function Window:_applyTheme(t)
     self._bg:ClearAllPoints()
     self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     px1, -px1)
     self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1, px1)
-    self._bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
+    self._bg:SetColorTexture(t.background.r, t.background.g, t.background.b, 1)
 
     -- Title bar + content sit INSIDE the 1px ring (inset by px1 on the outer edges),
     -- so the header is flush with the body and not 1px wider on each side. Set here —
@@ -219,7 +220,7 @@ function Window:_applyTheme(t)
     self._content:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1, px1)
 
     -- Title bar: slightly lighter than the body for separation; 1px bottom border.
-    self._titleBarBg:SetColorTexture(t.popover.r + 0.03, t.popover.g + 0.03, t.popover.b + 0.03, 1)
+    self._titleBarBg:SetColorTexture(t.background.r + 0.03, t.background.g + 0.03, t.background.b + 0.03, 1)
     self._titleBarSep:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
     Craft.Theme.SetPixelHeight(self._titleBarSep, 1)
 
