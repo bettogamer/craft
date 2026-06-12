@@ -30,8 +30,8 @@ numberinput.frame      (Frame — borde + fondo, h-8)
 |---|---|
 | Altura | 32px (`h-8`) |
 | Padding H | 10px (`px-2.5`) |
-| Columna stepper | 16px de ancho |
-| Ícono stepper | `chevron-up` / `chevron-down` @ 10px |
+| Columna stepper | 18px de ancho |
+| Ícono stepper | `chevron-up` / `chevron-down` (Lucide) @ 12px |
 | Font | `t.font`, 12px (`text-xs`) |
 | Borde default | `t.input` (`border-input`) |
 | Borde focus | `t.ring` |

@@ -13,7 +13,8 @@ NumberInput.__index = NumberInput
 
 local HEIGHT    = 32   -- h-8
 local PAD_H     = 10   -- px-2.5
-local STEP_W    = 16   -- stepper column width
+local STEP_W    = 18   -- stepper column width
+local ICON_SZ   = 12   -- chevron-up/down display size (size-3)
 local FONT_SIZE = 12   -- text-xs
 
 local function clamp(v, mn, mx)
@@ -66,17 +67,15 @@ function NumberInput:Create(parent, config)
     self._up:SetPoint("TOPRIGHT",    self.frame, "TOPRIGHT",    0, 0)
     self._up:SetSize(STEP_W, HEIGHT / 2)
     self._upTex = self._up:CreateTexture(nil, "ARTWORK")
-    self._upTex:SetSize(10, 10)
     self._upTex:SetPoint("CENTER", self._up, "CENTER", 0, 0)
-    Craft.Icons.Apply(self._upTex, "chevron-up", 10)
+    Craft.Icons.Apply(self._upTex, "chevron-up", ICON_SZ)
 
     self._down = CreateFrame("Button", nil, self.frame)
     self._down:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
     self._down:SetSize(STEP_W, HEIGHT / 2)
     self._downTex = self._down:CreateTexture(nil, "ARTWORK")
-    self._downTex:SetSize(10, 10)
     self._downTex:SetPoint("CENTER", self._down, "CENTER", 0, 0)
-    Craft.Icons.Apply(self._downTex, "chevron-down", 10)
+    Craft.Icons.Apply(self._downTex, "chevron-down", ICON_SZ)
 
     -- ── Scripts ───────────────────────────────────────────────────────────────
     self._up:SetScript("OnClick",   function() self:_step(1)  end)
