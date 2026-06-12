@@ -80,12 +80,14 @@ function Dialog:Create(parent, config)
     self.frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 
     -- ── Ring: textura sobre la capa exterior del frame ──────────────────────
-    -- ring-1 ring-foreground/10 — same pattern as Panel
-    self._ringTex = self.frame:CreateTexture(nil, "BACKGROUND", nil, -1)
+    -- ring-1 ring-foreground/10 — same pattern as Panel: ring BEHIND (-2), opaque
+    -- bg in FRONT (-1) inset 1px. bg must be in front or the translucent ring washes
+    -- the whole popover ~10% lighter.
+    self._ringTex = self.frame:CreateTexture(nil, "BACKGROUND", nil, -2)
     self._ringTex:SetAllPoints(self.frame)
 
     -- ── Background: inset 1px (reveals ring) ───────────────────────────────
-    self._bg = self.frame:CreateTexture(nil, "BACKGROUND", nil, -2)
+    self._bg = self.frame:CreateTexture(nil, "BACKGROUND", nil, -1)
     -- Points set in _applyTheme
 
     -- ── Header ─────────────────────────────────────────────────────────────

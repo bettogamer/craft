@@ -62,10 +62,14 @@ function Window:Create(parent, config)
         end
     end
 
-    -- ── Ring + background (popover surface, ring-1 ring-foreground/10) ───────
-    self._ringTex = self.frame:CreateTexture(nil, "BACKGROUND", nil, -1)
+    -- ── Ring + background (background surface, ring-1 ring-foreground/10) ─────
+    -- Ring sits BEHIND (sublevel -2); the opaque bg in FRONT (-1) is inset 1px so the
+    -- ring shows ONLY at the 1px border. Order matters: if the translucent ring
+    -- (foreground/10) were in front of the bg it would wash the whole body ~10% toward
+    -- white (≈0.135 instead of t.background 0.039) — that was the bug.
+    self._ringTex = self.frame:CreateTexture(nil, "BACKGROUND", nil, -2)
     self._ringTex:SetAllPoints(self.frame)
-    self._bg = self.frame:CreateTexture(nil, "BACKGROUND", nil, -2)
+    self._bg = self.frame:CreateTexture(nil, "BACKGROUND", nil, -1)
 
     -- ── Title bar (drag handle) ─────────────────────────────────────────────
     self._titleBar = CreateFrame("Frame", nil, self.frame)
