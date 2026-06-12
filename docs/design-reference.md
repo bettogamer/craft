@@ -19,11 +19,28 @@ Define la **forma** de los componentes, no sus colores:
 | Radius | **0** | `--radius: 0` — esquinas 100% rectas, sin redondeo |
 | Base Color | **Neutral** | Neutros para fondos, bordes, muted |
 | Theme Color | **Emerald** | Acento — primary del sidebar, focus areas |
-| Font | **Inter** | Bundled en `Craft/media/` (shadcn usa Inter con Lyra) |
+| Font | **Inter** | Bundled en `Craft/media/` (shadcn usa Inter con Lyra). Pesos: Regular (400), Medium (500), Bold (700) — ver §2.1 |
 
 > **Nota sobre el primary**: el color emerald en Lyra aparece en versiones muy oscuras
 > para el cuerpo principal (emerald-700/800) y más vibrante en el sidebar (emerald-500/600).
 > El `--ring` es zinc (gris), no emerald.
+
+### 2.1 Tipografía — pesos
+
+Lyra usa **solo dos pesos**: `normal` (400) y **`font-medium`** (500). **No hay `font-semibold`
+ni `font-bold` en ningún componente** — ni siquiera los títulos (card/dialog son `font-medium`).
+
+WoW no sintetiza pesos (toma un TTF por peso), así que Craft bundlea tres archivos Inter y mapea:
+
+| Tailwind | Token Craft | Archivo | Uso |
+|---|---|---|---|
+| `font-normal` / (none) | `t.font` | `Inter-Regular.ttf` | Texto base: Input, Label, Select, Tooltip, descripciones, labels de Checkbox/Radio, group-labels e ítems inactivos del Sidebar, Slider, etc. |
+| `font-medium` | **`t.fontMedium`** | `Inter-Medium.ttf` | Button, Tabs trigger, títulos de Panel/Dialog/Window, Section (accordion trigger), ToggleGroup, ítem **activo** del Sidebar (`data-active:font-medium`) |
+| (sin uso en Lyra) | `t.fontBold` | `Inter-Bold.ttf` | **Ningún componente** lo usa (Lyra no tiene bold/semibold). Se mantiene como token para addons consumidores |
+
+> Mapeo `font-medium` por componente verificado contra `style-lyra.css` (clase `.cn-*`). El
+> comando `/update-design-tokens` extrae el `font-weight` de cada clase para detectar deriva.
+> Fuentes: `extras/ttf/` de rsms/inter **v4.0** (upm 2048, las tres del mismo zip).
 
 ---
 
@@ -224,6 +241,7 @@ el contexto WoW (sin CSS box model):
 -- Fuente: docs/design-reference.md
 
 local FONT   = "Interface\\AddOns\\Craft\\media\\Inter-Regular.ttf"
+local FONT_M = "Interface\\AddOns\\Craft\\media\\Inter-Medium.ttf"
 local FONT_B = "Interface\\AddOns\\Craft\\media\\Inter-Bold.ttf"
 
 CraftPresets = {}
@@ -268,6 +286,7 @@ CraftPresets["lyra-dark"] = {
   radius                  = 0,
   -- Fuentes
   font                    = FONT,
+  fontMedium              = FONT_M,
   fontBold                = FONT_B,
   fontSize                = 12,
   fontSizeSm              = 11,
@@ -322,6 +341,7 @@ CraftPresets["lyra-light"] = {
   -- Lyra style
   radius                  = 0,
   font                    = FONT,
+  fontMedium              = FONT_M,
   fontBold                = FONT_B,
   fontSize                = 12,
   fontSizeSm              = 11,

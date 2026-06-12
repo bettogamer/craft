@@ -338,8 +338,9 @@ function Sidebar:_recolorAll()
         elseif entry.type == "item" and entry.frame then
             self:_colorItem(entry, entry.itemId == self._cfg.activeItem)
             if entry.guides then
+                local sb = t.sidebarBorder
                 for _, g in ipairs(entry.guides) do
-                    g:SetColorTexture(t.sidebarBorder.r, t.sidebarBorder.g, t.sidebarBorder.b, t.sidebarBorder.a or 0.10)
+                    g:SetColorTexture(sb.r, sb.g, sb.b, sb.a or 0.10)
                 end
             end
 
@@ -363,7 +364,7 @@ function Sidebar:_colorItem(entry, isActive)
     if isActive then
         -- data-active: bg-sidebar-accent text-sidebar-accent-foreground font-medium
         entry.bg:SetColorTexture(t.sidebarAccent.r, t.sidebarAccent.g, t.sidebarAccent.b, 1)
-        entry.labelFs:SetFont(t.fontBold, ITEM_FONT)  -- data-active:font-medium
+        entry.labelFs:SetFont(t.fontMedium or t.font, ITEM_FONT)  -- data-active:font-medium
         entry.labelFs:SetTextColor(
             t.sidebarAccentForeground.r,
             t.sidebarAccentForeground.g,

@@ -269,8 +269,8 @@ function Dialog:_applyTheme(t)
     -- Background: t.popover (bg-popover)
     self._bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b)
 
-    -- Title: fontBold, fontSizeLg (14px), popoverForeground
-    self._title:SetFont(t.fontBold, t.fontSizeLg or 14)
+    -- Title: font-medium, fontSizeLg (14px), popoverForeground (.cn-dialog-title font-medium)
+    self._title:SetFont(t.fontMedium or t.font, t.fontSizeLg or 14)
     self._title:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
 
     -- Description: font, fontSize (12px), mutedForeground

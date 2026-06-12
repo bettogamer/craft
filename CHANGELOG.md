@@ -7,6 +7,11 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 ## [Unreleased]
 
 ### Added
+- **Tipografía: peso `font-medium`** — se bundlea **`Inter-Medium.ttf`** (weight 500, de
+  `extras/ttf/` de rsms/inter v4.0, mismo zip y upm 2048 que Regular/Bold) y se expone el token
+  **`t.fontMedium`** (+ `Craft.Theme.getFont("medium")`). CI (`package.yml`/`release.yml`) y
+  `deploy-local.ps1` ahora descargan/validan también el Medium. Mapeo de pesos documentado en
+  `design-reference §2.1`.
 - **`Craft.DragList`** (RFC-009 #5) — componente nuevo (**Craft-original**: shadcn no tiene
   sortable): lista vertical reordenable por arrastre del handle `grip-vertical`. Drag custom
   (la fila sigue el cursor vía `OnUpdate` + `GetCursorPosition`, **no** `StartMoving`) con
@@ -79,6 +84,13 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   reactiva la primera tab restante si la removida era la activa, y reflowea.
 
 ### Fixed
+- **Peso `font-medium` mal en ~8 componentes**. Lyra usa solo dos pesos (normal y `font-medium`;
+  **no hay semibold/bold** en ningún componente), pero Craft solo traía Regular + Bold, así que
+  todo lo `font-medium` salía mal: Button y Tabs trigger como Regular (muy liviano); títulos de
+  Panel/Dialog/Window, Section, ToggleGroup y el ítem activo del Sidebar como Bold (muy pesado).
+  Ahora todos usan `t.fontMedium` (Inter Medium 500). Auditado contra `style-lyra.css` por clase
+  `.cn-*`. `t.fontBold` queda sin uso interno (se mantiene para consumidores). El comando
+  `/update-design-tokens` ahora extrae el `font-weight` por componente para detectar deriva.
 - Button `outline`: el borde **se veía mal** (interior más claro que el borde). `_border` era
   una textura **completa** sobre `_bg`; con el borde translúcido (`border-input` @ 0.15) la
   textura compositaba sobre todo el interior (~0.19) dejándolo más claro que el anillo de 1px

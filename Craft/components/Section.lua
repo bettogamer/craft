@@ -129,7 +129,7 @@ end
 function Section:_applyTheme(t)
     self._t = t
 
-    self._title:SetFont(t.fontBold or t.font, FONT_SIZE, "")   -- font-medium
+    self._title:SetFont(t.fontMedium or t.font, FONT_SIZE, "")   -- .cn-accordion-trigger font-medium
     self._title:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
     self._title:SetText(self._cfg.title)
 

@@ -137,7 +137,8 @@ end
 
 function T.getFont(weight)
     local t = T.get()
-    if weight == "bold" then return t.fontBold end
+    if weight == "bold"   then return t.fontBold end
+    if weight == "medium" then return t.fontMedium end
     return t.font
 end
 

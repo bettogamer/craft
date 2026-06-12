@@ -213,8 +213,8 @@ function Window:_applyTheme(t)
     self._titleBarSep:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
     Craft.Theme.SetPixelHeight(self._titleBarSep, 1)
 
-    -- Title + description
-    self._title:SetFont(t.fontBold, t.fontSizeLg or 14)
+    -- Title + description (title font-medium, mirrors Dialog/Panel)
+    self._title:SetFont(t.fontMedium or t.font, t.fontSizeLg or 14)
     self._title:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
     self._desc:SetFont(t.font, t.fontSize or 12)
     self._desc:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)

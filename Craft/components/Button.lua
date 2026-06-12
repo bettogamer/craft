@@ -162,7 +162,7 @@ function Button:_applyTheme(t)
 
     -- Font
     if s then
-        self._label:SetFont(t.font, s.font or 12)
+        self._label:SetFont(t.fontMedium or t.font, s.font or 12)  -- .cn-button font-medium
     end
 
     -- Colors by variant (dark mode)

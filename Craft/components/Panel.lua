@@ -192,8 +192,8 @@ function Panel:_applyTheme(t)
     -- Background: t.card
     self._bg:SetColorTexture(t.card.r, t.card.g, t.card.b)
 
-    -- Title: fontBold, fontSizeLg (14px), cardForeground
-    self._title:SetFont(t.fontBold, t.fontSizeLg or 14)
+    -- Title: font-medium, fontSizeLg (14px), cardForeground (.cn-card-title font-medium)
+    self._title:SetFont(t.fontMedium or t.font, t.fontSizeLg or 14)
     self._title:SetTextColor(t.cardForeground.r, t.cardForeground.g, t.cardForeground.b)
 
     -- Description: font, fontSize (12px), mutedForeground
