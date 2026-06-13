@@ -141,6 +141,22 @@ es una **rama** que expande/colapsa; las hojas seleccionan.
   toggle (un sub-Button de mayor frame-level lo consume); click en el resto = select.
 - `SetActiveItem`/`Select` **auto-expande los ancestros** colapsados del item.
 
+### Preservación de expansión en refrescos (FR-010)
+
+Cuando un consumer edita el árbol en vivo (CRUD) y llama `SetItems` para refrescar, el
+estado abierto/cerrado de cada rama **se conserva por `id`** sin trabajo extra:
+
+```lua
+sidebar:SetItems(tree)                              -- preserva por defecto (ids repetidos)
+sidebar:SetItems(tree, { preserveExpansion = false })  -- resetea a defaultOpen
+
+local snap = sidebar:GetExpandedState()  -- { ["pack1"]=true, ["panels"]=false, ... }
+sidebar:SetExpandedState(snap)           -- reaplica un snapshot explícito
+sidebar:IsExpanded("pack1")              -- → true/false
+```
+
+Las ramas con `id` nuevo (no presentes antes del refresco) usan su `defaultOpen`.
+
 ```lua
 items = {
   { id="pack1", label="Manaforge", icon="folder", collapsible=true, defaultOpen=true,
@@ -216,8 +232,11 @@ items = {
 | `Select(id)` | void | Alias de `SetActiveItem` |
 | `AddItem(config)` | void | Agrega un item al final; recalcula la altura del `_child` |
 | `AddSection(label)` | void | Agrega un section header (grupo plano) al final del listado |
-| `SetItems(tree)` | void | Reemplaza todos los items/secciones por un nuevo árbol (posiblemente anidado) y reconstruye |
+| `SetItems(tree, opts?)` | void | Reemplaza todos los items/secciones por un nuevo árbol (posiblemente anidado) y reconstruye. **Por defecto preserva** el estado de expansión de las ramas cuyo `id` exista antes y después (FR-010); las nuevas usan su `defaultOpen`. `opts.preserveExpansion = false` resetea todo a `defaultOpen` |
 | `Expand(id)` / `Collapse(id)` / `ToggleNode(id)` | void | Expande/colapsa/alterna una rama colapsable por id |
+| `GetExpandedState()` | table | Snapshot `{ [id] = bool }` del estado abierto/cerrado de cada rama colapsable (FR-010) |
+| `SetExpandedState(map)` | void | Aplica un mapa `{ [id] = bool }` a las ramas colapsables; ignora ids inexistentes o no colapsables (FR-010) |
+| `IsExpanded(id)` | boolean | `true` si la rama `id` está expandida; `false` para hojas, ids desconocidos o no colapsables (FR-010) |
 | `GetHeader()` | Frame | Retorna `_header` Frame (SidebarHeader). El dev llama `SetHeight(N)` y agrega contenido, luego `RefreshLayout()` |
 | `GetFooter()` | Frame | Retorna `_footer` Frame (SidebarFooter). Mismo patrón que GetHeader() |
 | `RefreshLayout()` | void | Reancla `_scroll` entre `_header` y `_footer` según sus alturas actuales. Llamar después de modificar header/footer |

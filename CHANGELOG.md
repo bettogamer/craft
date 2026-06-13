@@ -6,6 +6,18 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+### Added
+- **`Craft.Sidebar`: API de estado de expansión** (FR-010) — `GetExpandedState()` devuelve un
+  snapshot `{ [id] = bool }` de las ramas colapsables; `SetExpandedState(map)` lo reaplica
+  (ignora ids inexistentes/no colapsables); `IsExpanded(id)` → boolean. Reemplaza el workaround
+  de Sentry que leía los internos (`_sections`/`_open`).
+
+### Changed
+- **`Craft.Sidebar:SetItems(tree, opts?)` ahora preserva la expansión por defecto** (FR-010) —
+  las ramas cuyo `id` exista antes y después de un refresco conservan su estado abierto/cerrado;
+  las nuevas usan su `defaultOpen`. Antes, cada `SetItems` colapsaba todo a `defaultOpen`. Para
+  recuperar el comportamiento anterior: `SetItems(tree, { preserveExpansion = false })`.
+
 ## [1.1.0] - 2026-06-11
 
 > Incluye también los cambios etiquetados como `v1.0.1` (2026-06-09), que se taguearon

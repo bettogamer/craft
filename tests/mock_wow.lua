@@ -177,8 +177,20 @@ local function makeFrame(frameType, name, parent)
     function f:SetWordWrap(v)             end
     function f:SetNonSpaceWrap(v)         end
     function f:SetJustifyH(v)             end
+    function f:SetJustifyV(v)             end
     function f:GetStringWidth()           return #self._text * 7 end  -- approx 7px per character
     function f:GetStringHeight()          return self._fontSize or 12 end
+
+    -- ScrollFrame methods
+    f._vScroll = 0
+    function f:SetScrollChild(c)          self._scrollChild = c end
+    function f:GetScrollChild()           return self._scrollChild end
+    function f:SetVerticalScroll(v)       self._vScroll = v or 0 end
+    function f:GetVerticalScroll()        return self._vScroll end
+    function f:GetVerticalScrollRange()   return 0 end
+    function f:SetHorizontalScroll(v)     self._hScroll = v or 0 end
+    function f:GetHorizontalScroll()      return self._hScroll or 0 end
+    function f:GetHorizontalScrollRange() return 0 end
 
     -- Button methods
     function f:SetNormalTexture(t)        end

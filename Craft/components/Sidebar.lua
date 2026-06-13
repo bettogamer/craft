@@ -768,7 +768,14 @@ end
 -- ─── Tree API (FR-008) ──────────────────────────────────────────────────────────
 
 -- Replaces all items/sections with a new (possibly nested) tree and rebuilds.
-function Sidebar:SetItems(items)
+-- By default (retrocompatible, FR-010) it PRESERVES the expand/collapse state of
+-- branches whose `id` exists both before and after the rebuild; new ids fall back
+-- to their `defaultOpen`. Pass `{ preserveExpansion = false }` to reset everything
+-- to `defaultOpen` (the pre-FR-010 behavior).
+function Sidebar:SetItems(items, opts)
+    local preserve = (opts == nil) or (opts.preserveExpansion ~= false)
+    local prev     = preserve and self:GetExpandedState() or nil
+
     for _, e in ipairs(self._sections) do
         if e.frame then e.frame:Hide(); e.frame:ClearAllPoints() end
     end
@@ -779,7 +786,56 @@ function Sidebar:SetItems(items)
     self._building   = true
     self:_addItems(self._cfg.items, 0, nil)
     self._building   = false
+
+    -- Reapply preserved expansion by id (only for branches that existed before).
+    -- Sets _open + chevron directly; the single _rebuildLayout below picks it up
+    -- (no extra layout pass).
+    if prev then
+        for _, e in ipairs(self._sections) do
+            if e.type == "item" and e.collapsible and e.itemId ~= nil
+               and prev[e.itemId] ~= nil then
+                e._open = prev[e.itemId]
+                self:_updateChevron(e)
+            end
+        end
+    end
+
     self:_rebuildLayout()
+end
+
+-- ─── Expansion state API (FR-010) ─────────────────────────────────────────────
+
+-- Returns a snapshot { [id] = true/false } of every collapsible branch's open
+-- state. Leaf items and branches without an id are omitted.
+function Sidebar:GetExpandedState()
+    local state = {}
+    for _, e in ipairs(self._sections) do
+        if e.type == "item" and e.collapsible and e.itemId ~= nil then
+            state[e.itemId] = e._open and true or false
+        end
+    end
+    return state
+end
+
+-- Applies an { [id] = open } map to collapsible branches. Ignores ids that don't
+-- exist or aren't collapsible. Runs a single layout pass at the end.
+function Sidebar:SetExpandedState(map)
+    if type(map) ~= "table" then return end
+    for id, open in pairs(map) do
+        local e = self._itemFrames[id]
+        if e and e.collapsible then
+            e._open = open and true or false
+            self:_updateChevron(e)
+        end
+    end
+    self:_rebuildLayout()
+end
+
+-- Returns true if the branch `id` is currently expanded. Returns false for leaf
+-- items, unknown ids, or non-collapsible items.
+function Sidebar:IsExpanded(id)
+    local e = id and self._itemFrames[id]
+    return (e and e.collapsible and e._open) and true or false
 end
 
 -- Expand / collapse / toggle a collapsible branch by id.
