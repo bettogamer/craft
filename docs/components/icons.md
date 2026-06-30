@@ -133,8 +133,21 @@ Añadidos para el árbol de packs, editores de trigger/panel y barra de acciones
 | 41 | `type` | Tipo de panel Texto |
 | 42 | `disc` | Círculo relleno (Craft-sintetizado, no Lucide) — controles redondos (RadioGroup) |
 
-**Total**: 42 glyphs (41 Lucide + 1 Craft-sintetizado `disc`). Ocupan ~6 filas del grid 8×8
-(42 de 64 slots disponibles).
+### Solicitados por consumers (FR-012 — Beacon: test-fire / selector de historial)
+
+Iconos de acción para el clúster de creación de auras de Beacon (Modo prueba / Selector).
+
+| # | Nombre Lucide | Uso |
+|---|---|---|
+| 43 | `circle-play` | Disparar test-fire (acción de fila; botón "Probar" de la toolbar) |
+| 44 | `circle-stop` | Detener el test-fire |
+| 45 | `rotate-ccw` | Re-disparar el último evento |
+
+> La acción "usar / insertar en el trigger" del Selector se cubre con `chevron-right` (ya en el
+> atlas); `corner-down-left` se excluyó del FR-012 — ver `docs/requests/FR-012-action-icons-beacon.md`.
+
+**Total**: 45 glyphs (44 Lucide + 1 Craft-sintetizado `disc`). Ocupan ~6 filas del grid 8×8
+(45 de 64 slots disponibles).
 
 > **`disc`** no es de Lucide (que es stroke-only, sin formas rellenas). Se define inline en
 > `scripts/export-icons.py` (`LOCAL_SVGS`) y se rasteriza por el mismo pipeline supersampleado,

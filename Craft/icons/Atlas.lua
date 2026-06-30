@@ -62,4 +62,7 @@ Craft.Icons._atlas = {
     ["image"] = { 7, 4 },
     ["type"] = { 0, 5 },
     ["disc"] = { 1, 5 },
+    ["circle-play"] = { 2, 5 },
+    ["circle-stop"] = { 3, 5 },
+    ["rotate-ccw"] = { 4, 5 },
 }

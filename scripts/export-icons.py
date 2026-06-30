@@ -109,6 +109,10 @@ ICONS = [
     "type",           # Panel type: Text
     # Craft-synthesized (not Lucide) — see LOCAL_SVGS
     "disc",           # Filled circle for round controls (RadioGroup) — supersampled = crisp
+    # Consumer-requested (FR-012 — Beacon: test-fire / selector de historial)
+    "circle-play",    # Disparar test-fire (acción de fila; toolbar "Probar")
+    "circle-stop",    # Detener el test-fire
+    "rotate-ccw",     # Re-disparar el último evento
 ]
 
 # ─── Local (non-Lucide) glyphs ────────────────────────────────────────────────
