@@ -65,4 +65,7 @@ Craft.Icons._atlas = {
     ["circle-play"] = { 2, 5 },
     ["circle-stop"] = { 3, 5 },
     ["rotate-ccw"] = { 4, 5 },
+    ["lock"] = { 5, 5 },
+    ["lock-open"] = { 6, 5 },
+    ["magnet"] = { 7, 5 },
 }

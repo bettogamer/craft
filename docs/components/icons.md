@@ -146,8 +146,18 @@ Iconos de acción para el clúster de creación de auras de Beacon (Modo prueba 
 > La acción "usar / insertar en el trigger" del Selector se cubre con `chevron-right` (ya en el
 > atlas); `corner-down-left` se excluyó del FR-012 — ver `docs/requests/FR-012-action-icons-beacon.md`.
 
-**Total**: 45 glyphs (44 Lucide + 1 Craft-sintetizado `disc`). Ocupan ~6 filas del grid 8×8
-(45 de 64 slots disponibles).
+### Solicitados por consumers (FR-013 — Beacon: toggles de edit-mode del header)
+
+Glyphs para los dos toggles globales del header de opciones de Beacon (`OptionsFrame.lua`).
+
+| # | Nombre Lucide | Uso |
+|---|---|---|
+| 46 | `lock` | Toggle "Lock Positions" (estado activo) |
+| 47 | `lock-open` | Toggle "Lock Positions" (estado inactivo) |
+| 48 | `magnet` | Toggle "Magnetically Align" |
+
+**Total**: 48 glyphs (47 Lucide + 1 Craft-sintetizado `disc`). Ocupan ~6 filas del grid 8×8
+(48 de 64 slots disponibles).
 
 > **`disc`** no es de Lucide (que es stroke-only, sin formas rellenas). Se define inline en
 > `scripts/export-icons.py` (`LOCAL_SVGS`) y se rasteriza por el mismo pipeline supersampleado,

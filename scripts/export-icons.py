@@ -113,6 +113,10 @@ ICONS = [
     "circle-play",    # Disparar test-fire (acción de fila; toolbar "Probar")
     "circle-stop",    # Detener el test-fire
     "rotate-ccw",     # Re-disparar el último evento
+    # Consumer-requested (FR-013 — Beacon: toggles de edit-mode del header de opciones)
+    "lock",           # Toggle "Lock Positions" (estado activo)
+    "lock-open",      # Toggle "Lock Positions" (estado inactivo)
+    "magnet",         # Toggle "Magnetically Align"
 ]
 
 # ─── Local (non-Lucide) glyphs ────────────────────────────────────────────────
