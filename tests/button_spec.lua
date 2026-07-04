@@ -342,6 +342,14 @@ describe("Craft.Button", function()
                 newBtn({ icon="icon-that-does-not-exist" })
             end)
         end)
+
+        -- FR-014 (won't-do): the icon side keeps the reduced optical inset (padHIcon),
+        -- which compensates for the glyph's own transparent margin. See docs/components/button.md.
+        it("xs icon+text: icon anchored at the reduced padHIcon (6px), not padH", function()
+            local btn = newBtn({ size="xs", icon="check", text="New" })
+            local point = btn._icon._points[1]  -- {"LEFT", frame, "LEFT", offsetX, offsetY}
+            assert.equals(6, point[4])
+        end)
     end)
 
 end)

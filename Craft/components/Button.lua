@@ -123,6 +123,9 @@ function Button:_recalcWidth()
     local iconW   = hasIcon and (s.icon + s.gap) or 0
     -- Asymmetric padding: only the icon side is reduced (has-data-[icon=inline-*]);
     -- the opposite side keeps the normal padding. Without an icon both sides are normal.
+    -- NB: this optical inset (padHIcon < padH) compensates for the transparent margin
+    -- the icon glyph carries inside its cell — equalising the *frame* padding actually
+    -- unbalances the *visible* gaps. See FR-014 (won't-do) for the analysis.
     local padTotal = hasIcon and (s.padHIcon + s.padH) or (s.padH * 2)
     local intrinsic = math.max(padTotal + labelW + iconW, s.h)
 
