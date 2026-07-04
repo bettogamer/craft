@@ -320,6 +320,19 @@ label:SetHeight(14)
 **Frame hijo con height=0 clipea sus FontStrings a invisible**
 Si un Frame contenedor (e.g. `_header` en Panel) no tiene altura definida, WoW clipea todos sus children a 0 — incluidos FontStrings. Siempre dar `SetHeight()` explícito o BOTTOM anchor a frames que contienen texto.
 
+**Fuente TTF custom carga ASÍNCRONA en el primer arranque → `GetStringWidth()` erróneo**
+La primerísima vez que una sesión del cliente usa un TTF bundled (Inter), el archivo se carga
+async: `GetStringWidth()` medido justo tras `SetFont`/`SetText` devuelve métricas de la fuente
+aún no cargada, y todo componente de auto-ancho sale demasiado estrecho (los glifos luego se ven
+bien — solo los anchos quedaron congelados). Tras `/reload` el TTF ya está en la caché del
+proceso (carga síncrona) y no se reproduce. Mitigación en `theme/Theme.lua` (warm-up + sonda):
+FontStrings ocultos al cargar disparan la carga temprano, y una sonda re-mide un string fijo
+durante los primeros segundos — si su ancho cambia, re-notifica a los listeners de tema (los
+componentes re-ejecutan `_applyTheme`, que DEBE re-medir: `_recalcWidth`/`_layout`/
+`_recalcTriggerWidths`). Los layouts de contenedor que acumulan posiciones desde anchos medidos
+usan `Craft.Theme.onFontsReady(fn)` para re-renderizar (ver Craft_Browser). REGLA para
+componentes nuevos con auto-ancho: la re-medición debe vivir DENTRO de `_applyTheme`.
+
 **`frame:EnableMouse(true)` es obligatorio para bloquear eventos**
 Un frame con fondo visible NO bloquea clics/hover por defecto. Sin `EnableMouse(true)`, los eventos pasan al juego debajo. Aplicar en el frame raíz de cualquier ventana o panel que actúe como superficie interactiva.
 

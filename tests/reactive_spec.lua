@@ -268,3 +268,23 @@ describe("Craft.Checkbox reactive props", function()
         assert.is_true(c:GetChecked()) -- last value before Destroy
     end)
 end)
+
+-- ─── Theme font warm-up (first-boot width bug) ─────────────────────────────
+
+describe("Craft.Theme font warm-up", function()
+
+    it("the probe settles and fires onFontsReady callbacks once", function()
+        local got
+        Craft.Theme.onFontsReady(function(changed) got = changed end)
+        assert.is_nil(got) -- probe still pending, callback queued
+        for _ = 1, 35 do C_Timer._flush() end
+        assert.is_true(Craft.Theme._fontsReady)
+        assert.is_false(got) -- mock metrics never change → no re-notify needed
+    end)
+
+    it("onFontsReady after settling runs immediately", function()
+        local ran = false
+        Craft.Theme.onFontsReady(function() ran = true end)
+        assert.is_true(ran)
+    end)
+end)

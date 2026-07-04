@@ -224,4 +224,75 @@ function T.AnchorBorder(frame, top, bottom, left, right)
     T.SetPixelWidth(right, 1)
 end
 
+-- ─── Font warm-up + ready probe (first-boot width bug) ─────────────────────
+-- The first time a session uses a bundled TTF the client loads it ASYNC:
+-- GetStringWidth() right after SetFont/SetText reports metrics from the
+-- not-yet-loaded font, so every auto-width component (Button, Checkbox,
+-- ToggleGroup, RadioGroup, ColorSwatch, Tabs) comes out too narrow — only on
+-- the very FIRST boot; after /reload the file is in the process cache and
+-- loads sync. Two-part mitigation:
+--   1. warm-up: hidden FontStrings created at load start the TTF loads as
+--      early as possible (normally done before any UI is built);
+--   2. probe: re-measure a fixed string during the first seconds; if its
+--      width changes (the font finished loading late), re-notify all theme
+--      listeners so components re-run _applyTheme → re-measure their text.
+-- T.onFontsReady(fn) lets container UIs (e.g. Craft_Browser) re-layout
+-- positions that were derived from pre-load widths; fn(metricsChanged) runs
+-- once — immediately if the fonts already settled.
+
+T._fontsReady = false
+local fontsReadyCbs = {}
+
+function T.onFontsReady(fn)
+    if T._fontsReady then fn(false); return end
+    fontsReadyCbs[#fontsReadyCbs + 1] = fn
+end
+
+local function fireFontsReady(metricsChanged)
+    if T._fontsReady then return end
+    T._fontsReady = true
+    if metricsChanged then
+        -- Same notification use() performs: components re-run _applyTheme
+        local t = T.get()
+        for _, entry in ipairs(T._listeners) do
+            entry.fn(t)
+        end
+    end
+    for i = 1, #fontsReadyCbs do fontsReadyCbs[i](metricsChanged) end
+    for i = #fontsReadyCbs, 1, -1 do fontsReadyCbs[i] = nil end
+end
+
+do
+    local tokens = T.get()
+    local warm = CreateFrame("Frame")
+    warm:Hide()
+    local probe -- regular-weight string tracked for metric changes
+    for _, path in ipairs({ tokens.font, tokens.fontMedium, tokens.fontBold }) do
+        if path then
+            local fs = warm:CreateFontString(nil, "ARTWORK")
+            fs:SetFont(path, 12, "")
+            fs:SetText("Craft warmup 0123456789")
+            probe = probe or fs
+        end
+    end
+    if probe and C_Timer and C_Timer.After then
+        local w0 = probe:GetStringWidth()
+        local tries = 0
+        local function check()
+            local w = probe:GetStringWidth()
+            if w ~= w0 and w > 0 then
+                fireFontsReady(true)  -- font loaded late: widths were wrong
+            elseif tries >= 30 then
+                fireFontsReady(false) -- stable from the start (cached font)
+            else
+                tries = tries + 1
+                C_Timer.After(0.1, check)
+            end
+        end
+        C_Timer.After(0.05, check)
+    else
+        T._fontsReady = true -- no timer available: nothing to wait for
+    end
+end
+
 Craft.register("Theme", T, _BUILD)

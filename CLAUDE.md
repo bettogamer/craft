@@ -79,3 +79,20 @@ automáticamente (posicionado sobre el thumb, muestra el valor).
 
 - **Fix aplicado:** Implementación pure-custom (Frame + Button) en `Craft/components/Slider.lua`.
   Ver el comentario en el tope del archivo.
+
+### 4. Fuente Inter carga async en el PRIMER arranque — anchos de texto erróneos
+
+La primera vez que el cliente usa el TTF bundled en una sesión, la carga es asíncrona:
+`GetStringWidth()` medido en `Create()` devuelve métricas de la fuente aún no cargada y los
+componentes de auto-ancho (Button, Checkbox, ToggleGroup, RadioGroup, ColorSwatch, Tabs) salen
+demasiado estrechos (labels solapados). Tras `/reload` el TTF está en la caché del proceso y
+no se reproduce — solo falla el primerísimo boot.
+
+- **Síntoma:** botones estrechos/solapados solo en el primer arranque del juego; los glifos se
+  ven bien (la fuente terminó cargando) pero los anchos quedaron congelados.
+- **Fix aplicado:** warm-up + sonda en `theme/Theme.lua`: FontStrings ocultos al cargar la lib
+  disparan la carga del TTF temprano; una sonda re-mide un string fijo (~3 s) y si el ancho
+  cambia re-notifica a los listeners de tema (todos los `_applyTheme` re-miden). API
+  `Craft.Theme.onFontsReady(fn)` para contenedores que congelan posiciones (Craft_Browser
+  re-renderiza la página activa). Regla: en componentes con auto-ancho, la re-medición vive
+  DENTRO de `_applyTheme` (lección AGENTS.md §9).

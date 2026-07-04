@@ -104,6 +104,7 @@ function ColorSwatch:_applyTheme(t)
     self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
 
     self:_refresh()
+    self:_recalcWidth() -- re-measure the label (font metrics may have changed)
 end
 
 -- Lays out the 2×2 checkerboard inside the swatch (inset 1px for the border).

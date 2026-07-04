@@ -300,6 +300,26 @@ function Tabs:_applyTheme(t)
             self:_styleButton(btn, tabDef.id == self._activeId)
         end
     end
+
+    -- Trigger widths hug the text and are set once in _addTabButton; font
+    -- metrics may have changed since (first-boot font load, preset switch) —
+    -- re-derive them from a fresh measurement and reflow the bar.
+    self:_recalcTriggerWidths()
+end
+
+-- ─── _recalcTriggerWidths ───────────────────────────────────────────────────
+-- Re-derives each trigger's width from its re-measured text (same formula as
+-- _addTabButton) and re-runs the flex layout.
+function Tabs:_recalcTriggerWidths()
+    for _, btn in pairs(self._buttons) do
+        local textW = math.max(btn._text:GetStringWidth(), 1)
+        if btn._icon then
+            btn:SetWidth(ICON_SIZE + ICON_GAP + textW + TRIGGER_PX * 2)
+        else
+            btn:SetWidth(textW + TRIGGER_PX * 2)
+        end
+    end
+    self:_relayout()
 end
 
 -- ─── Public API ────────────────────────────────────────────────────────────

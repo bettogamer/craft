@@ -418,6 +418,20 @@ function CB.Toggle()
     end
 end
 
+-- ─── First-boot font fix ───────────────────────────────────────────────────
+-- Page layouts freeze positions computed from pre-font-load text widths (see
+-- Theme.lua font warm-up). If the font settles late, re-render the visible
+-- page so rows re-measure with the real metrics; hidden pages render fresh
+-- on Show and need nothing.
+if Craft.Theme.onFontsReady then
+    Craft.Theme.onFontsReady(function(metricsChanged)
+        if metricsChanged and _mainFrame and _mainFrame:IsShown()
+            and CraftBrowserDB and CraftBrowserDB.page then
+            CB.Navigate(CraftBrowserDB.page)
+        end
+    end)
+end
+
 -- ─── Slash commands ────────────────────────────────────────────────────────
 
 SLASH_CRAFT1 = "/craft"
