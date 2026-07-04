@@ -81,10 +81,13 @@ jobs:
           # LibStub directo a su lugar final — mismo nivel que Craft/
           curl -L -o Craft_Browser/libs/LibStub/LibStub.lua \
             "https://raw.githubusercontent.com/Ace3/LibStub/master/LibStub.lua"
+          # Weave — vendoreada en Craft/libs/, se embebe al nivel de LibStub
+          cp -r Craft/libs/Weave/ Craft_Browser/libs/Weave/
           # Craft — sin la carpeta libs/ interna
           cp -r Craft/ Craft_Browser/libs/Craft/
           rm -rf Craft_Browser/libs/Craft/libs/
           echo "✅ LibStub → Craft_Browser/libs/LibStub/LibStub.lua"
+          echo "✅ Weave   → Craft_Browser/libs/Weave/"
           echo "✅ Craft   → Craft_Browser/libs/Craft/"
           ls Craft_Browser/libs/
 

@@ -122,6 +122,8 @@ local function makeFrame(frameType, name, parent)
     function f:IsMouseEnabled()     return self._mouseEnabled end
     function f:EnableMouseWheel(v)  end
     function f:RegisterForDrag(...)  end
+    function f:SetHitRectInsets(...) end
+    function f:IsMouseOver()        return false end
 
     -- Movable / resizable behavior
     function f:SetMovable(v)        self._movable = v end
@@ -258,12 +260,21 @@ UISpecialFrames = {}
 -- DEFAULT_CHAT_FRAME
 DEFAULT_CHAT_FRAME = { AddMessage = function(self, msg) end }
 
--- C_Timer
+-- C_Timer — callbacks queue so tests can advance time deterministically.
+-- Nothing runs unless a test calls C_Timer._flush() (one flush = one tick:
+-- runs everything queued so far; re-schedules land in the next flush).
 C_Timer = {
+    _queue = {},
     After = function(delay, fn)
+        table.insert(C_Timer._queue, fn)
         return { Cancel = function() end }
-    end
+    end,
 }
+function C_Timer._flush()
+    local q = C_Timer._queue
+    C_Timer._queue = {}
+    for _, fn in ipairs(q) do fn() end
+end
 
 -- SlashCmdList
 SlashCmdList = {}

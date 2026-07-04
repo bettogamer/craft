@@ -14,7 +14,7 @@ necesita compilador C) — usar exactamente estas invocaciones (lección Weave, 
 ```bash
 luac -p <archivo>                                            # sintaxis, tras cada edición
 luacheck Craft/*.lua Craft/components/*.lua Craft/theme/*.lua Craft/layout/*.lua Craft/icons/*.lua --config .luacheckrc
-lua tests/run.lua tests/button_spec.lua tests/sidebar_spec.lua   # suite completa (mini-runner local)
+lua tests/run.lua tests/button_spec.lua tests/sidebar_spec.lua tests/reactive_spec.lua   # suite completa (mini-runner local)
 bash scripts/bump-build.sh                                   # bump CRAFT_BUILD antes de release
 
 # taintlint (secret values 12.0+) — node está en "C:\Program Files\nodejs" (si el shell no lo ve, ruta completa):

@@ -29,6 +29,20 @@ function Checkbox:Create(parent, config)
         self._cfg.checked = nil
     end
 
+    -- Reactive props (ADR-0013): a callable prop binds through the setters
+    -- (after the theme pass, below); until then _cfg holds safe literals so
+    -- Create/_applyTheme never operate on a signal object.
+    local R = Craft.Reactive
+    local checkedSource  = R.isCallable(config.checked)  and config.checked  or nil
+    local disabledSource = R.isCallable(config.disabled) and config.disabled or nil
+    local labelSource    = R.isCallable(config.label)    and config.label    or nil
+    if checkedSource  then self._cfg.checked  = false end
+    if disabledSource then self._cfg.disabled = false end
+    if labelSource    then self._cfg.label    = nil   end -- the bind writes the resolved text
+    if checkedSource and R.isWritableSignal(checkedSource) then
+        self._checkedSignal = checkedSource -- two-way: user clicks write back
+    end
+
     -- ── Root frame ────────────────────────────────────────────────────────────
     -- Generic frame: receives OnMouseDown over the entire area (box + label)
     self.frame = CreateFrame("Frame", nil, parent)
@@ -84,6 +98,13 @@ function Checkbox:Create(parent, config)
         self._label:SetText(self._cfg.label)  -- after SetFont in _applyTheme
     end
 
+    -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
+    -- checked binds through _applyChecked (not SetChecked) so a programmatic
+    -- signal sync never fires onChange — _toggle already fires it on clicks.
+    R.applyOrBind(self, checkedSource,  function(s, v) s:_applyChecked(v) end)
+    R.applyOrBind(self, labelSource,    function(s, text) s:SetLabel(text) end)
+    R.applyOrBind(self, disabledSource, function(s, off) s:SetEnabled(not off) end)
+
     -- ── Initial disabled state ────────────────────────────────────────────────
     if self._cfg.disabled then
         self:SetEnabled(false)
@@ -103,9 +124,19 @@ function Checkbox:_toggle()
     end
     self._cfg.checked = next
     self:_refreshVisual()
+    if self._checkedSignal then self._checkedSignal:set(next) end
     if self._cfg.onChange then
         self._cfg.onChange(self._cfg.checked)
     end
+end
+
+-- ─── Internal: apply a checked state without firing onChange ─────────────────
+-- Sink for the reactive bind: the signal is the source of truth, and firing
+-- onChange from a programmatic sync would double-fire it on user clicks.
+function Checkbox:_applyChecked(value)
+    if value == "indeterminate" then value = nil end
+    self._cfg.checked = value
+    self:_refreshVisual()
 end
 
 -- ─── _refreshVisual ───────────────────────────────────────────────────────────
@@ -265,6 +296,7 @@ end
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function Checkbox:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil

@@ -60,6 +60,7 @@ ignore = {
 
 -- Exclude files not part of the distributed addon
 exclude_files = {
+    "Craft/libs/",   -- vendored third-party code (LibStub, Weave) — read-only, not linted
     "tests/",
     "scripts/",
     "docs/",

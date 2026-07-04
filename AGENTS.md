@@ -153,6 +153,7 @@ herramientas, nunca** (`Co-Authored-By: Claude ...`, "Generated with..." — pro
 |------|------------|-------|
 | Lenguaje | Lua 5.1 | WoW sandbox — sin librerías externas |
 | Librería compartida | LibStub | `LibStub:NewLibrary("Craft-1.0", BUILD)` |
+| Reactividad | Weave **v0.1.0** vendoreada (`Craft/libs/Weave/`, READ-ONLY) | `LibStub("Weave-1.0")`; solo builds etiquetados `v*`; bugs → issue en repo Weave + re-vendoreo. Ver ADR-0013 |
 | Diseño | shadcn Lyra dark | Base=Zinc, Theme=Emerald, Radius=0. Ver ADR-0002 |
 | Íconos | Lucide (atlas TGA bundled) | Ver ADR-0003 |
 | Fuente | Inter (TTF bundled) | `Craft/media/Inter-Regular.ttf` |
@@ -188,11 +189,27 @@ function MyComponent:_applyTheme(t)
 end
 
 function MyComponent:Destroy()
+  Craft.Reactive.disposeAll(self)            -- CRÍTICO: corta binds de señales (ghost updates)
   Craft.Theme.unregister(self._themeHandle)  -- CRÍTICO: evita memory leak
   self.frame:Hide()
   self.frame = nil
 end
 ```
+
+**Props reactivas (ADR-0013)** — las props de estado aceptan un literal (se aplica una
+vez, comportamiento clásico) **o** una señal/computed de Weave (se bindea). Patrón:
+
+```lua
+-- en Create(), tras construir los frames:
+Craft.Reactive.applyOrBind(self, config.value, function(s, v) s:SetValue(v) end)
+-- controles two-way: si la señal es escribible, escribir de vuelta donde dispara onChange
+if Craft.Reactive.isWritableSignal(config.value) then self._valueSignal = config.value end
+-- ... en el punto de onChange:  if self._valueSignal then self._valueSignal:set(v) end
+```
+
+`disposeAll(self)` en `Destroy()` es obligatorio en todo componente que use `applyOrBind`.
+El corte por igualdad de las señales evita el feedback loop del two-way. `onChange` se
+sigue disparando igual (compatibilidad).
 
 **Violaciones MUST NOT:**
 - Llamar `Craft.Theme.get()` dentro de `_applyTheme()` → re-entrancia.
@@ -374,7 +391,7 @@ luacheck Craft/*.lua Craft/components/*.lua Craft/theme/*.lua Craft/layout/*.lua
 
 # Tests unitarios headless.
 # OJO máquina local: busted no instala (luarocks necesita compilador C) — mini-runner:
-lua tests/run.lua tests/button_spec.lua tests/sidebar_spec.lua
+lua tests/run.lua tests/button_spec.lua tests/sidebar_spec.lua tests/reactive_spec.lua
 # (en CI Linux corre busted real: `busted tests/`; specs compatibles con ambos)
 
 # Generar atlas TGA de Lucide (requiere Python + Pillow)
