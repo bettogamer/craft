@@ -1,6 +1,8 @@
 # AGENTS.md — Craft
 
 > README para agentes de IA. Leer antes de cualquier tarea. Sincronizado con `docs/DTI_v0.1.md`.
+> Craft sigue el **estándar de addons del workspace** (`Workspace/AddonTemplate`, docs 01-05):
+> proyecto nivel L, release Ruta B (packager). Ante duda de proceso/tooling, la respuesta está allí.
 
 ---
 
@@ -48,7 +50,9 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
 │   ├── check-traceability.md   ← /check-traceability
 │   └── update-design-tokens.md ← /update-design-tokens
 ├── .claude/agents/
-│   └── component-builder.md    ← subagente: implementa componentes aislando lecturas de specs
+│   ├── component-builder.md    ← subagente: implementa componentes aislando lecturas de specs
+│   ├── addon-scout.md          ← subagente read-only: localizar código/patrones, API WoW (estándar)
+│   └── error-triager.md        ← subagente read-only: diagnóstico de errores Lua/BugSack (estándar)
 │
 ├── Craft/                  ← LA LIBRERÍA (lo que se distribuye)
 │   ├── Craft.toc
@@ -77,9 +81,11 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
 │   ├── Craft_Browser.toc
 │   ├── Browser.lua
 │   └── pages/              ← 16 páginas de demo
-├── tests/                  ← unit tests con busted + mock WoW API
+├── tests/                  ← unit tests (busted en CI, mini-runner local)
 │   ├── mock_wow.lua        ← WoW API mock (no es test, no ejecutar directo)
-│   └── test_button.lua
+│   ├── run.lua             ← mini-runner Lua puro (busted no instala local — estándar doc 03)
+│   ├── button_spec.lua
+│   └── sidebar_spec.lua
 ├── scripts/
 │   ├── export-icons.py     ← genera lucide-*.tga
 │   └── bump-build.sh       ← incrementa CRAFT_BUILD en Craft.lua
@@ -135,6 +141,10 @@ hotfix/fix-critico → PR → main → tag v1.0.x → CurseForge
 
 El agente **MUST NOT** hacer push ni crear PRs — el maintainer (Alberto Gomez) lo hace manualmente.
 
+**Reglas git del estándar:** Conventional Commits en inglés (repo público); identidad
+`Betto <betto.gamer@icloud.com>`; **sin trailers de co-autoría de IA ni atribuciones de
+herramientas, nunca** (`Co-Authored-By: Claude ...`, "Generated with..." — prohibidos).
+
 ---
 
 ## 4. Stack tecnológico autoritativo
@@ -147,7 +157,7 @@ El agente **MUST NOT** hacer push ni crear PRs — el maintainer (Alberto Gomez)
 | Íconos | Lucide (atlas TGA bundled) | Ver ADR-0003 |
 | Fuente | Inter (TTF bundled) | `Craft/media/Inter-Regular.ttf` |
 | Linter | luacheck | `.luacheckrc` con globals WoW |
-| Tests | busted | Headless con `tests/mock_wow.lua` |
+| Tests | busted (CI) + `tests/run.lua` (local) | Headless con `tests/mock_wow.lua`; specs compatibles con ambos runners |
 | Packaging | bigwigsmods/packager | ADR-0009 |
 | CI | GitHub Actions | `ci.yml` + `package.yml` (push) + `release.yml` (tags v*) |
 | Distribución | GitHub Releases (Craft.zip) + CurseForge/Wago (Craft_Browser) | ADR-0012: Craft es embebible, solo Craft_Browser en CurseForge |
@@ -354,11 +364,18 @@ flowchart TD
 ## 11. Comandos de verificación y slash commands
 
 ```bash
-# Lint — MUST pasar sin warnings nuevos
-luacheck Craft/ --config .luacheckrc
+# Sintaxis — tras editar cada archivo (lua local es 5.4; el target 5.1 lo vigila luacheck std=lua51)
+luac -p <archivo>
 
-# Tests unitarios headless
-busted tests/
+# Lint — MUST pasar sin warnings nuevos.
+# OJO máquina local: luacheck sin lfs NO escanea carpetas — archivos explícitos:
+luacheck Craft/*.lua Craft/components/*.lua Craft/theme/*.lua Craft/layout/*.lua Craft/icons/*.lua --config .luacheckrc
+# (en CI Linux sí funciona `luacheck Craft/ --config .luacheckrc`)
+
+# Tests unitarios headless.
+# OJO máquina local: busted no instala (luarocks necesita compilador C) — mini-runner:
+lua tests/run.lua tests/button_spec.lua tests/sidebar_spec.lua
+# (en CI Linux corre busted real: `busted tests/`; specs compatibles con ambos)
 
 # Generar atlas TGA de Lucide (requiere Python + Pillow)
 python3 scripts/export-icons.py
@@ -451,3 +468,4 @@ Todos los componentes usan `t.*` en `_applyTheme(t)`. **Fuente de verdad**: `doc
 |---------|-------|-------|--------|
 | v0.1 | 30/05/2026 | Alberto Gomez | Versión inicial |
 | v0.2 | 30/05/2026 | Alberto Gomez | ADR-0011 pixel-perfect; 11 ADRs; slash commands; token ring corregido (zinc, no primary); lyra-light eliminado; tabla de tokens completa; regla pixel-perfect en §6; WoW mouse-only en §7 |
+| v0.3 | 03/07/2026 | Alberto Gomez | Adopción del estándar AddonTemplate: `tests/run.lua` (mini-runner local, busted solo en CI); invocaciones reales de la máquina en §11; reglas git del estándar en §3 (identidad, sin trailers de IA); agentes `addon-scout`/`error-triager` en `.claude/agents/`; `.gitignore` alineado |

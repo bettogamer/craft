@@ -2,6 +2,11 @@
 templates/
 skill-examples/
 
+# Estándar AddonTemplate: referencia read-only, builds y settings locales
+related-addons/
+dist/
+.claude/settings.local.json
+
 # Generados en el build — bigwigsmods/packager los descarga/crea
 Craft/libs/LibStub/
 
