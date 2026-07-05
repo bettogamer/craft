@@ -5,7 +5,7 @@
 --
 -- Depends on: CraftPresets global (defined in theme/Presets.lua, loaded first in Craft.toc)
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local T = {}

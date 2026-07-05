@@ -36,7 +36,7 @@ dofile("Craft/components/Tabs.lua")
 dofile("Craft/components/Sidebar.lua")
 dofile("Craft/components/DragList.lua")
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local Weave = LibStub("Weave-1.0")
 local R = Craft.Reactive
 

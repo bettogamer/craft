@@ -11,7 +11,7 @@ dofile("Craft/icons/Atlas.lua")
 dofile("Craft/icons/Icons.lua")
 dofile("Craft/components/Button.lua")
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 
 -- ─── Helpers ───────────────────────────────────────────────────────────────
 

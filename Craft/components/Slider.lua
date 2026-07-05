@@ -21,7 +21,7 @@
 -- Frame heights (LABEL_H=12): hasHeader+showMinMax=42px  hasHeader-only=30px
 --                             showMinMax-only=28px        plain=16px
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Slider = {}

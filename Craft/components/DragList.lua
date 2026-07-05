@@ -7,7 +7,7 @@
 --   Rows are NOT recreated on reorder — each row stays bound to its item and is repositioned,
 --   so `renderRow(content, item, index)` runs once per item at build time.
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local DragList = {}

@@ -8,7 +8,7 @@
 -- Models Craft_Browser's main frame: body = background (oklch 0.145), title bar a
 -- touch lighter (+0.03) for separation, 1px ring (foreground/10) around the whole frame.
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Window = {}

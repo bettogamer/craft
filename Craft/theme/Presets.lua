@@ -6,7 +6,7 @@
 -- External addons may call Craft.Theme.register_preset() to add their own;
 -- they must NOT mutate CraftPresets directly.
 
-local Craft  = LibStub("Craft-1.0")
+local Craft  = LibStub("Craft-2.0")
 local FONT   = Craft.mediaPath .. "Inter-Regular.ttf"
 local FONT_M = Craft.mediaPath .. "Inter-Medium.ttf"
 local FONT_B = Craft.mediaPath .. "Inter-Bold.ttf"

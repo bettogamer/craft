@@ -6,6 +6,15 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-07-05
+
+> **BREAKING — nueva key LibStub `Craft-2.0`.** Por la eliminación de `Craft.NumberInput`
+> (cambio de API pública), este release sube a SemVer MAJOR y renombra la librería LibStub de
+> `"Craft-1.0"` a `"Craft-2.0"` (ADR-0010 §3.2); `CRAFT_BUILD` se reinicia a `1` bajo la nueva
+> key. Los consumidores que hagan `LibStub("Craft-1.0")` **deben** cambiar a
+> `LibStub("Craft-2.0")` al re-vendorear este build. Craft_Browser no se ve afectado (usa el
+> accessor global `_G.Craft`).
+
 ### Removed
 - **`Craft.NumberInput` eliminado** (**BREAKING** — shippeó en 1.1.0): componente retirado por
   decisión del maintainer. Se quitan el componente, su página del Browser, su spec doc y sus

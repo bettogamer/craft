@@ -371,7 +371,7 @@ def generate_atlas_lua(coords: dict):
         f"--   ({INNER}px icon centered with a {GUTTER}px transparent gutter — supersampled)",
         f"--   UV: left=col/{CPR}, right=(col+1)/{CPR}, top=row/{CPR}, bottom=(row+1)/{CPR}",
         "",
-        'local Craft = LibStub("Craft-1.0")',
+        'local Craft = LibStub("Craft-2.0")',
         "local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)",
         "",
         "-- Versioned (production bug #1): skip if a newer/equal Icons atlas is already loaded.",

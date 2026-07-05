@@ -5,7 +5,7 @@
 -- Depends on: Weave (>= v0.3.0, needs Weave.isReactive/isWritable) vendored in libs/Weave/
 --             (loaded before Craft.lua in Craft.toc)
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Weave = LibStub("Weave-1.0")

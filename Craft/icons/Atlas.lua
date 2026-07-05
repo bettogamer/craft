@@ -6,7 +6,7 @@
 --   (56px icon centered with a 4px transparent gutter — supersampled)
 --   UV: left=col/8, right=(col+1)/8, top=row/8, bottom=(row+1)/8
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 -- Versioned (production bug #1): skip if a newer/equal Icons atlas is already loaded.

@@ -9,7 +9,7 @@
 --   .cn-card-content    { @apply px-4; }
 --   .cn-card-footer     { @apply border-t p-4; }
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Panel = {}

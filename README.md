@@ -56,7 +56,7 @@ libs\Craft\components\Input.lua
 **4. Obtener la librería**
 
 ```lua
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 ```
 
 **4. Crear tu primer componente**
@@ -80,7 +80,7 @@ btn:Destroy()  -- desregistra listeners del tema y libera el frame
 ## Ejemplo de uso
 
 ```lua
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 
 -- Panel raíz
 local panel = Craft.Panel:Create(UIParent, { width = 320, height = 200 })
@@ -143,7 +143,7 @@ flex:Layout()
 Craft incluye el preset `lyra-dark` por defecto. Puedes extenderlo o crear el tuyo:
 
 ```lua
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 
 -- Cambiar a un preset registrado
 Craft.Theme.use("mi-tema")

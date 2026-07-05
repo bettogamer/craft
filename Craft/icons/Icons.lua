@@ -2,7 +2,7 @@
 -- Spec: docs/components/icons.md
 -- Depends on: Atlas.lua (loaded earlier in Craft.toc)
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local I = Craft.Icons  -- the atlas table built in Atlas.lua (loaded earlier)

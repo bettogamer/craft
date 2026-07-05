@@ -56,7 +56,7 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
 │
 ├── Craft/                  ← LA LIBRERÍA (lo que se distribuye)
 │   ├── Craft.toc
-│   ├── Craft.lua           ← entry point, LibStub:NewLibrary("Craft-1.0", BUILD)
+│   ├── Craft.lua           ← entry point, LibStub:NewLibrary("Craft-2.0", BUILD)
 │   ├── libs/LibStub/LibStub.lua  ← para desarrollo standalone
 │   ├── theme/
 │   │   ├── Theme.lua       ← Craft.Theme (register, use, get, extend)
@@ -152,7 +152,7 @@ herramientas, nunca** (`Co-Authored-By: Claude ...`, "Generated with..." — pro
 | Capa | Tecnología | Notas |
 |------|------------|-------|
 | Lenguaje | Lua 5.1 | WoW sandbox — sin librerías externas |
-| Librería compartida | LibStub | `LibStub:NewLibrary("Craft-1.0", BUILD)` |
+| Librería compartida | LibStub | `LibStub:NewLibrary("Craft-2.0", BUILD)` |
 | Reactividad | Weave **v0.3.0** vendoreada (`Craft/libs/Weave/`, READ-ONLY) | `LibStub("Weave-1.0")`; solo builds etiquetados `v*`; bugs → issue en repo Weave + re-vendoreo. Ver ADR-0013 |
 | Diseño | shadcn Lyra dark | Base=Zinc, Theme=Emerald, Radius=0. Ver ADR-0002 |
 | Íconos | Lucide (atlas TGA bundled) | Ver ADR-0003 |

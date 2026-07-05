@@ -7,7 +7,7 @@
 -- shadcn auto-grows (field-sizing-content); WoW uses a fixed height + an internal scroll
 -- (mouse wheel + cursor-follow) — more practical for a code/strings editor (FR-006).
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Textarea = {}
