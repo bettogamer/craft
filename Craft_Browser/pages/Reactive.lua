@@ -1,8 +1,10 @@
 CraftBrowserPages = CraftBrowserPages or {}
 
 -- Reactive props demo (ADR-0013): Craft components driven by Weave signals.
--- One signal feeds two sliders (two-way), a computed label derives text from it,
--- and a checkbox locks/unlocks the sliders — zero manual onChange wiring.
+-- Wave 2 covers every stateful component: one `locked` signal disables the
+-- whole page, `volume` is shared by two sliders, `choice` feeds Select +
+-- RadioGroup + ToggleGroup (three views of one state), `notes` mirrors
+-- Input <-> Textarea, plus ColorSwatch and Tabs — zero onChange wiring.
 
 CraftBrowserPages["Reactive"] = {
     title = "Reactive",
@@ -13,57 +15,137 @@ CraftBrowserPages["Reactive"] = {
         local GAP = 14
         local W   = 280
 
+        local comps, binds, labels = {}, {}, {}
+        local t = Craft.Theme.get()
+        local y = -PAD
+
+        local function place(comp, height, width)
+            comp:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", PAD, y)
+            if width then comp:GetFrame():SetWidth(width) end
+            comps[#comps + 1] = comp
+            y = y - (height or comp:GetFrame():GetHeight()) - GAP
+            return comp
+        end
+
+        local function heading(text)
+            local fs = parent:CreateFontString(nil, "OVERLAY")
+            fs:SetFont(t.font, t.fontSizeSm)
+            fs:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+            fs:SetPoint("TOPLEFT", parent, "TOPLEFT", PAD, y)
+            fs:SetText(text)
+            labels[#labels + 1] = fs
+            y = y - 12 - 8
+            return fs
+        end
+
+        -- A FontString driven by a computed (Weave.bind is ours to dispose)
+        local function boundLabel(fn)
+            local fs = parent:CreateFontString(nil, "OVERLAY")
+            fs:SetFont(t.font, t.fontSizeSm)
+            fs:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+            fs:SetPoint("TOPLEFT", parent, "TOPLEFT", PAD, y)
+            binds[#binds + 1] = Weave.bind(fs, "text", Weave.computed(fn))
+            labels[#labels + 1] = fs
+            y = y - 12 - GAP
+            return fs
+        end
+
         -- STATE — one signal per piece of shared state
         local volume = Weave.signal(40)
         local locked = Weave.signal(false)
+        local notes  = Weave.signal("")
+        local choice = Weave.signal("bar")
+        local tint   = Weave.signal({ r = 0.06, g = 0.72, b = 0.50, a = 1 })
+        local tab    = Weave.signal("general")
 
-        -- VIEW — both sliders share `volume`: drag one, the other follows.
-        -- `locked` disables them from the checkbox below, reactively.
-        local sliderA = Craft.Slider:Create(parent, {
+        -- ── Two sliders sharing `volume` (two-way) ───────────────────────────
+        heading("One signal, two sliders — drag one, the other follows")
+        place(Craft.Slider:Create(parent, {
             label = "Volume", min = 0, max = 100,
             value = volume, disabled = locked, showValue = true,
-        })
-        local sliderB = Craft.Slider:Create(parent, {
+        }), nil, W)
+        place(Craft.Slider:Create(parent, {
             label = "Volume (mirror)", min = 0, max = 100,
             value = volume, disabled = locked, showValue = true,
+        }), nil, W)
+        -- ── Select + RadioGroup + ToggleGroup sharing `choice` ──────────────
+        heading("One selection, three views")
+        local opts = {
+            { value = "bar",  label = "Barra" },
+            { value = "icon", label = "Icono" },
+            { value = "text", label = "Texto" },
+        }
+        place(Craft.Select:Create(parent, {
+            options = opts, value = choice, disabled = locked,
+        }), 32, W)
+        place(Craft.RadioGroup:Create(parent, {
+            options = opts, value = choice, disabled = locked,
+        }), 3 * 16 + 2 * 8)
+        place(Craft.ToggleGroup:Create(parent, {
+            options = opts, value = choice, disabled = locked,
+        }), 32)
+        boundLabel(function()
+            return ("choice = %s"):format(tostring(choice()))
+        end)
+
+        -- ── Input <-> Textarea mirroring `notes` ─────────────────────────────
+        heading("Input and Textarea mirror one text signal")
+        place(Craft.Input:Create(parent, {
+            value = notes, placeholder = "Type here...", disabled = locked,
+        }), 32, W)
+        place(Craft.Textarea:Create(parent, {
+            value = notes, placeholder = "...or here", disabled = locked,
+            width = W, height = 64,
+        }), 64)
+        boundLabel(function()
+            return ("%d chars"):format(#notes())
+        end)
+
+        -- ── ColorSwatch on `tint` ────────────────────────────────────────────
+        heading("ColorSwatch writes a fresh color table back")
+        place(Craft.ColorSwatch:Create(parent, {
+            label = "Tint", color = tint, disabled = locked,
+        }), 24)
+        boundLabel(function()
+            local c = tint()
+            local r = c.r or c[1]
+            local g = c.g or c[2]
+            local b = c.b or c[3]
+            return ("tint = %.2f, %.2f, %.2f"):format(r or 0, g or 0, b or 0)
+        end)
+
+        -- ── Tabs on `tab` ────────────────────────────────────────────────────
+        heading("Tabs: active tab is a signal")
+        local tabs = Craft.Tabs:Create(parent, {
+            tabs = {
+                { id = "general", label = "General" },
+                { id = "audio",   label = "Audio"   },
+                { id = "video",   label = "Video"   },
+            },
+            defaultTab = tab,
         })
+        tabs:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", PAD, y)
+        tabs:GetFrame():SetSize(W, 96)
+        comps[#comps + 1] = tabs
+        y = y - 96 - GAP
+        boundLabel(function()
+            return ("tab = %s"):format(tostring(tab()))
+        end)
 
-        -- DERIVED — a computed drives a plain FontString via Weave.bind
-        local info = parent:CreateFontString(nil, "OVERLAY")
-        local t = Craft.Theme.get()
-        info:SetFont(t.font, t.fontSizeSm)
-        info:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
-        local infoBind = Weave.bind(info, "text", Weave.computed(function()
-            return ("Signal value: %d  (locked: %s)"):format(volume(), tostring(locked()))
-        end))
-
-        local lock = Craft.Checkbox:Create(parent, {
-            label = "Lock sliders", checked = locked,
-        })
-
-        -- LAYOUT
-        local y = -PAD
-        sliderA:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", PAD, y)
-        sliderA:GetFrame():SetWidth(W)
-        y = y - sliderA:GetFrame():GetHeight() - GAP
-        sliderB:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", PAD, y)
-        sliderB:GetFrame():SetWidth(W)
-        y = y - sliderB:GetFrame():GetHeight() - GAP
-        info:SetPoint("TOPLEFT", parent, "TOPLEFT", PAD, y)
-        y = y - 12 - GAP
-        lock:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", PAD, y)
-        y = y - lock:GetFrame():GetHeight() - GAP
+        -- ── The master lock: one checkbox disables the entire page ──────────
+        place(Craft.Checkbox:Create(parent, {
+            label = "Lock everything", checked = locked,
+        }), 16)
 
         return {
             height  = math.abs(y) - GAP + PAD,
             cleanup = function()
                 -- Destroy() disposes each component's binds (no ghost updates);
-                -- the loose FontString bind is ours to dispose.
-                infoBind:dispose()
-                info:Hide()
-                sliderA:Destroy()
-                sliderB:Destroy()
-                lock:Destroy()
+                -- the loose FontString binds are ours to dispose, and loose
+                -- FontStrings are regions (Navigate only hides child frames).
+                for _, b in ipairs(binds) do b:dispose() end
+                for _, fs in ipairs(labels) do fs:Hide() end
+                for _, c in ipairs(comps) do c:Destroy() end
             end,
         }
     end,

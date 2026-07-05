@@ -45,6 +45,19 @@ function RadioGroup:Create(parent, config)
     self._value = config.value
     self._items = {}
 
+    -- Reactive props (ADR-0013): a callable prop binds through the setters
+    -- (after the theme pass, below); until then the direct-read fields hold
+    -- safe literals so Create/_applyTheme never operate on a signal object.
+    -- Only the selection and disabled are reactive — options stay literal.
+    local R = Craft.Reactive
+    local valueSource    = R.isCallable(config.value)    and config.value    or nil
+    local disabledSource = R.isCallable(config.disabled) and config.disabled or nil
+    if valueSource    then self._value        = nil end -- no selection until the bind resolves
+    if disabledSource then self._cfg.disabled = false end
+    if valueSource and R.isWritableSignal(valueSource) then
+        self._valueSignal = valueSource -- two-way: user clicks write back
+    end
+
     self.frame = CreateFrame("Frame", nil, parent)
 
     for i, opt in ipairs(self._cfg.options) do
@@ -53,6 +66,13 @@ function RadioGroup:Create(parent, config)
 
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
+
+    -- ── Reactive binds — after the theme pass. ────────────────────────────────
+    -- value binds silently (SetValue's silent flag) so a programmatic signal
+    -- sync never fires onChange — _select already fires it on clicks. A value
+    -- matching no option simply deselects every item (same as SetValue).
+    R.applyOrBind(self, valueSource,    function(s, v) s:SetValue(v, true) end)
+    R.applyOrBind(self, disabledSource, function(s, off) s:SetEnabled(not off) end)
 
     if self._cfg.disabled then self:SetEnabled(false) end
 
@@ -102,6 +122,7 @@ function RadioGroup:_select(value)
     if self._value == value then return end
     self._value = value
     self:_refresh()
+    if self._valueSignal then self._valueSignal:set(value) end
     if self._cfg.onChange then self._cfg.onChange(self._value) end
 end
 
@@ -171,6 +192,7 @@ end
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function RadioGroup:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil

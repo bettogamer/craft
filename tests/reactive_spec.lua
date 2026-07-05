@@ -21,8 +21,16 @@ dofile("Craft/theme/Presets.lua")
 dofile("Craft/theme/Theme.lua")
 dofile("Craft/icons/Atlas.lua")
 dofile("Craft/icons/Icons.lua")
+dofile("Craft/layout/Flex.lua")
 dofile("Craft/components/Slider.lua")
 dofile("Craft/components/Checkbox.lua")
+dofile("Craft/components/Input.lua")
+dofile("Craft/components/Textarea.lua")
+dofile("Craft/components/Select.lua")
+dofile("Craft/components/RadioGroup.lua")
+dofile("Craft/components/ToggleGroup.lua")
+dofile("Craft/components/ColorSwatch.lua")
+dofile("Craft/components/Tabs.lua")
 
 local Craft = LibStub("Craft-1.0")
 local Weave = LibStub("Weave-1.0")
@@ -266,6 +274,282 @@ describe("Craft.Checkbox reactive props", function()
         c:Destroy()
         assert.has_no_errors(function() sig:set(false) end)
         assert.is_true(c:GetChecked()) -- last value before Destroy
+    end)
+end)
+
+-- ─── Wave 2: form + selection components (same ADR-0013 pattern) ───────────
+
+describe("Craft.Input reactive props", function()
+
+    it("literal config keeps the classic behavior", function()
+        local i = Craft.Input:Create(UIParent, { value = "hola" })
+        assert.equals("hola", i:GetValue())
+        assert.is_nil(i._effects)
+        i:Destroy()
+    end)
+
+    it("value signal drives the input", function()
+        local sig = Weave.signal("a")
+        local i = Craft.Input:Create(UIParent, { value = sig })
+        assert.equals("a", i:GetValue())
+        sig:set("b")
+        assert.equals("b", i:GetValue())
+        i:Destroy()
+    end)
+
+    it("two-way: user typing writes back into the signal", function()
+        local sig = Weave.signal("")
+        local i = Craft.Input:Create(UIParent, { value = sig })
+        i._edit._text = "hey"
+        i._edit:_fire("OnTextChanged", true)
+        assert.equals("hey", sig())
+        i:Destroy()
+    end)
+
+    it("a programmatic signal sync does not echo (userInput=false path)", function()
+        local sig = Weave.signal("")
+        local calls = 0
+        local i = Craft.Input:Create(UIParent, { value = sig, onChange = function() calls = calls + 1 end })
+        sig:set("x") -- bind → SetText → OnTextChanged(userInput=false)
+        assert.equals("x", i:GetValue())
+        assert.equals(0, calls)
+        i:Destroy()
+    end)
+
+    it("placeholder and disabled signals bind", function()
+        local ph  = Weave.signal("Buscar...")
+        local off = Weave.signal(false)
+        local i = Craft.Input:Create(UIParent, { placeholder = ph, disabled = off })
+        assert.equals("Buscar...", i._cfg.placeholder)
+        ph:set("Filtrar...")
+        assert.equals("Filtrar...", i._cfg.placeholder)
+        off:set(true)
+        assert.is_true(i._cfg.disabled)
+        i:Destroy()
+    end)
+
+    it("Destroy() cuts the binds (no ghost updates)", function()
+        local sig = Weave.signal("a")
+        local i = Craft.Input:Create(UIParent, { value = sig })
+        i:Destroy()
+        assert.has_no_errors(function() sig:set("z") end)
+    end)
+end)
+
+describe("Craft.Textarea reactive props", function()
+
+    it("value signal drives the textarea", function()
+        local sig = Weave.signal("uno")
+        local ta = Craft.Textarea:Create(UIParent, { value = sig })
+        assert.equals("uno", ta:GetValue())
+        sig:set("dos")
+        assert.equals("dos", ta:GetValue())
+        ta:Destroy()
+    end)
+
+    it("two-way: user typing writes back; programmatic sync does not echo", function()
+        local sig = Weave.signal("")
+        local calls = 0
+        local ta = Craft.Textarea:Create(UIParent, { value = sig, onChange = function() calls = calls + 1 end })
+        ta._edit._text = "nota"
+        ta._edit:_fire("OnTextChanged", true)
+        assert.equals("nota", sig())
+        assert.equals(1, calls)
+        sig:set("otra") -- SetText → OnTextChanged(userInput=false)
+        assert.equals("otra", ta:GetValue())
+        assert.equals(1, calls)
+        ta:Destroy()
+    end)
+
+    it("placeholder and disabled signals bind", function()
+        local ph  = Weave.signal("Notas...")
+        local off = Weave.signal(false)
+        local ta = Craft.Textarea:Create(UIParent, { placeholder = ph, disabled = off })
+        assert.equals("Notas...", ta._cfg.placeholder)
+        ph:set("Pega aquí...")
+        assert.equals("Pega aquí...", ta._cfg.placeholder)
+        off:set(true)
+        assert.is_true(ta._cfg.disabled)
+        ta:Destroy()
+    end)
+end)
+
+local SEL_OPTS = {
+    { value = "bar",  label = "Barra" },
+    { value = "icon", label = "Icono" },
+    { value = "text", label = "Texto" },
+}
+
+describe("Craft.Select reactive props", function()
+
+    it("value signal drives the selection", function()
+        local sig = Weave.signal("bar")
+        local s = Craft.Select:Create(UIParent, { options = SEL_OPTS, value = sig })
+        assert.equals("bar", s:GetValue())
+        sig:set("text")
+        assert.equals("text", s:GetValue())
+        s:Destroy()
+    end)
+
+    it("two-way: clicking an item writes back and fires onSelect once", function()
+        local sig = Weave.signal("bar")
+        local calls = 0
+        local s = Craft.Select:Create(UIParent, { options = SEL_OPTS, value = sig,
+                                                  onSelect = function() calls = calls + 1 end })
+        s._items[2].frame:_fire("OnClick")
+        assert.equals("icon", s:GetValue())
+        assert.equals("icon", sig())
+        assert.equals(1, calls)
+        s:Destroy()
+    end)
+
+    it("disabled signal toggles the enabled state", function()
+        local off = Weave.signal(true)
+        local s = Craft.Select:Create(UIParent, { options = SEL_OPTS, disabled = off })
+        assert.is_true(s._cfg.disabled)
+        off:set(false)
+        assert.is_false(s._cfg.disabled)
+        s:Destroy()
+    end)
+end)
+
+describe("Craft.RadioGroup reactive props", function()
+
+    it("value signal drives the selection without firing onChange", function()
+        local sig = Weave.signal("bar")
+        local calls = 0
+        local rg = Craft.RadioGroup:Create(UIParent, { options = SEL_OPTS, value = sig,
+                                                       onChange = function() calls = calls + 1 end })
+        assert.equals("bar", rg:GetValue())
+        sig:set("icon")
+        assert.equals("icon", rg:GetValue())
+        assert.equals(0, calls)
+        rg:Destroy()
+    end)
+
+    it("two-way: a user selection writes back and fires onChange once", function()
+        local sig = Weave.signal("bar")
+        local calls = 0
+        local rg = Craft.RadioGroup:Create(UIParent, { options = SEL_OPTS, value = sig,
+                                                       onChange = function() calls = calls + 1 end })
+        rg:_select("text")
+        assert.equals("text", sig())
+        assert.equals(1, calls)
+        rg:Destroy()
+    end)
+end)
+
+describe("Craft.ToggleGroup reactive props", function()
+
+    it("value signal drives the selection without firing onChange", function()
+        local sig = Weave.signal("bar")
+        local calls = 0
+        local tg = Craft.ToggleGroup:Create(UIParent, { options = SEL_OPTS, value = sig,
+                                                        onChange = function() calls = calls + 1 end })
+        assert.equals("bar", tg:GetValue())
+        sig:set("icon")
+        assert.equals("icon", tg:GetValue())
+        assert.equals(0, calls)
+        tg:Destroy()
+    end)
+
+    it("two-way: a user selection writes back and fires onChange once", function()
+        local sig = Weave.signal("bar")
+        local calls = 0
+        local tg = Craft.ToggleGroup:Create(UIParent, { options = SEL_OPTS, value = sig,
+                                                        onChange = function() calls = calls + 1 end })
+        tg:_select("text")
+        assert.equals("text", sig())
+        assert.equals(1, calls)
+        tg:Destroy()
+    end)
+
+    it("disabled signal toggles the enabled state", function()
+        local off = Weave.signal(false)
+        local tg = Craft.ToggleGroup:Create(UIParent, { options = SEL_OPTS, value = "bar", disabled = off })
+        assert.is_false(tg._cfg.disabled)
+        off:set(true)
+        assert.is_true(tg._cfg.disabled)
+        tg:Destroy()
+    end)
+end)
+
+describe("Craft.ColorSwatch reactive props", function()
+
+    it("color signal drives the swatch (keyed and array forms)", function()
+        local sig = Weave.signal({ r = 1, g = 0, b = 0, a = 1 })
+        local cs = Craft.ColorSwatch:Create(UIParent, { color = sig })
+        local r, g, b = cs:GetColor()
+        assert.equals(1, r); assert.equals(0, g); assert.equals(0, b)
+        sig:set({ 0, 1, 0, 1 })
+        r, g, b = cs:GetColor()
+        assert.equals(0, r); assert.equals(1, g); assert.equals(0, b)
+        cs:Destroy()
+    end)
+
+    it("two-way: SetColor (the picker's sink) writes a FRESH table back", function()
+        local initial = { r = 1, g = 1, b = 1, a = 1 }
+        local sig = Weave.signal(initial)
+        local cs = Craft.ColorSwatch:Create(UIParent, { color = sig })
+        cs:SetColor(0.2, 0.4, 0.6, 1)
+        local c = sig()
+        assert.is_false(rawequal(c, initial)) -- new table, not an in-place mutation
+        assert.equals(0.2, c.r); assert.equals(0.4, c.g); assert.equals(0.6, c.b)
+        cs:Destroy()
+    end)
+
+    it("a plain color table is NOT mistaken for a signal", function()
+        local cs = Craft.ColorSwatch:Create(UIParent, { color = { 0.5, 0.5, 0.5, 1 } })
+        assert.is_nil(cs._effects)
+        local r = cs:GetColor()
+        assert.equals(0.5, r)
+        cs:Destroy()
+    end)
+end)
+
+local TAB_DEFS = {
+    { id = "general", label = "General" },
+    { id = "audio",   label = "Audio"   },
+    { id = "video",   label = "Video"   },
+}
+
+describe("Craft.Tabs reactive props", function()
+
+    it("defaultTab signal drives the active tab without firing onTabChange", function()
+        local sig = Weave.signal("audio")
+        local calls = 0
+        local tb = Craft.Tabs:Create(UIParent, { tabs = TAB_DEFS, defaultTab = sig,
+                                                 onTabChange = function() calls = calls + 1 end })
+        assert.equals("audio", tb:GetActiveTab())
+        sig:set("video")
+        assert.equals("video", tb:GetActiveTab())
+        assert.equals(0, calls)
+        tb:Destroy()
+    end)
+
+    it("an unknown id from the signal keeps the current tab", function()
+        local sig = Weave.signal("general")
+        local tb = Craft.Tabs:Create(UIParent, { tabs = TAB_DEFS, defaultTab = sig })
+        sig:set("nope")
+        assert.equals("general", tb:GetActiveTab())
+        tb:Destroy()
+    end)
+
+    it("two-way: SetActiveTab (the click path) writes back into the signal", function()
+        local sig = Weave.signal("general")
+        local tb = Craft.Tabs:Create(UIParent, { tabs = TAB_DEFS, defaultTab = sig })
+        tb:SetActiveTab("audio")
+        assert.equals("audio", sig())
+        tb:Destroy()
+    end)
+
+    it("removing the active tab auto-selects and writes the new id", function()
+        local sig = Weave.signal("general")
+        local tb = Craft.Tabs:Create(UIParent, { tabs = TAB_DEFS, defaultTab = sig })
+        tb:RemoveTab("general")
+        assert.is_not_nil(tb:GetActiveTab())
+        assert.equals(tb:GetActiveTab(), sig())
+        tb:Destroy()
     end)
 end)
 

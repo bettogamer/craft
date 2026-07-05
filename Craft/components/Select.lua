@@ -54,6 +54,21 @@ function Select:Create(parent, config)
     }
     self._open = false
 
+    -- Reactive props (ADR-0013): a callable prop binds through the setters
+    -- (after the theme pass, below); until then _cfg holds safe literals so
+    -- Create/_applyTheme never operate on a signal object.
+    -- Note: options stays literal-only in this wave (SetOptions rebuilds frames).
+    local R = Craft.Reactive
+    local valueSource       = R.isCallable(config.value)       and config.value       or nil
+    local disabledSource    = R.isCallable(config.disabled)    and config.disabled    or nil
+    local placeholderSource = R.isCallable(config.placeholder) and config.placeholder or nil
+    if valueSource       then self._cfg.value       = nil end -- no selection until the bind runs
+    if disabledSource    then self._cfg.disabled    = false end
+    if placeholderSource then self._cfg.placeholder = "Select..." end -- the bind writes the resolved text
+    if valueSource and R.isWritableSignal(valueSource) then
+        self._valueSignal = valueSource -- two-way: user picks write back
+    end
+
     -- ── Root frame (Frame — invisible container) ──────────────────────────────
     local sz = SIZES[self._cfg.size] or SIZES["default"]
     self.frame = CreateFrame("Frame", nil, parent)
@@ -148,6 +163,19 @@ function Select:Create(parent, config)
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
 
+    -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
+    -- value binds through the public SetValue: it never fires onSelect (the
+    -- item OnClick fires it on user picks), so a programmatic signal sync
+    -- cannot double-fire the callback. A value missing from the options list
+    -- degrades the same way SetValue does (trigger shows the raw value).
+    -- placeholder has no public setter — inline sink, no API change.
+    R.applyOrBind(self, valueSource,       function(s, v) s:SetValue(v) end)
+    R.applyOrBind(self, placeholderSource, function(s, text)
+        s._cfg.placeholder = text or "Select..."
+        s:_updateTriggerText()
+    end)
+    R.applyOrBind(self, disabledSource,    function(s, off) s:SetEnabled(not off) end)
+
     -- ── Initial state ─────────────────────────────────────────────────────────
     if self._cfg.disabled then
         self:SetEnabled(false)
@@ -231,6 +259,7 @@ function Select:_buildItems()
         itemFrame:SetScript("OnClick", function()
             self:SetValue(optValue)
             self:Close()
+            if self._valueSignal then self._valueSignal:set(optValue) end
             if self._cfg.onSelect then
                 self._cfg.onSelect(optValue, optLabel)
             end
@@ -451,6 +480,7 @@ end
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function Select:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)
     self:Close()
     Craft.Theme.unregister(self._themeHandle)
     if self._panel then

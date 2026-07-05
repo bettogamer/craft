@@ -37,6 +37,20 @@ function Input:Create(parent, config)
         width          = config.width,
     }
 
+    -- Reactive props (ADR-0013): a callable prop binds through the setters
+    -- (after the theme pass, below); until then _cfg holds safe literals so
+    -- Create/_applyTheme never operate on a signal object.
+    local R = Craft.Reactive
+    local valueSource       = R.isCallable(config.value)       and config.value       or nil
+    local disabledSource    = R.isCallable(config.disabled)    and config.disabled    or nil
+    local placeholderSource = R.isCallable(config.placeholder) and config.placeholder or nil
+    if valueSource       then self._cfg.value       = "" end
+    if disabledSource    then self._cfg.disabled    = false end
+    if placeholderSource then self._cfg.placeholder = "" end -- the bind writes the resolved text
+    if valueSource and R.isWritableSignal(valueSource) then
+        self._valueSignal = valueSource -- two-way: user typing writes back
+    end
+
     -- ── Root frame ────────────────────────────────────────────────────────────
     self.frame = CreateFrame("Frame", nil, parent)
     self.frame:SetHeight(HEIGHT)
@@ -129,9 +143,13 @@ function Input:Create(parent, config)
         self:_hideFocusBorder()
     end)
 
+    -- OnTextChanged also fires on programmatic SetText (the reactive bind's
+    -- SetValue path) — the userInput guard keeps the signal writeback strictly
+    -- user-driven, so a bind sync never echoes back into the signal.
     self._edit:SetScript("OnTextChanged", function(editbox, userInput)
         if userInput then
             local text = editbox:GetText()
+            if self._valueSignal then self._valueSignal:set(text) end
             if self._cfg.onChange then
                 self._cfg.onChange(text)
             end
@@ -154,6 +172,13 @@ function Input:Create(parent, config)
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
     self._placeholder:SetText(self._cfg.placeholder)  -- after SetFont in _applyTheme
+
+    -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
+    -- value binds through SetValue: it never fires onChange (OnTextChanged only
+    -- reacts to userInput), so a programmatic signal sync stays silent.
+    R.applyOrBind(self, valueSource,       function(s, v) s:SetValue(v) end)
+    R.applyOrBind(self, placeholderSource, function(s, text) s:SetPlaceholder(text) end)
+    R.applyOrBind(self, disabledSource,    function(s, off) s:SetEnabled(not off) end)
 
     -- ── Initial disabled state ────────────────────────────────────────────────
     if self._cfg.disabled then
@@ -309,6 +334,7 @@ end
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function Input:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil

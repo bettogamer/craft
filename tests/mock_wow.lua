@@ -131,6 +131,7 @@ local function makeFrame(frameType, name, parent)
     function f:SetMinResize(...)     end
     function f:SetMaxResize(...)     end
     function f:SetClampedToScreen(v) end
+    function f:SetClipsChildren(v)   end
     function f:SetFrameStrata(s)    self._strata = s end
     function f:GetFrameStrata()     return self._strata end
     function f:SetFrameLevel(n)     end
@@ -172,6 +173,11 @@ local function makeFrame(frameType, name, parent)
             error("FontString:SetText(): Font not set", 2)
         end
         self._text = tostring(t or "")
+        -- Real WoW fires OnTextChanged with userInput=false on programmatic
+        -- SetText — mirror it so specs exercise the reactive no-echo guard.
+        if self._type == "EditBox" then
+            self:_fire("OnTextChanged", false)
+        end
     end
     function f:GetText()                  return self._text end
     function f:SetTextColor(r,g,b,a)      self._color = {r=r,g=g,b=b,a=a or 1} end
@@ -182,6 +188,25 @@ local function makeFrame(frameType, name, parent)
     function f:SetJustifyV(v)             end
     function f:GetStringWidth()           return #self._text * 7 end  -- approx 7px per character
     function f:GetStringHeight()          return self._fontSize or 12 end
+
+    -- EditBox methods
+    f._focused = false
+    function f:SetAutoFocus(v)            self._autoFocus = v end
+    function f:SetMultiLine(v)            self._multiLine = v end
+    function f:IsMultiLine()              return self._multiLine end
+    function f:SetMaxLetters(n)           self._maxLetters = n end
+    function f:SetTextInsets(...)         end
+    function f:SetEnabled(v)              self._enabled = v end
+    function f:IsEnabled()                return self._enabled ~= false end
+    function f:HasFocus()                 return self._focused end
+    function f:SetFocus()
+        self._focused = true
+        self:_fire("OnEditFocusGained")
+    end
+    function f:ClearFocus()
+        self._focused = false
+        self:_fire("OnEditFocusLost")
+    end
 
     -- ScrollFrame methods
     f._vScroll = 0
@@ -278,3 +303,26 @@ end
 
 -- SlashCmdList
 SlashCmdList = {}
+
+-- ColorPickerFrame (Retail 10.2.5+ SetupColorPickerAndShow path).
+-- Test helper _pick(r,g,b,a) simulates the user choosing a color.
+ColorPickerFrame = CreateFrame("Frame", "ColorPickerFrame")
+ColorPickerFrame._rgb   = { r = 1, g = 1, b = 1 }
+ColorPickerFrame._alpha = 1
+function ColorPickerFrame:SetupColorPickerAndShow(info)
+    self._info = info
+    if info.r then self._rgb = { r = info.r, g = info.g, b = info.b } end
+    if info.opacity then self._alpha = info.opacity end
+    self._shown = true
+end
+function ColorPickerFrame:SetColorRGB(r, g, b) self._rgb = { r = r, g = g, b = b } end
+function ColorPickerFrame:GetColorRGB() return self._rgb.r, self._rgb.g, self._rgb.b end
+function ColorPickerFrame:GetColorAlpha() return self._alpha end
+function ColorPickerFrame:_pick(r, g, b, a)
+    self._rgb   = { r = r, g = g, b = b }
+    self._alpha = a or 1
+    if self._info then
+        if self._info.swatchFunc  then self._info.swatchFunc()  end
+        if self._info.opacityFunc then self._info.opacityFunc() end
+    end
+end

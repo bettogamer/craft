@@ -36,6 +36,20 @@ function Textarea:Create(parent, config)
         onChange    = config.onChange,
     }
 
+    -- Reactive props (ADR-0013): a callable prop binds through the public
+    -- setters (after the theme pass, below); until then _cfg holds safe
+    -- literals so Create/_applyTheme never operate on a signal object.
+    local R = Craft.Reactive
+    local valueSource       = R.isCallable(config.value)       and config.value       or nil
+    local disabledSource    = R.isCallable(config.disabled)    and config.disabled    or nil
+    local placeholderSource = R.isCallable(config.placeholder) and config.placeholder or nil
+    if valueSource       then self._cfg.value       = "" end
+    if disabledSource    then self._cfg.disabled    = false end
+    if placeholderSource then self._cfg.placeholder = "" end -- the bind writes the resolved text
+    if valueSource and R.isWritableSignal(valueSource) then
+        self._valueSignal = valueSource -- two-way: user typing writes back
+    end
+
     -- ── Root frame ────────────────────────────────────────────────────────────
     self.frame = CreateFrame("Frame", nil, parent)
     self.frame:SetHeight(self._cfg.height)
@@ -98,6 +112,10 @@ function Textarea:Create(parent, config)
     self._edit:SetScript("OnTextChanged", function(eb, userInput)
         local text = eb:GetText()
         self._placeholder:SetShown(text == "" and not eb:HasFocus())
+        -- Write back to the signal on USER input only — the programmatic
+        -- SetText of the reactive bind arrives with userInput=false, so it
+        -- never echoes; the signal's equality cut breaks the feedback loop.
+        if userInput and self._valueSignal then self._valueSignal:set(text) end
         if userInput and self._cfg.onChange then self._cfg.onChange(text) end
     end)
     self._edit:SetScript("OnCursorChanged", function(_, _, y, _, cursorH)
@@ -114,6 +132,13 @@ function Textarea:Create(parent, config)
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
     self._placeholder:SetText(self._cfg.placeholder)   -- after SetFont
+
+    -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
+    -- value binds through SetValue: it never fires onChange (OnTextChanged
+    -- only forwards user input), so a programmatic signal sync stays silent.
+    R.applyOrBind(self, valueSource,       function(s, v) s:SetValue(v) end)
+    R.applyOrBind(self, placeholderSource, function(s, text) s:SetPlaceholder(text) end)
+    R.applyOrBind(self, disabledSource,    function(s, off) s:SetEnabled(not off) end)
 
     if self._cfg.disabled then self:SetEnabled(false) end
 
@@ -222,6 +247,7 @@ function Textarea:GetFrame()   return self.frame  end
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Textarea:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
