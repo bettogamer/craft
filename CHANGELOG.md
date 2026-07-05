@@ -6,6 +6,12 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+### Removed
+- **`Craft.NumberInput` eliminado** (**BREAKING** — shippeó en 1.1.0): componente retirado por
+  decisión del maintainer. Se quitan el componente, su página del Browser, su spec doc y sus
+  entradas en los `.toc`. Consumidores que lo usen deben migrar (p. ej. `Craft.Slider` o
+  `Craft.Input` + validación numérica propia) antes de re-vendorear este build.
+
 ### Added
 - **`Craft.Sidebar`: API de estado de expansión** (FR-010) — `GetExpandedState()` devuelve un
   snapshot `{ [id] = bool }` de las ramas colapsables; `SetExpandedState(map)` lo reaplica

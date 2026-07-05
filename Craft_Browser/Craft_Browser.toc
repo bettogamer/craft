@@ -35,7 +35,6 @@ libs\Craft\components\ColorSwatch.lua
 libs\Craft\components\Dialog.lua
 libs\Craft\components\DragList.lua
 libs\Craft\components\Input.lua
-libs\Craft\components\NumberInput.lua
 libs\Craft\components\RadioGroup.lua
 libs\Craft\components\Label.lua
 libs\Craft\components\Panel.lua
@@ -61,7 +60,6 @@ pages\DragList.lua
 pages\Flex.lua
 pages\Icons.lua
 pages\Input.lua
-pages\NumberInput.lua
 pages\RadioGroup.lua
 pages\Label.lua
 pages\Panel.lua
