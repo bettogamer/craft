@@ -35,17 +35,20 @@ function ToggleGroup:Create(parent, config)
         onChange = config.onChange,
     }
     self._value = config.value
-    self._segs  = {}
+    self._segs  = {}   -- pooled segment bundles (reused across rebuilds)
+    self._count = 0    -- number of VISIBLE segments (self._segs may hold surplus)
 
     -- Reactive props (ADR-0013): a callable prop binds through the setters
     -- (after the theme pass, below); until then the internal state holds safe
     -- literals so Create/_applyTheme never operate on a signal object.
     -- ToggleGroup only implements single selection (multi-select is out of
     -- scope — docs/components/togglegroup.md §Notas), so `value` binds as a
-    -- single scalar; NOT reactive in this wave: the `options` list.
+    -- single scalar.
     local R = Craft.Reactive
+    local optionsSource  = R.isCallable(config.options)  and config.options  or nil
     local valueSource    = R.isCallable(config.value)    and config.value    or nil
     local disabledSource = R.isCallable(config.disabled) and config.disabled or nil
+    if optionsSource  then self._cfg.options  = {} end
     if valueSource    then self._value = nil end
     if disabledSource then self._cfg.disabled = false end
     if valueSource and R.isWritableSignal(valueSource) then
@@ -55,17 +58,18 @@ function ToggleGroup:Create(parent, config)
     self.frame = CreateFrame("Frame", nil, parent)
     self.frame:SetHeight(H)
 
-    for i, opt in ipairs(self._cfg.options) do
-        self:_makeSegment(opt, i)
-    end
+    self:_buildItems()
 
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
 
     -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
+    -- options binds FIRST so the value bind resolves against the real list.
+    -- Segments are pooled (reused by index); one-way (never written back).
     -- value binds through SetValue(v, true) — the silent flag means a
     -- programmatic signal sync never fires onChange; _select already fires it
     -- on user clicks.
+    R.applyOrBind(self, optionsSource,  function(s, v) s:SetOptions(v) end)
     R.applyOrBind(self, valueSource,    function(s, v) s:SetValue(v, true) end)
     R.applyOrBind(self, disabledSource, function(s, off) s:SetEnabled(not off) end)
 
@@ -74,8 +78,12 @@ function ToggleGroup:Create(parent, config)
     return self
 end
 
--- ─── Segment construction ─────────────────────────────────────────────────────
-function ToggleGroup:_makeSegment(opt, index)
+-- ─── Segment factory ──────────────────────────────────────────────────────────
+-- Builds one reusable segment. Created ONCE per slot; _buildItems flows data
+-- through the returned bundle, so the scripts (which read seg.value at call
+-- time) stay valid across rebuilds. iconTex is always created and shown/hidden
+-- per option, so a reused segment can gain or lose its icon.
+function ToggleGroup:_makeSegment()
     local btn = CreateFrame("Button", nil, self.frame)
 
     -- Own border (4 × 1px, border-input) — anchored corner-safe in _applyTheme
@@ -93,16 +101,13 @@ function ToggleGroup:_makeSegment(opt, index)
     local fs = btn:CreateFontString(nil, "OVERLAY")
     fs:SetJustifyH("CENTER")
 
-    local iconTex
-    if opt.icon then
-        iconTex = btn:CreateTexture(nil, "ARTWORK")
-        iconTex:SetSize(ICON_SZ, ICON_SZ)
-    end
+    local iconTex = btn:CreateTexture(nil, "ARTWORK")
+    iconTex:SetSize(ICON_SZ, ICON_SZ)
+    iconTex:Hide()
 
-    local seg = { value = opt.value, label = opt.label or "", icon = opt.icon,
+    local seg = { value = nil, label = "", icon = nil,
                   btn = btn, bg = bg, fs = fs, iconTex = iconTex,
                   border = { bT, bB, bL, bR }, active = false, hovering = false }
-    self._segs[index] = seg
 
     btn:SetScript("OnClick", function()
         if not self._cfg.disabled then self:_select(seg.value) end
@@ -113,10 +118,39 @@ function ToggleGroup:_makeSegment(opt, index)
     return seg
 end
 
+-- ─── _buildItems ──────────────────────────────────────────────────────────────
+-- Re-renders segments from self._cfg.options, REUSING frames by index (WoW frames
+-- can't be destroyed). Surplus segments are hidden and kept in the pool. Widths
+-- and positions are computed in _layout (called from _applyTheme right after).
+function ToggleGroup:_buildItems()
+    local opts = self._cfg.options
+    for i, opt in ipairs(opts) do
+        local seg = self._segs[i]
+        if not seg then
+            seg = self:_makeSegment()
+            self._segs[i] = seg
+        end
+        seg.value = opt.value
+        seg.label = opt.label or ""
+        seg.icon  = opt.icon
+        seg.btn:Show()
+    end
+
+    -- Surplus segments: hide and neutralize (nil value never matches a selection)
+    for i = #opts + 1, #self._segs do
+        local seg = self._segs[i]
+        seg.value = nil
+        seg.btn:Hide()
+    end
+
+    self._count = #opts
+end
+
 -- ─── Layout (positions + widths) ──────────────────────────────────────────────
 function ToggleGroup:_layout()
     local x = 0
-    for _, seg in ipairs(self._segs) do
+    for i = 1, self._count do
+        local seg = self._segs[i]
         local labelW = seg.fs:GetStringWidth()
         local iconW  = seg.icon and (ICON_SZ + ICON_GAP) or 0
         local w = math.max(MIN_W, PAD_H * 2 + iconW + labelW)
@@ -129,7 +163,7 @@ function ToggleGroup:_layout()
         seg.fs:ClearAllPoints()
         local offset = seg.icon and ((ICON_SZ + ICON_GAP) / 2) or 0
         seg.fs:SetPoint("CENTER", seg.btn, "CENTER", offset, 0)
-        if seg.iconTex then
+        if seg.icon then
             seg.iconTex:ClearAllPoints()
             seg.iconTex:SetPoint("RIGHT", seg.fs, "LEFT", -ICON_GAP, 0)
         end
@@ -155,7 +189,8 @@ function ToggleGroup:_setSegFill(seg)
 end
 
 function ToggleGroup:_refresh()
-    for _, seg in ipairs(self._segs) do
+    for i = 1, self._count do
+        local seg = self._segs[i]
         seg.active = (seg.value == self._value)
         self:_setSegFill(seg)
     end
@@ -174,7 +209,8 @@ function ToggleGroup:_applyTheme(t)
     local bc = t.input          -- border-input
     local txt = self._cfg.disabled and t.mutedForeground or t.foreground
 
-    for _, seg in ipairs(self._segs) do
+    for i = 1, self._count do
+        local seg = self._segs[i]
         -- Border (border-input, corner-safe)
         Craft.Theme.AnchorBorder(seg.btn, seg.border[1], seg.border[2], seg.border[3], seg.border[4])
         for _, b in ipairs(seg.border) do b:SetColorTexture(bc.r, bc.g, bc.b, bc.a) end
@@ -187,9 +223,12 @@ function ToggleGroup:_applyTheme(t)
         seg.fs:SetTextColor(txt.r, txt.g, txt.b)
         seg.fs:SetText(seg.label)
 
-        if seg.iconTex then
+        if seg.icon then
+            seg.iconTex:Show()
             Craft.Icons.Apply(seg.iconTex, seg.icon, ICON_SZ)
             seg.iconTex:SetVertexColor(txt.r, txt.g, txt.b, 1)
+        else
+            seg.iconTex:Hide()
         end
     end
 
@@ -202,6 +241,15 @@ function ToggleGroup:SetValue(value, silent)
     self._value = value
     self:_refresh()
     if not silent and self._cfg.onChange then self._cfg.onChange(self._value) end
+end
+
+-- Replaces the option list and re-renders (segments reused by index). The current
+-- selection is preserved; if it's no longer in the list, no segment is active
+-- (same as SetValue with an unknown value). Never fires onChange.
+function ToggleGroup:SetOptions(opts)
+    self._cfg.options = opts or {}
+    self:_buildItems()
+    if self._t then self:_applyTheme(self._t) end
 end
 
 function ToggleGroup:GetValue()

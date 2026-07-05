@@ -2,7 +2,8 @@
 -- ADR:   docs/adr/0013-craft-integra-weave.md
 -- Guide: Weave repo docs/CRAFT-INTEGRATION.md §4 (the applyOrBind pattern)
 --
--- Depends on: Weave v0.1.0 vendored in libs/Weave/ (loaded before Craft.lua in Craft.toc)
+-- Depends on: Weave (>= v0.3.0, needs Weave.isReactive/isWritable) vendored in libs/Weave/
+--             (loaded before Craft.lua in Craft.toc)
 
 local Craft = LibStub("Craft-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
@@ -12,21 +13,20 @@ local Weave = LibStub("Weave-1.0")
 local R = {}
 
 -- ─── isCallable() ──────────────────────────────────────────────────────────
--- Signals and computeds are tables made callable via __call; plain functions
--- are accepted too (they read their signals inside, tracking works the same).
+-- Delegates to Weave's public predicate (v0.3.0+). Weave owns the definition of
+-- "what effect can observe" (signals/computeds — callable tables — and plain
+-- functions), so Craft no longer couples to a signal's internal shape.
 
 function R.isCallable(v)
-    if type(v) == "function" then return true end
-    local mt = getmetatable(v)
-    return type(mt) == "table" and mt.__call ~= nil
+    return Weave.isReactive(v)
 end
 
 -- ─── isWritableSignal() ────────────────────────────────────────────────────
--- Two-way controls write user input back into the prop, but only when it is
--- a writable signal (a computed is callable yet read-only).
+-- Two-way controls write user input back into the prop, but only when it is a
+-- writable signal (a computed is callable yet read-only). Delegates to Weave.
 
 function R.isWritableSignal(v)
-    return type(v) == "table" and R.isCallable(v) and v.set ~= nil
+    return Weave.isWritable(v)
 end
 
 -- ─── applyOrBind() ─────────────────────────────────────────────────────────

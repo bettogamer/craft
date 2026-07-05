@@ -164,6 +164,10 @@ Item height: 28px (py-2=8px top + text-xs=12px + py-2=8px bottom). Padding: 8px 
 | `onSelect`   | `function` | `nil`       | `fn(value, label)` — se dispara al seleccionar un item                      |
 | `width`      | `number`   | `nil`       | Ancho fijo en px. Si es nil, ocupa 100% del parent                          |
 
+> **Props reactivas (ADR-0013):** `options`, `value`, `placeholder` y `disabled` aceptan una
+> señal/computed de Weave además del literal. `options` re-renderiza la lista reutilizando
+> frames por índice; `value` es two-way (elegir un item escribe de vuelta si es escribible).
+
 ## API pública
 
 | Método                  | Descripción                                                                    |

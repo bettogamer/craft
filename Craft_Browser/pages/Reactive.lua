@@ -5,6 +5,9 @@ CraftBrowserPages = CraftBrowserPages or {}
 -- whole page, `volume` is shared by two sliders, `choice` feeds Select +
 -- RadioGroup + ToggleGroup (three views of one state), `notes` mirrors
 -- Input <-> Textarea, plus ColorSwatch and Tabs — zero onChange wiring.
+-- Wave 3 adds reactive LIST props: a computed `liveOpts` swaps the option set
+-- feeding Select + RadioGroup live, and a DragList whose order is a signal
+-- (reorder writes it back).
 
 CraftBrowserPages["Reactive"] = {
     title = "Reactive",
@@ -130,6 +133,46 @@ CraftBrowserPages["Reactive"] = {
         y = y - 96 - GAP
         boundLabel(function()
             return ("tab = %s"):format(tostring(tab()))
+        end)
+
+        -- ── Reactive lists: the option set itself is a signal ────────────────
+        heading("Options are reactive: flip the set, the controls re-render")
+        local listMode  = Weave.signal("fruit")
+        local fruitOpts = {
+            { value = "apple", label = "Apple" },
+            { value = "pear",  label = "Pear"  },
+            { value = "plum",  label = "Plum"  },
+        }
+        local techOpts = {
+            { value = "lua",  label = "Lua"  },
+            { value = "rust", label = "Rust" },
+        }
+        local liveOpts = Weave.computed(function()
+            return listMode() == "fruit" and fruitOpts or techOpts
+        end)
+        local pick = Weave.signal("apple")
+        place(Craft.ToggleGroup:Create(parent, {
+            options  = { { value = "fruit", label = "Fruit" }, { value = "tech", label = "Tech" } },
+            value    = listMode, disabled = locked,
+        }), 32)
+        place(Craft.Select:Create(parent, {
+            options = liveOpts, value = pick, disabled = locked,
+        }), 32, W)
+        place(Craft.RadioGroup:Create(parent, {
+            options = liveOpts, value = pick, disabled = locked,
+        }), 3 * 16 + 2 * 8)  -- reserve height for the taller (3-item) set
+        boundLabel(function()
+            return ("list = %s, pick = %s"):format(tostring(listMode()), tostring(pick()))
+        end)
+
+        -- ── DragList whose order is a signal (two-way) ───────────────────────
+        heading("DragList: reorder writes the new order back to a signal")
+        local order = Weave.signal({ "One", "Two", "Three" })
+        place(Craft.DragList:Create(parent, {
+            items = order, width = W, disabled = locked,
+        }), 3 * 36 + 2 * 4)
+        boundLabel(function()
+            return ("order = %s"):format(table.concat(order(), ", "))
         end)
 
         -- ── The master lock: one checkbox disables the entire page ──────────

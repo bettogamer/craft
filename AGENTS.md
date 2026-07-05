@@ -153,7 +153,7 @@ herramientas, nunca** (`Co-Authored-By: Claude ...`, "Generated with..." — pro
 |------|------------|-------|
 | Lenguaje | Lua 5.1 | WoW sandbox — sin librerías externas |
 | Librería compartida | LibStub | `LibStub:NewLibrary("Craft-1.0", BUILD)` |
-| Reactividad | Weave **v0.1.0** vendoreada (`Craft/libs/Weave/`, READ-ONLY) | `LibStub("Weave-1.0")`; solo builds etiquetados `v*`; bugs → issue en repo Weave + re-vendoreo. Ver ADR-0013 |
+| Reactividad | Weave **v0.3.0** vendoreada (`Craft/libs/Weave/`, READ-ONLY) | `LibStub("Weave-1.0")`; solo builds etiquetados `v*`; bugs → issue en repo Weave + re-vendoreo. Ver ADR-0013 |
 | Diseño | shadcn Lyra dark | Base=Zinc, Theme=Emerald, Radius=0. Ver ADR-0002 |
 | Íconos | Lucide (atlas TGA bundled) | Ver ADR-0003 |
 | Fuente | Inter (TTF bundled) | `Craft/media/Inter-Regular.ttf` |
@@ -210,6 +210,30 @@ if Craft.Reactive.isWritableSignal(config.value) then self._valueSignal = config
 `disposeAll(self)` en `Destroy()` es obligatorio en todo componente que use `applyOrBind`.
 El corte por igualdad de las señales evita el feedback loop del two-way. `onChange` se
 sigue disparando igual (compatibilidad).
+
+**Props de LISTA reactivas (ADR-0013, oleada 3)** — además de los escalares (`value`,
+`checked`, …), las props de colección aceptan señal/computed: `options` en Select /
+RadioGroup / ToggleGroup, e `items` en Sidebar y DragList. El bind re-renderiza vía el
+setter público (`SetOptions` / `SetItems`). Reglas:
+- **Reusar frames por índice**, no destruir+recrear (WoW no destruye frames; recrear en
+  cada cambio los filtra). Patrón: un factory `_makeRow()`/`_makeItem()` que crea el frame
+  una vez y cuyas closures leen `item.value` en tiempo de llamada; `_buildItems()` sólo
+  hace fluir datos y reposiciona; el excedente se **oculta y neutraliza** (`value = nil`)
+  y queda en el pool. Llevar un contador de visibles (`self._count`) y que
+  `_applyTheme`/`_refresh` iteren `1.._count`, no `#pool`.
+- **`options` bindea ANTES que `value`** para que la selección resuelva su label contra la
+  lista viva. Una selección que desaparece de la lista se conserva y degrada como
+  `SetValue` con valor desconocido (nada marcado).
+- **One-way salvo DragList**: las listas de opciones no se escriben de vuelta. DragList SÍ
+  es two-way (reordenar escribe el nuevo orden en la señal escribible); usar un **guard de
+  eco** por identidad de tabla (`_lastWritten`) para saltarse el rebuild que dispararía
+  nuestro propio `:set`.
+- `Weave.each` (v0.2.0, listas reactivas con frame pooling combat-safe) queda disponible en
+  el embed para consumidores; los componentes de Craft usan el patrón de reuso propio de
+  arriba, no `Weave.each` (sus listas son pequeñas y el pooling manual basta).
+- La detección señal-vs-literal delega en Weave (v0.3.0+): `Craft.Reactive.isCallable` →
+  `Weave.isReactive`, `isWritableSignal` → `Weave.isWritable`. No re-inferir la forma interna
+  del signal en Craft.
 
 **Violaciones MUST NOT:**
 - Llamar `Craft.Theme.get()` dentro de `_applyTheme()` → re-entrancia.

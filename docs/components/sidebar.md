@@ -222,6 +222,10 @@ items = {
 
 > `_header` y `_footer` no tienen parámetros de config — se obtienen vía `GetHeader()`/`GetFooter()` y el dev los configura directamente.
 
+> **Prop reactiva (ADR-0013):** `items` acepta señal/computed además del array literal. Al
+> cambiar la señal, el árbol se re-renderiza vía `SetItems` (one-way; preserva la expansión
+> por id, como el `SetItems` manual). `Destroy()` corta el bind (`disposeAll`).
+
 ## API pública
 
 | Método | Retorno | Descripción |

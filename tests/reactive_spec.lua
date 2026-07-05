@@ -8,11 +8,13 @@ require("tests.mock_wow")
 -- Load the vendored Weave in its Weave.xml order
 dofile("Craft/libs/Weave/Weave.lua")
 dofile("Craft/libs/Weave/core/Core.lua")
+dofile("Craft/libs/Weave/core/Reconcile.lua")
 dofile("Craft/libs/Weave/wow/Events.lua")
 dofile("Craft/libs/Weave/wow/Props.lua")
 dofile("Craft/libs/Weave/wow/Ticker.lua")
 dofile("Craft/libs/Weave/store/Store.lua")
 dofile("Craft/libs/Weave/ui/Ui.lua")
+dofile("Craft/libs/Weave/ui/Each.lua")
 
 -- Load Craft modules in order
 dofile("Craft/Craft.lua")
@@ -31,6 +33,8 @@ dofile("Craft/components/RadioGroup.lua")
 dofile("Craft/components/ToggleGroup.lua")
 dofile("Craft/components/ColorSwatch.lua")
 dofile("Craft/components/Tabs.lua")
+dofile("Craft/components/Sidebar.lua")
+dofile("Craft/components/DragList.lua")
 
 local Craft = LibStub("Craft-1.0")
 local Weave = LibStub("Weave-1.0")
@@ -411,6 +415,63 @@ describe("Craft.Select reactive props", function()
         assert.is_false(s._cfg.disabled)
         s:Destroy()
     end)
+
+    it("options signal re-renders the item list", function()
+        local opts = Weave.signal(SEL_OPTS)
+        local s = Craft.Select:Create(UIParent, { options = opts })
+        assert.equals(3, #s._cfg.options)
+        opts:set({ { value = "x", label = "X" }, { value = "y", label = "Y" } })
+        assert.equals(2, #s._cfg.options)
+        assert.equals("x", s._items[1].value)
+        s:Destroy()
+    end)
+
+    it("options rebuild REUSES row frames by index (no leak)", function()
+        local opts = Weave.signal(SEL_OPTS)
+        local s = Craft.Select:Create(UIParent, { options = opts })
+        local row1 = s._items[1].frame
+        opts:set({ { value = "x", label = "X" } })       -- shrink to 1
+        assert.equals(row1, s._items[1].frame)           -- same frame reused
+        opts:set(SEL_OPTS)                               -- grow back to 3
+        assert.equals(row1, s._items[1].frame)           -- still the same slot
+        assert.equals("bar", s._items[1].value)
+        s:Destroy()
+    end)
+
+    it("a shrinking list hides surplus rows and keeps them pooled", function()
+        local opts = Weave.signal(SEL_OPTS)
+        local s = Craft.Select:Create(UIParent, { options = opts })
+        opts:set({ { value = "x", label = "X" } })
+        assert.is_nil(s._items[2].value)                 -- surplus neutralized
+        assert.is_false(s._items[2].frame:IsShown())     -- and hidden
+        s:Destroy()
+    end)
+
+    it("a value that survives an options change stays selected", function()
+        local opts = Weave.signal(SEL_OPTS)
+        local s = Craft.Select:Create(UIParent, { options = opts, value = "text" })
+        assert.equals("text", s:GetValue())
+        opts:set({ { value = "text", label = "Texto" }, { value = "z", label = "Z" } })
+        assert.equals("text", s:GetValue())
+        s:Destroy()
+    end)
+
+    it("options + value signals: value resolves against the live list", function()
+        local opts = Weave.signal(SEL_OPTS)
+        local val  = Weave.signal("icon")
+        local s = Craft.Select:Create(UIParent, { options = opts, value = val })
+        assert.equals("icon", s:GetValue())
+        opts:set({ { value = "icon", label = "Nuevo" } })
+        assert.equals("icon", s:GetValue())              -- selection preserved across rebuild
+        s:Destroy()
+    end)
+
+    it("a plain options table is NOT mistaken for a signal", function()
+        local s = Craft.Select:Create(UIParent, { options = SEL_OPTS })
+        assert.is_nil(s._effects)
+        assert.equals(3, #s._cfg.options)
+        s:Destroy()
+    end)
 end)
 
 describe("Craft.RadioGroup reactive props", function()
@@ -435,6 +496,29 @@ describe("Craft.RadioGroup reactive props", function()
         rg:_select("text")
         assert.equals("text", sig())
         assert.equals(1, calls)
+        rg:Destroy()
+    end)
+
+    it("options signal re-renders and tracks the visible count", function()
+        local opts = Weave.signal(SEL_OPTS)
+        local rg = Craft.RadioGroup:Create(UIParent, { options = opts })
+        assert.equals(3, rg._count)
+        local row1 = rg._items[1].row
+        opts:set({ { value = "x", label = "X" } })
+        assert.equals(1, rg._count)
+        assert.equals(row1, rg._items[1].row)            -- frame reused
+        assert.is_false(rg._items[2].row:IsShown())      -- surplus hidden
+        rg:Destroy()
+    end)
+
+    it("SetOptions preserves a still-present selection, drops a gone one", function()
+        local rg = Craft.RadioGroup:Create(UIParent, { options = SEL_OPTS, value = "text" })
+        rg:SetOptions({ { value = "text", label = "Texto" } })
+        assert.equals("text", rg:GetValue())
+        rg:SetOptions({ { value = "z", label = "Z" } })
+        assert.equals("text", rg:GetValue())             -- value kept, but no item matches
+        rg:_refresh()
+        assert.is_false(rg._items[1].dot:IsShown())      -- nothing lit
         rg:Destroy()
     end)
 end)
@@ -470,6 +554,27 @@ describe("Craft.ToggleGroup reactive props", function()
         assert.is_false(tg._cfg.disabled)
         off:set(true)
         assert.is_true(tg._cfg.disabled)
+        tg:Destroy()
+    end)
+
+    it("options signal re-renders and reuses segment frames", function()
+        local opts = Weave.signal(SEL_OPTS)
+        local tg = Craft.ToggleGroup:Create(UIParent, { options = opts })
+        assert.equals(3, tg._count)
+        local seg1 = tg._segs[1].btn
+        opts:set({ { value = "x", label = "X" } })
+        assert.equals(1, tg._count)
+        assert.equals(seg1, tg._segs[1].btn)             -- frame reused
+        assert.is_false(tg._segs[2].btn:IsShown())       -- surplus hidden
+        tg:Destroy()
+    end)
+
+    it("a reused segment can gain an icon it did not originally have", function()
+        local opts = Weave.signal({ { value = "a", label = "A" } })
+        local tg = Craft.ToggleGroup:Create(UIParent, { options = opts })
+        assert.is_false(tg._segs[1].iconTex:IsShown())
+        opts:set({ { value = "a", label = "A", icon = "check" } })
+        assert.is_true(tg._segs[1].iconTex:IsShown())    -- icon now shown on the same frame
         tg:Destroy()
     end)
 end)
@@ -550,6 +655,125 @@ describe("Craft.Tabs reactive props", function()
         assert.is_not_nil(tb:GetActiveTab())
         assert.equals(tb:GetActiveTab(), sig())
         tb:Destroy()
+    end)
+end)
+
+local SB_TREE_A = {
+    { id = "home",    label = "Home"    },
+    { id = "profile", label = "Profile" },
+}
+local SB_TREE_B = {
+    { id = "home",     label = "Home"     },
+    { id = "settings", label = "Settings" },
+    { id = "about",    label = "About"    },
+}
+
+describe("Craft.Sidebar reactive items", function()
+
+    it("items signal re-renders the tree", function()
+        local items = Weave.signal(SB_TREE_A)
+        local sb = Craft.Sidebar:Create(UIParent, { items = items })
+        local function itemCount(s)
+            local n = 0
+            for _, e in ipairs(s._sections) do if e.type == "item" then n = n + 1 end end
+            return n
+        end
+        assert.equals(2, itemCount(sb))
+        items:set(SB_TREE_B)
+        assert.equals(3, itemCount(sb))
+        sb:Destroy()
+    end)
+
+    it("a plain items table is NOT mistaken for a signal", function()
+        local sb = Craft.Sidebar:Create(UIParent, { items = SB_TREE_A })
+        assert.is_nil(sb._effects)
+        sb:Destroy()
+    end)
+
+    it("Destroy disposes the items bind (no ghost update after)", function()
+        local items = Weave.signal(SB_TREE_A)
+        local sb = Craft.Sidebar:Create(UIParent, { items = items })
+        assert.equals(1, #sb._effects)
+        sb:Destroy()
+        assert.equals(0, #sb._effects)
+        items:set(SB_TREE_B)                             -- must not error on a destroyed frame
+    end)
+end)
+
+-- assert.same isn't in the local mini-runner (busted-only); compare arrays by element.
+local function assertSeq(expected, actual)
+    assert.equals(#expected, #actual)
+    for i = 1, #expected do assert.equals(expected[i], actual[i]) end
+end
+
+describe("Craft.DragList reactive items", function()
+
+    it("items signal rebuilds the rows", function()
+        local items = Weave.signal({ "A", "B", "C" })
+        local dl = Craft.DragList:Create(UIParent, { items = items })
+        assert.equals(3, #dl._order)
+        items:set({ "X", "Y" })
+        assert.equals(2, #dl._order)
+        dl:Destroy()
+    end)
+
+    it("two-way: a reorder writes the new order back and fires onReorder", function()
+        local items = Weave.signal({ "A", "B", "C" })
+        local got = nil
+        local dl = Craft.DragList:Create(UIParent, { items = items,
+                                                    onReorder = function(o) got = o end })
+        -- Simulate a completed drag that reversed the visual order.
+        local r1, r2, r3 = dl._order[1], dl._order[2], dl._order[3]
+        dl._drag  = { row = r1, followY = 0, startOrder = { r1, r2, r3 } }
+        dl._order = { r3, r2, r1 }
+        dl:_dragStop()
+        assertSeq({ "C", "B", "A" }, items())            -- written back
+        assertSeq({ "C", "B", "A" }, got)                -- onReorder fired with same order
+        dl:Destroy()
+    end)
+
+    it("the writeback echo does NOT rebuild the rows", function()
+        local items = Weave.signal({ "A", "B", "C" })
+        local dl = Craft.DragList:Create(UIParent, { items = items })
+        local rowFrame = dl._order[1].frame
+        local r1, r2, r3 = dl._order[1], dl._order[2], dl._order[3]
+        dl._drag  = { row = r1, followY = 0, startOrder = { r1, r2, r3 } }
+        dl._order = { r3, r2, r1 }
+        dl:_dragStop()                                   -- writes back; bind echo-guards
+        -- Same row objects survive (a rebuild would have made fresh frames)
+        assert.equals(rowFrame, r1.frame)
+        assert.equals(dl._items, dl._lastWritten)
+        dl:Destroy()
+    end)
+
+    it("a computed items (read-only) still renders, no writeback", function()
+        local base = Weave.signal({ "A", "B" })
+        local view = Weave.computed(function() return base() end)
+        local dl = Craft.DragList:Create(UIParent, { items = view })
+        assert.equals(2, #dl._order)
+        assert.is_nil(dl._itemsSignal)                   -- not writable → no two-way
+        dl:Destroy()
+    end)
+
+    it("a disabled SIGNAL is not mistaken for a truthy 'disabled' at Create", function()
+        local locked = Weave.signal(false)
+        local dl = Craft.DragList:Create(UIParent, { items = { "A" }, disabled = locked })
+        assert.is_false(dl._cfg.disabled)                -- starts enabled, not locked-by-signal-object
+        locked:set(true)
+        assert.is_true(dl._cfg.disabled)
+        locked:set(false)
+        assert.is_false(dl._cfg.disabled)
+        dl:Destroy()
+    end)
+
+    it("stays disabled across an items rebuild while locked", function()
+        local locked = Weave.signal(true)
+        local order  = Weave.signal({ "A", "B" })
+        local dl = Craft.DragList:Create(UIParent, { items = order, disabled = locked })
+        assert.is_true(dl._cfg.disabled)
+        order:set({ "X", "Y", "Z" })                     -- rebuild while locked
+        assert.is_true(dl._cfg.disabled)                 -- new rows must not become draggable
+        dl:Destroy()
     end)
 end)
 

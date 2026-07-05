@@ -57,6 +57,11 @@ draglist.frame              (Frame — alto = n·36 + (n-1)·4)
 | `width` | number | 300 | Ancho de la lista/filas |
 | `disabled` | boolean | false | Deshabilita el arrastre |
 
+> **Props reactivas (ADR-0013):** `items` y `disabled` aceptan señal/computed. `items` es
+> **two-way**: reordenar escribe el nuevo orden de vuelta en la señal (si es escribible),
+> antes de `onReorder`; un guard de eco por identidad de tabla evita el rebuild que dispararía
+> ese `:set`. `disabled` bindea vía `SetEnabled`.
+
 ## API pública
 
 | Método | Descripción |

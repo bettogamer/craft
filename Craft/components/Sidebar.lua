@@ -66,6 +66,14 @@ function Sidebar:Create(parent, config)
     self._hasTree  = false  -- true once any collapsible (tree) item is added
     self._building = false  -- defers _rebuildLayout() during bulk add
 
+    -- Reactive props (ADR-0013): `items` may be a signal/computed returning a
+    -- tree. It binds through SetItems (one-way: never written back) AFTER the
+    -- initial build below, so the direct-read _cfg.items stays a safe literal
+    -- during Create. Expansion is preserved across updates (SetItems default).
+    local R = Craft.Reactive
+    local itemsSource = R.isCallable(config.items) and config.items or nil
+    if itemsSource then self._cfg.items = {} end -- empty until the bind runs
+
     -- Internal list of sections and items in insertion order
     self._sections = {}   -- array: {type="section"|"item"|"separator", ...}
 
@@ -242,6 +250,11 @@ function Sidebar:Create(parent, config)
     self:_addItems(self._cfg.items, 0, nil)
     self._building = false
     self:_rebuildLayout()
+
+    -- ── Reactive bind — after the initial build. A callable `items` re-renders
+    -- the whole tree via SetItems whenever the signal changes; a literal was
+    -- already built above and never reaches here.
+    R.applyOrBind(self, itemsSource, function(s, v) s:SetItems(v) end)
 
     return self
 end
@@ -881,6 +894,7 @@ end
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function Sidebar:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)  -- cut the items bind (ghost updates on reuse)
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil

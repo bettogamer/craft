@@ -58,12 +58,17 @@ togglegroup.frame            (Frame — h-8, w-fit; ancho = Σ segmentos + gaps)
 | `disabled` | boolean | false | Deshabilita el control |
 | `onChange` | function | nil | `fn(value)` al seleccionar |
 
+> **Props reactivas (ADR-0013):** `options`, `value` y `disabled` aceptan señal/computed.
+> `options` re-renderiza reutilizando segmentos por índice (un segmento reciclado puede
+> ganar/perder su icono); `value` es two-way.
+
 ## API pública
 
 | Método | Descripción |
 |---|---|
 | `SetValue(v[, silent])` | Selecciona un segmento; `silent=true` no dispara `onChange` |
 | `GetValue()` | Valor seleccionado |
+| `SetOptions(options)` | Reemplaza la lista y re-renderiza (segmentos reutilizados). Conserva la selección si sigue presente; no dispara `onChange` |
 | `SetEnabled(bool)` | Habilita/deshabilita |
 | `GetFrame()` | Frame raíz |
 

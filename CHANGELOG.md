@@ -13,6 +13,29 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   `Craft.Input` + validación numérica propia) antes de re-vendorear este build.
 
 ### Added
+- **Props reactivas — señales de Weave como props** (ADR-0013): los 9 componentes con estado
+  (Slider, Checkbox, Input, Textarea, Select, RadioGroup, ToggleGroup, ColorSwatch, Tabs)
+  aceptan una señal/computed de Weave en sus props de estado además del literal clásico
+  (100% retrocompatible). Controles two-way escriben de vuelta en señales escribibles.
+  Craft embebe Weave en `libs/Weave/` (READ-ONLY, solo builds etiquetados) y expone el
+  helper `Craft.Reactive` (`applyOrBind`/`isWritableSignal`/`disposeAll`).
+- **Props de lista reactivas** (ADR-0013, oleada 3): la prop `options` de `Craft.Select`,
+  `Craft.RadioGroup` y `Craft.ToggleGroup`, y la prop `items` de `Craft.Sidebar` y
+  `Craft.DragList`, aceptan una señal/computed además del literal. El bind re-renderiza
+  reutilizando frames por índice (sin fugas). `DragList` es two-way: reordenar escribe el
+  nuevo orden en una señal escribible; además su prop `disabled` pasa a ser reactiva (antes
+  no lo era: pasarle una señal la dejaba deshabilitada de forma permanente). Nuevos setters
+  públicos `RadioGroup:SetOptions()` y
+  `ToggleGroup:SetOptions()` (equivalentes al ya existente `Select:SetOptions()`).
+- **Weave embebida actualizada a v0.3.0**: v0.2.0 añadió `Weave.each` (listas reactivas con
+  frame pooling combat-safe) y `core/Reconcile.lua`; v0.3.0 añade los predicados públicos
+  `Weave.isReactive` / `Weave.isWritable`. `Craft.Reactive.isCallable` / `isWritableSignal`
+  ahora delegan en ellos en vez de inferir la forma interna de un signal.
+
+### Fixed
+- **`Craft.DragList:SetItems()` filtraba/rompía al reconstruir**: el cleanup de filas usaba
+  `row.frame` (las filas SON el frame), así que un segundo build lanzaba error. Ahora libera
+  las filas con `row:Hide()` + `row:SetParent(nil)`. Se exponía al hacer `items` reactiva.
 - **`Craft.Sidebar`: API de estado de expansión** (FR-010) — `GetExpandedState()` devuelve un
   snapshot `{ [id] = bool }` de las ramas colapsables; `SetExpandedState(map)` lo reaplica
   (ignora ids inexistentes/no colapsables); `IsExpanded(id)` → boolean. Reemplaza el workaround

@@ -57,11 +57,12 @@ function Select:Create(parent, config)
     -- Reactive props (ADR-0013): a callable prop binds through the setters
     -- (after the theme pass, below); until then _cfg holds safe literals so
     -- Create/_applyTheme never operate on a signal object.
-    -- Note: options stays literal-only in this wave (SetOptions rebuilds frames).
     local R = Craft.Reactive
+    local optionsSource     = R.isCallable(config.options)     and config.options     or nil
     local valueSource       = R.isCallable(config.value)       and config.value       or nil
     local disabledSource    = R.isCallable(config.disabled)    and config.disabled    or nil
     local placeholderSource = R.isCallable(config.placeholder) and config.placeholder or nil
+    if optionsSource     then self._cfg.options     = {} end -- empty until the bind runs
     if valueSource       then self._cfg.value       = nil end -- no selection until the bind runs
     if disabledSource    then self._cfg.disabled    = false end
     if placeholderSource then self._cfg.placeholder = "Select..." end -- the bind writes the resolved text
@@ -164,11 +165,18 @@ function Select:Create(parent, config)
     self:_applyTheme(Craft.Theme.get())
 
     -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
+    -- options binds FIRST so the value bind below resolves its label against
+    -- the real list. One-way: the component never writes options back. Item
+    -- rows are reused across rebuilds (_buildItems pools by index), so a
+    -- frequently-updating signal doesn't churn frames. A selected value that
+    -- disappears from the new list is kept and the trigger degrades to the
+    -- raw value (same as SetValue with an unknown value).
     -- value binds through the public SetValue: it never fires onSelect (the
     -- item OnClick fires it on user picks), so a programmatic signal sync
     -- cannot double-fire the callback. A value missing from the options list
     -- degrades the same way SetValue does (trigger shows the raw value).
     -- placeholder has no public setter — inline sink, no API change.
+    R.applyOrBind(self, optionsSource,     function(s, v) s:SetOptions(v) end)
     R.applyOrBind(self, valueSource,       function(s, v) s:SetValue(v) end)
     R.applyOrBind(self, placeholderSource, function(s, text)
         s._cfg.placeholder = text or "Select..."
@@ -184,102 +192,108 @@ function Select:Create(parent, config)
     return self
 end
 
+-- ─── _makeItem ────────────────────────────────────────────────────────────────
+-- Creates one pooled item row (frame + bg + text + checkmark + scripts). Built
+-- ONCE per slot and reused across rebuilds — the scripts read item.value/label
+-- at call time, so _buildItems only flows data through the bundle.
+function Select:_makeItem()
+    local itemFrame = CreateFrame("Button", nil, self._scrollChild)
+    itemFrame:SetHeight(ITEM_HEIGHT)
+
+    -- Item background (transparent by default, accent on hover/selected)
+    local itemBg = itemFrame:CreateTexture(nil, "BACKGROUND")
+    itemBg:SetAllPoints(itemFrame)
+    itemBg:SetColorTexture(0, 0, 0, 0)
+
+    -- Item text
+    local itemText = itemFrame:CreateFontString(nil, "OVERLAY")
+    itemText:SetJustifyH("LEFT")
+    itemText:SetJustifyV("MIDDLE")
+    itemText:SetPoint("LEFT",        itemFrame, "LEFT",  ITEM_PL, 0)
+    itemText:SetPoint("RIGHT",       itemFrame, "RIGHT", -ITEM_PR, 0)
+    itemText:SetPoint("TOP",         itemFrame, "TOP",    0, 0)
+    itemText:SetPoint("BOTTOM",      itemFrame, "BOTTOM", 0, 0)
+
+    -- Checkmark: "check" icon 12px, visible when this item is selected
+    local checkmark = itemFrame:CreateTexture(nil, "ARTWORK")
+    checkmark:SetSize(CHECK_SIZE, CHECK_SIZE)
+    checkmark:SetPoint("RIGHT", itemFrame, "RIGHT", -(ITEM_PR - CHECK_SIZE) / 2, 0)
+    Craft.Icons.Apply(checkmark, "check", 16)
+
+    local item = { frame = itemFrame, bg = itemBg, text = itemText, checkmark = checkmark }
+
+    -- Hover = focus:bg-accent focus:text-accent-foreground; leave restores the
+    -- normal popover text. Selection is shown by the checkmark, never by bg.
+    itemFrame:SetScript("OnEnter", function()
+        local tt = self._t
+        if tt then
+            itemBg:SetColorTexture(tt.accent.r, tt.accent.g, tt.accent.b, 1)
+            itemText:SetTextColor(tt.accentForeground.r, tt.accentForeground.g, tt.accentForeground.b)
+        end
+    end)
+    itemFrame:SetScript("OnLeave", function()
+        local tt = self._t
+        itemBg:SetColorTexture(0, 0, 0, 0)
+        if tt then itemText:SetTextColor(tt.popoverForeground.r, tt.popoverForeground.g, tt.popoverForeground.b) end
+    end)
+    itemFrame:SetScript("OnClick", function()
+        self:SetValue(item.value)
+        self:Close()
+        if self._valueSignal then self._valueSignal:set(item.value) end
+        if self._cfg.onSelect then
+            self._cfg.onSelect(item.value, item.label)
+        end
+    end)
+
+    return item
+end
+
 -- ─── _buildItems ──────────────────────────────────────────────────────────────
--- Rebuilds all panel items from self._cfg.options.
+-- Re-renders the panel items from self._cfg.options, REUSING row frames by index
+-- (WoW frames can't be destroyed; recreating them each pass leaks). Surplus rows
+-- are hidden and neutralized, kept in self._items for the next rebuild.
 -- Called after _applyTheme (to have self._t available) and from SetOptions().
 function Select:_buildItems()
     local t = self._t
     if not t then return end
 
-    -- Destroy previous items
-    for _, item in ipairs(self._items) do
-        item.frame:Hide()
-        item.frame = nil
-    end
-    self._items = {}
-
     local opts = self._cfg.options
     local totalH = 0
 
-    for _, opt in ipairs(opts) do
-        local itemFrame = CreateFrame("Button", nil, self._scrollChild)
-        itemFrame:SetHeight(ITEM_HEIGHT)
-
-        -- Item background (transparent by default, accent on hover/selected)
-        local itemBg = itemFrame:CreateTexture(nil, "BACKGROUND")
-        itemBg:SetAllPoints(itemFrame)
-        itemBg:SetColorTexture(0, 0, 0, 0)
-
-        -- Item text
-        local itemText = itemFrame:CreateFontString(nil, "OVERLAY")
-        itemText:SetFont(t.font, ITEM_FONT)
-        itemText:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
-        itemText:SetJustifyH("LEFT")
-        itemText:SetJustifyV("MIDDLE")
-        itemText:SetPoint("LEFT",        itemFrame, "LEFT",  ITEM_PL, 0)
-        itemText:SetPoint("RIGHT",       itemFrame, "RIGHT", -ITEM_PR, 0)
-        itemText:SetPoint("TOP",         itemFrame, "TOP",    0, 0)
-        itemText:SetPoint("BOTTOM",      itemFrame, "BOTTOM", 0, 0)
-        itemText:SetText(opt.label or opt.value or "")
-
-        -- Checkmark: "check" icon 12px, visible when this item is selected
-        local checkmark = itemFrame:CreateTexture(nil, "ARTWORK")
-        checkmark:SetSize(CHECK_SIZE, CHECK_SIZE)
-        checkmark:SetPoint("RIGHT", itemFrame, "RIGHT", -(ITEM_PR - CHECK_SIZE) / 2, 0)
-        Craft.Icons.Apply(checkmark, "check", 16)
-        checkmark:SetVertexColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b, 1)
-
-        if self._cfg.value == opt.value then
-            checkmark:Show()
-        else
-            checkmark:Hide()
+    for i, opt in ipairs(opts) do
+        local item = self._items[i]
+        if not item then
+            item = self:_makeItem()
+            self._items[i] = item
         end
+        item.value = opt.value
+        item.label = opt.label
 
-        -- Vertical position in scrollChild
-        itemFrame:SetPoint("TOPLEFT",  self._scrollChild, "TOPLEFT",  0, -totalH)
-        itemFrame:SetPoint("TOPRIGHT", self._scrollChild, "TOPRIGHT", 0, -totalH)
+        item.text:SetFont(t.font, ITEM_FONT)
+        item.text:SetText(opt.label or opt.value or "")
+        item.checkmark:SetVertexColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b, 1)
 
-        -- Hover and click scripts
-        local optValue = opt.value
-        local optLabel = opt.label
-        -- Hover = focus:bg-accent focus:text-accent-foreground; leave restores the
-        -- normal popover text. Selection is shown by the checkmark, never by bg.
-        itemFrame:SetScript("OnEnter", function()
-            local tt = self._t
-            if tt then
-                itemBg:SetColorTexture(tt.accent.r, tt.accent.g, tt.accent.b, 1)
-                itemText:SetTextColor(tt.accentForeground.r, tt.accentForeground.g, tt.accentForeground.b)
-            end
-        end)
-        itemFrame:SetScript("OnLeave", function()
-            local tt = self._t
-            itemBg:SetColorTexture(0, 0, 0, 0)
-            if tt then itemText:SetTextColor(tt.popoverForeground.r, tt.popoverForeground.g, tt.popoverForeground.b) end
-        end)
-        itemFrame:SetScript("OnClick", function()
-            self:SetValue(optValue)
-            self:Close()
-            if self._valueSignal then self._valueSignal:set(optValue) end
-            if self._cfg.onSelect then
-                self._cfg.onSelect(optValue, optLabel)
-            end
-        end)
-
-        table.insert(self._items, {
-            frame     = itemFrame,
-            bg        = itemBg,
-            text      = itemText,
-            checkmark = checkmark,
-            value     = optValue,
-        })
+        -- Vertical position in scrollChild (re-anchored: the slot count can change)
+        item.frame:ClearAllPoints()
+        item.frame:SetPoint("TOPLEFT",  self._scrollChild, "TOPLEFT",  0, -totalH)
+        item.frame:SetPoint("TOPRIGHT", self._scrollChild, "TOPRIGHT", 0, -totalH)
+        item.frame:Show()
 
         totalH = totalH + ITEM_HEIGHT
+    end
+
+    -- Surplus rows: hide and clear their value so no state check matches them
+    for i = #opts + 1, #self._items do
+        local item = self._items[i]
+        item.value = nil
+        item.label = nil
+        item.frame:Hide()
     end
 
     -- Adjust scrollChild size
     self._scrollChild:SetSize(1, math.max(totalH, 1))
 
-    -- Refresh the background of selected items
+    -- Refresh checkmarks/text colors (covers hidden surplus harmlessly)
     self:_refreshItemStates()
 end
 

@@ -43,16 +43,18 @@ function RadioGroup:Create(parent, config)
         onChange = config.onChange,
     }
     self._value = config.value
-    self._items = {}
+    self._items = {}   -- pooled row bundles (reused across rebuilds)
+    self._count = 0    -- number of VISIBLE rows (self._items may hold surplus)
 
     -- Reactive props (ADR-0013): a callable prop binds through the setters
     -- (after the theme pass, below); until then the direct-read fields hold
     -- safe literals so Create/_applyTheme never operate on a signal object.
-    -- Only the selection and disabled are reactive — options stay literal.
     local R = Craft.Reactive
+    local optionsSource  = R.isCallable(config.options)  and config.options  or nil
     local valueSource    = R.isCallable(config.value)    and config.value    or nil
     local disabledSource = R.isCallable(config.disabled) and config.disabled or nil
-    if valueSource    then self._value        = nil end -- no selection until the bind resolves
+    if optionsSource  then self._cfg.options  = {} end   -- empty until the bind runs
+    if valueSource    then self._value        = nil end  -- no selection until the bind resolves
     if disabledSource then self._cfg.disabled = false end
     if valueSource and R.isWritableSignal(valueSource) then
         self._valueSignal = valueSource -- two-way: user clicks write back
@@ -60,17 +62,19 @@ function RadioGroup:Create(parent, config)
 
     self.frame = CreateFrame("Frame", nil, parent)
 
-    for i, opt in ipairs(self._cfg.options) do
-        self:_makeItem(opt, i)
-    end
+    self:_buildItems()
 
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
 
     -- ── Reactive binds — after the theme pass. ────────────────────────────────
+    -- options binds FIRST so the value bind resolves against the real list. Rows
+    -- are pooled (reused by index), so a frequently-updating list doesn't churn
+    -- frames. One-way: the component never writes options back.
     -- value binds silently (SetValue's silent flag) so a programmatic signal
     -- sync never fires onChange — _select already fires it on clicks. A value
     -- matching no option simply deselects every item (same as SetValue).
+    R.applyOrBind(self, optionsSource,  function(s, v) s:SetOptions(v) end)
     R.applyOrBind(self, valueSource,    function(s, v) s:SetValue(v, true) end)
     R.applyOrBind(self, disabledSource, function(s, off) s:SetEnabled(not off) end)
 
@@ -79,11 +83,13 @@ function RadioGroup:Create(parent, config)
     return self
 end
 
--- ─── Item construction ────────────────────────────────────────────────────────
-function RadioGroup:_makeItem(opt, index)
+-- ─── Row factory ──────────────────────────────────────────────────────────────
+-- Builds one reusable radio row. Created ONCE per slot; _buildItems flows data
+-- (value/label/position) through the returned bundle, so the OnClick closure —
+-- which reads item.value at call time — stays valid across rebuilds.
+function RadioGroup:_makeRow()
     local row = CreateFrame("Button", nil, self.frame)
     row:SetHeight(ITEM_SIZE)
-    row:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 0, -((index - 1) * (ITEM_SIZE + ROW_GAP)))
 
     -- Outer disc (acts as the border ring) — centered over the 16px radio slot
     local ring = row:CreateTexture(nil, "BACKGROUND")
@@ -106,15 +112,43 @@ function RadioGroup:_makeItem(opt, index)
     label:SetPoint("LEFT", row, "LEFT", ITEM_SIZE + LABEL_GAP, 0)
     label:SetJustifyH("LEFT")
 
-    local item = { value = opt.value, label = opt.label or "", row = row,
+    local item = { value = nil, label = "", row = row,
                    ring = ring, fill = fill, dot = dot, fs = label }
-    self._items[index] = item
 
     row:SetScript("OnClick", function()
         if not self._cfg.disabled then self:_select(item.value) end
     end)
 
     return item
+end
+
+-- ─── _buildItems ──────────────────────────────────────────────────────────────
+-- Re-renders rows from self._cfg.options, REUSING row frames by index (WoW frames
+-- can't be destroyed). Surplus rows are hidden and kept in the pool. Positions and
+-- text sizing land in _applyTheme (called right after, or by the caller).
+function RadioGroup:_buildItems()
+    local opts = self._cfg.options
+    for i, opt in ipairs(opts) do
+        local item = self._items[i]
+        if not item then
+            item = self:_makeRow()
+            self._items[i] = item
+        end
+        item.value = opt.value
+        item.label = opt.label or ""
+        item.row:ClearAllPoints()
+        item.row:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 0, -((i - 1) * (ITEM_SIZE + ROW_GAP)))
+        item.row:Show()
+    end
+
+    -- Surplus rows: hide and neutralize (nil value never matches a selection)
+    for i = #opts + 1, #self._items do
+        local item = self._items[i]
+        item.value = nil
+        item.row:Hide()
+    end
+
+    self._count = #opts
 end
 
 -- ─── Selection ────────────────────────────────────────────────────────────────
@@ -129,7 +163,8 @@ end
 function RadioGroup:_refresh()
     local t = self._t
     if not t then return end
-    for _, item in ipairs(self._items) do
+    for i = 1, self._count do
+        local item = self._items[i]
         if item.value == self._value then
             item.ring:SetVertexColor(t.primary.r, t.primary.g, t.primary.b, 1)
             item.fill:SetVertexColor(t.primary.r, t.primary.g, t.primary.b, 1)
@@ -148,7 +183,8 @@ function RadioGroup:_applyTheme(t)
     self._t = t
 
     local maxW = 0
-    for _, item in ipairs(self._items) do
+    for i = 1, self._count do
+        local item = self._items[i]
         item.fs:SetFont(t.font, FONT_SIZE, "")
         local c = self._cfg.disabled and t.mutedForeground or t.foreground
         item.fs:SetTextColor(c.r, c.g, c.b)
@@ -158,7 +194,7 @@ function RadioGroup:_applyTheme(t)
         if w > maxW then maxW = w end
     end
 
-    local n = #self._items
+    local n = self._count
     self.frame:SetWidth(self._cfg.width or maxW)
     self.frame:SetHeight(n > 0 and (n * ITEM_SIZE + (n - 1) * ROW_GAP) or 0)
 
@@ -174,6 +210,15 @@ end
 
 function RadioGroup:GetValue()
     return self._value
+end
+
+-- Replaces the option list and re-renders (frames reused by index). The current
+-- selection is preserved; if it's no longer in the list, every item deselects
+-- (same as SetValue with an unknown value). Never fires onChange.
+function RadioGroup:SetOptions(opts)
+    self._cfg.options = opts or {}
+    self:_buildItems()
+    if self._t then self:_applyTheme(self._t) end
 end
 
 function RadioGroup:SetEnabled(enabled)

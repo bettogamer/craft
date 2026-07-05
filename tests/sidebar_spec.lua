@@ -3,8 +3,20 @@
 
 require("tests.mock_wow")
 
+-- Load the vendored Weave (Craft.Reactive resolves LibStub("Weave-1.0") at load)
+dofile("Craft/libs/Weave/Weave.lua")
+dofile("Craft/libs/Weave/core/Core.lua")
+dofile("Craft/libs/Weave/core/Reconcile.lua")
+dofile("Craft/libs/Weave/wow/Events.lua")
+dofile("Craft/libs/Weave/wow/Props.lua")
+dofile("Craft/libs/Weave/wow/Ticker.lua")
+dofile("Craft/libs/Weave/store/Store.lua")
+dofile("Craft/libs/Weave/ui/Ui.lua")
+dofile("Craft/libs/Weave/ui/Each.lua")
+
 -- Load Craft modules in order
 dofile("Craft/Craft.lua")
+dofile("Craft/Reactive.lua")   -- Sidebar uses Craft.Reactive for its reactive `items` prop
 dofile("Craft/theme/Presets.lua")
 dofile("Craft/theme/Theme.lua")
 dofile("Craft/icons/Atlas.lua")

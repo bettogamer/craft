@@ -84,12 +84,16 @@ radiogroup.frame          (Frame — alto = n·16 + (n-1)·8)
 | `disabled` | boolean | false | Deshabilita todo el grupo |
 | `onChange` | function | nil | `fn(value)` al seleccionar |
 
+> **Props reactivas (ADR-0013):** `options`, `value` y `disabled` aceptan señal/computed.
+> `options` re-renderiza reutilizando frames por índice; `value` es two-way.
+
 ## API pública
 
 | Método | Descripción |
 |---|---|
 | `SetValue(v[, silent])` | Selecciona un valor; `silent=true` no dispara `onChange` |
 | `GetValue()` | Valor seleccionado |
+| `SetOptions(options)` | Reemplaza la lista y re-renderiza (frames reutilizados). Conserva la selección si sigue presente; no dispara `onChange` |
 | `SetEnabled(bool)` | Habilita/deshabilita el grupo |
 | `GetFrame()` | Frame raíz |
 
