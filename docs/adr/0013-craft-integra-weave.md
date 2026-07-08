@@ -37,10 +37,14 @@ componente se mantiene sincronizado — y persistente — sin código pegamento.
    Craft existe.
 2. **Solo builds etiquetados** de Weave (tag semver `v*`, generados por
    `scripts/build-embed.ps1` en el repo de Weave con sus gates de suite+lint).
-   Jamás un snapshot de `dev`. **Versión embebida actual: v0.3.0**
-   (`Weave._VERSION`, LibStub `"Weave-1.0"` MINOR 4; v0.2.0 añadió `Weave.each` +
+   Jamás un snapshot de `dev`. **Versión embebida actual: v0.5.0**
+   (`Weave._VERSION`, LibStub `"Weave-1.0"`; v0.2.0 añadió `Weave.each` +
    `core/Reconcile.lua`; v0.3.0 añade los predicados públicos `Weave.isReactive` /
-   `Weave.isWritable` en los que `Craft.Reactive` delega).
+   `Weave.isWritable` en los que `Craft.Reactive` delega; v0.4.0 añade
+   `Weave.tween`/`Weave.easing` (`core/Tween.lua` + `wow/Anim.lua`, driver de
+   animación combat-safe); v0.5.0 añade `Weave.fromPromise` (`wow/Promise.lua`,
+   puente a las promesas de Loom — NO lo consumen los componentes Craft, queda
+   disponible en runtime para addons que también carguen Loom).
 3. **La copia vendoreada es READ-ONLY.** Bugs o features de Weave → issue/FR en
    el repo de Weave, fix allí con su proceso, re-vendoreo del siguiente build
    etiquetado. Nunca parches locales en `libs/`.

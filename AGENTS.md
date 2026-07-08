@@ -153,7 +153,7 @@ herramientas, nunca** (`Co-Authored-By: Claude ...`, "Generated with..." — pro
 |------|------------|-------|
 | Lenguaje | Lua 5.1 | WoW sandbox — sin librerías externas |
 | Librería compartida | LibStub | `LibStub:NewLibrary("Craft-2.0", BUILD)` |
-| Reactividad | Weave **v0.3.0** vendoreada (`Craft/libs/Weave/`, READ-ONLY) | `LibStub("Weave-1.0")`; solo builds etiquetados `v*`; bugs → issue en repo Weave + re-vendoreo. Ver ADR-0013 |
+| Reactividad | Weave **v0.5.0** vendoreada (`Craft/libs/Weave/`, READ-ONLY) | `LibStub("Weave-1.0")`; solo builds etiquetados `v*`; bugs → issue en repo Weave + re-vendoreo. Ver ADR-0013 |
 | Diseño | shadcn Lyra dark | Base=Zinc, Theme=Emerald, Radius=0. Ver ADR-0002 |
 | Íconos | Lucide (atlas TGA bundled) | Ver ADR-0003 |
 | Fuente | Inter (TTF bundled) | `Craft/media/Inter-Regular.ttf` |
