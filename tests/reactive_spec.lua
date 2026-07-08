@@ -9,9 +9,12 @@ require("tests.mock_wow")
 dofile("Craft/libs/Weave/Weave.lua")
 dofile("Craft/libs/Weave/core/Core.lua")
 dofile("Craft/libs/Weave/core/Reconcile.lua")
+dofile("Craft/libs/Weave/core/Tween.lua")
 dofile("Craft/libs/Weave/wow/Events.lua")
 dofile("Craft/libs/Weave/wow/Props.lua")
 dofile("Craft/libs/Weave/wow/Ticker.lua")
+dofile("Craft/libs/Weave/wow/Anim.lua")
+dofile("Craft/libs/Weave/wow/Promise.lua")
 dofile("Craft/libs/Weave/store/Store.lua")
 dofile("Craft/libs/Weave/ui/Ui.lua")
 dofile("Craft/libs/Weave/ui/Each.lua")
@@ -467,8 +470,15 @@ describe("Craft.Select reactive props", function()
     end)
 
     it("a plain options table is NOT mistaken for a signal", function()
+        -- Select always creates dropdown-fade binds now, so _effects is no longer
+        -- nil. Compare against a baseline (no reactive props) to prove the plain
+        -- options table added NO reactive bind of its own.
+        local baseline = Craft.Select:Create(UIParent, {})
+        local n = baseline._effects and #baseline._effects or 0
+        baseline:Destroy()
+
         local s = Craft.Select:Create(UIParent, { options = SEL_OPTS })
-        assert.is_nil(s._effects)
+        assert.equals(n, s._effects and #s._effects or 0)
         assert.equals(3, #s._cfg.options)
         s:Destroy()
     end)

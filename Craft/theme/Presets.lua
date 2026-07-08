@@ -78,6 +78,14 @@ CraftPresets["lyra-dark"] = {
                                     -- Kept for addons that implement their own navigation
     iconSizeSm              = 16,
     iconSizeMd              = 24,
+
+    -- Motion (shared vocabulary for Weave.tween — see ADR-0013 §4.6). Durations in
+    -- seconds; `motionEasing` is a Weave.easing name components resolve as
+    -- Weave.easing[t.motionEasing] (keeps the theme Weave-agnostic). One place to
+    -- tune the feel of every animated component.
+    motionFast              = 0.12,       -- fades, hovers, appear/disappear
+    motionBase              = 0.20,       -- larger transitions (collapse, slide)
+    motionEasing            = "outQuad",  -- default curve (shadcn-like ease-out)
 }
 
 -- ─── lyra-light — REMOVED ─────────────────────────────────────────────────

@@ -20,6 +20,7 @@
 --   Craft.Tooltip.Hide()
 
 local Craft = LibStub("Craft-2.0")
+local Weave = LibStub("Weave-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local TT = {}
@@ -34,6 +35,7 @@ local OFFSET    = 4   -- pixels between anchor and tooltip
 
 -- ─── Singleton frame ───────────────────────────────────────────────────────
 local _tooltip       = nil   -- the shared Frame, created lazily
+local _visible       = nil   -- Weave.signal(false): internal show/hide state (fade driver)
 
 local function _getTooltipFrame()
     if _tooltip then return _tooltip end
@@ -60,6 +62,35 @@ local function _getTooltipFrame()
     _tooltip._text = _tooltip:CreateFontString(nil, "OVERLAY")
     _tooltip._text:SetWordWrap(true)
     _tooltip._text:SetJustifyH("LEFT")  -- else short text floats to the box centre (icon case)
+
+    -- ── Appear/disappear fade (Weave.tween) ─────────────────────────────────
+    -- shadcn tooltips fade in on show and out on hide. ONLY alpha — never height.
+    -- _visible is the internal state Show()/Hide() flip; alpha eases 0↔1 from it.
+    -- Duration/easing come from the shared motion tokens (theme/Presets) so every
+    -- animated component feels consistent. A fast re-enter re-targets the tween
+    -- from wherever it is (Weave.tween re-targets in place — no extra logic).
+    -- The singleton lives forever → no destructor / disposal (see Attach note).
+    _visible = Weave.signal(false)
+
+    local motion = Craft.Theme.get()
+    local alpha = Weave.tween(
+        Weave.computed(function() return _visible() and 1 or 0 end),
+        { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
+
+    -- Stay visible through the fade-OUT, then hide once the tween settles.
+    local shown = Weave.computed(function()
+        return _visible() or alpha:animating()
+    end)
+
+    -- Bind alpha + shown to the singleton frame. Handles are stashed ON the frame
+    -- (which lives forever) so the reactive graph is never GC'd. shown starts false
+    -- (_visible=false, alpha=0 idle) → the frame stays hidden as before.
+    _tooltip._fade = {
+        alpha = alpha,
+        shown = shown,
+        Weave.bind(_tooltip, "alpha", alpha),
+        Weave.bind(_tooltip, "shown", shown),
+    }
 
     -- Register global theme listener (once, never unregistered — singleton lives forever)
     Craft.Theme.register(function(t)
@@ -180,13 +211,14 @@ local _pendingTimer  = nil  -- C_Timer handle, cancellable via :Cancel()
 -- ─── Show / Hide ───────────────────────────────────────────────────────────
 function TT.Show(anchor, config)
     config = config or {}
-    local f = _getTooltipFrame()
+    _getTooltipFrame()  -- lazily creates the frame + fade signal on first show
 
     _layoutTooltip(config)
     _positionTooltip(anchor)
 
-    f:Show()
-    f:SetAlpha(1)
+    -- Fade in: the shown-computed reveals the frame, the tween eases alpha 0→1.
+    -- (f is kept live above via _getTooltipFrame so layout/position ran already.)
+    _visible:set(true)
 end
 
 function TT.Hide()
@@ -195,8 +227,9 @@ function TT.Hide()
         if _pendingTimer.Cancel then _pendingTimer:Cancel() end
         _pendingTimer = nil
     end
-    if _tooltip then
-        _tooltip:Hide()
+    -- Fade out: shown-computed keeps the frame visible until the tween settles.
+    if _visible then
+        _visible:set(false)
     end
 end
 

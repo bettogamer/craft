@@ -26,11 +26,16 @@ Craft modela una **sección individual** (`Craft.Section`); el consumidor apila 
 semántica de "solo una abierta a la vez" (accordion group) se puede construir encima
 coordinando los `onToggle`.
 
-## Divergencia deliberada vs shadcn
+## Animación (v2.2.0)
 
-shadcn **anima** la altura del contenido (`animate-accordion-down/up`). Craft hace el toggle
-**instantáneo** (mismo enfoque que el árbol del Sidebar) — animar altura en WoW es frágil.
-Registrado en `design-reference §9.1`. Añadir animación si se prioriza.
+Como shadcn (`animate-accordion-down/up`), la Section **anima** el expand/collapse con
+`Weave.tween` (ADR-0013 §4.6): la altura interpola entre la del header (colapsado) y la
+expandida — **nunca a 0** (WoW no repinta un frame colapsado a 0), el header queda siempre
+visible — y el contenido hace fade por alpha. Duración/easing salen de los tokens de movimiento
+del tema (`motionBase`/`motionFast`/`motionEasing`). **Nota sobre `onToggle`:** como la altura
+cambia durante la animación (~`motionBase` s), `onToggle` se dispara **repetidamente** mientras
+anima para que el consumidor reflowee la pila siguiendo la altura; mantén ese handler barato e
+idempotente (el showcase solo llama `reflow()`).
 
 ## Jerarquía de frames WoW
 
@@ -63,7 +68,7 @@ section.frame            (Frame — alto = header + (content si expandido) )
 | `title` | string | `""` | Texto de la cabecera |
 | `collapsed` | boolean | true | Si arranca colapsado (true) o abierto (false) |
 | `divider` | boolean | true | Borde inferior (`not-last:border-b`); poner false en el último |
-| `onToggle` | function | nil | `fn(expanded)` tras togglear (para que el consumidor reflowee la pila) |
+| `onToggle` | function | nil | `fn(expanded)` para que el consumidor reflowee la pila. Se dispara **repetidamente durante la animación** de expand/collapse (ver "Animación") — mantenlo barato e idempotente |
 
 ## API pública
 

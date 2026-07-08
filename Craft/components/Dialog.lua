@@ -14,9 +14,6 @@ local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (
 local Dialog = {}
 Dialog.__index = Dialog
 
--- Open/close fade duration (shadcn dialog fades in/out; alpha only — see Create).
-local FADE = 0.12
-
 -- Size presets (sm:max-w-sm = 384px default)
 local WIDTHS = {
     sm      = 320,
@@ -74,10 +71,12 @@ function Dialog:Create(parent, config)
     -- replaces the old OnShow/OnHide mirror of overlay visibility.
     self._open = Weave.signal(false)  -- private open/close state (NOT a public prop)
 
-    -- Alpha eases 0↔1 as the open state flips.
+    -- Alpha eases 0↔1 as the open state flips. Duration/easing from the shared
+    -- motion tokens (theme/Presets) so every animated component feels consistent.
+    local motion = Craft.Theme.get()
     local alpha = Weave.tween(
         Weave.computed(function() return self._open() and 1 or 0 end),
-        { duration = FADE, easing = Weave.easing.outQuad })
+        { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
 
     -- Stay visible through the CLOSE fade, then hide once the tween settles.
     local shown = Weave.computed(function()

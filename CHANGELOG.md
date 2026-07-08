@@ -6,6 +6,30 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-07-08
+
+> Extiende la adopción de `Weave.tween` al **tier de aparición** de componentes. MINOR,
+> retrocompatible en API pública (key sigue `Craft-2.0`). Ver ADR-0013 §4.6.
+
+### Added
+- **Tokens de movimiento en el tema** (`theme/Presets.lua`): `motionFast` (0.12s — fades/hovers),
+  `motionBase` (0.20s — transiciones grandes) y `motionEasing` (`"outQuad"`, resuelto por los
+  componentes como `Weave.easing[t.motionEasing]`). Vocabulario compartido para que toda animación
+  se sienta consistente y se ajuste en un solo sitio. Dialog migró su `FADE` local a estos tokens.
+- **Animaciones de aparición/transición** (todas con `Weave.tween`, solo alpha salvo Section, nunca
+  height a 0, combat-safe, disponen con el ciclo de vida del componente):
+  - **`Craft.Tooltip`** — fade in/out en hover.
+  - **`Craft.Select`** — el panel dropdown hace fade al abrir/cerrar; hit-testing de ítems se corta
+    de inmediato al cerrar (el panel que se desvanece no captura clics).
+  - **`Craft.Window`** — fade show/hide (mismo patrón que Dialog).
+  - **`Craft.Section`** — expand/collapse animado: la altura interpola entre header (colapsado) y
+    expandida (**nunca 0**) y el contenido hace fade. `onToggle` ahora se dispara durante la
+    animación para que el consumidor reflowee la pila (handler debe ser barato/idempotente).
+
+### Changed
+- **`Craft.Window:IsShown()`** devuelve el estado lógico (abierto/cerrado) en vez del físico del
+  frame: tras `Hide()` devuelve `false` de inmediato aunque el fade-out siga corriendo unos ms.
+
 ## [2.1.0] - 2026-07-07
 
 > Adopción de las novedades de Weave v0.5.0. Sin cambios de API pública (MINOR,

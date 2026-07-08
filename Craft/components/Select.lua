@@ -9,6 +9,7 @@
 --   .cn-select-separator{ bg-border h-px }
 
 local Craft = LibStub("Craft-2.0")
+local Weave = LibStub("Weave-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Select = {}
@@ -52,7 +53,8 @@ function Select:Create(parent, config)
         disabled    = config.disabled    or false,
         onSelect    = config.onSelect,
     }
-    self._open = false
+    -- self._open is a Weave.signal (created below, once self._panel exists) — the
+    -- private open/close state that drives the dropdown fade. NOT a public prop.
 
     -- Reactive props (ADR-0013): a callable prop binds through the setters
     -- (after the theme pass, below); until then _cfg holds safe literals so
@@ -122,6 +124,33 @@ function Select:Create(parent, config)
     -- _items: array of item frames (created in _buildItems)
     self._items = {}
 
+    -- ── Open/close fade (Weave.tween) ─────────────────────────────────────────
+    -- The dropdown panel fades in/out (shadcn .cn-select-content duration-100)
+    -- instead of popping. ONLY alpha is animated — NEVER height: the panel height
+    -- is variable (item count) and WoW won't repaint a frame collapsed to 0.
+    -- Duration/easing come from the shared motion tokens so every animated
+    -- component feels consistent. Open()/Close() flip this signal; the binds below
+    -- drive the panel's visibility, replacing the old imperative Show()/Hide().
+    self._open = Weave.signal(false)  -- private open/close state (NOT a public prop)
+
+    local motion = Craft.Theme.get()
+    local alpha = Weave.tween(
+        Weave.computed(function() return self._open() and 1 or 0 end),
+        { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
+
+    -- Stay visible through the CLOSE fade, then hide once the tween settles.
+    local shown = Weave.computed(function()
+        return self._open() or alpha:animating()
+    end)
+
+    -- Collect on the SAME self._effects list that the reactive props use, so
+    -- Destroy()'s disposeAll cuts these binds + the tween along with everything
+    -- else. (applyOrBind appends to this list further below.)
+    self._effects = self._effects or {}
+    self._effects[#self._effects + 1] = Weave.bind(self._panel, "alpha", alpha)
+    self._effects[#self._effects + 1] = Weave.bind(self._panel, "shown", shown)
+    self._effects[#self._effects + 1] = alpha  -- dispose the tween (effect + driver reg)
+
     -- ── Trigger scripts ───────────────────────────────────────────────────────
     self._trigger:SetScript("OnEnter", function()
         if not self._cfg.disabled then
@@ -139,7 +168,7 @@ function Select:Create(parent, config)
     end)
     self._trigger:SetScript("OnClick", function()
         if self._cfg.disabled then return end
-        if self._open then
+        if self._open:peek() then
             self:Close()
         else
             self:Open()
@@ -411,8 +440,7 @@ end
 
 -- ─── Open / Close ─────────────────────────────────────────────────────────────
 function Select:Open()
-    if self._open or self._cfg.disabled then return end
-    self._open = true
+    if self._open:peek() or self._cfg.disabled then return end
 
     -- Scale correction: the panel is in UIParent but the trigger may be
     -- in a container with a different scale (e.g. Craft_Browser at 0.75x)
@@ -439,13 +467,29 @@ function Select:Open()
         self._triggerBorder:SetColorTexture(t.ring.r, t.ring.g, t.ring.b, t.ring.a)
     end
 
-    self._panel:Show()
+    -- Re-arm item hit-testing (Close() drops it during the fade-out so the
+    -- fading panel can't eat clicks — see Close()).
+    for _, item in ipairs(self._items) do
+        item.frame:EnableMouse(true)
+    end
+
+    -- Flip the signal: the shown/alpha binds fade the panel in.
+    self._open:set(true)
 end
 
 function Select:Close()
-    if not self._open then return end
-    self._open = false
-    self._panel:Hide()
+    if not self._open:peek() then return end
+    -- Flip the signal: the shown binding keeps the panel visible through the
+    -- fade-out and hides it once the tween settles.
+    self._open:set(false)
+
+    -- Drop item hit-testing IMMEDIATELY (not when the fade ends) so the still-
+    -- visible, fading-out panel can't capture clicks meant for the UI behind it.
+    -- Open() re-arms it. The item Buttons default to EnableMouse(true), so this
+    -- surgical toggle is the only place mouse capture is gated during the fade.
+    for _, item in ipairs(self._items) do
+        item.frame:EnableMouse(false)
+    end
 
     -- Chevron: restore closed state
     Craft.Icons.Apply(self._chevron, "chevron-down", 16)

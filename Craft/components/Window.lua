@@ -9,6 +9,7 @@
 -- touch lighter (+0.03) for separation, 1px ring (foreground/10) around the whole frame.
 
 local Craft = LibStub("Craft-2.0")
+local Weave = LibStub("Weave-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Window = {}
@@ -61,6 +62,39 @@ function Window:Create(parent, config)
             if self._cfg.maxWidth then self.frame:SetMaxResize(self._cfg.maxWidth, self._cfg.maxHeight) end
         end
     end
+
+    -- ── Open/close fade (Weave.tween) ───────────────────────────────────────
+    -- Mirrors Dialog: showing/hiding the window fades it in/out. ONLY alpha —
+    -- NOT height/size: WoW won't repaint a frame collapsed to 0, and a window is
+    -- not a collapse. Show/Hide/Toggle/Close/Escape all flow through this signal.
+    self._open = Weave.signal(false)  -- private open/close state (NOT a public prop)
+
+    -- Alpha eases 0↔1 as the open state flips. Duration/easing from the shared
+    -- motion tokens (theme/Presets) so every animated component feels consistent.
+    local motion = Craft.Theme.get()
+    local alpha = Weave.tween(
+        Weave.computed(function() return self._open() and 1 or 0 end),
+        { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
+
+    -- Stay visible through the CLOSE fade, then hide once the tween settles.
+    local shown = Weave.computed(function()
+        return self._open() or alpha:animating()
+    end)
+
+    self._effects = self._effects or {}
+    self._effects[#self._effects + 1] = Weave.bind(self.frame, "alpha", alpha)
+    self._effects[#self._effects + 1] = Weave.bind(self.frame, "shown", shown)
+    self._effects[#self._effects + 1] = alpha  -- dispose the tween (effect + driver reg)
+
+    -- Escape / UISpecialFrames: Blizzard calls frame:Hide() DIRECTLY, bypassing the
+    -- signal. Re-sync the state so a later Show() works (idempotent: the signal's
+    -- equality-cut drops the no-op when already false). Escape-close is instant
+    -- (acceptable); binds are reactive (no polling) so this Hide() won't re-show.
+    self.frame:HookScript("OnHide", function()
+        if self._open and self._open:peek() then
+            self._open:set(false)
+        end
+    end)
 
     -- ── Ring + background (background surface, ring-1 ring-foreground/10) ─────
     -- Ring sits BEHIND (sublevel -2); the opaque bg in FRONT (-1) is inset 1px so the
@@ -265,23 +299,28 @@ function Window:Center()
     self.frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 end
 
-function Window:Show()   self.frame:Show() end
-function Window:Hide()   self.frame:Hide() end
-function Window:IsShown() return self.frame:IsShown() end
+-- Shows the window (fade in).
+function Window:Show()   self._open:set(true)  end
+-- Hides the window (fade out).
+function Window:Hide()   self._open:set(false) end
+-- Reflects the logical open state (false as soon as a close begins, even while the
+-- fade-out is still running).
+function Window:IsShown() return self._open:peek() end
 
 function Window:Toggle()
-    if self.frame:IsShown() then self.frame:Hide() else self.frame:Show() end
+    self._open:set(not self._open:peek())
 end
 
--- Close: fires onClose, then hides. Used by the X button.
+-- Close: fires onClose, then fades out. Used by the X button.
 function Window:Close()
     if self._cfg.onClose then self._cfg.onClose(self) end
-    self.frame:Hide()
+    self._open:set(false)
 end
 
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Window:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)            -- cut alpha/shown binds + the tween
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
