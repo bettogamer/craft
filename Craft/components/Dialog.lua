@@ -8,10 +8,14 @@
 --   .cn-dialog-description { @apply text-muted-foreground text-xs/relaxed; }
 
 local Craft = LibStub("Craft-2.0")
+local Weave = LibStub("Weave-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Dialog = {}
 Dialog.__index = Dialog
+
+-- Open/close fade duration (shadcn dialog fades in/out; alpha only — see Create).
+local FADE = 0.12
 
 -- Size presets (sm:max-w-sm = 384px default)
 local WIDTHS = {
@@ -63,9 +67,40 @@ function Dialog:Create(parent, config)
     overlayTex:SetAllPoints(self._overlay)
     overlayTex:SetColorTexture(0, 0, 0, 0.10)  -- bg-black/10
 
-    -- Mirror overlay visibility to the dialog (covers X, Escape, Hide(), Toggle()).
-    self.frame:HookScript("OnShow", function() self._overlay:Show() end)
-    self.frame:HookScript("OnHide", function() self._overlay:Hide() end)
+    -- ── Open/close fade (Weave.tween) ───────────────────────────────────────
+    -- shadcn dialog fades in/out. ONLY alpha — NOT height: WoW won't repaint a
+    -- frame collapsed to 0, and a dialog is not a collapse. The overlay backdrop
+    -- fades in sync by binding it to the SAME reactives as the frame; this also
+    -- replaces the old OnShow/OnHide mirror of overlay visibility.
+    self._open = Weave.signal(false)  -- private open/close state (NOT a public prop)
+
+    -- Alpha eases 0↔1 as the open state flips.
+    local alpha = Weave.tween(
+        Weave.computed(function() return self._open() and 1 or 0 end),
+        { duration = FADE, easing = Weave.easing.outQuad })
+
+    -- Stay visible through the CLOSE fade, then hide once the tween settles.
+    local shown = Weave.computed(function()
+        return self._open() or alpha:animating()
+    end)
+
+    -- Bind the same reactives to both the dialog and its backdrop overlay.
+    self._effects = self._effects or {}
+    self._effects[#self._effects + 1] = Weave.bind(self.frame,    "alpha", alpha)
+    self._effects[#self._effects + 1] = Weave.bind(self.frame,    "shown", shown)
+    self._effects[#self._effects + 1] = Weave.bind(self._overlay, "alpha", alpha)
+    self._effects[#self._effects + 1] = Weave.bind(self._overlay, "shown", shown)
+    self._effects[#self._effects + 1] = alpha  -- dispose the tween (effect + driver reg)
+
+    -- Escape / UISpecialFrames: Blizzard calls frame:Hide() DIRECTLY, bypassing the
+    -- signal. Re-sync the state so a later Show() works (idempotent: the signal's
+    -- equality-cut drops the no-op when already false). Escape-close is instant
+    -- (acceptable); binds are reactive (no polling) so this Hide() won't re-show.
+    self.frame:HookScript("OnHide", function()
+        if self._open and self._open:peek() then
+            self._open:set(false)
+        end
+    end)
 
     -- Drag behaviour (full dialog is the movable unit)
     self.frame:SetMovable(true)
@@ -152,11 +187,11 @@ function Dialog:Create(parent, config)
         self._closeBg:SetColorTexture(t.accent.r, t.accent.g, t.accent.b, 0.7)
     end)
     self._closeBtn:SetScript("OnMouseUp", function()
-        -- Treat release as click: invoke onClose and hide
+        -- Treat release as click: invoke onClose and fade out (via the open state)
         if self._cfg.onClose then
             self._cfg.onClose(self)
         end
-        self.frame:Hide()
+        self:Hide()
     end)
 
     -- ── Content ────────────────────────────────────────────────────────────
@@ -346,32 +381,29 @@ function Dialog:HideFooter()
     end
 end
 
--- Shows the dialog. Re-runs the layout first so the height reflects any content/
--- footer size the dev set after Create() (grow-to-fit).
+-- Shows the dialog (fade in). Re-runs the layout first so the height reflects any
+-- content/footer size the dev set after Create() (grow-to-fit).
 function Dialog:Show()
     if self._t then self:_layoutFrames(self._t) end
-    self.frame:Show()
+    self._open:set(true)
 end
 
--- Hides the dialog without invoking onClose.
+-- Hides the dialog (fade out) without invoking onClose.
 function Dialog:Hide()
-    self.frame:Hide()
+    self._open:set(false)
 end
 
--- Toggles visibility.
+-- Toggles visibility (fade in/out).
 function Dialog:Toggle()
-    if self.frame:IsShown() then
-        self.frame:Hide()
-    else
-        self.frame:Show()
-    end
+    self._open:set(not self._open:peek())
 end
 
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Dialog:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)            -- cut alpha/shown binds + the tween
     Craft.Theme.unregister(self._themeHandle)
-    self.frame:Hide()  -- triggers OnHide → overlay hidden
+    self.frame:Hide()
     if self._overlay then
         self._overlay:Hide()
         self._overlay = nil
