@@ -195,6 +195,7 @@ function CB._build()
     _nav:AddItem({ id="Tooltip",   label="Tooltip",   onClick=function() CB.Navigate("Tooltip")   end })
     _nav:AddSection("Integration")
     _nav:AddItem({ id="Reactive",  label="Reactive",  onClick=function() CB.Navigate("Reactive")  end })
+    _nav:AddItem({ id="Async",     label="Async",     onClick=function() CB.Navigate("Async")     end })
 
     -- SidebarFooter: p-2 gap-2 per sidebar spec = 8px padding all sides, 8px gap
     -- Label row: pad(8)+label(12) = 20px from top

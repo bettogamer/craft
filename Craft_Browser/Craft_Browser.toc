@@ -12,16 +12,30 @@
 # generado en CI: descargado directo a libs/LibStub/LibStub.lua (no pasa por Craft/libs/)
 libs\LibStub\LibStub.lua
 
-# Weave v0.3.0 (embedded — copied from Craft/libs/Weave in CI/deploy, not in repo)
+# Weave v0.5.0 (embedded — copied from Craft/libs/Weave in CI/deploy, not in repo)
 libs\Weave\Weave.lua
 libs\Weave\core\Core.lua
 libs\Weave\core\Reconcile.lua
+libs\Weave\core\Tween.lua
 libs\Weave\wow\Events.lua
 libs\Weave\wow\Props.lua
 libs\Weave\wow\Ticker.lua
+libs\Weave\wow\Anim.lua
+libs\Weave\wow\Promise.lua
 libs\Weave\store\Store.lua
 libs\Weave\ui\Ui.lua
 libs\Weave\ui\Each.lua
+
+# Loom v0.1.0 (embedded — copied from the loom repo build in CI/deploy, not in repo).
+# Async/deferred data; Weave.fromPromise bridges its promises to signals (Async page).
+libs\Loom\Loom.lua
+libs\Loom\core\Core.lua
+libs\Loom\wow\Taint.lua
+libs\Loom\wow\Time.lua
+libs\Loom\wow\Event.lua
+libs\Loom\wow\Control.lua
+libs\Loom\wow\Catalog.lua
+libs\Loom\wow\Inspect.lua
 
 # Craft library (embedded — generated in CI, not in repo)
 libs\Craft\Craft.lua
@@ -76,5 +90,6 @@ pages\Textarea.lua
 pages\Tabs.lua
 pages\Theme.lua
 pages\Reactive.lua
+pages\Async.lua
 pages\Tooltip.lua
 pages\Window.lua

@@ -13,7 +13,8 @@
 #   3. Replaces .toc packager tokens with local dev values
 
 param(
-    [switch]$DryRun
+    [switch]$DryRun,
+    [string]$LoomRepo = ""   # sibling loom repo (for Craft_Browser's Async page); auto-detected if empty
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,6 +24,11 @@ $RepoRoot   = Split-Path $PSScriptRoot -Parent
 $WoWAddOns  = "F:\Games\World of Warcraft\_retail_\Interface\AddOns"
 $CraftSrc   = Join-Path $RepoRoot "Craft"
 $BrowserSrc = Join-Path $RepoRoot "Craft_Browser"
+
+# Loom lives in its own repo (independent lib, like Weave). Craft_Browser vendors it
+# for the Async demo; Craft itself does NOT depend on Loom. Default: sibling checkout.
+if (-not $LoomRepo) { $LoomRepo = Join-Path (Split-Path $RepoRoot -Parent) "loom" }
+$LoomSrc = Join-Path $LoomRepo "Loom"
 
 # Version tokens
 $RawHash    = git -C $RepoRoot rev-parse --short HEAD 2>$null
@@ -144,6 +150,7 @@ if ($DryRun) {
     Write-Host "[dry-run] Would build Craft_Browser at: $BrowserDest"
     Write-Host "[dry-run]   libs/LibStub/ <- Craft/libs/LibStub/"
     Write-Host "[dry-run]   libs/Weave/   <- Craft/libs/Weave/"
+    Write-Host "[dry-run]   libs/Loom/    <- $LoomSrc"
     Write-Host "[dry-run]   libs/Craft/   <- Craft/ (without libs/)"
     Write-Host "[dry-run]   *             <- Craft_Browser/*"
 } else {
@@ -176,6 +183,20 @@ if ($DryRun) {
     } else {
         Write-Error "Weave not found at $WeaveSrc - deploy aborted"
         exit 1
+    }
+
+    # Embed Loom from its sibling repo (for the Async page). NOT fatal if missing:
+    # the Async page degrades to a notice when Loom isn't vendored (Weave stays
+    # adoptable without it). Skip its own libs/ (LibStub is embedded above).
+    $LoomDest = Join-Path $BrowserDest "libs\Loom"
+    if (Test-Path $LoomSrc) {
+        New-Item $LoomDest -ItemType Directory -Force | Out-Null
+        Get-ChildItem $LoomSrc | Where-Object { $_.Name -ne "libs" } | ForEach-Object {
+            Copy-Item $_.FullName (Join-Path $LoomDest $_.Name) -Recurse -Force
+        }
+        Write-Host "Embedded: Loom -> libs/Loom/ (from $LoomSrc)"
+    } else {
+        Write-Warning "Loom not found at $LoomSrc (pass -LoomRepo <path>) - Async page will show a notice"
     }
 
     # Embed Craft (without its own libs/ subfolder to avoid duplication)
