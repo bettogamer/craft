@@ -6,6 +6,29 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-07-07
+
+> Adopción de las novedades de Weave v0.5.0. Sin cambios de API pública (MINOR,
+> 100% retrocompatible): la key LibStub sigue siendo `Craft-2.0`.
+
+### Added
+- **Weave embebida actualizada a v0.5.0** (`Craft/libs/Weave/`, READ-ONLY): v0.4.0 añade
+  `Weave.tween` / `Weave.easing` (driver de animación combat-safe, solo muta, coste cero en
+  reposo); v0.5.0 añade `Weave.fromPromise` (puente a las promesas de Loom). `fromPromise`
+  NO lo consumen los componentes Craft — queda disponible en runtime para addons que también
+  carguen Loom. Ver ADR-0013.
+- **`Craft.Dialog`: animación de apertura/cierre (fade)** — `Show()`/`Hide()`/`Toggle()` (y la X)
+  hacen fade in/out por alpha con `Weave.tween` en vez de aparecer/desaparecer de golpe; el
+  overlay backdrop desvanece en sincronía. Solo alpha (nunca height). Primer componente que
+  adopta `Weave.tween`. API pública sin cambios; el fade se dispone con el ciclo de vida del
+  componente (`Destroy`).
+
+### Changed
+- **Craft_Browser**: nueva página **Async** (sección Integration) que demuestra el stack completo
+  — `Loom.item`/`Loom.all` → `Weave.fromPromise` → widgets Craft por bind (skeleton → valor →
+  fallback), sin handlers de evento a mano. **Loom v0.1.0** queda vendoreado (READ-ONLY) en
+  `Craft_Browser/libs/Loom/` (solo el Browser lo usa; la librería Craft no depende de Loom).
+
 ## [2.0.0] - 2026-07-05
 
 > **BREAKING — nueva key LibStub `Craft-2.0`.** Por la eliminación de `Craft.NumberInput`
