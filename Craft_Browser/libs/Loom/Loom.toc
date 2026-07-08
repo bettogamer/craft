@@ -1,0 +1,9 @@
+## Interface: 120007
+## Title: Lib: Loom-1.0
+## Notes: Composable promises for WoW: async and deferred data loading (request -> event -> resolve)
+## Author: Alberto Gomez
+## Version: 0.1.0
+## X-Category: Library
+
+libs\LibStub\LibStub.lua
+Loom.xml

@@ -26,7 +26,7 @@ libs\Weave\store\Store.lua
 libs\Weave\ui\Ui.lua
 libs\Weave\ui\Each.lua
 
-# Loom v0.1.0 (embedded — copied from the loom repo build in CI/deploy, not in repo).
+# Loom v0.1.0 (vendored, READ-ONLY — committed in libs/Loom, only Craft_Browser uses it).
 # Async/deferred data; Weave.fromPromise bridges its promises to signals (Async page).
 libs\Loom\Loom.lua
 libs\Loom\core\Core.lua
