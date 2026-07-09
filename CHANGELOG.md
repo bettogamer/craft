@@ -69,6 +69,12 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   1; además, holgura anti-wrap para el flicker de dos líneas al inicio de la animación de aparición.
 - **`Craft.Scroll`**: el rail (track) se dibujaba siempre, también cuando el contenido cabía. Ahora se
   oculta el scrollbar completo (rail + thumb) cuando `childH <= viewH`.
+- **`Craft.Separator` perdía su posición del caller al cambiar de tema**: `_applyTheme` llamaba a
+  `_applyOrientation`, que hace `ClearAllPoints()` + re-ancla al parent (LEFT/RIGHT o TOP/BOTTOM). Eso
+  BORRABA cualquier anclaje que el caller hubiera fijado tras `Create` (p. ej. el separator del header del
+  Browser anclado a `BOTTOMLEFT/BOTTOMRIGHT`), y en un cambio de tema en runtime el separator saltaba a
+  media altura (línea gris entre título y descripción). Ahora `_applyTheme` solo re-aplica la dimensión
+  pixel-perfect, sin re-anclar (el anclaje vive en `Create`/`SetOrientation`).
 - **Títulos del header del Browser encogían al cambiar de tema en runtime**: el header pokeaba
   `label._text:SetFont(fontBold, fontSizeLg)` tras `Create`, y el `_applyTheme` del Label lo pisaba con
   regular/12 en el primer cambio de tema (destapado por el nuevo selector de ejes). Ahora el peso/tamaño

@@ -61,11 +61,17 @@ function Separator:_applyTheme(t)
     -- t.border dark mode = {r=1, g=1, b=1, a=0.10}
     self._line:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
 
-    -- Re-apply orientation so pixel-perfect size is recalculated after a
-    -- potential scale change (e.g. UI scale setting changed mid-session).
-    local parent = self.frame:GetParent()
-    if parent then
-        self:_applyOrientation(parent)
+    -- Re-apply ONLY the pixel-perfect dimension (recalc tras un cambio de escala
+    -- mid-session), SIN re-anclar. Antes esto llamaba a `_applyOrientation`, que
+    -- hace `ClearAllPoints()` + re-ancla al parent (LEFT/RIGHT o TOP/BOTTOM) — y
+    -- eso BORRABA el posicionamiento que el caller haya fijado tras Create (p. ej.
+    -- el header del Browser ancla su separator a BOTTOMLEFT/BOTTOMRIGHT). En un
+    -- cambio de tema en runtime el separator saltaba a media altura. El anclaje se
+    -- hace una sola vez (Create/SetOrientation); aquí solo re-dimensionamos.
+    if self._orientation == "vertical" then
+        Craft.Theme.SetPixelWidth(self.frame, 1)
+    else
+        Craft.Theme.SetPixelHeight(self.frame, 1)
     end
 end
 
