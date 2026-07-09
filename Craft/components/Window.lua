@@ -86,6 +86,59 @@ function Window:Create(parent, config)
     self._effects[#self._effects + 1] = Weave.bind(self.frame, "shown", shown)
     self._effects[#self._effects + 1] = alpha  -- dispose the tween (effect + driver reg)
 
+    -- ── Open/close zoom (Weave.tween) — shadcn v4 zoom-in-95 ────────────────
+    -- Same source (_open), same duration/easing as the fade so the window POPS from
+    -- motionZoomFrom (0.95) to 1.0 on open and 1.0→0.95 on close, in lockstep with
+    -- alpha (mirrors Dialog's fade+zoom gesture, NOT Sheet's edge slide).
+    --
+    -- Pivot problem: SetScale scales around the frame's anchor point, and SetPoint
+    -- offsets scale with the frame's OWN scale (this is exactly what Craft.Theme.px
+    -- relies on). A window is movable — once the user drags it off screen-centre its
+    -- CENTER offset is non-zero, so a naive SetScale would slide the frame toward/away
+    -- from centre while it zooms. To keep the on-screen position rock-steady we
+    -- re-anchor each tick with the offset divided by the current scale: offset*scale
+    -- stays constant, so the geometric centre never moves and the pop reads as coming
+    -- from the window's own centre. A centred window has offset 0 → this is a no-op.
+    local zoom = Weave.tween(
+        Weave.computed(function() return self._open() and 1 or motion.motionZoomFrom end),
+        { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
+
+    -- Capture the scale-1 CENTER offset (in frame units) at every open/close flip,
+    -- BEFORE the tween advances, so it reads the resting position (whatever the user
+    -- dragged to) and not a mid-zoom one. Scale-invariant: the `* GetScale()` term
+    -- divides out whatever scale the frame is currently parked at (e.g. 0.95 while
+    -- hidden after a close), recovering the true scale-1 offset.
+    local function captureZoomAnchor()
+        local f = self.frame
+        if not f then return end
+        local fx, fy = f:GetCenter()
+        local ux, uy = UIParent:GetCenter()
+        if not (fx and ux) then
+            self._zoomBaseX, self._zoomBaseY = 0, 0
+            return
+        end
+        local fe = f:GetEffectiveScale()
+        local ue = UIParent:GetEffectiveScale()
+        local s  = f:GetScale()
+        self._zoomBaseX = (fx * fe - ux * ue) * s / fe
+        self._zoomBaseY = (fy * fe - uy * ue) * s / fe
+    end
+
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        self._open()               -- track: recapture the resting offset on each flip
+        captureZoomAnchor()
+    end)
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        local s = zoom()
+        local f = self.frame
+        if not f then return end
+        f:SetScale(s)
+        f:ClearAllPoints()
+        f:SetPoint("CENTER", UIParent, "CENTER",
+            (self._zoomBaseX or 0) / s, (self._zoomBaseY or 0) / s)
+    end)
+    self._effects[#self._effects + 1] = zoom  -- dispose the tween (effect + driver reg)
+
     -- Escape / UISpecialFrames: Blizzard calls frame:Hide() DIRECTLY, bypassing the
     -- signal. Re-sync the state so a later Show() works (idempotent: the signal's
     -- equality-cut drops the no-op when already false). Escape-close is instant

@@ -8,6 +8,7 @@
 -- (mouse wheel + cursor-follow) — more practical for a code/strings editor (FR-006).
 
 local Craft = LibStub("Craft-2.0")
+local Weave = LibStub("Weave-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Textarea = {}
@@ -18,6 +19,8 @@ local PAD_H     = 10   -- px-2.5
 local PAD_V     = 8    -- py-2
 local FONT_SIZE = 12   -- text-xs
 local WHEEL_STEP = 24
+
+local function lerp(a, b, k) return a + (b - a) * k end
 
 -- ─── Create ───────────────────────────────────────────────────────────────────
 function Textarea:Create(parent, config)
@@ -100,14 +103,19 @@ function Textarea:Create(parent, config)
     self._placeholder:SetJustifyV("TOP")
     if self._cfg.value ~= "" then self._placeholder:Hide() end
 
+    -- ── Focus signal (private; drives the animated focus border) ─────────────
+    -- shadcn transition-[color,box-shadow]: the focus border fades in/out instead
+    -- of snapping. Handlers only flip this signal; the tween + effect below paint.
+    self._focused = Weave.signal(false)
+
     -- ── EditBox scripts ───────────────────────────────────────────────────────
     self._edit:SetScript("OnEditFocusGained", function()
         self._placeholder:Hide()
-        self:_setBorder(self._t and self._t.ring)
+        self._focused:set(true)
     end)
     self._edit:SetScript("OnEditFocusLost", function()
         if self._edit:GetText() == "" then self._placeholder:Show() end
-        self:_applyBorderColor()
+        self._focused:set(false)
     end)
     self._edit:SetScript("OnTextChanged", function(eb, userInput)
         local text = eb:GetText()
@@ -129,9 +137,26 @@ function Textarea:Create(parent, config)
     end)
 
     -- ── Theme + initial state ─────────────────────────────────────────────────
+    -- First _applyTheme caches the border endpoints (self._borderIdle/_borderFocus)
+    -- BEFORE the effect below runs eagerly and needs them.
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
     self._placeholder:SetText(self._cfg.placeholder)   -- after SetFont
+
+    -- ── Animated focus border (Weave.tween) ──────────────────────────────────
+    -- Mirrors Dialog._open→tween→effect: prog eases 0↔1 as focus flips; the effect
+    -- lerps the border colour between idle and focus endpoints. Duration/easing
+    -- from the shared motion tokens (theme/Presets) for a consistent feel.
+    local motion = Craft.Theme.get()
+    local prog = Weave.tween(
+        Weave.computed(function() return self._focused() and 1 or 0 end),
+        { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
+    self._prog = prog
+    self._effects = self._effects or {}
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        self:_paintBorder(prog())
+    end)
+    self._effects[#self._effects + 1] = prog  -- dispose the tween (effect + driver reg)
 
     -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
     -- value binds through SetValue: it never fires onChange (OnTextChanged
@@ -161,20 +186,19 @@ function Textarea:_followCursor(y, cursorH)
 end
 
 -- ─── Border helpers ───────────────────────────────────────────────────────────
-function Textarea:_setBorder(color)
-    if not color then return end
-    local a = color.a or 1
-    self._borderTop:SetColorTexture(color.r, color.g, color.b, a)
-    self._borderBottom:SetColorTexture(color.r, color.g, color.b, a)
-    self._borderLeft:SetColorTexture(color.r, color.g, color.b, a)
-    self._borderRight:SetColorTexture(color.r, color.g, color.b, a)
-end
-
-function Textarea:_applyBorderColor()
-    local t = self._t
-    if not t then return end
-    -- border-input (white@0.15); error → destructive
-    self:_setBorder(self._cfg.error and t.destructive or t.input)
+-- Paint the 4 border textures at tween progress k∈[0,1], lerping colour + alpha
+-- between the idle and focus endpoints cached by _applyTheme.
+function Textarea:_paintBorder(k)
+    local i, f = self._borderIdle, self._borderFocus
+    if not (i and f) then return end
+    local r = lerp(i.r,      f.r,      k)
+    local g = lerp(i.g,      f.g,      k)
+    local b = lerp(i.b,      f.b,      k)
+    local a = lerp(i.a or 1, f.a or 1, k)
+    self._borderTop:SetColorTexture(r, g, b, a)
+    self._borderBottom:SetColorTexture(r, g, b, a)
+    self._borderLeft:SetColorTexture(r, g, b, a)
+    self._borderRight:SetColorTexture(r, g, b, a)
 end
 
 -- ─── Theme ─────────────────────────────────────────────────────────────────────
@@ -204,11 +228,12 @@ function Textarea:_applyTheme(t)
     self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     px1, -px1)
     self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1, px1)
 
-    if self._edit:HasFocus() then
-        self:_setBorder(t.ring)
-    else
-        self:_applyBorderColor()
-    end
+    -- Cache the animated border endpoints. Idle = border-input (white@0.15), or
+    -- destructive on error; focus = t.ring. AGENTS §9: recompute AND re-apply at
+    -- the vigente tween progress so a theme change repaints the current state.
+    self._borderIdle  = self._cfg.error and t.destructive or t.input
+    self._borderFocus = t.ring
+    if self._prog then self:_paintBorder(self._prog()) end
 end
 
 -- ─── Public API ──────────────────────────────────────────────────────────────
@@ -224,7 +249,13 @@ end
 
 function Textarea:SetError(hasError)
     self._cfg.error = hasError
-    if not self._edit:HasFocus() then self:_applyBorderColor() end
+    -- Recompute the idle endpoint (input ↔ destructive) and repaint at the vigente
+    -- progress; while focused prog=1 keeps t.ring, so error only shifts the idle end.
+    local t = self._t
+    if t then
+        self._borderIdle = self._cfg.error and t.destructive or t.input
+        if self._prog then self:_paintBorder(self._prog()) end
+    end
 end
 
 function Textarea:SetPlaceholder(text)

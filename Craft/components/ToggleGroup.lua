@@ -11,10 +11,14 @@
 --   (on/off buttons differ only by data-state). Single selection.
 
 local Craft = LibStub("Craft-2.0")
+local Weave = LibStub("Weave-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local ToggleGroup = {}
 ToggleGroup.__index = ToggleGroup
+
+-- Linear interpolation for the animated fill alpha (transparent → t.muted).
+local function lerp(a, b, p) return a + (b - a) * p end
 
 local H        = 32   -- h-8
 local PAD_H    = 10   -- px-2.5
@@ -83,7 +87,7 @@ end
 -- through the returned bundle, so the scripts (which read seg.value at call
 -- time) stay valid across rebuilds. iconTex is always created and shown/hidden
 -- per option, so a reused segment can gain or lose its icon.
-function ToggleGroup:_makeSegment()
+function ToggleGroup:_makeSegment(initialOn)
     local btn = CreateFrame("Button", nil, self.frame)
 
     -- Own border (4 × 1px, border-input) — anchored corner-safe in _applyTheme
@@ -107,7 +111,41 @@ function ToggleGroup:_makeSegment()
 
     local seg = { value = nil, label = "", icon = nil,
                   btn = btn, bg = bg, fs = fs, iconTex = iconTex,
-                  border = { bT, bB, bL, bR }, active = false, hovering = false }
+                  border = { bT, bB, bL, bR } }
+
+    -- ── Animated fill (shadcn v4 transition-all) ────────────────────────────
+    -- Per-segment reactive graph, built ONCE per pooled slot and reused across
+    -- rebuilds (like the scripts, which read seg.value at call time). Two state
+    -- signals feed one boolean target: fill is ON when the segment is selected
+    -- (onSig) OR hovered (hoverSig). Both `hover:bg-muted` and
+    -- `data-[state=on]:bg-muted` share the SAME colour (t.muted), so a single
+    -- 0↔1 progress drives the alpha for both — no need to distinguish them.
+    -- Seed onSig at the segment's initial selected state so the tween seeds at the
+    -- right value: a pre-selected segment shows its fill immediately (no fade on
+    -- mount, like shadcn's CSS not transitioning on first paint), while later
+    -- selection/hover changes animate. hover always starts false.
+    seg.onSig    = Weave.signal(initialOn and true or false) -- selected (set by _refresh)
+    seg.hoverSig = Weave.signal(false)                       -- hover (set by _hover)
+    seg.target   = Weave.computed(function() return seg.onSig() or seg.hoverSig() end)
+
+    local m = Craft.Theme.get()
+    seg.prog = Weave.tween(
+        Weave.computed(function() return seg.target() and 1 or 0 end),
+        { duration = m.motionFast, easing = Weave.easing[m.motionEasing] })
+
+    -- Effect: interpolate the fill alpha between transparent (0) and t.muted (1)
+    -- with prog. Endpoints are cached on self (self._fill) in _applyTheme; the
+    -- effect re-runs each tween tick (prog is tracked). Guarded until the first
+    -- theme pass has cached the colour.
+    seg.fillFx = Weave.effect(function() self:_applyFill(seg) end)
+
+    -- Tweens/effects live on the pooled slot and are cut in Destroy (disposeAll):
+    -- because slots are reused by index (never destroyed+recreated), no effect is
+    -- ever left dangling on a recycled segment — a surplus segment just has its
+    -- state signals driven to false (see _buildItems), so its fill fades to 0.
+    self._effects = self._effects or {}
+    self._effects[#self._effects + 1] = seg.prog
+    self._effects[#self._effects + 1] = seg.fillFx
 
     btn:SetScript("OnClick", function()
         if not self._cfg.disabled then self:_select(seg.value) end
@@ -127,7 +165,7 @@ function ToggleGroup:_buildItems()
     for i, opt in ipairs(opts) do
         local seg = self._segs[i]
         if not seg then
-            seg = self:_makeSegment()
+            seg = self:_makeSegment(opt.value == self._value)
             self._segs[i] = seg
         end
         seg.value = opt.value
@@ -136,10 +174,14 @@ function ToggleGroup:_buildItems()
         seg.btn:Show()
     end
 
-    -- Surplus segments: hide and neutralize (nil value never matches a selection)
+    -- Surplus segments: hide and neutralize (nil value never matches a selection).
+    -- Drive their state signals to false so any in-flight fill tween settles to 0
+    -- and no recycled slot keeps a stale highlight (OnLeave may not fire on hide).
     for i = #opts + 1, #self._segs do
         local seg = self._segs[i]
         seg.value = nil
+        seg.onSig:set(false)
+        seg.hoverSig:set(false)
         seg.btn:Hide()
     end
 
@@ -184,22 +226,36 @@ function ToggleGroup:_select(value)
     if self._cfg.onChange then self._cfg.onChange(self._value) end
 end
 
-function ToggleGroup:_setSegFill(seg)
-    if seg.active or seg.hovering then seg.bg:Show() else seg.bg:Hide() end
+-- Applies the animated fill for one segment: alpha eased between transparent and
+-- t.muted by the segment's prog tween. Called both from the per-segment effect
+-- (each tween tick) and directly from _applyTheme (so a theme change re-applies
+-- the cached endpoint at the CURRENT prog — the effect won't re-fire on a plain
+-- field change, AGENTS §9). Guarded until the first theme pass caches self._fill.
+function ToggleGroup:_applyFill(seg)
+    -- Read the tween FIRST so this effect ALWAYS subscribes to seg.prog, even on its
+    -- first run before _applyTheme has cached self._fill. Guarding before the read
+    -- left the effect tracking nothing (it bailed early), so it never re-ran on later
+    -- prog ticks — selection/hover silently failed to repaint on any page that builds
+    -- segments before the theme pass (static options; a reactive options signal built
+    -- segments AFTER _applyTheme and masked the bug — hence "works in Reactive only").
+    local prog = seg.prog and seg.prog() or 0
+    local c = self._fill
+    if not c then return end
+    local a = lerp(0, 1, prog)
+    seg.bg:SetColorTexture(c.r, c.g, c.b, a)
+    if a <= 0 then seg.bg:Hide() else seg.bg:Show() end
 end
 
 function ToggleGroup:_refresh()
     for i = 1, self._count do
         local seg = self._segs[i]
-        seg.active = (seg.value == self._value)
-        self:_setSegFill(seg)
+        seg.onSig:set(seg.value ~= nil and seg.value == self._value)
     end
 end
 
 function ToggleGroup:_hover(seg, on)
     if self._cfg.disabled then return end
-    seg.hovering = on
-    self:_setSegFill(seg)
+    seg.hoverSig:set(on)
 end
 
 -- ─── Theme ────────────────────────────────────────────────────────────────────
@@ -209,14 +265,19 @@ function ToggleGroup:_applyTheme(t)
     local bc = t.input          -- border-input
     local txt = self._cfg.disabled and t.mutedForeground or t.foreground
 
+    -- Cache the fill endpoint (bg-muted) so the per-segment effect and the
+    -- re-apply below interpolate against the live theme colour (AGENTS §9).
+    self._fill = t.muted
+
     for i = 1, self._count do
         local seg = self._segs[i]
         -- Border (border-input, corner-safe)
         Craft.Theme.AnchorBorder(seg.btn, seg.border[1], seg.border[2], seg.border[3], seg.border[4])
         for _, b in ipairs(seg.border) do b:SetColorTexture(bc.r, bc.g, bc.b, bc.a) end
 
-        -- Fill (bg-muted)
-        seg.bg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 1)
+        -- Fill (bg-muted): re-apply at the segment's CURRENT prog so a theme
+        -- change repaints the highlight without waiting for the next tween tick.
+        self:_applyFill(seg)
 
         -- Text (foreground always; on/off differ only by fill)
         seg.fs:SetFont(t.fontMedium or t.font, FONT_SIZE, "")   -- .cn-toggle font-medium

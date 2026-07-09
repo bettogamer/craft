@@ -3,8 +3,24 @@
 
 require("tests.mock_wow")
 
+-- Load the vendored Weave in its Weave.xml order (Button animates its hover bg
+-- with Weave.tween → hard dep on Weave + Craft.Reactive since the motion tier)
+dofile("Craft/libs/Weave/Weave.lua")
+dofile("Craft/libs/Weave/core/Core.lua")
+dofile("Craft/libs/Weave/core/Reconcile.lua")
+dofile("Craft/libs/Weave/core/Tween.lua")
+dofile("Craft/libs/Weave/wow/Events.lua")
+dofile("Craft/libs/Weave/wow/Props.lua")
+dofile("Craft/libs/Weave/wow/Ticker.lua")
+dofile("Craft/libs/Weave/wow/Anim.lua")
+dofile("Craft/libs/Weave/wow/Promise.lua")
+dofile("Craft/libs/Weave/store/Store.lua")
+dofile("Craft/libs/Weave/ui/Ui.lua")
+dofile("Craft/libs/Weave/ui/Each.lua")
+
 -- Load Craft modules in order
 dofile("Craft/Craft.lua")
+dofile("Craft/Reactive.lua")
 dofile("Craft/theme/Presets.lua")
 dofile("Craft/theme/Theme.lua")
 dofile("Craft/icons/Atlas.lua")
@@ -260,11 +276,14 @@ describe("Craft.Button", function()
     -- ── Hover / active ────────────────────────────────────────────────────
 
     describe("hover and active states", function()
-        it("OnEnter → changes background alpha (default hover = 0.80)", function()
+        it("OnEnter → targets the hover background (default hover alpha = 0.80)", function()
             local btn = newBtn({ variant="default" })
             btn:GetFrame():_fire("OnEnter")
-            local r, g, b, a = btn._bg:GetColorTexture()
-            assert.near(0.80, a, 0.01)
+            -- Hover bg now animates via Weave.tween; the test clock is frozen
+            -- (GetTime()=0) so the painted value can't advance. Assert the hover
+            -- STATE flipped and the resolved hover endpoint (the tween's goal).
+            assert.is_true(btn._hover:peek())
+            assert.near(0.80, btn._bgHover.a, 0.01)
         end)
 
         it("OnLeave → restores the original variant background", function()

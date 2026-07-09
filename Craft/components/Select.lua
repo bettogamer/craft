@@ -151,6 +151,37 @@ function Select:Create(parent, config)
     self._effects[#self._effects + 1] = Weave.bind(self._panel, "shown", shown)
     self._effects[#self._effects + 1] = alpha  -- dispose the tween (effect + driver reg)
 
+    -- ── Pop: zoom-in-95 + slide-in-from-top-2 (shadcn v4 SelectContent popper) ──
+    -- Reuses the SAME alpha tween as a single eased 0→1 progress, so the zoom, the
+    -- slide and the fade share one source / one duration / one curve and land
+    -- together (task: "un solo progreso 0→1"). "scale" and position are not
+    -- built-in Weave props, so a lone effect drives SetScale/SetPoint directly
+    -- (same technique as Dialog's zoom). UI-only — no secret values involved.
+    --   ZOOM  — lerp(motionZoomFrom, 1, prog) is MULTIPLIED onto the container-
+    --           scale compensation (base = triggerEff/uiParentEff, refreshed in
+    --           Open); it never replaces it. Close reverses 1→0.95 for free
+    --           (same progress running backwards).
+    --   SLIDE — the panel opens below the trigger, so its content enters from the
+    --           top: it starts motionSlide px higher (pegged to the trigger) and
+    --           settles at the resting Y. _panelSlideDir flips the sign so a
+    --           future upward-opening panel slides from the bottom instead.
+    -- Safe defaults until Open() refreshes them (panel is hidden at alpha 0 here).
+    self._panelBaseScale = 1
+    self._panelRestY     = -2
+    self._panelSlideDir  = 1
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        local prog = alpha()
+        if type(prog) ~= "number" then return end -- seed/degraded value: skip
+        local m    = self._t or motion
+        local base = self._panelBaseScale or 1
+        -- ZOOM on top of the container-scale compensation (multiply, never replace).
+        self._panel:SetScale(base * (m.motionZoomFrom + (1 - m.motionZoomFrom) * prog))
+        -- SLIDE: motionSlide px toward the anchor side at prog=0, resting at prog=1.
+        local dy = self._panelRestY + m.motionSlide * (1 - prog) * self._panelSlideDir
+        self._panel:ClearAllPoints()
+        self._panel:SetPoint("TOPLEFT", self._trigger, "BOTTOMLEFT", 0, dy)
+    end)
+
     -- ── Trigger scripts ───────────────────────────────────────────────────────
     self._trigger:SetScript("OnEnter", function()
         if not self._cfg.disabled then
@@ -443,17 +474,24 @@ function Select:Open()
     if self._open:peek() or self._cfg.disabled then return end
 
     -- Scale correction: the panel is in UIParent but the trigger may be
-    -- in a container with a different scale (e.g. Craft_Browser at 0.75x)
+    -- in a container with a different scale (e.g. Craft_Browser at 0.75x).
+    -- Store it as the base the pop effect multiplies the zoom onto (the effect
+    -- keeps this compensation intact, it only scales it by lerp(zoom)).
     local triggerEff  = self._trigger:GetEffectiveScale()
     local uiParentEff = UIParent:GetEffectiveScale()
-    self._panel:SetScale(triggerEff / uiParentEff)
+    self._panelBaseScale = triggerEff / uiParentEff
+    self._panel:SetScale(self._panelBaseScale)
 
     -- Update panel width and size (may have changed since _buildItems)
     self:_updatePanelSize()
 
-    -- Anchor the panel below the trigger
+    -- Anchor the panel below the trigger (opens downward → slide-in-from-top).
+    -- The pop effect re-anchors this Y each frame while the fade runs; at rest
+    -- (prog=1) it lands exactly on _panelRestY, matching this anchor.
+    self._panelRestY    = -2
+    self._panelSlideDir = 1
     self._panel:ClearAllPoints()
-    self._panel:SetPoint("TOPLEFT", self._trigger, "BOTTOMLEFT", 0, -2)
+    self._panel:SetPoint("TOPLEFT", self._trigger, "BOTTOMLEFT", 0, self._panelRestY)
 
     -- Scroll to top
     self._scroll:SetVerticalScroll(0)

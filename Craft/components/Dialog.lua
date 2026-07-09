@@ -78,6 +78,16 @@ function Dialog:Create(parent, config)
         Weave.computed(function() return self._open() and 1 or 0 end),
         { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
 
+    -- Scale eases motionZoomFrom(0.95)↔1 in lockstep with the fade (shadcn
+    -- zoom-in-95 / zoom-out-95). SAME source (_open) and SAME duration/easing as
+    -- alpha so the pop and the fade land together. The root frame is anchored via
+    -- CENTER (see SetPoint below), so SetScale grows/shrinks from the center — the
+    -- dialog pops in place instead of drifting. Overlay is fade-only (shadcn
+    -- overlay has no zoom) so it is NOT scaled.
+    local scale = Weave.tween(
+        Weave.computed(function() return self._open() and 1 or motion.motionZoomFrom end),
+        { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
+
     -- Stay visible through the CLOSE fade, then hide once the tween settles.
     local shown = Weave.computed(function()
         return self._open() or alpha:animating()
@@ -89,7 +99,13 @@ function Dialog:Create(parent, config)
     self._effects[#self._effects + 1] = Weave.bind(self.frame,    "shown", shown)
     self._effects[#self._effects + 1] = Weave.bind(self._overlay, "alpha", alpha)
     self._effects[#self._effects + 1] = Weave.bind(self._overlay, "shown", shown)
+    -- Drive SetScale from the tween via an effect ("scale" is not a built-in Weave
+    -- prop; SetScale is a frame-only method with no texture equivalent).
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        self.frame:SetScale(scale())
+    end)
     self._effects[#self._effects + 1] = alpha  -- dispose the tween (effect + driver reg)
+    self._effects[#self._effects + 1] = scale  -- dispose the zoom tween (effect + driver reg)
 
     -- Escape / UISpecialFrames: Blizzard calls frame:Hide() DIRECTLY, bypassing the
     -- signal. Re-sync the state so a later Show() works (idempotent: the signal's

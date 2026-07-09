@@ -3,10 +3,14 @@
 -- Design: shadcn Lyra — .cn-input (h-8, px-2.5, py-1, text-xs, rounded-none, border)
 
 local Craft = LibStub("Craft-2.0")
+local Weave = LibStub("Weave-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Input = {}
 Input.__index = Input
+
+-- Scalar interpolation for the focus-ring fade (idle border → ring color).
+local function lerp(a, b, p) return a + (b - a) * p end
 
 -- ─── Constants ────────────────────────────────────────────────────────────────
 local HEIGHT      = 32    -- h-8
@@ -133,14 +137,14 @@ function Input:Create(parent, config)
     -- ── EditBox scripts ───────────────────────────────────────────────────────
     self._edit:SetScript("OnEditFocusGained", function()
         self._placeholder:Hide()
-        self:_showFocusBorder()
+        self._focused:set(true)   -- tween fades the border → ring (see focus-ring fade)
     end)
 
     self._edit:SetScript("OnEditFocusLost", function()
         if self._edit:GetText() == "" then
             self._placeholder:Show()
         end
-        self:_hideFocusBorder()
+        self._focused:set(false)  -- tween fades the border back → idle
     end)
 
     -- OnTextChanged also fires on programmatic SetText (the reactive bind's
@@ -167,6 +171,26 @@ function Input:Create(parent, config)
             self._cfg.onEnterPressed(editbox:GetText())
         end
     end)
+
+    -- ── Focus-ring fade (Weave.tween) ─────────────────────────────────────────
+    -- shadcn v4 `transition-[color,box-shadow]`: instead of snapping the 4 border
+    -- textures between the idle color and the focus-ring color, ease them. Private
+    -- signal flips in the focus scripts (above); the tween drives an effect that
+    -- lerps each border color between the cached endpoints. Mirrors the Dialog fade.
+    self._focused = Weave.signal(false)
+    local m = Craft.Theme.get()
+    local prog = Weave.tween(
+        Weave.computed(function() return self._focused() and 1 or 0 end),
+        { duration = m.motionFast, easing = Weave.easing[m.motionEasing] })
+    self._prog = prog
+
+    self._effects = self._effects or {}
+    -- Endpoints (self._borderIdle / self._borderFocus) are cached in _applyTheme;
+    -- the first effect run is a no-op until they exist (guarded in _paintBorder).
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        self:_paintBorder(prog())
+    end)
+    self._effects[#self._effects + 1] = prog  -- dispose the tween (effect + driver reg)
 
     -- ── Theme registration ────────────────────────────────────────────────────
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
@@ -197,42 +221,43 @@ function Input:_rightPad()
     return self._cfg.iconTrailing and (PAD_H + ICON_DELTA) or PAD_H
 end
 
--- ─── Focus border (ring over the existing border) ────────────────────────────
--- Shown on OnEditFocusGained and hidden on OnEditFocusLost.
--- Reuses the same 4 border frames by changing their color.
-function Input:_showFocusBorder()
-    local t = self._t
-    if not t then return end
-    local r, g, b, a = t.ring.r, t.ring.g, t.ring.b, t.ring.a or 0.5
+-- ─── Focus-ring fade: endpoints + painter ────────────────────────────────────
+-- The 4 border textures no longer snap between idle and ring; a Weave.tween
+-- (self._prog, driven by self._focused) eases the fade. This effect painter runs
+-- every tick with prog ∈ [0,1] and lerps the border color between the cached
+-- endpoints (self._borderIdle → self._borderFocus).
+function Input:_paintBorder(p)
+    local idle, focus = self._borderIdle, self._borderFocus
+    if not idle or not focus then return end  -- endpoints set in _applyTheme
+    local r = lerp(idle.r, focus.r, p)
+    local g = lerp(idle.g, focus.g, p)
+    local b = lerp(idle.b, focus.b, p)
+    local a = lerp(idle.a, focus.a, p)
     self._borderTop:SetColorTexture(r, g, b, a)
     self._borderBottom:SetColorTexture(r, g, b, a)
     self._borderLeft:SetColorTexture(r, g, b, a)
     self._borderRight:SetColorTexture(r, g, b, a)
 end
 
-function Input:_hideFocusBorder()
-    -- Restore base colors
-    self:_applyBorderColor()
-end
-
--- ─── _applyBorderColor ────────────────────────────────────────────────────────
--- Applies the border color based on the current state (error / default).
+-- ─── _updateBorderEndpoints ───────────────────────────────────────────────────
+-- Recomputes the idle/focus color endpoints from the current state (error /
+-- default) and RE-APPLIES the color at the live tween progress. Called from
+-- _applyTheme (AGENTS §9: a theme change re-applies with the vigente prog, it
+-- must NOT snap the border back to idle mid-fade) and from SetError.
 -- Does NOT call Craft.Theme.get() — uses self._t.
-function Input:_applyBorderColor()
+function Input:_updateBorderEndpoints()
     local t = self._t
     if not t then return end
 
-    local r, g, b, a
     if self._cfg.error then
-        r, g, b, a = t.destructive.r, t.destructive.g, t.destructive.b, 1
+        self._borderIdle = { r = t.destructive.r, g = t.destructive.g, b = t.destructive.b, a = 1 }
     else
         -- border-input (not --border): white @ 0.15, same token as Checkbox / Button outline
-        r, g, b, a = t.input.r, t.input.g, t.input.b, t.input.a
+        self._borderIdle = { r = t.input.r, g = t.input.g, b = t.input.b, a = t.input.a }
     end
-    self._borderTop:SetColorTexture(r, g, b, a)
-    self._borderBottom:SetColorTexture(r, g, b, a)
-    self._borderLeft:SetColorTexture(r, g, b, a)
-    self._borderRight:SetColorTexture(r, g, b, a)
+    self._borderFocus = { r = t.ring.r, g = t.ring.g, b = t.ring.b, a = t.ring.a or 0.5 }
+
+    self:_paintBorder(self._prog and self._prog() or 0)
 end
 
 -- ─── _applyTheme ──────────────────────────────────────────────────────────────
@@ -273,8 +298,8 @@ function Input:_applyTheme(t)
     self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     px1,  -px1)
     self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1,  px1)
 
-    -- Border color
-    self:_applyBorderColor()
+    -- Border color endpoints (re-applies at the live tween progress)
+    self:_updateBorderEndpoints()
 
     -- Update TextInsets for the EditBox (may change when theme is re-applied)
     self._edit:SetTextInsets(self:_leftPad() - px1, self:_rightPad() - px1, 0, 0)
@@ -319,7 +344,7 @@ end
 
 function Input:SetError(hasError)
     self._cfg.error = hasError
-    self:_applyBorderColor()
+    self:_updateBorderEndpoints()
 end
 
 function Input:SetPlaceholder(text)

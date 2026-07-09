@@ -6,6 +6,45 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+> **Paridad de animación con shadcn v4.** Lleva el gesto de shadcn (`zoom-in-95` + `slide-in-from-side`
+> en overlays; `transition-colors` en controles) a los componentes que hasta ahora animaban solo con
+> fade o cambiaban de color de golpe. MINOR, retrocompatible en API pública (key sigue `Craft-2.0`).
+> Verificado contra el `.tsx` real del registry `new-york-v4`. Ver ADR-0013 §4.6.
+
+### Added
+- **Tokens de movimiento para el "pop" de overlays** (`theme/Presets.lua`): `motionZoomFrom` (0.95 —
+  escala de entrada, shadcn `zoom-in-95`) y `motionSlide` (8px — desplazamiento direccional, shadcn
+  `slide-*-2`). Resueltos por los componentes; Theme sigue Weave-agnóstico.
+- **`zoom-in-95` en la familia overlay** (escala 0.95→1.0 en apertura, 1.0→0.95 en cierre, sincronizada
+  con el fade existente): `Craft.Dialog` y `Craft.Window` (pop desde el centro), `Craft.Tooltip` y
+  `Craft.Select` (origen hacia el anchor). En Select el zoom **multiplica** la compensación de escala
+  del contenedor, no la reemplaza.
+- **`slide-in-from-side` en Tooltip y Select**: entran desplazándose ~8px desde el lado del anchor hacia
+  su posición de reposo (Tooltip según su placement vertical; Select desde arriba, con gancho listo para
+  invertir si algún día abre hacia arriba).
+- **Micro-interacciones de color** (`transition-colors`/`transition-all` de shadcn, con `motionFast`;
+  antes eran cambios instantáneos): `Craft.Button` (fondo en hover), `Craft.Input` y `Craft.Textarea`
+  (borde/ring de foco), `Craft.Checkbox` (relleno + borde + alpha del check), `Craft.ToggleGroup`
+  (relleno de hover/selección por segmento), `Craft.RadioGroup` (ring/fill/dot de selección por ítem).
+  Los endpoints se cachean en `_applyTheme` y se re-aplican al progreso vigente en cambios de tema
+  (AGENTS §9). En listas reactivas (ToggleGroup/RadioGroup) los tweens viven en el pool de frames y
+  no dejan efectos colgando al reciclar.
+
+### Changed
+- **`Craft.Section`**: el chevron pasa de un icon-swap discreto (`chevron-down`↔`chevron-up`) a una
+  **rotación continua 0°→180°** que reutiliza el tween `prog` del expand/collapse (shadcn `rotate-180`
+  + `transition-transform duration-200`).
+
+### Fixed
+- **`Craft.Button:Destroy()`** no llamaba a `Craft.Reactive.disposeAll(self)`; ahora sí (necesario para
+  cortar el tween/effect del hover; antes no había estado reactivo que disponer).
+- **`Craft.RadioGroup` / `Craft.ToggleGroup`** (regresión, verificación in-game): la selección no
+  repintaba fuera de la página Reactive — el `Weave.effect` de pintado hacía early-return antes de leer el
+  progreso del tween, así que no se suscribía a nada. Ahora lee `prog()` en la primera línea del painter.
+- **`Craft.Tooltip` con icono** (regresión in-game): se veía en doble fila con alto de una sola línea —
+  `GetStringWidth/Height` medían con el frame a la escala del zoom (`SetScale` idle). Ahora mide a escala
+  1; además, holgura anti-wrap para el flicker de dos líneas al inicio de la animación de aparición.
+
 ## [2.2.0] - 2026-07-08
 
 > Extiende la adopción de `Weave.tween` al **tier de aparición** de componentes. MINOR,

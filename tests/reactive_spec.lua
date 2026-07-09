@@ -216,9 +216,15 @@ end)
 describe("Craft.Checkbox reactive props", function()
 
     it("literal config keeps the classic behavior (incl. indeterminate)", function()
+        -- Checkbox always creates check-fade effects now, so _effects is no longer
+        -- nil. Compare against a baseline (no reactive props) to prove the literal
+        -- config adds no reactive binding on top of the animation.
+        local baseline = Craft.Checkbox:Create(UIParent, {})
+        local n = baseline._effects and #baseline._effects or 0
+        baseline:Destroy()
         local c = Craft.Checkbox:Create(UIParent, { checked = "indeterminate" })
         assert.is_nil(c:GetChecked())
-        assert.is_nil(c._effects)
+        assert.equals(n, c._effects and #c._effects or 0)
         c:Destroy()
     end)
 
@@ -289,9 +295,15 @@ end)
 describe("Craft.Input reactive props", function()
 
     it("literal config keeps the classic behavior", function()
+        -- Input always creates focus-border-fade effects now, so _effects is no
+        -- longer nil. Compare against a baseline (no reactive props) to prove the
+        -- literal config adds no reactive binding on top of the animation.
+        local baseline = Craft.Input:Create(UIParent, {})
+        local n = baseline._effects and #baseline._effects or 0
+        baseline:Destroy()
         local i = Craft.Input:Create(UIParent, { value = "hola" })
         assert.equals("hola", i:GetValue())
-        assert.is_nil(i._effects)
+        assert.equals(n, i._effects and #i._effects or 0)
         i:Destroy()
     end)
 

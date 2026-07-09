@@ -3,6 +3,7 @@
 -- Design: shadcn Lyra — .cn-checkbox, .cn-checkbox-indicator
 
 local Craft = LibStub("Craft-2.0")
+local Weave = LibStub("Weave-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Checkbox = {}
@@ -12,6 +13,9 @@ Checkbox.__index = Checkbox
 local BOX_SIZE   = 16   -- size-4
 local ICON_SIZE  = 14   -- size-3.5 (.cn-checkbox-indicator svg)
 local LABEL_GAP  = 8    -- spacingSm
+
+-- scalar interpolation for the checked↔unchecked fade (fill color + icon alpha)
+local function lerp(a, b, p) return a + (b - a) * p end
 
 -- ─── Create ───────────────────────────────────────────────────────────────────
 function Checkbox:Create(parent, config)
@@ -63,17 +67,18 @@ function Checkbox:Create(parent, config)
     -- _bg: inner background (inset 1px) — BACKGROUND
     self._bg = self._box:CreateTexture(nil, "BACKGROUND")
 
-    -- _check: Lucide "check" icon 14×14 — ARTWORK
+    -- _check: Lucide "check" icon 14×14 — ARTWORK.
+    -- Always Shown; visibility is driven by the animated alpha in _paint (0↔1).
     self._check = self._box:CreateTexture(nil, "ARTWORK")
     self._check:SetSize(ICON_SIZE, ICON_SIZE)
     self._check:SetPoint("CENTER", self._box, "CENTER")
-    self._check:Hide()
+    self._check:SetAlpha(0)
 
-    -- _dash: Lucide "minus" icon for indeterminate state — ARTWORK
+    -- _dash: Lucide "minus" icon for indeterminate state — ARTWORK (same alpha rule)
     self._dash = self._box:CreateTexture(nil, "ARTWORK")
     self._dash:SetSize(ICON_SIZE, ICON_SIZE)
     self._dash:SetPoint("CENTER", self._box, "CENTER")
-    self._dash:Hide()
+    self._dash:SetAlpha(0)
 
     -- ── _label: optional FontString to the right of the box ──────────────────
     self._label = self.frame:CreateFontString(nil, "OVERLAY")
@@ -90,6 +95,33 @@ function Checkbox:Create(parent, config)
             self:_toggle()
         end
     end)
+
+    -- ── Checked/unchecked fade (Weave.tween) — mirrors the Dialog _open fade ──
+    -- shadcn v4 checkbox eases the box fill (input/30 → primary) and the checkmark
+    -- alpha (0 → 1) instead of snapping. The private _checkedSig mirrors the
+    -- tri-state (_cfg.checked) so it can drive the animation; it is written from
+    -- _refreshVisual (the single point where the visual state is recomputed) and is
+    -- NOT a public prop — the two-way user signal (_checkedSignal, above) is separate.
+    self._checkedSig = Weave.signal(self:_stateCode())
+
+    -- prog: 0 when unchecked, 1 when checked OR indeterminate (both are "filled").
+    -- Duration/easing come from the shared motion tokens (same as Dialog) so every
+    -- animated component feels consistent.
+    local motion = Craft.Theme.get()
+    local prog = Weave.tween(
+        Weave.computed(function() return self._checkedSig() ~= "off" and 1 or 0 end),
+        { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
+    self._prog = prog  -- so _applyTheme can re-apply at the live prog after a theme change
+
+    -- Repaint every tick of the tween. The effect also tracks _checkedSig directly
+    -- so a discrete state swap that does NOT move prog (indeterminate↔checked, both
+    -- prog=1) still re-runs the paint and switches the check↔dash glyph.
+    self._effects = self._effects or {}
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        self._checkedSig()      -- track the discrete state (glyph selection)
+        self:_paint(prog())     -- track the tween (fill color + icon alpha)
+    end)
+    self._effects[#self._effects + 1] = prog  -- dispose the tween (effect + driver reg)
 
     -- ── Theme registration ────────────────────────────────────────────────────
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
@@ -139,45 +171,24 @@ function Checkbox:_applyChecked(value)
     self:_refreshVisual()
 end
 
+-- ─── _stateCode ───────────────────────────────────────────────────────────────
+-- Maps the tri-state _cfg.checked to the string the fade signal carries.
+function Checkbox:_stateCode()
+    local c = self._cfg.checked
+    if c == true then return "on" end
+    if c == nil  then return "mixed" end
+    return "off"
+end
+
 -- ─── _refreshVisual ───────────────────────────────────────────────────────────
--- Sincroniza los elementos visuales con _cfg.checked y _cfg.error.
--- NO llama a Craft.Theme.get() — usa self._t cacheado por _applyTheme.
+-- Single point where the visual STATE is recomputed after a toggle/programmatic
+-- change. It only pushes the state into _checkedSig (which drives the fade) and
+-- syncs the non-animated disabled alpha; colors/icon alpha are painted by the
+-- Weave effect (see Create) / _paint. NO Craft.Theme.get() — endpoints live in
+-- self._c cached by _applyTheme.
 function Checkbox:_refreshVisual()
-    local t = self._t
-    if not t then return end
-
-    local checked = self._cfg.checked   -- true | false | nil
-    local hasError = self._cfg.error or false
-
-    -- Border and background based on state
-    if checked == true then
-        -- Checked: bg=primary, border=primary
-        self:_setBorderColor(t.primary.r, t.primary.g, t.primary.b, 1)
-        self._bg:SetColorTexture(t.primary.r, t.primary.g, t.primary.b, 1)
-        self._check:SetVertexColor(t.primaryForeground.r, t.primaryForeground.g, t.primaryForeground.b, 1)
-        self._check:Show()
-        self._dash:Hide()
-
-    elseif checked == nil then
-        -- Indeterminate: bg=primary, border=primary, dash visible
-        self:_setBorderColor(t.primary.r, t.primary.g, t.primary.b, 1)
-        self._bg:SetColorTexture(t.primary.r, t.primary.g, t.primary.b, 1)
-        self._dash:SetVertexColor(t.primaryForeground.r, t.primaryForeground.g, t.primaryForeground.b, 1)
-        self._check:Hide()
-        self._dash:Show()
-
-    else
-        -- Unchecked
-        if hasError then
-            self:_setBorderColor(t.destructive.r, t.destructive.g, t.destructive.b, 1)
-        else
-            -- border-input (not --border): white @ 0.15, same token as Button outline
-            self:_setBorderColor(t.input.r, t.input.g, t.input.b, t.input.a)
-        end
-        -- bg = input/30
-        self._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a * 0.30)
-        self._check:Hide()
-        self._dash:Hide()
+    if self._checkedSig then
+        self._checkedSig:set(self:_stateCode())  -- equality-cut drops no-ops
     end
 
     -- Disabled alpha on the entire root frame
@@ -186,6 +197,46 @@ function Checkbox:_refreshVisual()
     else
         self.frame:SetAlpha(1)
     end
+end
+
+-- ─── _paint ───────────────────────────────────────────────────────────────────
+-- Renders the box for a given progress p in [0,1] (0=unchecked, 1=filled). Reads
+-- the theme endpoints cached in self._c (never Craft.Theme.get()). Called every
+-- tween tick by the effect, and directly by _applyTheme after re-caching endpoints
+-- so a mid-animation theme change re-applies at the current prog (AGENTS §9).
+function Checkbox:_paint(p)
+    local c = self._c
+    if not c then return end
+
+    -- Fill: input/30 (unchecked) → primary (filled)
+    self._bg:SetColorTexture(
+        lerp(c.bgU[1], c.bgC[1], p),
+        lerp(c.bgU[2], c.bgC[2], p),
+        lerp(c.bgU[3], c.bgC[3], p),
+        lerp(c.bgU[4], c.bgC[4], p))
+
+    -- Border: input (or destructive when unchecked+error) → primary
+    local bu = self._cfg.error and c.borErr or c.borU
+    self:_setBorderColor(
+        lerp(bu[1], c.borC[1], p),
+        lerp(bu[2], c.borC[2], p),
+        lerp(bu[3], c.borC[3], p),
+        lerp(bu[4], c.borC[4], p))
+
+    -- Icon: pick the glyph for the current filled state; keep the last one while
+    -- fading OUT (checked==false) so the checkmark eases away instead of snapping.
+    local checked = self._cfg.checked
+    if checked == true then
+        self._lastIcon = "check"
+    elseif checked == nil then
+        self._lastIcon = "dash"
+    end
+    local icon = self._lastIcon or "check"
+    local ic = c.ico
+    self._check:SetVertexColor(ic[1], ic[2], ic[3])
+    self._dash:SetVertexColor(ic[1], ic[2], ic[3])
+    self._check:SetAlpha(icon == "check" and p or 0)
+    self._dash:SetAlpha(icon == "dash"  and p or 0)
 end
 
 -- ─── Helper: color the 4 border textures ─────────────────────────────────────
@@ -221,11 +272,23 @@ function Checkbox:_applyTheme(t)
     Craft.Icons.Apply(self._check, "check", ICON_SIZE)
     Craft.Icons.Apply(self._dash,  "minus", ICON_SIZE)
 
+    -- Cache the fade endpoints from the theme so _paint never calls Theme.get().
+    self._c = {
+        bgU   = { t.input.r, t.input.g, t.input.b, t.input.a * 0.30 },  -- input/30
+        bgC   = { t.primary.r, t.primary.g, t.primary.b, 1 },
+        borU  = { t.input.r, t.input.g, t.input.b, t.input.a },         -- border-input
+        borErr= { t.destructive.r, t.destructive.g, t.destructive.b, 1 },
+        borC  = { t.primary.r, t.primary.g, t.primary.b, 1 },
+        ico   = { t.primaryForeground.r, t.primaryForeground.g, t.primaryForeground.b },
+    }
+
     -- Root frame: minimum width = box; expand if there is a label
     self:_recalcWidth()
 
-    -- Sync colors with the current state
+    -- Sync the state signal (disabled alpha) and RE-APPLY the paint at the current
+    -- prog so a theme change mid-animation repaints with the new endpoints (§9).
     self:_refreshVisual()
+    if self._prog then self:_paint(self._prog:peek()) end
 end
 
 -- ─── _recalcWidth ─────────────────────────────────────────────────────────────

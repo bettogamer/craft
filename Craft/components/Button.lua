@@ -3,6 +3,7 @@
 -- Design: docs/design-reference.md (shadcn Lyra — style-lyra.css)
 
 local Craft = LibStub("Craft-2.0")
+local Weave = LibStub("Weave-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Button = {}
@@ -29,6 +30,10 @@ local SIZES = {
 -- secondary hover (color-mix(--secondary, --foreground 5%)). Derived from tokens
 -- so it stays correct if the palette changes (never hardcode colors — AGENTS.md §6).
 local function mix(a, b, p) return a + p * (b - a) end
+
+-- Linear interpolation for the hover-fade tween (shadcn transition-all): eases each
+-- bg channel from the idle endpoint to the hover endpoint as `p` runs 0→1.
+local function lerp(a, b, p) return a + (b - a) * p end
 
 -- ─── Create ────────────────────────────────────────────────────────────────
 function Button:Create(parent, config)
@@ -75,6 +80,27 @@ function Button:Create(parent, config)
 
     -- Apply initial size
     self:_applySize()
+
+    -- ── Hover fade (Weave.tween) ────────────────────────────────────────────
+    -- shadcn v4 buttons use `transition-all` (~150ms), so the bg eases idle↔hover
+    -- as the pointer enters/leaves instead of snapping. Mirrors the Dialog/Section
+    -- open/close tween pattern: a private signal drives a tween, and an effect
+    -- interpolates the bg colour each frame. Created BEFORE _applyTheme so the theme
+    -- pass can re-apply the current progress with freshly-resolved endpoints.
+    self._hover = Weave.signal(false)  -- private hover state (NOT a public prop)
+    local m = Craft.Theme.get()
+    self._prog = Weave.tween(
+        Weave.computed(function() return self._hover() and 1 or 0 end),
+        { duration = m.motionFast, easing = Weave.easing[m.motionEasing] })
+
+    self._effects = self._effects or {}
+    self._effects[#self._effects + 1] = self._prog  -- dispose the tween (effect + driver reg)
+    -- The effect re-runs each animation frame while prog moves and repaints the bg.
+    -- Endpoints (_bgIdle/_bgHover) are resolved per-variant in _applyTheme; guarded
+    -- until the first theme pass populates them.
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        self:_paintHoverBg(self._prog())
+    end)
 
     -- Register in the theming system and apply initial theme
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
@@ -140,6 +166,20 @@ function Button:_recalcWidth()
     self.frame:SetWidth(intrinsic)
 end
 
+-- ─── Hover bg painter ────────────────────────────────────────────────────
+-- Paints the bg at progress `p` (0 = idle, 1 = hover) by interpolating every
+-- channel (incl. alpha — default/destructive/ghost fade via alpha). Called by the
+-- hover effect each frame and by _applyTheme (re-apply after a theme change).
+function Button:_paintHoverBg(p)
+    local idle, hover = self._bgIdle, self._bgHover
+    if not idle or not hover then return end  -- endpoints not resolved yet (pre-theme)
+    self._bg:SetColorTexture(
+        lerp(idle.r, hover.r, p),
+        lerp(idle.g, hover.g, p),
+        lerp(idle.b, hover.b, p),
+        lerp(idle.a, hover.a, p))
+end
+
 -- ─── Border helper ─────────────────────────────────────────────────────────
 function Button:_setBorderColor(r, g, b, a)
     self._bT:SetColorTexture(r, g, b, a)
@@ -170,45 +210,62 @@ function Button:_applyTheme(t)
 
     -- Colors by variant (dark mode)
     -- Source: docs/components/button.md §"Visual Variants"
+    -- The bg is NOT painted directly here anymore — instead we resolve the idle and
+    -- hover endpoints ({r,g,b,a}) per variant and cache them; the hover tween/effect
+    -- interpolates between them. Border and label colours stay static (only the bg
+    -- animates on hover). Hover alphas from the Lyra CSS (see §"Interaction states").
     if v == "default" then
-        -- bg-primary text-primary-foreground
+        -- bg-primary text-primary-foreground; hover:bg-primary/80
         self:_setBorderColor(0, 0, 0, 0)
-        self._bg:SetColorTexture(t.primary.r, t.primary.g, t.primary.b, 1)
+        self._bgIdle  = { r = t.primary.r, g = t.primary.g, b = t.primary.b, a = 1 }
+        self._bgHover = { r = t.primary.r, g = t.primary.g, b = t.primary.b, a = 0.80 }
         self._label:SetTextColor(t.primaryForeground.r, t.primaryForeground.g, t.primaryForeground.b)
 
     elseif v == "destructive" then
-        -- dark:bg-destructive/20 text-destructive
+        -- dark:bg-destructive/20 text-destructive; hover:bg-destructive/30
         self:_setBorderColor(0, 0, 0, 0)
-        self._bg:SetColorTexture(t.destructive.r, t.destructive.g, t.destructive.b, 0.20)
+        self._bgIdle  = { r = t.destructive.r, g = t.destructive.g, b = t.destructive.b, a = 0.20 }
+        self._bgHover = { r = t.destructive.r, g = t.destructive.g, b = t.destructive.b, a = 0.30 }
         self._label:SetTextColor(t.destructive.r, t.destructive.g, t.destructive.b)
 
     elseif v == "outline" then
-        -- dark:border-input dark:bg-input/30 foreground text
+        -- dark:border-input dark:bg-input/30 foreground text; dark:hover:bg-input/50
         self:_setBorderColor(t.input.r, t.input.g, t.input.b, t.input.a)
-        self._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a * 0.30)
+        self._bgIdle  = { r = t.input.r, g = t.input.g, b = t.input.b, a = t.input.a * 0.30 }
+        self._bgHover = { r = t.input.r, g = t.input.g, b = t.input.b, a = t.input.a * 0.50 }
         self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
 
     elseif v == "secondary" then
         -- bg-secondary text-secondary-foreground
+        -- hover:bg-[color-mix(in oklch, --secondary, --foreground 5%)] — token-derived
         self:_setBorderColor(0, 0, 0, 0)
-        self._bg:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 1)
+        local sec, fg = t.secondary, t.foreground
+        self._bgIdle  = { r = sec.r, g = sec.g, b = sec.b, a = 1 }
+        self._bgHover = { r = mix(sec.r, fg.r, 0.05), g = mix(sec.g, fg.g, 0.05), b = mix(sec.b, fg.b, 0.05), a = 1 }
         self._label:SetTextColor(t.secondaryForeground.r, t.secondaryForeground.g, t.secondaryForeground.b)
 
     elseif v == "ghost" then
-        -- transparent bg, foreground text
+        -- transparent bg, foreground text; dark:hover:bg-muted/50
         self:_setBorderColor(0, 0, 0, 0)
-        self._bg:SetColorTexture(0, 0, 0, 0)
+        self._bgIdle  = { r = 0, g = 0, b = 0, a = 0 }
+        self._bgHover = { r = t.muted.r, g = t.muted.g, b = t.muted.b, a = 0.50 }
         self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
 
     elseif v == "link" then
-        -- transparent bg, primary text
+        -- transparent bg (no hover bg change), primary text; underline on hover
         self:_setBorderColor(0, 0, 0, 0)
-        self._bg:SetColorTexture(0, 0, 0, 0)
+        self._bgIdle  = { r = 0, g = 0, b = 0, a = 0 }
+        self._bgHover = { r = 0, g = 0, b = 0, a = 0 }
         self._label:SetTextColor(t.primary.r, t.primary.g, t.primary.b)
         -- _underline: 1px below the label, primary color
         Craft.Theme.SetPixelHeight(self._underline, 1)
         self._underline:SetColorTexture(t.primary.r, t.primary.g, t.primary.b, 1)
     end
+
+    -- Re-apply the CURRENT hover progress with the freshly-resolved endpoints so a
+    -- theme change mid-hover repaints correctly (AGENTS §9): the effect only re-runs
+    -- when prog MOVES, and a theme change doesn't move it.
+    self:_paintHoverBg(self._prog and self._prog:peek() or 0)
 
     -- Icon: inherits text color via SetVertexColor
     if self._cfg.icon then
@@ -282,31 +339,10 @@ end
 
 function Button:_onEnter()
     if self._cfg.disabled then return end
-    local t = self._t
-    local v = self._cfg.variant
-
-    if v == "default" then
-        self._bg:SetColorTexture(t.primary.r, t.primary.g, t.primary.b, 0.80)
-
-    elseif v == "destructive" then
-        self._bg:SetColorTexture(t.destructive.r, t.destructive.g, t.destructive.b, 0.30)
-
-    elseif v == "outline" then
-        -- dark:hover:bg-input/50
-        self._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a * 0.50)
-        self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
-
-    elseif v == "secondary" then
-        -- hover:bg-[color-mix(in oklch, --secondary, --foreground 5%)] — token-derived
-        local sec, fg = t.secondary, t.foreground
-        self._bg:SetColorTexture(mix(sec.r, fg.r, 0.05), mix(sec.g, fg.g, 0.05), mix(sec.b, fg.b, 0.05), 1)
-
-    elseif v == "ghost" then
-        -- dark:hover:bg-muted/50
-        self._bg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 0.50)
-
-    elseif v == "link" then
-        -- underline appears on hover
+    -- Flip the hover signal; the tween/effect eases the bg from idle → hover.
+    self._hover:set(true)
+    -- link: underline + cursor are instant (no bg fade for link)
+    if self._cfg.variant == "link" then
         self._underline:Show()
         SetCursor("Interface\\CURSOR\\Point")
     end
@@ -314,8 +350,8 @@ end
 
 function Button:_onLeave()
     if self._cfg.disabled then return end
-    -- Restore base colors (delegate to _applyTheme to reuse the logic)
-    self:_applyTheme(self._t)
+    -- Flip the hover signal; the tween/effect eases the bg from hover → idle.
+    self._hover:set(false)
     -- link: hide underline and restore cursor
     if self._cfg.variant == "link" then
         self._underline:Hide()
@@ -375,6 +411,7 @@ end
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Button:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)            -- cut the hover tween + effect (ghost updates)
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil

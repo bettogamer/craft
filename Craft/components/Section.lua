@@ -120,6 +120,14 @@ function Section:Create(parent, config)
         if self._cfg.onToggle then self._cfg.onToggle(self._expanded) end
     end)
 
+    -- Chevron rotation (shadcn v4 `[&[data-state=open]>svg]:rotate-180` + transition-transform
+    -- duration-200): reuse the existing `prog` tween (already 200ms = motionBase, synced to the
+    -- expand/collapse) as the driver. chevron-down base → 0 rad collapsed (points down) → π rad
+    -- expanded (points up). SetRotation rotates the visible atlas quad around its centre.
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        self._chevron:SetRotation(prog() * math.pi)
+    end)
+
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
 
@@ -183,8 +191,14 @@ function Section:Collapse() self:SetExpanded(false) end
 function Section:IsExpanded() return self._expanded end
 
 function Section:_refreshChevron()
-    -- closed → chevron-down ("expand"); open → chevron-up (shadcn rotates 180°)
-    Craft.Icons.Apply(self._chevron, self._expanded and "chevron-up" or "chevron-down", CHEVRON_SZ)
+    -- Single ROTATABLE base icon (shadcn v4 AccordionTrigger): the chevron points DOWN
+    -- when collapsed (0 rad, the "expand" affordance) and rotates a continuous 180° to
+    -- point UP when expanded — driven by the `prog` tween in Create (rotation = prog*π,
+    -- 200ms = duration-200). We keep chevron-down as the base so 0 rad = natural collapsed
+    -- orientation and π rad = shadcn's `rotate-180`. Apply() only sets texture/texcoords/
+    -- size; it does NOT touch the rotation set by SetRotation, so re-applying (theme change)
+    -- is safe mid-rotation.
+    Craft.Icons.Apply(self._chevron, "chevron-down", CHEVRON_SZ)
     if self._t then
         local c = self._t.mutedForeground
         self._chevron:SetVertexColor(c.r, c.g, c.b, 1)

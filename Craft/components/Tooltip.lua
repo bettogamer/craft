@@ -32,6 +32,7 @@ local PAD_V     = 6
 local ICON_GAP  = 6
 local FONT_SIZE = 12
 local OFFSET    = 4   -- pixels between anchor and tooltip
+local WRAP_SLACK = 2  -- px of text-box headroom so the zoom animation never re-wraps single-line text
 
 -- ─── Singleton frame ───────────────────────────────────────────────────────
 local _tooltip       = nil   -- the shared Frame, created lazily
@@ -82,14 +83,48 @@ local function _getTooltipFrame()
         return _visible() or alpha:animating()
     end)
 
-    -- Bind alpha + shown to the singleton frame. Handles are stashed ON the frame
-    -- (which lives forever) so the reactive graph is never GC'd. shown starts false
-    -- (_visible=false, alpha=0 idle) → the frame stays hidden as before.
+    -- ── zoom-in-95 + slide-in-from-{side} (shadcn v4) ────────────────────────
+    -- Both derive from the SAME progress as the fade: alpha() eases 0→1, so we
+    -- reuse it directly as the progress source (no new tweens, same duration/
+    -- easing). SCALE lerps motionZoomFrom→1.0; SLIDE eases motionSlide→0 px along
+    -- the anchor-facing axis. On fade-OUT alpha reverses 1→0, so both mirror the
+    -- fade automatically; a fast re-enter re-targets in place (alpha re-targets,
+    -- these just read it — no extra logic). UI-only, never a secret value.
+    local zoomFrom = motion.motionZoomFrom
+    local slidePx  = motion.motionSlide
+    local function lerp(a, b, p) return a + (b - a) * p end
+
+    -- SCALE: SetScale pivots around the frame's anchored point, which _position-
+    -- Tooltip sets to the edge facing the anchor (BOTTOM when above / TOP when
+    -- below). So the zoom origin points at the anchor, matching shadcn's
+    -- directional origin — no manual pivot maths needed.
+    local scaleFx = Weave.effect(function()
+        _tooltip:SetScale(lerp(zoomFrom, 1, alpha()))
+    end)
+
+    -- SLIDE: _positionTooltip stashes the resting SetPoint + a sign in _slide.
+    -- The tooltip starts slidePx closer to the anchor (sign points toward it) and
+    -- eases out to its resting Y as prog→1: y = baseY + slidePx*(1-prog)*sign.
+    local slideFx = Weave.effect(function()
+        local sl   = _tooltip._slide
+        local prog = alpha()
+        if not sl then return end
+        local off = slidePx * (1 - prog) * sl.sign
+        _tooltip:ClearAllPoints()
+        _tooltip:SetPoint(sl.point, sl.anchor, sl.relPoint, sl.x, sl.baseY + off)
+    end)
+
+    -- Bind alpha + shown to the singleton frame, plus the derived scale/slide
+    -- effects. Handles are stashed ON the frame (which lives forever) so the
+    -- reactive graph is never GC'd. shown starts false (_visible=false, alpha=0
+    -- idle) → the frame stays hidden as before.
     _tooltip._fade = {
         alpha = alpha,
         shown = shown,
         Weave.bind(_tooltip, "alpha", alpha),
         Weave.bind(_tooltip, "shown", shown),
+        scaleFx,
+        slideFx,
     }
 
     -- Register global theme listener (once, never unregistered — singleton lives forever)
@@ -150,8 +185,16 @@ local function _layoutTooltip(config)
     local textW = math.min(f._text:GetStringWidth(), textMaxW)
     local textH = f._text:GetStringHeight()
 
+    -- Wrap-safety slack: the frame zooms (SetScale) during the appear animation, and
+    -- WoW re-wraps text on the pixel grid at intermediate scales — a box sized to the
+    -- EXACT measured width flips to a 2nd line for a few frames (visible as "2 lines
+    -- at 1-line height" flicker) until the zoom settles at 1.0. A couple px of slack
+    -- keeps single-line text on one line at any scale. Clamped to textMaxW so text
+    -- that legitimately wraps (textW == textMaxW) is unaffected.
+    local dispW = math.min(textW + WRAP_SLACK, textMaxW)
+
     -- Frame size
-    local totalW = math.min(maxW, math.max(PAD_H * 2 + iconRoom + textW, 32))
+    local totalW = math.min(maxW, math.max(PAD_H * 2 + iconRoom + dispW, 32))
     local totalH = PAD_V * 2 + textH
     f:SetSize(totalW, totalH)
 
@@ -163,10 +206,10 @@ local function _layoutTooltip(config)
         Craft.Icons.Apply(f._icon, icon, FONT_SIZE)
         f._icon:SetSize(FONT_SIZE, FONT_SIZE)
 
-        -- Shrink the text box to the measured width. It was widened to textMaxW for
-        -- measurement; with a single TOPLEFT anchor (icon case) a wide box would leave
-        -- the short text floating away from the icon (visible gap).
-        f._text:SetWidth(textW)
+        -- Shrink the text box to the measured width (+ wrap slack). It was widened to
+        -- textMaxW for measurement; with a single TOPLEFT anchor (icon case) a wide box
+        -- would leave the short text floating away from the icon (visible gap).
+        f._text:SetWidth(dispW)
 
         -- Icon: left side, vertically centered (single-line: PAD_V offset from top)
         f._icon:SetPoint("TOPLEFT", f, "TOPLEFT", PAD_H, -(PAD_V + (textH - FONT_SIZE) / 2))
@@ -195,11 +238,21 @@ local function _positionTooltip(anchor)
     local tipH      = f:GetHeight()
 
     if anchorTop - tipH - OFFSET >= 0 then
-        -- Enough room above: BOTTOM of tooltip → TOP of anchor + OFFSET
+        -- Enough room above: BOTTOM of tooltip → TOP of anchor + OFFSET.
+        -- Tooltip sits ABOVE the anchor (side=top) → shadcn slide-in-from-bottom:
+        -- it enters from below (toward the anchor). Start slidePx lower (sign=-1)
+        -- and rise to rest. Anchored at BOTTOM → zoom origin faces the anchor.
         f:SetPoint("BOTTOM", anchor, "TOP", 0, OFFSET)
+        f._slide = { point = "BOTTOM", anchor = anchor, relPoint = "TOP",
+                     x = 0, baseY = OFFSET, sign = -1 }
     else
-        -- Not enough room above: TOP of tooltip → BOTTOM of anchor - OFFSET
+        -- Not enough room above: TOP of tooltip → BOTTOM of anchor - OFFSET.
+        -- Tooltip sits BELOW the anchor (side=bottom) → shadcn slide-in-from-top:
+        -- it enters from above (toward the anchor). Start slidePx higher (sign=+1)
+        -- and descend to rest. Anchored at TOP → zoom origin faces the anchor.
         f:SetPoint("TOP", anchor, "BOTTOM", 0, -OFFSET)
+        f._slide = { point = "TOP", anchor = anchor, relPoint = "BOTTOM",
+                     x = 0, baseY = -OFFSET, sign = 1 }
     end
 end
 
@@ -212,6 +265,14 @@ local _pendingTimer  = nil  -- C_Timer handle, cancellable via :Cancel()
 function TT.Show(anchor, config)
     config = config or {}
     _getTooltipFrame()  -- lazily creates the frame + fade signal on first show
+
+    -- Measure/size at scale 1. The zoom effect parks the idle frame at motionZoomFrom
+    -- (0.95); WoW's GetStringWidth/GetStringHeight scale with the frame's effective
+    -- scale, so measuring at 0.95 undersizes the text box → the icon-case SetWidth
+    -- clips a word onto a 2nd row while the height was computed for one line. Reset
+    -- to 1 before layout; the alpha tick right after _visible:set(true) re-applies
+    -- the zoom (frame is still ~invisible then, so there is no visible pop-jump).
+    _tooltip:SetScale(1)
 
     _layoutTooltip(config)
     _positionTooltip(anchor)
