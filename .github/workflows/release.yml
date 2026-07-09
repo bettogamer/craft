@@ -9,6 +9,11 @@ jobs:
   release:
     name: Package and release
     runs-on: ubuntu-latest
+    # softprops/action-gh-release crea el GitHub Release vía la API → el GITHUB_TOKEN
+    # necesita contents:write. Sin este bloque toma el default del repo (read-only en
+    # repos nuevos) → 403 "Resource not accessible by integration" al crear el release.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
