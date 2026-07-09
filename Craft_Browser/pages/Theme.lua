@@ -1,8 +1,17 @@
 CraftBrowserPages = CraftBrowserPages or {}
 
+-- Selección de ejes viva entre re-renders (cada cambio re-navega a "Theme" para
+-- refrescar la tabla de swatches; esta tabla persiste la elección). Default =
+-- config MVP activa: Lyra · Neutral · Emerald · Inter (= preset `lyra-dark`).
+local _sel = { style = "lyra", base = "neutral", accent = "emerald", font = "inter" }
+
+local function titleCase(s)
+    return (s:gsub("^%l", string.upper))
+end
+
 CraftBrowserPages["Theme"] = {
     title = "Theme",
-    desc  = "Tabla de tokens de color del tema activo",
+    desc  = "Ejes componibles (Style · Base · Accent · Font) + tabla de tokens del tema activo",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -20,7 +29,58 @@ CraftBrowserPages["Theme"] = {
             return yOff + 20
         end
 
-        -- Tokens a mostrar
+        -- ─── Selectores de eje ──────────────────────────────────────────────
+        local axisOpts = Craft.Theme.getAxisOptions()
+
+        local function addAxisSelect(axis, label, yOff)
+            local names = axisOpts[axis] or {}
+            local opts = {}
+            for _, name in ipairs(names) do
+                opts[#opts + 1] = { value = name, label = titleCase(name) }
+            end
+
+            local cap = Craft.Label:Create(parent, {
+                text  = label,
+                color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+            })
+            cap:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(yOff + 8))
+            cap:GetFrame():SetWidth(80)
+            cap:GetFrame():SetHeight(14)
+            table.insert(comps, cap)
+
+            local sel = Craft.Select:Create(parent, {
+                options  = opts,
+                value    = _sel[axis],
+                onSelect = function(v)
+                    _sel[axis] = v
+                    Craft.Theme.use(Craft.Theme.build({
+                        style  = _sel.style,
+                        base   = _sel.base,
+                        accent = _sel.accent,
+                        font   = _sel.font,
+                    }))
+                    -- Diferido: no destruir este Select dentro de su propio OnClick.
+                    -- Theme.use ya repintó los componentes vivos; el re-navigate
+                    -- refresca la tabla de swatches (Textures crudas, no listeners).
+                    C_Timer.After(0, function() CraftBrowser.Navigate("Theme") end)
+                end,
+            })
+            sel:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 104, -yOff)
+            sel:GetFrame():SetWidth(220)
+            table.insert(comps, sel)
+
+            return yOff + 44
+        end
+
+        y = addLabel("Composición del tema (cambio en vivo)", y)
+        y = addAxisSelect("style",  "Style",  y)
+        y = addAxisSelect("base",   "Base",   y)
+        y = addAxisSelect("accent", "Accent", y)
+        y = addAxisSelect("font",   "Font",   y)
+
+        y = y + 8
+
+        -- ─── Tabla de tokens del tema activo ────────────────────────────────
         local tokens = {
             { name="background",        color=t.background        },
             { name="foreground",        color=t.foreground        },

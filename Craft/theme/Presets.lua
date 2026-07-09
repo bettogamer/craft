@@ -135,6 +135,31 @@ CraftThemeAxes.base = {
         sidebarBorder           = {r=1.000, g=1.000, b=1.000, a=0.100},
         sidebarRing             = {r=0.473, g=0.442, b=0.420, a=1},
     },
+    -- Mist — grises fríos con hue cian/teal (más saturado que zinc). ui.shadcn.com/create
+    -- (Lyra, dark, Base=Mist). secondary/secondaryForeground conservan el zinc-800 del CSS.
+    mist = {
+        background              = {r=0.036, g=0.043, b=0.047, a=1},   -- oklch(0.148 0.004 228.8)
+        foreground              = {r=0.977, g=0.985, b=0.985, a=1},   -- oklch(0.987 0.002 197.1)
+        card                    = {r=0.087, g=0.106, b=0.113, a=1},   -- oklch(0.218 0.008 223.9)
+        cardForeground          = {r=0.977, g=0.985, b=0.985, a=1},
+        popover                 = {r=0.087, g=0.106, b=0.113, a=1},   -- oklch(0.218 0.008 223.9)
+        popoverForeground       = {r=0.977, g=0.985, b=0.985, a=1},
+        secondary               = {r=0.153, g=0.153, b=0.166, a=1},   -- oklch(0.274 0.006 286.033)
+        secondaryForeground     = {r=0.980, g=0.980, b=0.980, a=1},
+        muted                   = {r=0.132, g=0.161, b=0.169, a=1},   -- oklch(0.275 0.011 216.9)
+        mutedForeground         = {r=0.612, g=0.659, b=0.670, a=1},   -- oklch(0.723 0.014 214.4)
+        accent                  = {r=0.132, g=0.161, b=0.169, a=1},   -- oklch(0.275 0.011 216.9)
+        accentForeground        = {r=0.977, g=0.985, b=0.985, a=1},
+        border                  = {r=1.000, g=1.000, b=1.000, a=0.100},
+        input                   = {r=1.000, g=1.000, b=1.000, a=0.150},
+        ring                    = {r=0.404, g=0.470, b=0.486, a=1},   -- oklch(0.56 0.021 213.5)
+        sidebar                 = {r=0.087, g=0.106, b=0.113, a=1},   -- oklch(0.218 0.008 223.9)
+        sidebarForeground       = {r=0.977, g=0.985, b=0.985, a=1},
+        sidebarAccent           = {r=0.132, g=0.161, b=0.169, a=1},   -- oklch(0.275 0.011 216.9)
+        sidebarAccentForeground = {r=0.977, g=0.985, b=0.985, a=1},
+        sidebarBorder           = {r=1.000, g=1.000, b=1.000, a=0.100},
+        sidebarRing             = {r=0.404, g=0.470, b=0.486, a=1},
+    },
 }
 
 -- ─── Eje Theme / accent ──────────────────────────────────────────────────────
@@ -164,6 +189,13 @@ CraftThemeAxes.accent = {
         primaryForeground        = {r=1.000, g=0.969, b=0.929, a=1},  -- oklch(0.98 0.016 73.684)
         sidebarPrimary           = {r=1.000, g=0.411, b=0.000, a=1},  -- oklch(0.705 0.213 47.604)
         sidebarPrimaryForeground = {r=1.000, g=0.969, b=0.929, a=1},
+    },
+    -- Cyan — ui.shadcn.com/create (Lyra, dark, Theme=Cyan). primary b<1 (dentro de gamut).
+    cyan = {
+        primary                  = {r=0.000, g=0.371, b=0.471, a=1},  -- oklch(0.45 0.085 224.283)
+        primaryForeground        = {r=0.925, g=0.996, b=1.000, a=1},  -- oklch(0.984 0.019 200.873)
+        sidebarPrimary           = {r=0.000, g=0.722, b=0.857, a=1},  -- oklch(0.715 0.143 215.221)
+        sidebarPrimaryForeground = {r=0.021, g=0.201, b=0.270, a=1},  -- oklch(0.302 0.056 229.695)
     },
 }
 

@@ -6,12 +6,26 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+> **Theming multi-eje (ADR-0014).** Un tema resuelto pasa a ser la composición de ejes ortogonales
+> —**Style · Base Color · Accent · Font**— en `CraftThemeAxes` (`theme/Presets.lua`). Cada eje es solo
+> dato: añadir un base color, un accent o una fuente es agregar una entrada, **sin tocar componentes**.
+> `lyra-dark` = `compose{}` (Lyra · Neutral · Emerald · Inter) y su paridad la fija `tests/theme_spec.lua`.
+> MINOR, retrocompatible (key sigue `Craft-2.0`).
+>
 > **Paridad de animación con shadcn v4.** Lleva el gesto de shadcn (`zoom-in-95` + `slide-in-from-side`
 > en overlays; `transition-colors` en controles) a los componentes que hasta ahora animaban solo con
 > fade o cambiaban de color de golpe. MINOR, retrocompatible en API pública (key sigue `Craft-2.0`).
 > Verificado contra el `.tsx` real del registry `new-york-v4`. Ver ADR-0013 §4.6.
 
 ### Added
+- **Ejes de tema componibles** (`CraftThemeAxes` + `Craft.Theme.build{ style=, base=, accent=, font= }`
+  y `Craft.Theme.getAxisOptions()`): componen la tabla de tokens plana desde capas ortogonales. Los ejes
+  son disjuntos (sin colisión de claves); un nombre desconocido cae al default con aviso. Ver ADR-0014.
+- **Base colors** (grises neutrales, eje `base`): `zinc` (fríos, hue azul), `stone` (cálidos, hue marrón)
+  y `mist` (fríos, hue cian/teal). Se suman al MVP `neutral`. Valores del create tool de shadcn (Lyra,
+  dark) convertidos OKLCH→sRGB vía `/update-design-tokens base=<nombre>`.
+- **Accents** (primary + sidebarPrimary, eje `accent`): `blue`, `orange` y `cyan`. Se suman al MVP
+  `emerald`. Mismo pipeline (`/update-design-tokens accent=<nombre>`).
 - **Tokens de movimiento para el "pop" de overlays** (`theme/Presets.lua`): `motionZoomFrom` (0.95 —
   escala de entrada, shadcn `zoom-in-95`) y `motionSlide` (8px — desplazamiento direccional, shadcn
   `slide-*-2`). Resueltos por los componentes; Theme sigue Weave-agnóstico.
