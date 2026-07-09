@@ -69,6 +69,17 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   1; además, holgura anti-wrap para el flicker de dos líneas al inicio de la animación de aparición.
 - **`Craft.Scroll`**: el rail (track) se dibujaba siempre, también cuando el contenido cabía. Ahora se
   oculta el scrollbar completo (rail + thumb) cuando `childH <= viewH`.
+- **`Craft.Theme.AnchorBorder` — esquinas con hueco/solape**: los bordes izq/der se inseteaban por un valor
+  calculado (`px(1)`) que no coincidía con el grosor que PixelUtil fija para las tiras sup/inf; en elementos
+  chicos (checkbox 16px) los dos redondeos divergían → esquinas con hueco o solape. Ahora izq/der se anclan
+  EXACTAMENTE entre las tiras sup/inf (a las propias texturas), así el marco cierra perfecto sea cual sea el
+  snapping. Mejora todos los componentes con borde (Button/Input/Textarea/Checkbox/…).
+- **`Craft.Checkbox` — bordes con línea fantasma/fuera de sitio**: (1) las 4 texturas de borde estaban en la
+  capa `"BACKGROUND"`, la misma que el `_bg`, que al crearse después se dibujaba ENCIMA del borde → pasan a
+  `"BORDER"` (encima del `_bg`, como `Craft.Button`). (2) el `_bg` se inseteaba `px(1)`, dejando un anillo
+  oscuro entre relleno y borde cuando el inset no calzaba con el grosor pixel-perfect → ahora el `_bg` rellena
+  TODO el box y el borde dibuja el anillo encima (sin hueco posible). Combinado con el fix de esquinas de
+  `AnchorBorder`, el box de 16px queda limpio.
 - **`Craft.Separator` perdía su posición del caller al cambiar de tema**: `_applyTheme` llamaba a
   `_applyOrientation`, que hace `ClearAllPoints()` + re-ancla al parent (LEFT/RIGHT o TOP/BOTTOM). Eso
   BORRABA cualquier anclaje que el caller hubiera fijado tras `Create` (p. ej. el separator del header del

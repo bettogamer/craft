@@ -58,14 +58,19 @@ function Checkbox:Create(parent, config)
     self._box:SetSize(BOX_SIZE, BOX_SIZE)
     self._box:SetPoint("LEFT", self.frame, "LEFT", 0, 0)
 
-    -- _border: 4 texturas de 1px — top, bottom, left, right
-    self._borderTop    = self._box:CreateTexture(nil, "BACKGROUND")
-    self._borderBottom = self._box:CreateTexture(nil, "BACKGROUND")
-    self._borderLeft   = self._box:CreateTexture(nil, "BACKGROUND")
-    self._borderRight  = self._box:CreateTexture(nil, "BACKGROUND")
-
-    -- _bg: inner background (inset 1px) — BACKGROUND
+    -- _bg: inner background (inset 1px) — BACKGROUND (debe crearse ANTES que los
+    -- bordes y estar en una capa POR DEBAJO, si no el bg tapa el borde).
     self._bg = self._box:CreateTexture(nil, "BACKGROUND")
+
+    -- _border: 4 texturas de 1px — top, bottom, left, right. En capa "BORDER"
+    -- (ENCIMA de _bg, como Craft.Button). Antes estaban en "BACKGROUND" igual que
+    -- _bg: al compartir capa, el bg (creado después) se dibujaba sobre el borde y,
+    -- como su inset px1 no calza exacto con el grosor pixel-perfect del borde,
+    -- dejaba una línea fantasma/borde tapado — muy visible en el box de 16px.
+    self._borderTop    = self._box:CreateTexture(nil, "BORDER")
+    self._borderBottom = self._box:CreateTexture(nil, "BORDER")
+    self._borderLeft   = self._box:CreateTexture(nil, "BORDER")
+    self._borderRight  = self._box:CreateTexture(nil, "BORDER")
 
     -- _check: Lucide "check" icon 14×14 — ARTWORK.
     -- Always Shown; visibility is driven by the animated alpha in _paint (0↔1).
@@ -259,14 +264,16 @@ function Checkbox:_applyTheme(t)
         self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
     end
 
-    -- Border pixel-perfect (4 textures of 1px, corner-safe)
+    -- Border pixel-perfect (4 tiras de 1px, esquinas cerradas por AnchorBorder).
+    -- Van en capa "BORDER", ENCIMA del _bg.
     Craft.Theme.AnchorBorder(self._box, self._borderTop, self._borderBottom,
                              self._borderLeft, self._borderRight)
 
-    -- _bg inset 1 px
-    local px1 = Craft.Theme.px(1, self._box)
-    self._bg:SetPoint("TOPLEFT",     self._box, "TOPLEFT",     px1,  -px1)
-    self._bg:SetPoint("BOTTOMRIGHT", self._box, "BOTTOMRIGHT", -px1,  px1)
+    -- _bg: rellena TODO el box (no inset). El borde (capa BORDER) dibuja el anillo
+    -- de 1px encima. Antes el _bg se inseteaba `px1` y ese inset no calzaba con el
+    -- grosor pixel-perfect del borde → quedaba un anillo oscuro (hueco) entre relleno
+    -- y borde, glaring en el box de 16px. Con _bg completo no hay hueco posible.
+    self._bg:SetAllPoints(self._box)
 
     -- Lucide icons (display size = ICON_SIZE; the supersampled atlas downscales)
     Craft.Icons.Apply(self._check, "check", ICON_SIZE)

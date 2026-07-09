@@ -231,8 +231,7 @@ end
 -- alpha there — visible as darker corner dots. Sets geometry only; the caller
 -- colors the textures (SetColorTexture) so it works for any border token/state.
 function T.AnchorBorder(frame, top, bottom, left, right)
-    local p = T.px(1, frame)
-
+    -- top/bottom: tiras horizontales de 1px que OCUPAN las esquinas (ancho completo).
     top:ClearAllPoints()
     top:SetPoint("TOPLEFT",  frame, "TOPLEFT",  0, 0)
     top:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
@@ -243,14 +242,19 @@ function T.AnchorBorder(frame, top, bottom, left, right)
     bottom:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
     T.SetPixelHeight(bottom, 1)
 
+    -- left/right: rellenan EXACTAMENTE el hueco entre las tiras sup/inf, anclándose a
+    -- ellas (no a un inset calculado `px(1)`). Antes el inset se calculaba aparte del
+    -- grosor pixel-perfect (que fija PixelUtil), y en elementos chicos (checkbox 16px)
+    -- los dos redondeos no coincidían → huecos/solapes en las esquinas. Anclar a las
+    -- propias tiras garantiza esquinas perfectas sea cual sea el snapping del grosor.
     left:ClearAllPoints()
-    left:SetPoint("TOPLEFT",    frame, "TOPLEFT",    0, -p)
-    left:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0,  p)
+    left:SetPoint("TOPLEFT",    top,    "BOTTOMLEFT", 0, 0)
+    left:SetPoint("BOTTOMLEFT", bottom, "TOPLEFT",    0, 0)
     T.SetPixelWidth(left, 1)
 
     right:ClearAllPoints()
-    right:SetPoint("TOPRIGHT",    frame, "TOPRIGHT",    0, -p)
-    right:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0,  p)
+    right:SetPoint("TOPRIGHT",    top,    "BOTTOMRIGHT", 0, 0)
+    right:SetPoint("BOTTOMRIGHT", bottom, "TOPRIGHT",    0, 0)
     T.SetPixelWidth(right, 1)
 end
 
