@@ -137,6 +137,17 @@ Craft.Theme.use(Craft.Theme.build{ font = "accidental", headingFont = "accidenta
 Craft.Theme.use(Craft.Theme.build{ font = { font = path, fontMedium = path, fontBold = path } })
 ```
 
+### Ejemplo: usar la fuente del juego (la que cambia ElvUI)
+
+`STANDARD_TEXT_FONT` es el global de WoW para la fuente estándar de la UI; ElvUI y otros
+lo **sobreescriben** para cambiar la fuente de todo el juego. Craft solo lee ese global
+(no depende de ElvUI):
+
+```lua
+Craft.Theme.registerFont("system", { font = STANDARD_TEXT_FONT })
+Craft.Theme.use(Craft.Theme.build{ font = "system", headingFont = "system" })
+```
+
 ### Añadir una opción nueva a un eje
 
 Para añadir una nueva paleta base (p. ej. `slate`), una nuevo accent (p. ej. `purple`), o una nueva

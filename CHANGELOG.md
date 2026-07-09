@@ -42,6 +42,9 @@ Versioning: [SemVer](https://semver.org/lang/es/)
     nombre (`font = { font=<path>, fontMedium=<path>, fontBold=<path> }`). `Craft.Theme.registerFont(name,
     paths)` registra una familia en runtime (en los ejes `font` y `headingFont`, visible en `getAxisOptions`).
     Craft sigue **sin depender de LibSharedMedia**: el consumidor resuelve el path (`LSM:Fetch`) y lo pasa.
+    Cubre también usar la **fuente del juego** (`STANDARD_TEXT_FONT`, el global que ElvUI y otros
+    sobreescriben) → `registerFont("system", { font = STANDARD_TEXT_FONT })`. Demos (color de clase, outline,
+    font del juego) en la página Theme del Browser.
   - **Fase 3 — font outline**: token global `fontFlags` en el eje Style (`""`/`OUTLINE`/`THICKOUTLINE`/
     `MONOCHROME`, default `""` = sin contorno). `Craft.Theme.applyFont(fs, path, size)` es ahora el punto
     único de aplicación de fuente (aplica `fontFlags`); los 32 `SetFont` de los componentes se migraron a él.

@@ -126,6 +126,23 @@ CraftBrowserPages["Theme"] = {
         })
         outlineBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 210, -(y + 8))
         table.insert(comps, outlineBtn)
+        y = y + 40
+
+        -- Demo ADR-0015 Fase 2: usar la fuente del JUEGO (STANDARD_TEXT_FONT, el global
+        -- que ElvUI y otros sobreescriben). Se registra como familia "system" (aparece
+        -- en los selects Font/Heading) y se selecciona. Craft solo lee un global de WoW.
+        local sysBtn = Craft.Button:Create(parent, {
+            text    = "Usar font del juego (STANDARD_TEXT_FONT)",
+            variant = (_sel.font == "system") and "default" or "outline",
+            onClick = function()
+                Craft.Theme.registerFont("system", { font = STANDARD_TEXT_FONT })
+                _sel.font        = "system"
+                _sel.headingFont = "system"
+                applySel()
+            end,
+        })
+        sysBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(y + 8))
+        table.insert(comps, sysBtn)
         y = y + 44
 
         -- ─── Tabla de tokens del tema activo ────────────────────────────────

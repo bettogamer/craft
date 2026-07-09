@@ -30,6 +30,8 @@ globals = {
     -- Player/class info (used by consumers to feed Craft.Theme; ADR-0015 demo)
     "UnitClass",
     "RAID_CLASS_COLORS",
+    -- Font global del juego (ElvUI y otros lo sobreescriben; ADR-0015 demo)
+    "STANDARD_TEXT_FONT",
     -- Native color picker (Craft.ColorSwatch wraps it; mutated pre-Dragonflight style)
     "ColorPickerFrame",
     "OpacitySliderFrame",
