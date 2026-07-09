@@ -62,6 +62,7 @@ local function makeFrame(frameType, name, parent)
         _text       = "",
         _font       = nil,
         _fontSize   = 12,
+        _fontFlags  = nil,
         _vertexColor= { r=1, g=1, b=1, a=1 },
         _texCoords  = { 0, 1, 0, 1 },
         _texture    = nil,
@@ -163,8 +164,8 @@ local function makeFrame(frameType, name, parent)
     function f:SetDrawLayer(...)    end
 
     -- FontString methods
-    function f:SetFont(path, size, flags) self._font = path; self._fontSize = size end
-    function f:GetFont()                  return self._font, self._fontSize end
+    function f:SetFont(path, size, flags) self._font = path; self._fontSize = size; self._fontFlags = flags end
+    function f:GetFont()                  return self._font, self._fontSize, self._fontFlags end
     function f:SetText(t)
         -- Real WoW errors "FontString:SetText(): Font not set" when a FontString has no
         -- font yet. Mirror it so headless tests catch SetText-before-SetFont ordering bugs

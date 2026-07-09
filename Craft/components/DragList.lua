@@ -245,7 +245,7 @@ function DragList:_applyTheme(t)
         row.divider:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
         row.dragBg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 1)
         if row.fs then
-            row.fs:SetFont(t.font, FONT_SIZE, "")   -- font BEFORE SetText (see _build)
+            Craft.Theme.applyFont(row.fs, t.font, FONT_SIZE)   -- font BEFORE SetText (see _build)
             row.fs:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
             row.fs:SetText(row.labelText or "")
         end

@@ -35,6 +35,13 @@ describe("Craft.Label", function()
         assert.is_not_nil(fontOf(lbl):match("Inter%-Medium%.ttf$"))
     end)
 
+    it("hereda el fontFlags (outline) del tema vía applyFont (ADR-0015 Fase 3)", function()
+        Craft.Theme.use(Craft.Theme.build({ overrides = { fontFlags = "OUTLINE" } }))
+        local lbl = Craft.Label:Create(UIParent, { text = "Hi" })
+        assert.equals("OUTLINE", select(3, lbl._text:GetFont()))
+        Craft.Theme.use("lyra-dark")
+    end)
+
     -- Regresión (bug del header del Browser): antes el peso se pokeaba con
     -- _text:SetFont DESPUÉS de Create y un cambio de tema en runtime lo pisaba
     -- con regular/12. Ahora vive en _applyTheme → sobrevive y re-resuelve la familia.

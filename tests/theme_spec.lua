@@ -160,6 +160,25 @@ describe("Theme axes (ADR-0014)", function()
         assert.equals(0.4, a.sidebarPrimaryForeground.b)
     end)
 
+    it("fontFlags default = '' (sin outline — fiel a shadcn)", function()
+        assert.equals("", Craft.Theme.build({}).fontFlags)
+    end)
+
+    it("applyFont aplica el fontFlags del tema activo (ADR-0015 Fase 3)", function()
+        Craft.Theme.use(Craft.Theme.build({ overrides = { fontFlags = "OUTLINE" } }))
+        local fs = UIParent:CreateFontString(nil, "OVERLAY")
+        Craft.Theme.applyFont(fs, "x.ttf", 12)
+        local path, size, flags = fs:GetFont()
+        assert.equals("x.ttf", path)
+        assert.equals(12, size)
+        assert.equals("OUTLINE", flags)
+        Craft.Theme.use("lyra-dark")   -- restaura para otros tests
+
+        local fs2 = UIParent:CreateFontString(nil, "OVERLAY")
+        Craft.Theme.applyFont(fs2, "y.ttf", 12)
+        assert.equals("", select(3, fs2:GetFont()))  -- default vuelve a sin outline
+    end)
+
     it("un eje desconocido cae al default sin romper", function()
         assert.has_no_errors(function()
             local t = Craft.Theme.build({ base = "does-not-exist", accent = "nope" })

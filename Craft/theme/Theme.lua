@@ -220,6 +220,19 @@ function T.getFont(weight)
     return t.font
 end
 
+-- ─── applyFont() ───────────────────────────────────────────────────────────
+-- Punto ÚNICO donde los componentes aplican fuente a un FontString/EditBox
+-- (ADR-0015 Fase 3). Recibe la ruta y el tamaño YA resueltos y añade el flag de
+-- outline global (`t.fontFlags`, default "" = sin contorno). Antes cada componente
+-- llamaba `fs:SetFont(path, size)` disperso; centralizar aquí permite el outline
+-- (y cualquier flag futuro) sin tocar 40+ sitios. Pasa siempre el 3er arg, que el
+-- EditBox REQUIERE y el FontString acepta.
+
+function T.applyFont(fs, path, size)
+    local t = T._resolved or T.get()
+    fs:SetFont(path, size, t.fontFlags or "")
+end
+
 -- ─── getPresets() ──────────────────────────────────────────────────────────
 
 function T.getPresets()

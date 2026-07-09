@@ -361,21 +361,21 @@ function Slider:_applyTheme(t)
     Craft.Theme.SetPixelWidth(self._thumbRingRight, 1)
 
     if self._label then
-        self._label:SetFont(t.font, t.fontSizeSm)
+        Craft.Theme.applyFont(self._label, t.font, t.fontSizeSm)
         self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
         self._label:SetText(self._cfg.label or "")
     end
     if self._valueLabel then
-        self._valueLabel:SetFont(t.font, t.fontSizeSm)
+        Craft.Theme.applyFont(self._valueLabel, t.font, t.fontSizeSm)
         self._valueLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
         self._valueLabel:SetText(tostring(self._value))
     end
     if self._minLabel then
-        self._minLabel:SetFont(t.font, t.fontSizeSm)
+        Craft.Theme.applyFont(self._minLabel, t.font, t.fontSizeSm)
         self._minLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     end
     if self._maxLabel then
-        self._maxLabel:SetFont(t.font, t.fontSizeSm)
+        Craft.Theme.applyFont(self._maxLabel, t.font, t.fontSizeSm)
         self._maxLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     end
 

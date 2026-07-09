@@ -280,7 +280,7 @@ function ToggleGroup:_applyTheme(t)
         self:_applyFill(seg)
 
         -- Text (foreground always; on/off differ only by fill)
-        seg.fs:SetFont(t.fontMedium or t.font, FONT_SIZE, "")   -- .cn-toggle font-medium
+        Craft.Theme.applyFont(seg.fs, t.fontMedium or t.font, FONT_SIZE)   -- .cn-toggle font-medium
         seg.fs:SetTextColor(txt.r, txt.g, txt.b)
         seg.fs:SetText(seg.label)
 

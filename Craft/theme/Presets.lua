@@ -45,6 +45,11 @@ CraftThemeAxes.style = {
         focusRingWidth          = 2,    -- RESERVADO: WoW es mouse-only
         iconSizeSm              = 16,
         iconSizeMd              = 24,
+        -- Font outline (ADR-0015 Fase 3): flags de SetFont para TODO el texto.
+        -- "" = sin contorno (default, fiel a shadcn). El consumidor puede pisarlo
+        -- (build{ overrides = { fontFlags = "OUTLINE" } }) para legibilidad tipo HUD.
+        -- Divergencia deliberada de shadcn (design-reference §9).
+        fontFlags               = "",   -- "" | "OUTLINE" | "THICKOUTLINE" | "MONOCHROME"
         -- Motion (Weave.tween — ADR-0013 §4.6). motionEasing = nombre en Weave.easing.
         motionFast              = 0.12,       -- fades, hovers, appear/disappear
         motionBase              = 0.20,       -- transiciones mayores (collapse, slide)

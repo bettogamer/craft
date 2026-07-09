@@ -346,7 +346,7 @@ function Sidebar:_recolorAll()
                 t.sidebarForeground.b,
                 GROUP_ALPHA
             )
-            entry.labelFs:SetFont(t.font, GROUP_FONT)
+            Craft.Theme.applyFont(entry.labelFs, t.font, GROUP_FONT)
 
         elseif entry.type == "item" and entry.frame then
             self:_colorItem(entry, entry.itemId == self._cfg.activeItem)
@@ -377,7 +377,7 @@ function Sidebar:_colorItem(entry, isActive)
     if isActive then
         -- data-active: bg-sidebar-accent text-sidebar-accent-foreground font-medium
         entry.bg:SetColorTexture(t.sidebarAccent.r, t.sidebarAccent.g, t.sidebarAccent.b, 1)
-        entry.labelFs:SetFont(t.fontMedium or t.font, ITEM_FONT)  -- data-active:font-medium
+        Craft.Theme.applyFont(entry.labelFs, t.fontMedium or t.font, ITEM_FONT)  -- data-active:font-medium
         entry.labelFs:SetTextColor(
             t.sidebarAccentForeground.r,
             t.sidebarAccentForeground.g,
@@ -397,7 +397,7 @@ function Sidebar:_colorItem(entry, isActive)
         end
     else
         entry.bg:SetColorTexture(0, 0, 0, 0)
-        entry.labelFs:SetFont(t.font, ITEM_FONT)  -- regular weight when inactive
+        Craft.Theme.applyFont(entry.labelFs, t.font, ITEM_FONT)  -- regular weight when inactive
         entry.labelFs:SetTextColor(
             t.sidebarForeground.r,
             t.sidebarForeground.g,
@@ -503,7 +503,7 @@ function Sidebar:AddSection(label)
     labelFs:SetJustifyV("MIDDLE")
 
     if t then
-        labelFs:SetFont(t.font, GROUP_FONT)
+        Craft.Theme.applyFont(labelFs, t.font, GROUP_FONT)
         labelFs:SetTextColor(
             t.sidebarForeground.r,
             t.sidebarForeground.g,
@@ -568,7 +568,7 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
     -- Label — SINGLE-point anchor set in _positionRow (avoids the FontString two-anchor
     -- bug #2 when _child width resolves late).
     local labelFs = itemFrame:CreateFontString(nil, "OVERLAY")
-    if t then labelFs:SetFont(t.font, ITEM_FONT) end
+    if t then Craft.Theme.applyFont(labelFs, t.font, ITEM_FONT) end
     labelFs:SetJustifyH("LEFT")
     labelFs:SetJustifyV("MIDDLE")
     labelFs:SetText(label)

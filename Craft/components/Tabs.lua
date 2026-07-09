@@ -151,7 +151,7 @@ function Tabs:AddTab(id, label, opts)
 
     local btnText = btn:CreateFontString(nil, "OVERLAY")
     if self._t then
-        btnText:SetFont(self._t.fontMedium or self._t.font, FONT_SIZE)
+        Craft.Theme.applyFont(btnText, self._t.fontMedium or self._t.font, FONT_SIZE)
     end
     btnText:SetText(label or id)
 
@@ -240,7 +240,7 @@ function Tabs:_styleButton(btn, isActive)
     if not t then return end
 
     -- Font (.cn-tabs-trigger font-medium)
-    btn._text:SetFont(t.fontMedium or t.font, FONT_SIZE)
+    Craft.Theme.applyFont(btn._text, t.fontMedium or t.font, FONT_SIZE)
 
     -- Pixel-perfect 4-texture border (corner-safe)
     Craft.Theme.AnchorBorder(btn, btn._borderTop, btn._borderBottom,

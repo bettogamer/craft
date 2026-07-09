@@ -210,7 +210,7 @@ function Section:_applyTheme(t)
     self._t = t
 
     -- .cn-accordion-trigger font-medium; t.fontHeading = eje headingFont (ADR-0014)
-    self._title:SetFont(t.fontHeading or t.fontMedium or t.font, FONT_SIZE, "")
+    Craft.Theme.applyFont(self._title, t.fontHeading or t.fontMedium or t.font, FONT_SIZE)
     self._title:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
     self._title:SetText(self._cfg.title)
 

@@ -42,7 +42,12 @@ Versioning: [SemVer](https://semver.org/lang/es/)
     nombre (`font = { font=<path>, fontMedium=<path>, fontBold=<path> }`). `Craft.Theme.registerFont(name,
     paths)` registra una familia en runtime (en los ejes `font` y `headingFont`, visible en `getAxisOptions`).
     Craft sigue **sin depender de LibSharedMedia**: el consumidor resuelve el path (`LSM:Fetch`) y lo pasa.
-  - Sin `overrides`/tablas inline, `build` es idéntico al de ADR-0014 (sin regresión). Fase 3 (font outline) planificada.
+  - **Fase 3 — font outline**: token global `fontFlags` en el eje Style (`""`/`OUTLINE`/`THICKOUTLINE`/
+    `MONOCHROME`, default `""` = sin contorno). `Craft.Theme.applyFont(fs, path, size)` es ahora el punto
+    único de aplicación de fuente (aplica `fontFlags`); los 32 `SetFont` de los componentes se migraron a él.
+    Opt-in del consumidor para legibilidad tipo HUD — **divergencia deliberada de shadcn** (design-reference
+    §9); el default no diverge.
+  - Sin `overrides`/tablas inline/outline, `build` es idéntico al de ADR-0014 (sin regresión).
 - **`Craft.Label` — config `weight` y `size`**: `weight` (`"normal"`/`"medium"`/`"bold"`) y `size` (px)
   resueltos DENTRO de `_applyTheme`, así que **persisten a los cambios de tema/fuente en runtime** (antes
   el peso solo se lograba pokeando `label._text:SetFont` tras `Create`, que un re-`_applyTheme` pisaba).

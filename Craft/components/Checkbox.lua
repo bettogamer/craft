@@ -257,7 +257,7 @@ function Checkbox:_applyTheme(t)
     self._t = t
 
     -- Label font
-    self._label:SetFont(t.font, 12)
+    Craft.Theme.applyFont(self._label, t.font, 12)
     if self._cfg.disabled then
         self._label:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     else

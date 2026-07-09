@@ -329,7 +329,7 @@ function Select:_buildItems()
         item.value = opt.value
         item.label = opt.label
 
-        item.text:SetFont(t.font, ITEM_FONT)
+        Craft.Theme.applyFont(item.text, t.font, ITEM_FONT)
         item.text:SetText(opt.label or opt.value or "")
         item.checkmark:SetVertexColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b, 1)
 
@@ -386,7 +386,7 @@ function Select:_applyTheme(t)
     local px1 = Craft.Theme.px(1, self._trigger)
 
     -- Trigger font
-    self._selectedText:SetFont(t.font, FONT_SIZE)
+    Craft.Theme.applyFont(self._selectedText, t.font, FONT_SIZE)
 
     -- Text color (placeholder or selected value)
     self:_updateTriggerText()

@@ -207,7 +207,7 @@ function Textarea:_applyTheme(t)
     local font = self._cfg.font or t.font
 
     -- EditBox + placeholder font/colour
-    self._edit:SetFont(font, FONT_SIZE, "")
+    Craft.Theme.applyFont(self._edit, font, FONT_SIZE)
     if self._cfg.disabled then
         self._edit:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
         self._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a * 0.80)  -- disabled bg-input/80
@@ -215,7 +215,7 @@ function Textarea:_applyTheme(t)
         self._edit:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
         self._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a * 0.30)  -- bg-input/30
     end
-    self._placeholder:SetFont(font, FONT_SIZE)
+    Craft.Theme.applyFont(self._placeholder, font, FONT_SIZE)
     self._placeholder:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
 
     -- Border (4 × 1px, corner-safe)

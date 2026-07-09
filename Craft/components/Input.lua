@@ -265,8 +265,8 @@ function Input:_applyTheme(t)
     self._t = t
 
     -- Font for EditBox and placeholder
-    self._edit:SetFont(t.font, FONT_SIZE, "")  -- EditBox requires flags arg (FontString does not)
-    self._placeholder:SetFont(t.font, FONT_SIZE)
+    Craft.Theme.applyFont(self._edit, t.font, FONT_SIZE)  -- EditBox requires flags arg (FontString does not)
+    Craft.Theme.applyFont(self._placeholder, t.font, FONT_SIZE)
 
     -- Text colors
     if self._cfg.disabled then

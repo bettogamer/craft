@@ -8,7 +8,7 @@
 | Título | API de personalización para addons consumidores — overrides de token, fuentes por path/LSM y font outline |
 | Fecha | 09/07/2026 |
 | Autor(es) | bettogamer |
-| Estado | **Aceptada** (Fases 1–2 implementadas; Fase 3 planificada) |
+| Estado | **Aceptada** (Fases 1–3 implementadas) |
 | Alcance | `Craft.Theme`, `Presets.lua`, componentes con `SetFont` (Fase 3), docs de diseño |
 | Relacionado | ADR-0014 (theming multi-eje), ADR-0005 (theming), ADR-0002 (Lyra), ADR-0012 (dark-only) |
 
@@ -66,15 +66,15 @@ conocimiento WoW-específico (clases) vive en el consumidor.
 - **Craft queda LSM-agnóstico**: el consumidor hace el puente `LSM:Fetch("font", name)` → path → Craft.
   No se vendorea ni se depende de LibSharedMedia.
 
-#### Fase 3 — Font outline (PLANIFICADA)
+#### Fase 3 — Font outline (IMPLEMENTADA)
 
-- Nuevo token **`fontFlags`** (`""` | `"OUTLINE"` | `"THICKOUTLINE"`), **global** para todo el texto de
-  la UI (decisión owner: no por-rol ni por-familia en esta iteración).
-- Requiere **centralizar** la aplicación de fuente: hoy hay ~43 `SetFont(path, size)` dispersos en 18
-  componentes. Se introducirá un helper (`Craft.Theme.applyFont(fs, weight, size)`) que aplique
-  `fontFlags`, y se migrarán los sitios. Es la parte más cara y se hace aparte.
+- Token **`fontFlags`** en el eje Style (`""` | `"OUTLINE"` | `"THICKOUTLINE"` | `"MONOCHROME"`), **global**
+  para todo el texto de la UI (decisión owner: no por-rol ni por-familia). Default `""` (sin contorno).
+- Se **centralizó** la aplicación de fuente: `Craft.Theme.applyFont(fs, path, size)` aplica `fontFlags`; se
+  migraron los **32** `SetFont` de los componentes a este helper (el probe interno de `Theme.lua` queda
+  fuera). Pasa siempre el 3er arg (el `EditBox` lo requiere; el `FontString` lo acepta).
 - **Divergencia deliberada de shadcn** (shadcn no tiene outline; su tipografía es familia+peso+tamaño):
-  se documenta en `design-reference.md §9` como divergencia intencional, no como gap de paridad.
+  documentada en `design-reference.md §9`. El default (`""`) NO diverge; solo el opt-in del consumidor.
 
 ### 3. Alternativas consideradas
 
@@ -102,7 +102,8 @@ con riesgo y testing; es la razón del faseo. El outline añade una divergencia 
   demo en la página Theme del Browser, tests en `tests/theme_spec.lua`, doc en `docs/components/theme.md`.
 - **Fase 2: HECHA** — `pick` acepta tabla inline (`Presets.lua`), `Craft.Theme.registerFont` (`Theme.lua`),
   tests + doc con ejemplo LSM.
-- **Fase 3: pendiente** — outline; tanda propia (refactor de ~43 `SetFont` → applier central) cuando el owner la priorice.
+- **Fase 3: HECHA** — token `fontFlags` (`Presets.lua` eje Style), `Craft.Theme.applyFont` (`Theme.lua`),
+  32 `SetFont` migrados a `applyFont`, toggle demo en la página Theme del Browser, tests, divergencia §9.
 
 ### 6. Historial
 
@@ -110,3 +111,4 @@ con riesgo y testing; es la razón del faseo. El outline añade una divergencia 
 |-----|-------|-------|--------|
 | 1 | 09/07/2026 | bettogamer | Propuesta y aceptación; Fase 1 implementada; decisiones: API genérica (sin helper de clase), outline global, fuentes por path (LSM-agnóstico), faseo colores→fonts→outline |
 | 2 | 09/07/2026 | bettogamer | Fase 2 implementada (tabla inline de paths + `registerFont`, LSM-agnóstico) |
+| 3 | 09/07/2026 | bettogamer | Fase 3 implementada (token `fontFlags` global + `applyFont`, 32 `SetFont` migrados; divergencia §9) — ADR completo |

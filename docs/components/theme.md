@@ -78,6 +78,15 @@ El preset **built-in `lyra-dark`** es la composición por defecto: `Lyra` · `ne
 | `Craft.Theme.accentFrom(color[, fg])` | `(table[, table]) → table` | Genera un **override de accent** desde UN color: `primary` = `sidebarPrimary` = `color`, con foregrounds contrastados por luminancia (o el `fg` dado). Color-agnóstico (no conoce clases). Se pasa a `build{ overrides = ... }`. |
 | `Craft.Theme.registerFont(name, paths)` | `(string, table) → void` | Registra una familia de fuente en runtime (ADR-0015 Fase 2), disponible en los ejes `font` y `headingFont` (y en `getAxisOptions`). `paths = { font=<path>, fontMedium=<path?>, fontBold=<path?> }`; medium/bold caen a `font` si faltan. Craft NO depende de LibSharedMedia — el consumidor resuelve el path (`LSM:Fetch("font", ...)`) y lo pasa. |
 | `Craft.Theme.getAxisOptions()` | `() → table` | Retorna `{ style=..., base=..., accent=..., font=..., headingFont=... }` con los nombres disponibles por eje (array de strings, ordenados alfabéticamente). Útil para UIs de selección de tema. |
+| `Craft.Theme.applyFont(fs, path, size)` | `(FontString/EditBox, string, number) → void` | Aplica fuente a un `FontString`/`EditBox` añadiendo el flag de outline global (`t.fontFlags`). Es el punto ÚNICO que usan los componentes (ADR-0015 Fase 3) en vez de `fs:SetFont(...)` directo. Pasa siempre el 3er arg (el `EditBox` lo requiere). |
+
+**Outline (`fontFlags`, ADR-0015 Fase 3 — divergencia de shadcn):** token del eje Style, default `""` (sin
+contorno, fiel a shadcn). El consumidor lo pisa para legibilidad tipo HUD:
+```lua
+-- Todo el texto de la UI con contorno:
+Craft.Theme.use(Craft.Theme.build{ overrides = { fontFlags = "OUTLINE" } })  -- ""|OUTLINE|THICKOUTLINE|MONOCHROME
+```
+shadcn no tiene outline (su tipografía es familia+peso+tamaño); ver `design-reference.md §9`.
 
 ### Ejemplo: componer un tema personalizado
 

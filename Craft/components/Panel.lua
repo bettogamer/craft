@@ -194,11 +194,11 @@ function Panel:_applyTheme(t)
     self._bg:SetColorTexture(t.card.r, t.card.g, t.card.b)
 
     -- Title: font-medium, fontSizeLg (14px), cardForeground (.cn-card-title font-medium)
-    self._title:SetFont(t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14)
+    Craft.Theme.applyFont(self._title, t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14)
     self._title:SetTextColor(t.cardForeground.r, t.cardForeground.g, t.cardForeground.b)
 
     -- Description: font, fontSize (12px), mutedForeground
-    self._desc:SetFont(t.font, t.fontSize or 12)
+    Craft.Theme.applyFont(self._desc, t.font, t.fontSize or 12)
     self._desc:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
 
     -- Footer separator: t.border

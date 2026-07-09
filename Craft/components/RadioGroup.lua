@@ -250,7 +250,7 @@ function RadioGroup:_applyTheme(t)
     local maxW = 0
     for i = 1, self._count do
         local item = self._items[i]
-        item.fs:SetFont(t.font, FONT_SIZE, "")
+        Craft.Theme.applyFont(item.fs, t.font, FONT_SIZE)
         local c = self._cfg.disabled and t.mutedForeground or t.foreground
         item.fs:SetTextColor(c.r, c.g, c.b)
         item.fs:SetText(item.label)

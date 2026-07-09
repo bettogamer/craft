@@ -89,7 +89,7 @@ function Label:_applyTheme(t)
     local font = t.font
     if     self._cfg.weight == "bold"   then font = t.fontBold   or t.font
     elseif self._cfg.weight == "medium" then font = t.fontMedium or t.font end
-    self._text:SetFont(font, self._cfg.size or t.fontSize or 12)
+    Craft.Theme.applyFont(self._text, font, self._cfg.size or t.fontSize or 12)
 
     -- Restore color (handles both initial apply and theme switch)
     self:_restoreColor()

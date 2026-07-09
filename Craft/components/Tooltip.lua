@@ -156,7 +156,7 @@ function TT._applyThemeToFrame(t)
         _tooltip._bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
     end
 
-    _tooltip._text:SetFont(t.font, FONT_SIZE)
+    Craft.Theme.applyFont(_tooltip._text, t.font, FONT_SIZE)
     _tooltip._text:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
 end
 

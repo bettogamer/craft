@@ -123,7 +123,7 @@ function ColorSwatch:_applyTheme(t)
     self._fill:SetPoint("BOTTOMRIGHT", self._swatch, "BOTTOMRIGHT", -px1, px1)
 
     -- Label
-    self._label:SetFont(t.font, FONT_SIZE)
+    Craft.Theme.applyFont(self._label, t.font, FONT_SIZE)
     self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
 
     self:_refresh()

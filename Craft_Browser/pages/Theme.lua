@@ -4,7 +4,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 -- refrescar la tabla de swatches; esta tabla persiste la elección). Default =
 -- config MVP activa: Lyra · Neutral · Emerald · Inter (= preset `lyra-dark`).
 local _sel = { style = "lyra", base = "neutral", accent = "emerald", font = "inter",
-               headingFont = "inter", classAccent = false }
+               headingFont = "inter", classAccent = false, outline = false }
 
 local function titleCase(s)
     return (s:gsub("^%l", string.upper))
@@ -46,13 +46,19 @@ CraftBrowserPages["Theme"] = {
         -- Compone desde _sel (con el override de color de clase si está activo) y aplica.
         -- Diferido el re-navigate: no destruir el widget dentro de su propio OnClick.
         local function applySel()
+            -- overrides combina color de clase (Fase 1) + outline global (Fase 3).
+            local ov = _sel.classAccent and Craft.Theme.accentFrom(classColor()) or nil
+            if _sel.outline then
+                ov = ov or {}
+                ov.fontFlags = "OUTLINE"
+            end
             Craft.Theme.use(Craft.Theme.build({
                 style       = _sel.style,
                 base        = _sel.base,
                 accent      = _sel.accent,
                 font        = _sel.font,
                 headingFont = _sel.headingFont,
-                overrides   = _sel.classAccent and Craft.Theme.accentFrom(classColor()) or nil,
+                overrides   = ov,
             }))
             C_Timer.After(0, function() CraftBrowser.Navigate("Theme") end)
         end
@@ -108,6 +114,18 @@ CraftBrowserPages["Theme"] = {
         })
         classBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(y + 8))
         table.insert(comps, classBtn)
+
+        -- Demo ADR-0015 Fase 3: outline global (fontFlags) para TODO el texto.
+        local outlineBtn = Craft.Button:Create(parent, {
+            text    = _sel.outline and "Outline (on)" or "Font outline",
+            variant = _sel.outline and "default" or "outline",
+            onClick = function()
+                _sel.outline = not _sel.outline
+                applySel()
+            end,
+        })
+        outlineBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 210, -(y + 8))
+        table.insert(comps, outlineBtn)
         y = y + 44
 
         -- ─── Tabla de tokens del tema activo ────────────────────────────────
