@@ -32,6 +32,9 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 - **Eje `headingFont`** (ADR-0014 §6.1): separa la fuente de **títulos** de la del **body**. Aporta el
   token `fontHeading` que leen Dialog/Window/Panel/Section; default `inter` → Inter-Medium (el peso que
   ya usaban → sin cambio de look). Permite mezclar (body `inter` + títulos `geist`). Opciones: `inter`, `geist`.
+- **`Craft.Label` — config `weight` y `size`**: `weight` (`"normal"`/`"medium"`/`"bold"`) y `size` (px)
+  resueltos DENTRO de `_applyTheme`, así que **persisten a los cambios de tema/fuente en runtime** (antes
+  el peso solo se lograba pokeando `label._text:SetFont` tras `Create`, que un re-`_applyTheme` pisaba).
 - **Tokens de movimiento para el "pop" de overlays** (`theme/Presets.lua`): `motionZoomFrom` (0.95 —
   escala de entrada, shadcn `zoom-in-95`) y `motionSlide` (8px — desplazamiento direccional, shadcn
   `slide-*-2`). Resueltos por los componentes; Theme sigue Weave-agnóstico.
@@ -66,6 +69,10 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   1; además, holgura anti-wrap para el flicker de dos líneas al inicio de la animación de aparición.
 - **`Craft.Scroll`**: el rail (track) se dibujaba siempre, también cuando el contenido cabía. Ahora se
   oculta el scrollbar completo (rail + thumb) cuando `childH <= viewH`.
+- **Títulos del header del Browser encogían al cambiar de tema en runtime**: el header pokeaba
+  `label._text:SetFont(fontBold, fontSizeLg)` tras `Create`, y el `_applyTheme` del Label lo pisaba con
+  regular/12 en el primer cambio de tema (destapado por el nuevo selector de ejes). Ahora el peso/tamaño
+  van por `config.weight`/`config.size` y se resuelven en `_applyTheme` → sobreviven. Ver `Craft.Label` Added.
 - **Anchos de auto-tamaño en el primer arranque** (bug #4, botones cuadrados): la sonda de fuente de
   `theme/Theme.lua` se rendía a los 3 s; en un arranque en frío el TTF de Inter podía cargar *después*,
   así que la re-notificación nunca disparaba y los componentes de auto-ancho (Button, Checkbox,

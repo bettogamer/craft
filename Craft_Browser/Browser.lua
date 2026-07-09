@@ -122,16 +122,16 @@ function CB._build()
     -- Title: bold, fontSizeLg (14px) — top of the two-line block
     -- Two-line block: title(14) + gap(4) + subtitle(11) = 29px → top offset = (48-29)/2 = ~10px
     local titleLabel = Craft.Label:Create(hdr, {
-        text  = "Craft Browser",
-        color = { r=t.sidebarForeground.r, g=t.sidebarForeground.g,
-                  b=t.sidebarForeground.b, a=1 },
+        text   = "Craft Browser",
+        color  = { r=t.sidebarForeground.r, g=t.sidebarForeground.g,
+                   b=t.sidebarForeground.b, a=1 },
+        weight = "bold",           -- persiste al cambiar de tema (ver Label._applyTheme)
+        size   = t.fontSizeLg,
     })
     local tlf = titleLabel:GetFrame()
     tlf:SetPoint("TOPLEFT", hdr, "TOPLEFT", 12, -10)
     tlf:SetPoint("RIGHT",   hdr, "RIGHT",   -36,  0)
     tlf:SetHeight(16)
-    -- Override font to bold + larger
-    titleLabel._text:SetFont(t.fontBold, t.fontSizeLg)
 
     -- Subtitle: version, smaller + muted
     local versionLabel = Craft.Label:Create(hdr, {
@@ -296,14 +296,15 @@ function CB._build()
 
     -- Title: fontBold, fontSizeLg — same layout as sidebar header
     _titleLabel = Craft.Label:Create(_demoHeader, {
-        text  = "",
-        color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+        text   = "",
+        color  = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+        weight = "bold",           -- persiste al cambiar de tema (ver Label._applyTheme)
+        size   = t.fontSizeLg,
     })
     local tlf = _titleLabel:GetFrame()
     tlf:SetPoint("TOPLEFT", _demoHeader, "TOPLEFT", 16, -10)
     tlf:SetPoint("RIGHT",   _demoHeader, "RIGHT",   -36,  0)
     tlf:SetHeight(16)
-    _titleLabel._text:SetFont(t.fontBold, t.fontSizeLg)
 
     -- Description: font, text-xs, mutedForeground
     _descLabel = Craft.Label:Create(_demoHeader, {

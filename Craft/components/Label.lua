@@ -19,6 +19,8 @@ function Label:Create(parent, config)
         disabled = config.disabled or false,
         maxWidth = config.maxWidth,        -- number or nil
         onClick  = config.onClick,         -- function(self) or nil
+        weight   = config.weight,          -- "normal"|"medium"|"bold", nil = normal (t.font)
+        size     = config.size,            -- px override, nil = t.fontSize (12)
     }
 
     -- Lyra spec: if onClick or maxWidth are present, a Frame parent is needed
@@ -80,8 +82,14 @@ end
 function Label:_applyTheme(t)
     self._t = t
 
-    -- Font: t.font, text-xs = t.fontSize (12px), leading-none
-    self._text:SetFont(t.font, t.fontSize or 12)
+    -- Font: weight + size are resolved HERE (not poked after Create) so they
+    -- survive a theme change — un `_applyTheme` posterior (p. ej. al cambiar de
+    -- fuente en runtime) re-resuelve el peso en vez de pisarlo con regular/12.
+    -- text-xs = t.fontSize (12px), leading-none.
+    local font = t.font
+    if     self._cfg.weight == "bold"   then font = t.fontBold   or t.font
+    elseif self._cfg.weight == "medium" then font = t.fontMedium or t.font end
+    self._text:SetFont(font, self._cfg.size or t.fontSize or 12)
 
     -- Restore color (handles both initial apply and theme switch)
     self:_restoreColor()
