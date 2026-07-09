@@ -27,6 +27,9 @@ globals = {
     -- Mouse helpers
     "MouseIsOver",
     "IsMouseButtonDown",
+    -- Player/class info (used by consumers to feed Craft.Theme; ADR-0015 demo)
+    "UnitClass",
+    "RAID_CLASS_COLORS",
     -- Native color picker (Craft.ColorSwatch wraps it; mutated pre-Dragonflight style)
     "ColorPickerFrame",
     "OpacitySliderFrame",

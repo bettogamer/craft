@@ -3,10 +3,21 @@ CraftBrowserPages = CraftBrowserPages or {}
 -- Selección de ejes viva entre re-renders (cada cambio re-navega a "Theme" para
 -- refrescar la tabla de swatches; esta tabla persiste la elección). Default =
 -- config MVP activa: Lyra · Neutral · Emerald · Inter (= preset `lyra-dark`).
-local _sel = { style = "lyra", base = "neutral", accent = "emerald", font = "inter", headingFont = "inter" }
+local _sel = { style = "lyra", base = "neutral", accent = "emerald", font = "inter",
+               headingFont = "inter", classAccent = false }
 
 local function titleCase(s)
     return (s:gsub("^%l", string.upper))
+end
+
+-- Color de la clase del personaje. La API de WoW (UnitClass/RAID_CLASS_COLORS) vive
+-- en el CONSUMIDOR (el Browser), NO en Craft — demuestra ADR-0015: Craft es
+-- color-agnóstico y el addon le pasa el color vía Theme.accentFrom.
+local function classColor()
+    local _, class = UnitClass("player")
+    local cc = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+    if cc then return { r = cc.r, g = cc.g, b = cc.b } end
+    return { r = 0.61, g = 0.20, b = 0.93 }  -- fallback púrpura si no hay API
 end
 
 CraftBrowserPages["Theme"] = {
@@ -32,6 +43,20 @@ CraftBrowserPages["Theme"] = {
         -- ─── Selectores de eje ──────────────────────────────────────────────
         local axisOpts = Craft.Theme.getAxisOptions()
 
+        -- Compone desde _sel (con el override de color de clase si está activo) y aplica.
+        -- Diferido el re-navigate: no destruir el widget dentro de su propio OnClick.
+        local function applySel()
+            Craft.Theme.use(Craft.Theme.build({
+                style       = _sel.style,
+                base        = _sel.base,
+                accent      = _sel.accent,
+                font        = _sel.font,
+                headingFont = _sel.headingFont,
+                overrides   = _sel.classAccent and Craft.Theme.accentFrom(classColor()) or nil,
+            }))
+            C_Timer.After(0, function() CraftBrowser.Navigate("Theme") end)
+        end
+
         local function addAxisSelect(axis, label, yOff)
             local names = axisOpts[axis] or {}
             local opts = {}
@@ -53,17 +78,9 @@ CraftBrowserPages["Theme"] = {
                 value    = _sel[axis],
                 onSelect = function(v)
                     _sel[axis] = v
-                    Craft.Theme.use(Craft.Theme.build({
-                        style  = _sel.style,
-                        base        = _sel.base,
-                        accent      = _sel.accent,
-                        font        = _sel.font,
-                        headingFont = _sel.headingFont,
-                    }))
-                    -- Diferido: no destruir este Select dentro de su propio OnClick.
-                    -- Theme.use ya repintó los componentes vivos; el re-navigate
-                    -- refresca la tabla de swatches (Textures crudas, no listeners).
-                    C_Timer.After(0, function() CraftBrowser.Navigate("Theme") end)
+                    -- Un accent explícito gana al override de color de clase.
+                    if axis == "accent" then _sel.classAccent = false end
+                    applySel()
                 end,
             })
             sel:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 104, -yOff)
@@ -80,7 +97,18 @@ CraftBrowserPages["Theme"] = {
         y = addAxisSelect("font",        "Font",    y)
         y = addAxisSelect("headingFont", "Heading", y)
 
-        y = y + 8
+        -- Demo ADR-0015: override de accent con el color de la clase del personaje.
+        local classBtn = Craft.Button:Create(parent, {
+            text    = _sel.classAccent and "Accent: color de clase (on)" or "Usar color de mi clase",
+            variant = _sel.classAccent and "default" or "outline",
+            onClick = function()
+                _sel.classAccent = not _sel.classAccent
+                applySel()
+            end,
+        })
+        classBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(y + 8))
+        table.insert(comps, classBtn)
+        y = y + 44
 
         -- ─── Tabla de tokens del tema activo ────────────────────────────────
         local tokens = {
