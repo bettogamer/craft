@@ -107,6 +107,32 @@ describe("Theme axes (ADR-0014)", function()
         assert.equals(a.motionFast, b.motionFast)
     end)
 
+    it("build{ overrides } pisa los tokens de los ejes (ADR-0015)", function()
+        local t = Craft.Theme.build({ accent = "emerald", overrides = {
+            primary = { r = 1, g = 0, b = 0, a = 1 },
+        } })
+        assert.equals(1, t.primary.r)   -- override gana al accent emerald
+        assert.equals(0, t.primary.g)
+        assert.is_not_nil(t.background)  -- el resto del tema intacto
+    end)
+
+    it("accentFrom(color) genera override de accent con contraste automático", function()
+        local red = Craft.Theme.accentFrom({ r = 0.8, g = 0, b = 0, a = 1 })
+        assert.equals(0.8, red.primary.r)
+        assert.equals(0.8, red.sidebarPrimary.r)
+        assert.equals(1, red.primaryForeground.r)  -- rojo oscuro → fg blanco
+
+        local paleYellow = Craft.Theme.accentFrom({ r = 0.98, g = 0.9, b = 0.3, a = 1 })
+        assert.equals(0.10, paleYellow.primaryForeground.r)  -- amarillo claro → fg oscuro
+    end)
+
+    it("accentFrom respeta un foreground explícito", function()
+        local a = Craft.Theme.accentFrom({ r = 0.5, g = 0.5, b = 0.5, a = 1 },
+                                         { r = 0.2, g = 0.3, b = 0.4, a = 1 })
+        assert.equals(0.2, a.primaryForeground.r)
+        assert.equals(0.4, a.sidebarPrimaryForeground.b)
+    end)
+
     it("un eje desconocido cae al default sin romper", function()
         assert.has_no_errors(function()
             local t = Craft.Theme.build({ base = "does-not-exist", accent = "nope" })

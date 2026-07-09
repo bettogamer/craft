@@ -74,7 +74,8 @@ El preset **built-in `lyra-dark`** es la composición por defecto: `Lyra` · `ne
 
 | Función | Firma | Descripción |
 |---------|-------|-------------|
-| `Craft.Theme.build(spec)` | `(table) → table` | Compone un tema desde los ejes. `spec = { style=, base=, accent=, font=, headingFont= }` (todos opcionales, defaultean al MVP). Retorna una tabla de tokens plana, lista para `use()` o `register_preset()`. Un eje desconocido cae al default con aviso (no rompe). |
+| `Craft.Theme.build(spec)` | `(table) → table` | Compone un tema desde los ejes. `spec = { style=, base=, accent=, font=, headingFont=, overrides= }` (todos opcionales, defaultean al MVP). `overrides` es una tabla de tokens sueltos que **pisa** las capas (se fusiona al final) — la vía de personalización del consumidor (ADR-0015). Retorna una tabla plana, lista para `use()`/`register_preset()`. Eje desconocido → default con aviso. |
+| `Craft.Theme.accentFrom(color[, fg])` | `(table[, table]) → table` | Genera un **override de accent** desde UN color: `primary` = `sidebarPrimary` = `color`, con foregrounds contrastados por luminancia (o el `fg` dado). Color-agnóstico (no conoce clases). Se pasa a `build{ overrides = ... }`. |
 | `Craft.Theme.getAxisOptions()` | `() → table` | Retorna `{ style=..., base=..., accent=..., font=..., headingFont=... }` con los nombres disponibles por eje (array de strings, ordenados alfabéticamente). Útil para UIs de selección de tema. |
 
 ### Ejemplo: componer un tema personalizado
@@ -94,6 +95,20 @@ Craft.Theme.use(myTheme)
 -- O registrarlo con nombre para reutilizarlo
 Craft.Theme.register_preset("my-blue-theme", myTheme)
 Craft.Theme.use("my-blue-theme")
+```
+
+### Ejemplo: tema con el color de la clase del personaje (consumidor)
+
+`overrides` + `accentFrom` cubren la personalización del addon sin tocar Craft. Craft es
+color-agnóstico: el addon lee el color y lo pasa.
+
+```lua
+local _, class = UnitClass("player")
+local cc = RAID_CLASS_COLORS[class]   -- API de WoW (vive en el addon, NO en Craft)
+Craft.Theme.use(Craft.Theme.build{
+    base      = "zinc",
+    overrides = Craft.Theme.accentFrom({ r = cc.r, g = cc.g, b = cc.b }),
+})
 ```
 
 ### Añadir una opción nueva a un eje

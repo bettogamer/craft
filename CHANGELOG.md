@@ -32,6 +32,12 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 - **Eje `headingFont`** (ADR-0014 §6.1): separa la fuente de **títulos** de la del **body**. Aporta el
   token `fontHeading` que leen Dialog/Window/Panel/Section; default `inter` → Inter-Medium (el peso que
   ya usaban → sin cambio de look). Permite mezclar (body `inter` + títulos `geist`). Opciones: `inter`, `geist`.
+- **API de personalización para consumidores (ADR-0015, Fase 1)**: `Craft.Theme.build{ overrides = <tokens> }`
+  fusiona una tabla de tokens sueltos AL FINAL (pisa los ejes) — vía ergonómica para que un addon
+  personalice el tema. `Craft.Theme.accentFrom(color[, fg])` genera un override de accent desde un color
+  (primary/sidebarPrimary + foregrounds contrastados por luminancia), color-agnóstico. Caso de uso: tema
+  con el color de clase → `use(build{ overrides = accentFrom(RAID_CLASS_COLORS[class]) })`. Sin `overrides`,
+  `build` es idéntico (sin regresión). Fases 2 (fuentes por path/LSM) y 3 (font outline) planificadas.
 - **`Craft.Label` — config `weight` y `size`**: `weight` (`"normal"`/`"medium"`/`"bold"`) y `size` (px)
   resueltos DENTRO de `_applyTheme`, así que **persisten a los cambios de tema/fuente en runtime** (antes
   el peso solo se lograba pokeando `label._text:SetFont` tras `Create`, que un re-`_applyTheme` pisaba).

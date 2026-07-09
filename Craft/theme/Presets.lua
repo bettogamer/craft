@@ -263,6 +263,12 @@ local function compose(spec)
     merge(pick("accent", spec.accent, "emerald"))
     merge(pick("font",   spec.font,   "inter"))
     merge(pick("headingFont", spec.headingFont, "inter"))
+
+    -- overrides: tabla de tokens sueltos que pisa las capas (ADR-0015). Es la vía
+    -- ergonómica para personalización del consumidor — p. ej. un addon que setea el
+    -- accent al color de su clase: build{ overrides = Craft.Theme.accentFrom(color) }.
+    -- Se fusiona al final para ganar a cualquier eje.
+    if spec.overrides then merge(spec.overrides) end
     return out
 end
 CraftThemeAxes.compose = compose

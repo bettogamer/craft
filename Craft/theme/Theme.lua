@@ -144,6 +144,29 @@ function T.build(spec)
     return CraftThemeAxes.compose(spec)
 end
 
+-- ─── accentFrom() ──────────────────────────────────────────────────────────
+-- Genera una tabla de OVERRIDE de accent desde UN color (ADR-0015): pone `primary`
+-- y `sidebarPrimary` = color, con foregrounds contrastados (o el `fg` dado). Es
+-- color-agnóstico — el consumidor pasa el color (p. ej. RAID_CLASS_COLORS[class]);
+-- Craft NO conoce clases. Uso: Craft.Theme.use(Craft.Theme.build{
+--   base = "zinc", overrides = Craft.Theme.accentFrom(classColor) }).
+
+function T.accentFrom(color, fg)
+    if not fg then
+        -- luminancia relativa (sRGB aprox.) → texto oscuro sobre accent claro, blanco sobre oscuro
+        local lum = 0.2126 * (color.r or 0) + 0.7152 * (color.g or 0) + 0.0722 * (color.b or 0)
+        fg = (lum > 0.55) and { r = 0.10, g = 0.10, b = 0.10, a = 1 }
+                            or { r = 1,    g = 1,    b = 1,    a = 1 }
+    end
+    local c = { r = color.r, g = color.g, b = color.b, a = color.a or 1 }
+    return {
+        primary                  = c,
+        primaryForeground        = fg,
+        sidebarPrimary           = c,
+        sidebarPrimaryForeground = fg,
+    }
+end
+
 -- ─── getAxisOptions() ────────────────────────────────────────────────────────
 -- Nombres disponibles por eje (para UIs de selección de tema). Ordenados.
 
