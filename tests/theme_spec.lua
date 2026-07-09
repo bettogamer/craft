@@ -55,12 +55,16 @@ local EXPECT_SCALAR = {
 }
 
 local function checkColor(t, key, e)
+    -- Tolerancia explícita OBLIGATORIA: busted (luassert) exige el 3er arg en near;
+    -- el mini-runner local lo defaultea, pero los specs deben correr en AMBOS. 1e-4
+    -- está por debajo de la precisión de 3 decimales de los tokens (caza mismatches ≥0.001).
+    local TOL = 1e-4
     local c = t[key]
     assert.is_not_nil(c)
-    assert.near(e[1], c.r)
-    assert.near(e[2], c.g)
-    assert.near(e[3], c.b)
-    assert.near(e[4], c.a)
+    assert.near(e[1], c.r, TOL)
+    assert.near(e[2], c.g, TOL)
+    assert.near(e[3], c.b, TOL)
+    assert.near(e[4], c.a, TOL)
 end
 
 describe("Theme axes (ADR-0014)", function()
