@@ -329,14 +329,18 @@ function CB._build()
     _demoScroll = Craft.Scroll:Create(scrollContainer, {})
     _demoScroll:GetFrame():SetAllPoints(scrollContainer)
     _demoFrame = _demoScroll:GetScrollChild()
-    _demoFrame:SetWidth(scrollContainer:GetWidth())
     _demoFrame:SetScale(CraftBrowserDB.scale / 100)
+    -- NO seteamos el ancho del scroll child aquí: Craft.Scroll lo gestiona en su
+    -- propio OnSizeChanged con el ancho INTERNO (viewport − SCROLLBAR_W). Si el
+    -- Browser también lo seteaba (a scrollContainer:GetWidth(), el ancho COMPLETO),
+    -- ambos peleaban cada frame del resize → el ancho oscilaba SCROLLBAR_W (8px),
+    -- el contenido se pasaba del viewport (overflow) y los bordes 1px re-snapeaban
+    -- (parpadeo/temblor). Dejar que el Scroll sea el único dueño del ancho.
 
-    -- Re-layout on resize
+    -- Persistir tamaño en resize (el layout lo maneja Craft.Scroll)
     _mainFrame:SetScript("OnSizeChanged", function(self, w, h)
         CraftBrowserDB.width  = w
         CraftBrowserDB.height = h
-        _demoFrame:SetWidth(scrollContainer:GetWidth())
     end)
 
     -- ── Resize handle ─────────────────────────────────────────────────────
