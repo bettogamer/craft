@@ -396,6 +396,12 @@ function CB.Navigate(pageId)
             ))
         end
     end
+
+    -- Reset the scroll to the top on every page change: otherwise the retained
+    -- offset from a long page leaves a shorter page scrolled past its content with
+    -- no way to scroll back up. Runs AFTER the new content height is set so the
+    -- scroll range is already correct when we clamp to 0.
+    _demoScroll:ScrollToTop()
 end
 
 -- ─── Show / Hide / Toggle ──────────────────────────────────────────────────

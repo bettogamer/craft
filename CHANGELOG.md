@@ -44,6 +44,8 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 - **`Craft.Tooltip` con icono** (regresión in-game): se veía en doble fila con alto de una sola línea —
   `GetStringWidth/Height` medían con el frame a la escala del zoom (`SetScale` idle). Ahora mide a escala
   1; además, holgura anti-wrap para el flicker de dos líneas al inicio de la animación de aparición.
+- **`Craft.Scroll`**: el rail (track) se dibujaba siempre, también cuando el contenido cabía. Ahora se
+  oculta el scrollbar completo (rail + thumb) cuando `childH <= viewH`.
 
 ## [2.2.0] - 2026-07-08
 
