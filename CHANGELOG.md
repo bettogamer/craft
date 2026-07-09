@@ -6,6 +6,13 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-07-09
+
+> **Release v2.3.0 — theming componible + personalización para consumidores.** Reúne **ADR-0014**
+> (theming multi-eje: Style · Base · Accent · Font · HeadingFont), **ADR-0015** (API de personalización:
+> overrides de token, fuentes por path/LSM, font outline) y la **paridad de animación con shadcn v4**, más
+> una tanda de fixes de theming/render. MINOR, retrocompatible (key sigue `Craft-2.0`).
+
 > **Theming multi-eje (ADR-0014).** Un tema resuelto pasa a ser la composición de ejes ortogonales
 > —**Style · Base Color · Accent · Font**— en `CraftThemeAxes` (`theme/Presets.lua`). Cada eje es solo
 > dato: añadir un base color, un accent o una fuente es agregar una entrada, **sin tocar componentes**.
