@@ -133,6 +133,35 @@ function T.register_preset(name, tbl)
     T._presets[name] = tbl
 end
 
+-- ─── build() ─────────────────────────────────────────────────────────────────
+-- Compone un tema desde los ejes (ADR-0014): build{ style=, base=, accent=, font= }.
+-- Devuelve una tabla de tokens plana (misma forma que un preset), lista para
+-- Craft.Theme.use(t) o register_preset(name, t). Todos los campos son opcionales;
+-- el default es la config MVP (Lyra · Neutral · Emerald · Inter) = `lyra-dark`.
+-- Un nombre de eje desconocido cae al default con un aviso (no rompe el tema).
+
+function T.build(spec)
+    return CraftThemeAxes.compose(spec)
+end
+
+-- ─── getAxisOptions() ────────────────────────────────────────────────────────
+-- Nombres disponibles por eje (para UIs de selección de tema). Ordenados.
+
+function T.getAxisOptions()
+    local function names(map)
+        local out = {}
+        for k in pairs(map) do out[#out + 1] = k end
+        table.sort(out)
+        return out
+    end
+    return {
+        style  = names(CraftThemeAxes.style),
+        base   = names(CraftThemeAxes.base),
+        accent = names(CraftThemeAxes.accent),
+        font   = names(CraftThemeAxes.font),
+    }
+end
+
 -- ─── getFont() ─────────────────────────────────────────────────────────────
 
 function T.getFont(weight)

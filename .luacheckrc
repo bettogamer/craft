@@ -42,6 +42,7 @@ globals = {
     -- Craft globals defined by Craft.lua and Presets.lua
     "Craft",
     "CraftPresets",
+    "CraftThemeAxes",
     -- Craft_Browser globals
     "CraftBrowserPages",
     "CraftBrowserDB",
