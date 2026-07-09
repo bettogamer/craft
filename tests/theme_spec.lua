@@ -81,6 +81,18 @@ describe("Theme axes (ADR-0014)", function()
         assert.is_not_nil((t.fontBold or ""):match("Inter%-Bold%.ttf$"))
     end)
 
+    it("fontHeading default = Inter-Medium (heading no cambia el look MVP)", function()
+        local t = Craft.Theme.build({})
+        assert.is_not_nil((t.fontHeading or ""):match("Inter%-Medium%.ttf$"))
+        assert.equals(t.fontMedium, t.fontHeading)  -- default headingFont=inter → == fontMedium
+    end)
+
+    it("build{ font/headingFont } mezcla familias (body Inter + heading Geist)", function()
+        local t = Craft.Theme.build({ font = "inter", headingFont = "geist" })
+        assert.is_not_nil((t.font or ""):match("Inter%-Regular%.ttf$"))
+        assert.is_not_nil((t.fontHeading or ""):match("Geist%-Medium%.ttf$"))
+    end)
+
     it("el preset registrado lyra-dark coincide con build{}", function()
         local preset = Craft.Theme.get()   -- activo por defecto = lyra-dark
         for k, e in pairs(EXPECT) do checkColor(preset, k, e) end
@@ -117,6 +129,9 @@ describe("Theme axes (ADR-0014)", function()
         assert.is_true(has(opts.accent, "blue"))
         assert.is_true(has(opts.accent, "orange"))
         assert.is_true(has(opts.font, "inter"))
+        assert.is_true(has(opts.font, "geist"))
+        assert.is_true(has(opts.headingFont, "inter"))
+        assert.is_true(has(opts.headingFont, "geist"))
     end)
 
     it("base=zinc compone los grises de zinc (frío)", function()

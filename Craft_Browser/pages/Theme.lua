@@ -3,7 +3,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 -- Selección de ejes viva entre re-renders (cada cambio re-navega a "Theme" para
 -- refrescar la tabla de swatches; esta tabla persiste la elección). Default =
 -- config MVP activa: Lyra · Neutral · Emerald · Inter (= preset `lyra-dark`).
-local _sel = { style = "lyra", base = "neutral", accent = "emerald", font = "inter" }
+local _sel = { style = "lyra", base = "neutral", accent = "emerald", font = "inter", headingFont = "inter" }
 
 local function titleCase(s)
     return (s:gsub("^%l", string.upper))
@@ -55,9 +55,10 @@ CraftBrowserPages["Theme"] = {
                     _sel[axis] = v
                     Craft.Theme.use(Craft.Theme.build({
                         style  = _sel.style,
-                        base   = _sel.base,
-                        accent = _sel.accent,
-                        font   = _sel.font,
+                        base        = _sel.base,
+                        accent      = _sel.accent,
+                        font        = _sel.font,
+                        headingFont = _sel.headingFont,
                     }))
                     -- Diferido: no destruir este Select dentro de su propio OnClick.
                     -- Theme.use ya repintó los componentes vivos; el re-navigate
@@ -73,10 +74,11 @@ CraftBrowserPages["Theme"] = {
         end
 
         y = addLabel("Composición del tema (cambio en vivo)", y)
-        y = addAxisSelect("style",  "Style",  y)
-        y = addAxisSelect("base",   "Base",   y)
-        y = addAxisSelect("accent", "Accent", y)
-        y = addAxisSelect("font",   "Font",   y)
+        y = addAxisSelect("style",       "Style",   y)
+        y = addAxisSelect("base",        "Base",    y)
+        y = addAxisSelect("accent",      "Accent",  y)
+        y = addAxisSelect("font",        "Font",    y)
+        y = addAxisSelect("headingFont", "Heading", y)
 
         y = y + 8
 

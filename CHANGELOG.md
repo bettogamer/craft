@@ -26,6 +26,12 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   dark) convertidos OKLCH→sRGB vía `/update-design-tokens base=<nombre>`.
 - **Accents** (primary + sidebarPrimary, eje `accent`): `blue`, `orange` y `cyan`. Se suman al MVP
   `emerald`. Mismo pipeline (`/update-design-tokens accent=<nombre>`).
+- **Familia de fuente `geist`** (eje `font`): Geist (Vercel, OFL) bundleada en `media/` como 3 TTFs
+  estáticos (Regular/Medium/Bold), instanciados del variable `Geist[wght]` con fontTools (WoW no
+  sintetiza pesos). Se suma al MVP `inter`.
+- **Eje `headingFont`** (ADR-0014 §6.1): separa la fuente de **títulos** de la del **body**. Aporta el
+  token `fontHeading` que leen Dialog/Window/Panel/Section; default `inter` → Inter-Medium (el peso que
+  ya usaban → sin cambio de look). Permite mezclar (body `inter` + títulos `geist`). Opciones: `inter`, `geist`.
 - **Tokens de movimiento para el "pop" de overlays** (`theme/Presets.lua`): `motionZoomFrom` (0.95 —
   escala de entrada, shadcn `zoom-in-95`) y `motionSlide` (8px — desplazamiento direccional, shadcn
   `slide-*-2`). Resueltos por los componentes; Theme sigue Weave-agnóstico.

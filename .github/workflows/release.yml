@@ -39,7 +39,7 @@ jobs:
           key: lucide-icons-${{ hashFiles('docs/components/icons.md') }}
 
       - name: Install Python dependencies
-        run: pip install Pillow cairosvg
+        run: pip install Pillow cairosvg fonttools
 
       - name: Generate Lucide icon atlas
         run: python3 scripts/export-icons.py
@@ -66,12 +66,38 @@ jobs:
             | xargs -I{} cp {} Craft/media/Inter-Bold.ttf
           rm -rf /tmp/inter.zip /tmp/inter_extract
 
+      - name: Cache Geist font
+        id: cache-geist
+        uses: actions/cache@v4
+        with:
+          path: Craft/media/Geist-*.ttf
+          key: geist-font-v1
+
+      - name: Download + instance Geist font (SIL OFL 1.1)
+        if: steps.cache-geist.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p Craft/media
+          # Geist se distribuye como variable font → instanciar 3 pesos estáticos
+          # (WoW no sintetiza pesos). Regular=400, Medium=500, Bold=700.
+          curl -L -o /tmp/Geist-var.ttf \
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/geist/Geist%5Bwght%5D.ttf"
+          python3 -m fontTools.varLib.instancer /tmp/Geist-var.ttf wght=400 \
+            -o Craft/media/Geist-Regular.ttf --update-name-table
+          python3 -m fontTools.varLib.instancer /tmp/Geist-var.ttf wght=500 \
+            -o Craft/media/Geist-Medium.ttf --update-name-table
+          python3 -m fontTools.varLib.instancer /tmp/Geist-var.ttf wght=700 \
+            -o Craft/media/Geist-Bold.ttf --update-name-table
+          rm -f /tmp/Geist-var.ttf
+
       - name: Verify assets
         run: |
           [ -f "Craft/media/lucide.tga"        ] || (echo "❌ lucide.tga"        && exit 1)
           [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf" && exit 1)
           [ -f "Craft/media/Inter-Medium.ttf"  ] || (echo "❌ Inter-Medium.ttf"  && exit 1)
           [ -f "Craft/media/Inter-Bold.ttf"    ] || (echo "❌ Inter-Bold.ttf"    && exit 1)
+          [ -f "Craft/media/Geist-Regular.ttf" ] || (echo "❌ Geist-Regular.ttf" && exit 1)
+          [ -f "Craft/media/Geist-Medium.ttf"  ] || (echo "❌ Geist-Medium.ttf"  && exit 1)
+          [ -f "Craft/media/Geist-Bold.ttf"    ] || (echo "❌ Geist-Bold.ttf"    && exit 1)
           echo "✅ All assets present"
 
       # ─── Embeber Craft en Craft_Browser/libs/ ─────────────────────────────

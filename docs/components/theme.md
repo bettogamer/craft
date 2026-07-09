@@ -54,23 +54,28 @@ CraftPresets  (global table)  — definida en theme/Presets.lua, cargada antes
 
 ## Ejes componibles (ADR-0014)
 
-Un tema resuelto en Craft es una **composición de 4 ejes ortogonales** (sin colisión de claves):
+Un tema resuelto en Craft es una **composición de 5 ejes ortogonales** (sin colisión de claves):
 
 | Eje | Significado | Opciones actuales |
 |-----|-------------|-------------------|
 | **Style** | Métricas, radius, spacing, motion | `lyra` (rounded-none, motion shadcn-like) |
 | **Base** | Grises neutrales (fondos, texto, cards) | `neutral`, `zinc` (frío), `stone` (cálido), `mist` (cian) |
 | **Accent** | Color principal y barra lateral | `emerald`, `blue`, `orange`, `cyan` |
-| **Font** | Familia de fuentes (Regular/Medium/Bold) | `inter` (Inter bundleado) |
+| **Font** | Familia del body (`font`/`fontMedium`/`fontBold`) | `inter`, `geist` |
+| **HeadingFont** | Familia de títulos (token `fontHeading`, weight medium) | `inter`, `geist` |
 
-El preset **built-in `lyra-dark`** es la composición por defecto: `Lyra` · `neutral` · `emerald` · `inter`.
+El eje **HeadingFont** es independiente del body (se puede mezclar: body `inter` + títulos `geist`). Lo leen
+los 4 componentes de título (Dialog, Window, Panel, Section) vía `t.fontHeading`; su default (`inter`) resuelve
+a Inter-Medium — el mismo peso que usaban antes, así que el MVP no cambia.
+
+El preset **built-in `lyra-dark`** es la composición por defecto: `Lyra` · `neutral` · `emerald` · `inter` · `inter`.
 
 ### API de composición
 
 | Función | Firma | Descripción |
 |---------|-------|-------------|
-| `Craft.Theme.build(spec)` | `(table) → table` | Compone un tema desde los ejes. `spec = { style=, base=, accent=, font= }` (todos opcionales, defaultean al MVP). Retorna una tabla de tokens plana, lista para `use()` o `register_preset()`. Un eje desconocido cae al default con aviso (no rompe). |
-| `Craft.Theme.getAxisOptions()` | `() → table` | Retorna `{ style=..., base=..., accent=..., font=... }` con los nombres disponibles por eje (array de strings, ordenados alfabéticamente). Útil para UIs de selección de tema. |
+| `Craft.Theme.build(spec)` | `(table) → table` | Compone un tema desde los ejes. `spec = { style=, base=, accent=, font=, headingFont= }` (todos opcionales, defaultean al MVP). Retorna una tabla de tokens plana, lista para `use()` o `register_preset()`. Un eje desconocido cae al default con aviso (no rompe). |
+| `Craft.Theme.getAxisOptions()` | `() → table` | Retorna `{ style=..., base=..., accent=..., font=..., headingFont=... }` con los nombres disponibles por eje (array de strings, ordenados alfabéticamente). Útil para UIs de selección de tema. |
 
 ### Ejemplo: componer un tema personalizado
 

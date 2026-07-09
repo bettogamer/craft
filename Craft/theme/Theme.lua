@@ -155,10 +155,11 @@ function T.getAxisOptions()
         return out
     end
     return {
-        style  = names(CraftThemeAxes.style),
-        base   = names(CraftThemeAxes.base),
-        accent = names(CraftThemeAxes.accent),
-        font   = names(CraftThemeAxes.font),
+        style       = names(CraftThemeAxes.style),
+        base        = names(CraftThemeAxes.base),
+        accent      = names(CraftThemeAxes.accent),
+        font        = names(CraftThemeAxes.font),
+        headingFont = names(CraftThemeAxes.headingFont),
     }
 end
 

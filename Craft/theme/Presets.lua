@@ -18,6 +18,11 @@ local Craft  = LibStub("Craft-2.0")
 local FONT   = Craft.mediaPath .. "Inter-Regular.ttf"
 local FONT_M = Craft.mediaPath .. "Inter-Medium.ttf"
 local FONT_B = Craft.mediaPath .. "Inter-Bold.ttf"
+-- Geist (Vercel, OFL). Instanciada del variable Geist[wght] a 3 estáticos
+-- (400/500/700) con fontTools — WoW no sintetiza pesos.
+local GEIST   = Craft.mediaPath .. "Geist-Regular.ttf"
+local GEIST_M = Craft.mediaPath .. "Geist-Medium.ttf"
+local GEIST_B = Craft.mediaPath .. "Geist-Bold.ttf"
 
 CraftThemeAxes = {}
 
@@ -199,22 +204,36 @@ CraftThemeAxes.accent = {
     },
 }
 
--- ─── Eje Font (familias) ──────────────────────────────────────────────────────
--- MVP: Inter (Regular/Medium/Bold bundled en Craft/media/). WoW no sintetiza
--- pesos → un TTF por peso. (Roadmap ADR-0014 §6.1: heading font separable +
--- familias adicionales; cada familia = bundlear sus TTFs.)
+-- ─── Eje Font (body — familias) ────────────────────────────────────────────────
+-- Body font: font (regular) / fontMedium / fontBold. WoW no sintetiza pesos → un
+-- TTF por peso. Añadir familia = bundlear sus 3 TTFs + una entrada aquí (ADR-0014 §6.1).
 CraftThemeAxes.font = {
     inter = {
         font                    = FONT,
         fontMedium              = FONT_M,
         fontBold                = FONT_B,
     },
+    geist = {
+        font                    = GEIST,
+        fontMedium              = GEIST_M,
+        fontBold                = GEIST_B,
+    },
+}
+
+-- ─── Eje Heading Font (títulos) ──────────────────────────────────────────────────
+-- Eje separado del body (ADR-0014 §6.1): permite mezclar (p. ej. body Inter + títulos
+-- Geist). Aporta el token `fontHeading` que leen los 4 componentes de título (Dialog,
+-- Window, Panel, Section). Default = inter → Inter-Medium = el look actual (los títulos
+-- usaban `fontMedium`), así que el MVP no cambia. Peso de heading = medium (text-sm).
+CraftThemeAxes.headingFont = {
+    inter = { fontHeading = FONT_M },
+    geist = { fontHeading = GEIST_M },
 }
 
 -- ─── compose(spec) → tabla de tokens plana ────────────────────────────────────
--- spec = { style=, base=, accent=, font= } (todos opcionales; default = config
--- MVP). Fusiona las capas en orden; como los ejes son disjuntos no hay colisión
--- de claves. Un nombre de eje desconocido cae al default con un aviso (no rompe).
+-- spec = { style=, base=, accent=, font=, headingFont= } (todos opcionales; default
+-- = config MVP). Fusiona las capas en orden; como los ejes son disjuntos no hay
+-- colisión de claves. Un nombre de eje desconocido cae al default con un aviso (no rompe).
 local function warn(msg)
     if DEFAULT_CHAT_FRAME then
         DEFAULT_CHAT_FRAME:AddMessage("|cffff4444Craft:|r " .. msg)
@@ -243,6 +262,7 @@ local function compose(spec)
     merge(pick("base",   spec.base,   "neutral"))
     merge(pick("accent", spec.accent, "emerald"))
     merge(pick("font",   spec.font,   "inter"))
+    merge(pick("headingFont", spec.headingFont, "inter"))
     return out
 end
 CraftThemeAxes.compose = compose
