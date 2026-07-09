@@ -10,7 +10,7 @@
 
 - **Nombre**: Craft
 - **Dominio**: WoW Addon Development — librería de componentes UI
-- **Resumen**: librería open source de componentes UI para addons de World of Warcraft. Librería embebible — developers descargan `Craft.zip` de GitHub Releases y lo colocan en `libs/` de su addon. Craft_Browser es el único addon en CurseForge/Wago. Diseño basado en shadcn Lyra (Zinc + Emerald, Radius=0) con íconos Lucide y fuente Inter bundled en `Craft/media/`. **Dark mode únicamente** — WoW addon dev es dark-mode exclusivo. Ver ADR-0012.
+- **Resumen**: librería open source de componentes UI para addons de World of Warcraft. Librería embebible — developers descargan `Craft.zip` de GitHub Releases y lo colocan en `libs/` de su addon. Craft_Browser es el único addon en CurseForge/Wago. Diseño basado en shadcn Lyra (Style=Lyra/Radius=0, Base=Neutral, Theme=Emerald) con íconos Lucide y fuente Inter bundled en `Craft/media/`. **Dark mode únicamente** — WoW addon dev es dark-mode exclusivo. Ver ADR-0012 y ADR-0014 (modelo de ejes + roadmap).
 - **DTI**: `docs/DTI_v0.1.md`
 - **FSD**: `docs/FSD_v0.1.md`
 - **BRD**: `docs/BRD_v0.1.md`
@@ -154,7 +154,7 @@ herramientas, nunca** (`Co-Authored-By: Claude ...`, "Generated with..." — pro
 | Lenguaje | Lua 5.1 | WoW sandbox — sin librerías externas |
 | Librería compartida | LibStub | `LibStub:NewLibrary("Craft-2.0", BUILD)` |
 | Reactividad | Weave **v0.5.0** vendoreada (`Craft/libs/Weave/`, READ-ONLY) | `LibStub("Weave-1.0")`; solo builds etiquetados `v*`; bugs → issue en repo Weave + re-vendoreo. Ver ADR-0013 |
-| Diseño | shadcn Lyra dark | Base=Zinc, Theme=Emerald, Radius=0. Ver ADR-0002 |
+| Diseño | shadcn Lyra dark | Style=Lyra (Radius=0), Base=**Neutral**, Theme=Emerald, Font=Inter, Icons=Lucide. Ver ADR-0002 + ADR-0014 (ejes/roadmap) |
 | Íconos | Lucide (atlas TGA bundled) | Ver ADR-0003 |
 | Fuente | Inter (TTF bundled) | `Craft/media/Inter-Regular.ttf` |
 | Linter | luacheck | `.luacheckrc` con globals WoW |
@@ -258,7 +258,7 @@ setter público (`SetOptions` / `SetItems`). Reglas:
 - **MUST NOT**: globales Lua no declaradas en `.luacheckrc`.
 - **MUST NOT**: soporte TypeScriptToLua — rechazar PRs con `.d.ts` (ADR-0007).
 - **MUST NOT**: addon companion para assets — todo en `Craft/media/` (ADR-0003).
-- **MUST NOT**: `radius > 0` — Lyra usa Radius=0 (ADR-0002).
+- **MUST NOT**: `radius > 0` — Lyra usa Radius=0 (ADR-0002). Sigue vigente hasta el ADR futuro del eje Style (Mira); ver ADR-0014 §6.2 y RFC-002.
 - **MUST NOT**: modificar ADRs aceptados — crear un nuevo ADR que los superede.
 - **MUST NOT**: crear `lyra-light` ni ningún preset de tema claro — WoW es dark-mode exclusivo.
 
@@ -466,7 +466,7 @@ Todos los componentes usan `t.*` en `_applyTheme(t)`. **Fuente de verdad**: `doc
 | `t.destructive` / `t.destructiveForeground` | RGBA | `destructive/20` bg + `destructive` text (Lyra — tinte, no sólido). `destructiveForeground` = blanco puro |
 | `t.border` | RGBA | Bordes de componentes (blanco a=0.1 en dark) |
 | `t.input` | RGBA | Fondo de Input/Select trigger (blanco a=0.15 en dark) |
-| `t.ring` | RGBA | **Zinc** (gris) — NO primary. Solo Input ring en OnEditFocusGained (mouse click, no teclado) |
+| `t.ring` | RGBA | **Gris neutro** (neutral-500) — NO primary/emerald. Solo Input ring en OnEditFocusGained (mouse click, no teclado) |
 
 ### Tokens Sidebar (exclusivos de `Craft.Sidebar`)
 
@@ -489,10 +489,10 @@ Todos los componentes usan `t.*` en `_applyTheme(t)`. **Fuente de verdad**: `doc
 | `t.fontSizeSm` | 11 | Adaptación Craft (no existe en Lyra CSS) |
 | `t.spacingXs/Sm/Md/Lg/Xl` | 4/8/12/16/24 px | UI units directos |
 | `t.borderWidth` | 1 | Usar con `Craft.Theme.SetPixelHeight/Width` |
-| `t.radius` | 0 | **Sin border radius** — Lyra usa Radius=0 |
-| `t.iconSizeSm` / `t.iconSizeMd` | 16 / 24 | Atlas lucide-16 / lucide-24 |
+| `t.radius` | 0 | **Sin border radius** — Lyra usa Radius=0 (dato reservado hasta ADR de Style, ADR-0014 §6.2) |
+| `t.iconSizeSm` / `t.iconSizeMd` | 16 / 24 | Atlas supersampleado `media/lucide.tga` |
 
-> **`t.ring` es zinc (gris), NO emerald/primary.** Ring en WoW solo aplica para Input EditBox (OnEditFocusGained via click), no por navegación de teclado.
+> **`t.ring` es gris neutro (neutral-500), NO emerald/primary.** Ring en WoW solo aplica para Input EditBox (OnEditFocusGained via click), no por navegación de teclado.
 
 ---
 

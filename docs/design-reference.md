@@ -8,22 +8,26 @@
 
 ---
 
-## 1. Qué es Lyra
+## 1. Los 5 ejes — Lyra es SOLO el Style (la forma)
 
-Lyra es un **estilo de componente** de shadcn/ui v4, no un tema de color.
-Define la **forma** de los componentes, no sus colores:
+shadcn/create compone un tema desde **5 ejes ortogonales**. Craft adopta el mismo modelo (ver
+[ADR-0014](adr/0014-theming-multi-eje.md)). **Lyra es solo el eje Style** (la *forma*), no un tema de
+color ni de fuente:
 
-| Eje | Valor | Notas |
-|-----|-------|-------|
-| Style | **Lyra** | Sharp, boxy, precise — para herramientas técnicas |
-| Radius | **0** | `--radius: 0` — esquinas 100% rectas, sin redondeo |
-| Base Color | **Neutral** | Neutros para fondos, bordes, muted |
-| Theme Color | **Emerald** | Acento — primary del sidebar, focus areas |
-| Font | **Inter** | Bundled en `Craft/media/` (shadcn usa Inter con Lyra). Pesos: Regular (400), Medium (500), Bold (700) — ver §2.1 |
+| Eje | Valor MVP | Qué define | Notas |
+|-----|-----------|------------|-------|
+| **Style** | **Lyra** | Forma / radius / densidad | `--radius: 0` — esquinas 100% rectas. Único style rounded-none de shadcn → el que WoW renderiza nativo (ver ADR-0014 §2) |
+| **Base Color** | **Neutral** | Grises: fondos, bordes, muted, ring | Grises **puros** (`oklch(… 0 0)`, C=0). NO Zinc |
+| **Theme** (accent) | **Emerald** | `primary`, `sidebar-primary` | Acento |
+| **Font** | **Inter** | Familia body + heading | **Eje independiente del Style** — `style-lyra.css` no define fuente. Pesos Regular/Medium/Bold — ver §2.1 |
+| **Icon Library** | **Lucide** | Set de íconos | Atlas `Craft/media/lucide.tga` (ADR-0003) |
 
-> **Nota sobre el primary**: el color emerald en Lyra aparece en versiones muy oscuras
-> para el cuerpo principal (emerald-700/800) y más vibrante en el sidebar (emerald-500/600).
-> El `--ring` es zinc (gris), no emerald.
+> **Nota sobre el primary**: el emerald aparece muy oscuro en el cuerpo principal (emerald-700/800) y
+> más vibrante en el sidebar (emerald-500/600). El `--ring` es **gris neutro** (neutral-500 en dark),
+> no emerald.
+
+> **Roadmap** (ADR-0014): Base Color, Theme y Font (body + heading) pasan a ser intercambiables en la
+> próxima versión; Style (Mira, `radius>0`) e Icon Library quedan para una versión futura.
 
 ### 2.1 Tipografía — pesos
 
@@ -45,6 +49,9 @@ WoW no sintetiza pesos (toma un TTF por peso), así que Craft bundlea tres archi
 ---
 
 ## 2. CSS fuente — valores exactos de shadcn/create
+
+> **Craft solo implementa el bloque `.dark`** (dark-only, ADR-0005/ADR-0012). El bloque `:root` (light)
+> se conserva únicamente como referencia fiel del export de `/create` — no se traduce a ningún preset.
 
 ```css
 :root {
@@ -109,37 +116,12 @@ WoW no sintetiza pesos (toma un TTF por peso), así que Craft bundlea tres archi
 
 ---
 
-## 3. Tokens — Light Mode (`lyra-light`)
+## 3. Tokens — Light Mode — ELIMINADO
 
-| CSS var | OKLCH | Hex approx | Tailwind ref | Lua RGBA |
-|---------|-------|-----------|--------------|----------|
-| `--background` | oklch(1 0 0) | #ffffff | white | `{r=1.000, g=1.000, b=1.000, a=1}` |
-| `--foreground` | oklch(0.141 0.005 285.823) | #09090b | zinc-950 | `{r=0.035, g=0.035, b=0.043, a=1}` |
-| `--card` | oklch(1 0 0) | #ffffff | white | `{r=1.000, g=1.000, b=1.000, a=1}` |
-| `--card-foreground` | oklch(0.141 0.005 285.823) | #09090b | zinc-950 | `{r=0.035, g=0.035, b=0.043, a=1}` |
-| `--popover` | oklch(1 0 0) | #ffffff | white | `{r=1.000, g=1.000, b=1.000, a=1}` |
-| `--popover-foreground` | oklch(0.141 0.005 285.823) | #09090b | zinc-950 | `{r=0.035, g=0.035, b=0.043, a=1}` |
-| `--primary` | oklch(0.508 0.118 165.612) | #047857 | emerald-700 | `{r=0.016, g=0.471, b=0.341, a=1}` |
-| `--primary-foreground` | oklch(0.979 0.021 166.113) | #ecfdf5 | emerald-50 | `{r=0.925, g=0.992, b=0.961, a=1}` |
-| `--secondary` | oklch(0.967 0.001 286.375) | #f4f4f5 | zinc-100 | `{r=0.957, g=0.957, b=0.961, a=1}` |
-| `--secondary-foreground` | oklch(0.21 0.006 285.885) | #18181b | zinc-900 | `{r=0.094, g=0.094, b=0.106, a=1}` |
-| `--muted` | oklch(0.967 0.001 286.375) | #f4f4f5 | zinc-100 | `{r=0.957, g=0.957, b=0.961, a=1}` |
-| `--muted-foreground` | oklch(0.552 0.016 285.938) | #71717a | zinc-500 | `{r=0.443, g=0.443, b=0.478, a=1}` |
-| `--accent` | oklch(0.967 0.001 286.375) | #f4f4f5 | zinc-100 | `{r=0.957, g=0.957, b=0.961, a=1}` |
-| `--accent-foreground` | oklch(0.21 0.006 285.885) | #18181b | zinc-900 | `{r=0.094, g=0.094, b=0.106, a=1}` |
-| `--destructive` | oklch(0.577 0.245 27.325) | #dc2626 | red-600 | `{r=0.863, g=0.149, b=0.149, a=1}` |
-| `--border` | oklch(0.92 0.004 286.32) | #e4e4e7 | zinc-200 | `{r=0.894, g=0.894, b=0.906, a=1}` |
-| `--input` | oklch(0.92 0.004 286.32) | #e4e4e7 | zinc-200 | `{r=0.894, g=0.894, b=0.906, a=1}` |
-| `--ring` | oklch(0.705 0.015 286.067) | #a1a1aa | zinc-400 | `{r=0.631, g=0.631, b=0.667, a=1}` |
-| `--sidebar` | oklch(0.985 0 0) | #fafafa | zinc-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
-| `--sidebar-foreground` | oklch(0.141 0.005 285.823) | #09090b | zinc-950 | `{r=0.035, g=0.035, b=0.043, a=1}` |
-| `--sidebar-primary` | oklch(0.596 0.145 163.225) | #059669 | emerald-600 | `{r=0.020, g=0.588, b=0.412, a=1}` |
-| `--sidebar-primary-foreground` | oklch(0.979 0.021 166.113) | #ecfdf5 | emerald-50 | `{r=0.925, g=0.992, b=0.961, a=1}` |
-| `--sidebar-accent` | oklch(0.967 0.001 286.375) | #f4f4f5 | zinc-100 | `{r=0.957, g=0.957, b=0.961, a=1}` |
-| `--sidebar-accent-foreground` | oklch(0.21 0.006 285.885) | #18181b | zinc-900 | `{r=0.094, g=0.094, b=0.106, a=1}` |
-| `--sidebar-border` | oklch(0.92 0.004 286.32) | #e4e4e7 | zinc-200 | `{r=0.894, g=0.894, b=0.906, a=1}` |
-| `--sidebar-ring` | oklch(0.705 0.015 286.067) | #a1a1aa | zinc-400 | `{r=0.631, g=0.631, b=0.667, a=1}` |
-| `--radius` | — | 0 | — | `0` |
+> **Craft es dark-mode únicamente** (ADR-0005/ADR-0012). `lyra-light` fue eliminado; no existe preset
+> claro. Esta sección se mantiene como tumba para no renumerar §4–§10 (hay referencias externas a
+> "§9"). Los valores light del export de `/create` viven en el bloque `:root` de §2, solo como
+> referencia; no se implementan.
 
 ---
 
@@ -193,10 +175,10 @@ border:SetColorTexture(1, 1, 1, 0.1)
 inputBg:SetColorTexture(1, 1, 1, 0.15)
 ```
 
-### Ring (focus) es zinc, no emerald
+### Ring (focus) es gris neutro, no emerald
 
-Contrariamente a lo esperado, `--ring` es zinc-400 (light) y zinc-500 (dark) — un
-gris, no verde. El foco visual en Lyra es sutil. El Sidebar usa emerald para su primary.
+Contrariamente a lo esperado, `--ring` es **gris neutro** (neutral-500 en dark) — no verde. El foco
+visual en Lyra es sutil. El Sidebar usa emerald para su primary.
 
 ### Primary en dark mode es emerald-800
 
@@ -225,8 +207,8 @@ el contexto WoW (sin CSS box model):
 | `spacingXl` | 24 | Padding de Dialog header/footer |
 | `borderWidth` | 1 | Grosor de bordes en todos los componentes |
 | `focusRingWidth` | 2 | **RESERVADO** — WoW es mouse-only, no usado en MVP. Disponible para addons con navegación propia. |
-| `iconSizeSm` | 16 | Íconos Lucide pequeños (atlas lucide-16.tga) |
-| `iconSizeMd` | 24 | Íconos Lucide estándar (atlas lucide-24.tga) |
+| `iconSizeSm` | 16 | Íconos Lucide pequeños (atlas supersampleado `media/lucide.tga`) |
+| `iconSizeMd` | 24 | Íconos Lucide estándar (mismo atlas `media/lucide.tga`) |
 | `fontSize` | 12 | `text-xs` de Lyra — tamaño base de todos los componentes |
 | `fontSizeSm` | 11 | **CRAFT ADAPTATION** — no existe en Lyra CSS (mínimo Lyra = `text-xs` = 12px). Añadido para texto compacto en WoW (helper text, captions). |
 | `fontSizeLg` | 14 | `text-sm` de Lyra — títulos de Card y Dialog |
@@ -235,130 +217,11 @@ el contexto WoW (sin CSS box model):
 
 ## 7. Implementación — `Craft/theme/Presets.lua`
 
-```lua
--- Craft/theme/Presets.lua
--- Valores exactos de shadcn/create: Style=Lyra, Base=Zinc, Theme=Emerald
--- Fuente: docs/design-reference.md
-
-local FONT   = "Interface\\AddOns\\Craft\\media\\Inter-Regular.ttf"
-local FONT_M = "Interface\\AddOns\\Craft\\media\\Inter-Medium.ttf"
-local FONT_B = "Interface\\AddOns\\Craft\\media\\Inter-Bold.ttf"
-
-CraftPresets = {}
-
-CraftPresets["lyra-dark"] = {
-  -- Core
-  background              = {r=0.035, g=0.035, b=0.043, a=1},
-  foreground              = {r=0.980, g=0.980, b=0.980, a=1},
-  card                    = {r=0.094, g=0.094, b=0.106, a=1},
-  cardForeground          = {r=0.980, g=0.980, b=0.980, a=1},
-  popover                 = {r=0.094, g=0.094, b=0.106, a=1},
-  popoverForeground       = {r=0.980, g=0.980, b=0.980, a=1},
-  -- Primary (emerald-800 en dark — muy oscuro, contraste WCAG-AAA)
-  primary                 = {r=0.024, g=0.373, b=0.275, a=1},
-  primaryForeground       = {r=0.925, g=0.992, b=0.961, a=1},
-  -- Secondary / Muted / Accent (todos zinc-800 en dark)
-  secondary               = {r=0.153, g=0.153, b=0.165, a=1},
-  secondaryForeground     = {r=0.980, g=0.980, b=0.980, a=1},
-  muted                   = {r=0.153, g=0.153, b=0.165, a=1},
-  mutedForeground         = {r=0.631, g=0.631, b=0.667, a=1},
-  accent                  = {r=0.153, g=0.153, b=0.165, a=1},
-  accentForeground        = {r=0.980, g=0.980, b=0.980, a=1},
-  -- Destructive (red-400 en dark — más claro para contraste)
-  -- destructiveForeground: text-white en Lyra CSS (blanco puro, no zinc-50)
-  destructive             = {r=0.973, g=0.443, b=0.443, a=1},
-  destructiveForeground   = {r=1.000, g=1.000, b=1.000, a=1},
-  -- Border e Input (blanco con alpha — SetColorTexture(r,g,b,a))
-  border                  = {r=1.000, g=1.000, b=1.000, a=0.100},
-  input                   = {r=1.000, g=1.000, b=1.000, a=0.150},
-  -- Ring (zinc-500 en dark — gris sutil, no emerald)
-  ring                    = {r=0.443, g=0.443, b=0.478, a=1},
-  -- Sidebar (tokens separados — solo para Craft.Sidebar)
-  sidebar                 = {r=0.094, g=0.094, b=0.106, a=1},
-  sidebarForeground       = {r=0.980, g=0.980, b=0.980, a=1},
-  sidebarPrimary          = {r=0.063, g=0.725, b=0.506, a=1},  -- emerald-500
-  sidebarPrimaryForeground = {r=0.008, g=0.173, b=0.133, a=1}, -- emerald-950
-  sidebarAccent           = {r=0.153, g=0.153, b=0.165, a=1},
-  sidebarAccentForeground = {r=0.980, g=0.980, b=0.980, a=1},
-  sidebarBorder           = {r=1.000, g=1.000, b=1.000, a=0.100},
-  sidebarRing             = {r=0.443, g=0.443, b=0.478, a=1},
-  -- Lyra style
-  radius                  = 0,
-  -- Fuentes
-  font                    = FONT,
-  fontMedium              = FONT_M,
-  fontBold                = FONT_B,
-  fontSize                = 12,
-  fontSizeSm              = 11,
-  fontSizeLg              = 14,
-  -- Spacing
-  spacingXs               = 4,
-  spacingSm               = 8,
-  spacingMd               = 12,
-  spacingLg               = 16,
-  spacingXl               = 24,
-  borderWidth             = 1,
-  focusRingWidth          = 2,
-  iconSizeSm              = 16,
-  iconSizeMd              = 24,
-}
-
-CraftPresets["lyra-light"] = {
-  -- Core
-  background              = {r=1.000, g=1.000, b=1.000, a=1},
-  foreground              = {r=0.035, g=0.035, b=0.043, a=1},
-  card                    = {r=1.000, g=1.000, b=1.000, a=1},
-  cardForeground          = {r=0.035, g=0.035, b=0.043, a=1},
-  popover                 = {r=1.000, g=1.000, b=1.000, a=1},
-  popoverForeground       = {r=0.035, g=0.035, b=0.043, a=1},
-  -- Primary (emerald-700 en light)
-  primary                 = {r=0.016, g=0.471, b=0.341, a=1},
-  primaryForeground       = {r=0.925, g=0.992, b=0.961, a=1},
-  -- Secondary / Muted / Accent (zinc-100 en light)
-  secondary               = {r=0.957, g=0.957, b=0.961, a=1},
-  secondaryForeground     = {r=0.094, g=0.094, b=0.106, a=1},
-  muted                   = {r=0.957, g=0.957, b=0.961, a=1},
-  mutedForeground         = {r=0.443, g=0.443, b=0.478, a=1},
-  accent                  = {r=0.957, g=0.957, b=0.961, a=1},
-  accentForeground        = {r=0.094, g=0.094, b=0.106, a=1},
-  -- Destructive (red-600 en light)
-  destructive             = {r=0.863, g=0.149, b=0.149, a=1},
-  destructiveForeground   = {r=1.000, g=1.000, b=1.000, a=1},
-  -- Border e Input (zinc-200 en light — sin alpha)
-  border                  = {r=0.894, g=0.894, b=0.906, a=1},
-  input                   = {r=0.894, g=0.894, b=0.906, a=1},
-  -- Ring (zinc-400 en light)
-  ring                    = {r=0.631, g=0.631, b=0.667, a=1},
-  -- Sidebar
-  sidebar                 = {r=0.980, g=0.980, b=0.980, a=1},
-  sidebarForeground       = {r=0.035, g=0.035, b=0.043, a=1},
-  sidebarPrimary          = {r=0.020, g=0.588, b=0.412, a=1},  -- emerald-600
-  sidebarPrimaryForeground = {r=0.925, g=0.992, b=0.961, a=1}, -- emerald-50
-  sidebarAccent           = {r=0.957, g=0.957, b=0.961, a=1},
-  sidebarAccentForeground = {r=0.094, g=0.094, b=0.106, a=1},
-  sidebarBorder           = {r=0.894, g=0.894, b=0.906, a=1},
-  sidebarRing             = {r=0.631, g=0.631, b=0.667, a=1},
-  -- Lyra style
-  radius                  = 0,
-  font                    = FONT,
-  fontMedium              = FONT_M,
-  fontBold                = FONT_B,
-  fontSize                = 12,
-  fontSizeSm              = 11,
-  fontSizeLg              = 14,
-  spacingXs               = 4,
-  spacingSm               = 8,
-  spacingMd               = 12,
-  spacingLg               = 16,
-  spacingXl               = 24,
-  borderWidth             = 1,
-  focusRingWidth          = 2,
-  iconSizeSm              = 16,
-  iconSizeMd              = 24,
-}
-```
-
----
+> **La implementación vive en [`Craft/theme/Presets.lua`](../Craft/theme/Presets.lua) — NO se duplica
+> aquí.** Este documento define los *tokens* (§4, dark); `Presets.lua` es su traducción a Lua. Duplicar
+> el preset completo en el doc ya provocó deriva (valores desincronizados + un `lyra-light` que no
+> existe en el código). Los valores canónicos son la tabla §4 y `Presets.lua`; ante duda, gana el
+> código. `Presets.lua` incluye además los tokens de **motion** (Weave.tween — ver ADR-0013).
 
 ## 8. Estados derivados (calculados en runtime, no en Presets)
 
@@ -421,3 +284,4 @@ cada spec bajo "Diferencias conocidas vs shadcn".
 | v1.0 | 30/05/2026 | Alberto Gomez | Reescrito con CSS exacto de ui.shadcn.com/create (Style=Lyra, Base=Zinc, Theme=Emerald). Valores definitivos. |
 | v1.1 | 08/06/2026 | bettogamer | Añadida §9 Divergencias deliberadas de shadcn (Tabs wrap, Slider gaps). |
 | v1.2 | 08/06/2026 | bettogamer | Tokens dark actualizados (primary, destructive). Añadida §9.1 omisiones conocidas (Tabs line/vertical/icons, Sidebar subset, Panel CardAction, Dialog DialogClose). |
+| v1.3 | 09/07/2026 | bettogamer | Limpieza de deuda del MVP (ADR-0014): §1 reencuadrada como modelo de 5 ejes (Lyra = solo Style; Base=**Neutral** no Zinc; Font = eje independiente; ring = gris neutro); §3 (lyra-light) eliminada → tumba (dark-only); §7 dejó de duplicar `Presets.lua` (era stale + tenía lyra-light) → puntero; atlas de íconos corregido a `lucide.tga`. |

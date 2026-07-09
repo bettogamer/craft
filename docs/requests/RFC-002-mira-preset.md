@@ -3,10 +3,21 @@
 **Reportado por:** Alberto (maintainer)
 **Área:** `Craft/theme/` + capa de renderizado de fondos en componentes
 **Tipo:** Investigación / RFC (pre-ADR)
-**Estado:** 🔬 Investigación documentada — pendiente de decisión de maintainer + ADR
+**Estado:** 🔬 Investigación documentada — parcialmente absorbida por [ADR-0014](../adr/0014-theming-multi-eje.md)
 **Fecha:** 2026-06-09
 
 ---
+
+> **Actualización (2026-07-09, ADR-0014):** el maintainer aceptó el modelo de ejes de este RFC.
+> - **Eje 1 (color)** queda **absorbido por el roadmap de ADR-0014 §6.1**: Base Color + Theme + Font
+>   pasan a ser ejes intercambiables (próxima versión), vía una capa de composición. Ya no es
+>   "pendiente" — está planificado.
+> - **Eje 2 (Style / `radius > 0`, el "Mira" real)** sigue **pendiente de su propio ADR** (ADR-0014
+>   §6.2 lo difiere a una versión futura). El diseño técnico de abajo (chokepoint `applyFill`,
+>   render de esquinas) sigue siendo la referencia para ese ADR. El guardrail `radius = 0` continúa
+>   vigente hasta entonces.
+> - **Decisión del maintainer sobre Mira:** fidelidad total con esquinas redondeadas (no solo
+>   densidad) — ver ADR-0014 §6.2.
 
 ## Objetivo
 

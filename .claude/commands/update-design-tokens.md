@@ -8,13 +8,19 @@ Este comando hace DOS cosas en secuencia:
 1. Actualiza los tokens de color en `design-reference.md` y `Presets.lua`
 2. Descarga `style-lyra.css` de GitHub y compara los layouts de los 16 componentes con los specs actuales
 
+> ⚠️ **Este comando está hardcodeado a un preset Lyra único** (Style=Lyra, Base=Neutral, Theme=Emerald).
+> Cuando se implemente el soporte multi-eje (ADR-0014 §6.1 — Base Color / Theme / Font intercambiables),
+> este comando debe **rediseñarse** para parametrizarse por eje: generar la capa de grises del Base Color
+> elegido y la de accent del Theme por separado (capas componibles), en vez de actualizar un `lyra-dark`
+> plano. Ese rediseño es parte del trabajo de esa versión — hoy sigue siendo single-preset.
+
 ---
 
 ## PARTE 1 — Actualizar tokens de color
 
 ### Si el usuario pasó CSS como argumento
 
-El usuario pegó el bloque `.dark { ... }` de `ui.shadcn.com/create` (Style=Lyra, Base=Zinc, Theme=Emerald). Está en `$ARGUMENTS`.
+El usuario pegó el bloque `.dark { ... }` de `ui.shadcn.com/create` (Style=Lyra, Base=Neutral, Theme=Emerald). Está en `$ARGUMENTS`.
 
 **Pasos:**
 
@@ -63,7 +69,7 @@ Instruye al usuario:
 ```
 Necesito el CSS de shadcn Lyra dark. Pasos:
 1. Ir a ui.shadcn.com/create
-2. Seleccionar: Style=Lyra, Base=Zinc, Theme=Emerald
+2. Seleccionar: Style=Lyra, Base=Neutral, Theme=Emerald
 3. Hacer clic en "Copy code" o "Copy CSS"
 4. Correr: /update-design-tokens <pegar el bloque .dark { ... } aquí>
 ```
