@@ -60,7 +60,9 @@ CraftThemeAxes.semantic = {
 -- ─── Eje Base Color (grises neutrales) ───────────────────────────────────────
 -- MVP: Neutral (C=0; `secondary` conserva un leve hue del CSS original). Afecta
 -- fondos, texto, cards, muted, accent, border, input, ring y los grises del
--- sidebar. (Roadmap ADR-0014 §6.1: añadir zinc/slate/stone/gray como entradas.)
+-- sidebar. Añadidos: zinc (frío) y stone (cálido). slate/gray NO los ofrece el
+-- create tool para el style Lyra (verificado 2026-07); añadir más = nueva entrada
+-- aquí (valores del create tool vía /update-design-tokens base=<nombre>).
 CraftThemeAxes.base = {
     neutral = {
         background              = {r=0.039, g=0.039, b=0.039, a=1},   -- oklch(0.145 0 0)
@@ -85,17 +87,83 @@ CraftThemeAxes.base = {
         sidebarBorder           = {r=1.000, g=1.000, b=1.000, a=0.100},
         sidebarRing             = {r=0.452, g=0.452, b=0.452, a=1},   -- oklch(0.556 0 0)
     },
+    -- Zinc — grises fríos (leve hue azul). ui.shadcn.com/create (Lyra, dark, Base=Zinc).
+    zinc = {
+        background              = {r=0.035, g=0.035, b=0.044, a=1},   -- oklch(0.141 0.005 285.823)
+        foreground              = {r=0.980, g=0.980, b=0.980, a=1},
+        card                    = {r=0.094, g=0.094, b=0.106, a=1},   -- oklch(0.21 0.006 285.885)
+        cardForeground          = {r=0.980, g=0.980, b=0.980, a=1},
+        popover                 = {r=0.094, g=0.094, b=0.106, a=1},
+        popoverForeground       = {r=0.980, g=0.980, b=0.980, a=1},
+        secondary               = {r=0.153, g=0.153, b=0.166, a=1},   -- oklch(0.274 0.006 286.033)
+        secondaryForeground     = {r=0.980, g=0.980, b=0.980, a=1},
+        muted                   = {r=0.153, g=0.153, b=0.166, a=1},
+        mutedForeground         = {r=0.623, g=0.623, b=0.663, a=1},   -- oklch(0.705 0.015 286.067)
+        accent                  = {r=0.153, g=0.153, b=0.166, a=1},
+        accentForeground        = {r=0.980, g=0.980, b=0.980, a=1},
+        border                  = {r=1.000, g=1.000, b=1.000, a=0.100},
+        input                   = {r=1.000, g=1.000, b=1.000, a=0.150},
+        ring                    = {r=0.443, g=0.443, b=0.484, a=1},   -- oklch(0.552 0.016 285.938)
+        sidebar                 = {r=0.094, g=0.094, b=0.106, a=1},
+        sidebarForeground       = {r=0.980, g=0.980, b=0.980, a=1},
+        sidebarAccent           = {r=0.153, g=0.153, b=0.166, a=1},
+        sidebarAccentForeground = {r=0.980, g=0.980, b=0.980, a=1},
+        sidebarBorder           = {r=1.000, g=1.000, b=1.000, a=0.100},
+        sidebarRing             = {r=0.443, g=0.443, b=0.484, a=1},
+    },
+    -- Stone — grises cálidos (leve hue marrón). ui.shadcn.com/create (Lyra, dark, Base=Stone).
+    stone = {
+        background              = {r=0.047, g=0.039, b=0.036, a=1},   -- oklch(0.147 0.004 49.25)
+        foreground              = {r=0.981, g=0.981, b=0.978, a=1},   -- oklch(0.985 0.001 106.423)
+        card                    = {r=0.110, g=0.098, b=0.090, a=1},   -- oklch(0.216 0.006 56.043)
+        cardForeground          = {r=0.981, g=0.981, b=0.978, a=1},
+        popover                 = {r=0.110, g=0.098, b=0.090, a=1},
+        popoverForeground       = {r=0.981, g=0.981, b=0.978, a=1},
+        secondary               = {r=0.153, g=0.153, b=0.166, a=1},   -- (secondary es constante zinc-800)
+        secondaryForeground     = {r=0.980, g=0.980, b=0.980, a=1},
+        muted                   = {r=0.162, g=0.144, b=0.140, a=1},   -- oklch(0.268 0.007 34.298)
+        mutedForeground         = {r=0.652, g=0.626, b=0.609, a=1},   -- oklch(0.709 0.01 56.259)
+        accent                  = {r=0.162, g=0.144, b=0.140, a=1},
+        accentForeground        = {r=0.981, g=0.981, b=0.978, a=1},
+        border                  = {r=1.000, g=1.000, b=1.000, a=0.100},
+        input                   = {r=1.000, g=1.000, b=1.000, a=0.150},
+        ring                    = {r=0.473, g=0.442, b=0.420, a=1},   -- oklch(0.553 0.013 58.071)
+        sidebar                 = {r=0.110, g=0.098, b=0.090, a=1},
+        sidebarForeground       = {r=0.981, g=0.981, b=0.978, a=1},
+        sidebarAccent           = {r=0.162, g=0.144, b=0.140, a=1},
+        sidebarAccentForeground = {r=0.981, g=0.981, b=0.978, a=1},
+        sidebarBorder           = {r=1.000, g=1.000, b=1.000, a=0.100},
+        sidebarRing             = {r=0.473, g=0.442, b=0.420, a=1},
+    },
 }
 
 -- ─── Eje Theme / accent ──────────────────────────────────────────────────────
 -- MVP: Emerald. Afecta primary + sidebarPrimary (y sus foregrounds). El `ring`
--- NO es accent (es gris neutro, vive en Base). (Roadmap: añadir blue/rose/…).
+-- NO es accent (es gris neutro, vive en Base). Añadidos: blue, orange (rose/violet
+-- NO los ofrece el create tool para Lyra, 2026-07). Emerald conserva sus valores
+-- legado (sidebarPrimary vino del hex emerald-500, no del OKLCH — diff mínima; se
+-- mantiene por paridad). blue/orange usan la conversión OKLCH del create tool.
 CraftThemeAxes.accent = {
     emerald = {
         primary                  = {r=0.000, g=0.378, b=0.271, a=1},  -- emerald-800, oklch(0.432 0.095 166.913)
         primaryForeground        = {r=0.924, g=0.992, b=0.960, a=1},
         sidebarPrimary           = {r=0.063, g=0.725, b=0.506, a=1},  -- emerald-500, oklch(0.696 0.17 162.48)
         sidebarPrimaryForeground = {r=0.008, g=0.173, b=0.133, a=1},  -- emerald-950
+    },
+    -- Blue — ui.shadcn.com/create (Lyra, dark, Theme=Blue). Canales fuera de gamut
+    -- clampeados (sidebarPrimary b=1.0) — verificar in-game.
+    blue = {
+        primary                  = {r=0.100, g=0.234, b=0.723, a=1},  -- oklch(0.424 0.199 265.638)
+        primaryForeground        = {r=0.937, g=0.964, b=0.999, a=1},  -- oklch(0.97 0.014 254.604)
+        sidebarPrimary           = {r=0.169, g=0.498, b=1.000, a=1},  -- oklch(0.623 0.214 259.815)
+        sidebarPrimaryForeground = {r=0.937, g=0.964, b=0.999, a=1},
+    },
+    -- Orange — ui.shadcn.com/create (Lyra, dark, Theme=Orange).
+    orange = {
+        primary                  = {r=0.624, g=0.177, b=0.000, a=1},  -- oklch(0.47 0.157 37.304)
+        primaryForeground        = {r=1.000, g=0.969, b=0.929, a=1},  -- oklch(0.98 0.016 73.684)
+        sidebarPrimary           = {r=1.000, g=0.411, b=0.000, a=1},  -- oklch(0.705 0.213 47.604)
+        sidebarPrimaryForeground = {r=1.000, g=0.969, b=0.929, a=1},
     },
 }
 

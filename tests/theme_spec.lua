@@ -103,11 +103,51 @@ describe("Theme axes (ADR-0014)", function()
         end)
     end)
 
-    it("getAxisOptions lista las opciones MVP", function()
+    it("getAxisOptions lista todas las opciones disponibles", function()
         local opts = Craft.Theme.getAxisOptions()
-        assert.equals("lyra", opts.style[1])
-        assert.equals("neutral", opts.base[1])
-        assert.equals("emerald", opts.accent[1])
-        assert.equals("inter", opts.font[1])
+        local function has(list, v)
+            for _, x in ipairs(list) do if x == v then return true end end
+            return false
+        end
+        assert.is_true(has(opts.style, "lyra"))
+        assert.is_true(has(opts.base, "neutral"))
+        assert.is_true(has(opts.base, "zinc"))
+        assert.is_true(has(opts.base, "stone"))
+        assert.is_true(has(opts.accent, "emerald"))
+        assert.is_true(has(opts.accent, "blue"))
+        assert.is_true(has(opts.accent, "orange"))
+        assert.is_true(has(opts.font, "inter"))
+    end)
+
+    it("base=zinc compone los grises de zinc (frío)", function()
+        local t = Craft.Theme.build({ base = "zinc" })
+        checkColor(t, "background", {0.035, 0.035, 0.044, 1})
+        checkColor(t, "ring",       {0.443, 0.443, 0.484, 1})
+        checkColor(t, "primary",    {0.000, 0.378, 0.271, 1})  -- accent (emerald) intacto
+    end)
+
+    it("base=stone compone los grises de stone (cálido)", function()
+        local t = Craft.Theme.build({ base = "stone" })
+        checkColor(t, "background", {0.047, 0.039, 0.036, 1})
+        checkColor(t, "foreground", {0.981, 0.981, 0.978, 1})
+    end)
+
+    it("accent=blue compone el primary de blue", function()
+        local t = Craft.Theme.build({ accent = "blue" })
+        checkColor(t, "primary",        {0.100, 0.234, 0.723, 1})
+        checkColor(t, "sidebarPrimary", {0.169, 0.498, 1.000, 1})
+        checkColor(t, "background",     {0.039, 0.039, 0.039, 1})  -- base (neutral) intacto
+    end)
+
+    it("accent=orange compone el primary de orange", function()
+        local t = Craft.Theme.build({ accent = "orange" })
+        checkColor(t, "primary",        {0.624, 0.177, 0.000, 1})
+        checkColor(t, "sidebarPrimary", {1.000, 0.411, 0.000, 1})
+    end)
+
+    it("los ejes son ortogonales (cambiar uno no altera el otro)", function()
+        local a = Craft.Theme.build({ base = "stone", accent = "blue" })
+        checkColor(a, "background", {0.047, 0.039, 0.036, 1})  -- stone
+        checkColor(a, "primary",    {0.100, 0.234, 0.723, 1})  -- blue
     end)
 end)
