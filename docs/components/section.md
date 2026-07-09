@@ -32,10 +32,12 @@ Como shadcn (`animate-accordion-down/up`), la Section **anima** el expand/collap
 `Weave.tween` (ADR-0013 §4.6): la altura interpola entre la del header (colapsado) y la
 expandida — **nunca a 0** (WoW no repinta un frame colapsado a 0), el header queda siempre
 visible — y el contenido hace fade por alpha. Duración/easing salen de los tokens de movimiento
-del tema (`motionBase`/`motionFast`/`motionEasing`). **Nota sobre `onToggle`:** como la altura
-cambia durante la animación (~`motionBase` s), `onToggle` se dispara **repetidamente** mientras
-anima para que el consumidor reflowee la pila siguiendo la altura; mantén ese handler barato e
-idempotente (el showcase solo llama `reflow()`).
+del tema (`motionBase`/`motionFast`/`motionEasing`). El **chevron rota continuamente 0°→180°**
+durante la animación (mismo `prog` tween, 200ms = `motionBase`), reflejando la rotación que
+shadcn v4 implementa vía CSS `rotate-180 + transition-transform duration-200`.
+**Nota sobre `onToggle`:** como la altura cambia durante la animación (~`motionBase` s), `onToggle`
+se dispara **repetidamente** mientras anima para que el consumidor reflowee la pila siguiendo la
+altura; mantén ese handler barato e idempotente (el showcase solo llama `reflow()`).
 
 ## Jerarquía de frames WoW
 
@@ -43,7 +45,7 @@ idempotente (el showcase solo llama `reflow()`).
 section.frame            (Frame — alto = header + (content si expandido) )
 ├── _header              (Button — trigger, alto 34 = py-2.5·2 + line)
 │   ├── _title           (FontString — text-xs font-medium, izquierda)
-│   └── _chevron         (Texture 16px — chevron-down cerrado / chevron-up abierto, muted-fg)
+│   └── _chevron         (Texture 16px — chevron-down (base) que rota 0°→180° al expandir, muted-fg)
 ├── _content             (Frame — bajo el header; alto = childH + pb-2.5; oculto si colapsado)
 │   └── [child]          (frame del consumidor vía SetContent)
 └── _border              (Texture 1px — not-last:border-b, t.border; opcional vía `divider`)
@@ -56,7 +58,7 @@ section.frame            (Frame — alto = header + (content si expandido) )
 | Trigger padding V | 10px (`py-2.5`) |
 | Header alto | 34px (10·2 + 14 line) |
 | Content padding bottom | 10px (`pb-2.5`), top 0 (`pt-0`) |
-| Chevron | 16px (`size-4`), `chevron-down`↔`chevron-up` |
+| Chevron | 16px (`size-4`), rotación 0°→180° (duración `motionBase`, 200ms) |
 | Título | `t.fontBold` (font-medium), 12px (`text-xs`), `t.foreground` |
 | Chevron color | `t.mutedForeground` |
 | Divider | 1px `t.border` (`border-b`, white@0.10) |
@@ -87,7 +89,9 @@ section.frame            (Frame — alto = header + (content si expandido) )
 
 - **Altura dinámica**: la Section dimensiona su `frame` a `header + content`. Como cambia al
   togglear, el consumidor que apila varias debe re-anclarlas en `onToggle` (ver showcase).
-- **Chevron**: swap `chevron-down` (cerrado) ↔ `chevron-up` (abierto) — equivalente al
-  `rotate-180` de shadcn, sin depender de `SetRotation`.
+- **Chevron**: una ÚNICA textura de `chevron-down` (base) que rota continuamente 0°→180°
+  durante la animación de expand/collapse, reflejando el comportamiento de shadcn v4
+  (`rotate-180 + transition-transform`). La rotación es manejada por `SetRotation()`, sincronizada
+  al tween `prog` del expand/collapse.
 - **font-medium**: Craft solo trae Regular + Bold; se usa `t.fontBold` como aproximación.
 - El contenido oculto usa `SetHeight(0.001)` (no 0) para evitar degeneración de anclas en WoW.

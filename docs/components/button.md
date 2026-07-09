@@ -8,6 +8,10 @@
 ## Propósito
 Elemento interactivo que ejecuta una acción al hacer clic, con múltiples variantes visuales y tamaños. Lyra usa una estética más compacta y monocromática que new-york.
 
+## Animación ([Unreleased])
+
+Como shadcn v4, el Button **anima** los cambios de fondo en hover usando `Weave.tween` (ADR-0013 §4.6). En lugar de que el fondo cambie instantáneamente, los 4 canales de color (incluyendo alpha) interpolan entre el estado idle y hover — una transición suave de ~150ms. El progreso es una señal privada (`_hover`), que alimenta un tween que re-aplica el fondo en cada frame. Los endpoints (idle/hover) se cachean en `_applyTheme` para que los cambios de tema se re-apliquen en el progreso vigente, sin snapping a mid-animación (AGENTS §9). **Nota:** `Button:Destroy()` ahora llama `Craft.Reactive.disposeAll(self)` para cortar el tween y el effect, evitando actualizaciones fantasma.
+
 ## CSS fuente de Lyra (referencia exacta)
 
 ```css

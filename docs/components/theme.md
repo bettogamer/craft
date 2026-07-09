@@ -52,6 +52,55 @@ CraftPresets  (global table)  — definida en theme/Presets.lua, cargada antes
 > `lyra-light` sería código muerto. Sus valores están en `docs/design-reference.md §3`
 > como referencia. Addons que necesiten un tema claro pueden usar `register_preset()`.
 
+## Ejes componibles (ADR-0014)
+
+Un tema resuelto en Craft es una **composición de 4 ejes ortogonales** (sin colisión de claves):
+
+| Eje | Significado | Opciones actuales |
+|-----|-------------|-------------------|
+| **Style** | Métricas, radius, spacing, motion | `lyra` (rounded-none, motion shadcn-like) |
+| **Base** | Grises neutrales (fondos, texto, cards) | `neutral`, `zinc` (frío), `stone` (cálido), `mist` (cian) |
+| **Accent** | Color principal y barra lateral | `emerald`, `blue`, `orange`, `cyan` |
+| **Font** | Familia de fuentes (Regular/Medium/Bold) | `inter` (Inter bundleado) |
+
+El preset **built-in `lyra-dark`** es la composición por defecto: `Lyra` · `neutral` · `emerald` · `inter`.
+
+### API de composición
+
+| Función | Firma | Descripción |
+|---------|-------|-------------|
+| `Craft.Theme.build(spec)` | `(table) → table` | Compone un tema desde los ejes. `spec = { style=, base=, accent=, font= }` (todos opcionales, defaultean al MVP). Retorna una tabla de tokens plana, lista para `use()` o `register_preset()`. Un eje desconocido cae al default con aviso (no rompe). |
+| `Craft.Theme.getAxisOptions()` | `() → table` | Retorna `{ style=..., base=..., accent=..., font=... }` con los nombres disponibles por eje (array de strings, ordenados alfabéticamente). Útil para UIs de selección de tema. |
+
+### Ejemplo: componer un tema personalizado
+
+```lua
+-- Crear un tema custom con base neutral, accent blue, fuente inter
+local myTheme = Craft.Theme.build({
+  style  = "lyra",           -- omitible (default: "lyra")
+  base   = "neutral",        -- omitible (default: "neutral")
+  accent = "blue",
+  font   = "inter",          -- omitible (default: "inter")
+})
+
+-- Usarlo inmediatamente
+Craft.Theme.use(myTheme)
+
+-- O registrarlo con nombre para reutilizarlo
+Craft.Theme.register_preset("my-blue-theme", myTheme)
+Craft.Theme.use("my-blue-theme")
+```
+
+### Añadir una opción nueva a un eje
+
+Para añadir una nueva paleta base (p. ej. `slate`), una nuevo accent (p. ej. `purple`), o una nueva
+fuente, **no se toca ningún componente**. Solo:
+
+1. Ejecuta `/update-design-tokens` con los parámetros correspondientes (p. ej. `base=slate`) para
+   generar los valores desde el create tool de shadcn.
+2. Agrega la entrada en `Craft/theme/Presets.lua` bajo la tabla `CraftThemeAxes.base`/`.accent`/`.font`.
+3. Los temas compuestos automáticamente incluyen la opción nueva.
+
 ## Comportamiento detallado
 
 ### `use(preset, variant?)`

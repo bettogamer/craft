@@ -6,6 +6,10 @@
 
 Campo de texto editable de una sola línea, con soporte de placeholder, estados de error, iconos leading/trailing y focus ring.
 
+## Animación ([Unreleased])
+
+Como shadcn (`transition-colors`), el Input **anima** el cambio de color del borde/ring de foco usando `Weave.tween` (ADR-0013 §4.6). Los 4 bordes interpolan entre el color idle (`t.input`) y el color focused (`t.ring`) en ~150ms — un fade suave sin snap. Una señal privada (`_focused`) maneja el estado; la tween y su effect re-aplican el color en cada frame. Los endpoints se cachean en `_applyTheme` y se re-aplican al progreso vigente en cambios de tema (AGENTS §9). Idem: `Input:Destroy()` llama `Craft.Reactive.disposeAll(self)`.
+
 ## Jerarquía de frames WoW
 
 ```

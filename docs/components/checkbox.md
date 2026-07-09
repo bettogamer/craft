@@ -21,6 +21,10 @@
 ## Propósito
 Control de selección binaria (marcado/desmarcado) con soporte para estado indeterminado, label opcional y detección de errores de validación.
 
+## Animación ([Unreleased])
+
+Como shadcn v4, el Checkbox **anima** la transición de estado usando `Weave.tween` (ADR-0013 §4.6). Los cambios de checked↔unchecked no snappean: el relleno (fondo + borde) y el alpha del check interpolan suavemente entre input/30 (unchecked) → primary (checked), y el indicador (check/dash) hace fade simultáneamente. Una señal privada (`_checkedSig`) captura la tri-state; la tween la observa computada a un booleano (on=checked/indeterminate, off=unchecked), y un effect pinta el relleno y el check interpolados. Los endpoints se cachean en `_applyTheme` y se re-aplican al progreso vigente en cambios de tema (AGENTS §9).
+
 ## Jerarquía de frames WoW
 
 ```

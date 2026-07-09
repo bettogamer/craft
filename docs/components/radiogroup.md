@@ -24,6 +24,10 @@
 Selección **única** dentro de un conjunto de opciones (tipo de display, modo de trigger).
 Equivale a un grupo de `<input type=radio>`. Apilado vertical con `gap-2` (8px).
 
+## Animación ([Unreleased])
+
+Como shadcn (`transition-[color,box-shadow]`), el RadioGroup **anima** la transición de selección **por ítem** usando `Weave.tween` (ADR-0013 §4.6). Cada ítem observa su propio valor reactivo contra la señal de selección del grupo; la tween interpola entre deseleccionado (0) y seleccionado (1). Mientras anima, el ring/fill/dot lerp sus colores (input → primary), y el dot hace fade de alpha (0 → 1). Por eficiencia, los ítems se **reciclan** en un pool de frames, cada uno con su propio tween+effect válido al re-usarse. **IMPORTANTE:** el effect (`_paintRow`) **lee `prog()` en su primera línea**, antes de cualquier early-return — si el guard se hace antes, el effect no se suscribirá a los cambios de tween y la selección no repintará (regresión ya arreglada). Los endpoints se cachean en `_applyTheme` y se re-aplican al progreso vigente en cambios de tema (AGENTS §9).
+
 ## Nota de diseño: el radio es el único `rounded-full` de Lyra
 
 Lyra fija `--radius: 0` → todo es cuadrado (Button, Input, Checkbox, Slider thumb…). El radio

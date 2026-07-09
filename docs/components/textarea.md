@@ -21,6 +21,10 @@ Campo de texto **multilínea** para contenido largo: editor de código, strings 
 import/export, notas. Mismo estilo de form-control que `Input` (borde `t.input`, fondo
 `input/30`, `rounded-none`, `text-xs`) con padding vertical `py-2` (8px).
 
+## Animación ([Unreleased])
+
+Como shadcn (`transition-colors`), el Textarea **anima** el cambio de color del borde/ring de foco usando `Weave.tween` (ADR-0013 §4.6). Idéntico a Input: los 4 bordes interpolan entre idle (`t.input`) y focused (`t.ring`) con una transición de ~150ms. Una señal privada (`_focused`) maneja el estado; la tween y su effect re-aplican el color en cada frame. Los endpoints se cachean y se re-aplican al progreso vigente en cambios de tema (AGENTS §9). `Textarea:Destroy()` llama `Craft.Reactive.disposeAll(self)`.
+
 ## Divergencia deliberada vs shadcn
 
 shadcn usa `field-sizing-content` (el textarea **auto-crece** con el contenido y la
