@@ -262,9 +262,12 @@ end
 -- loads sync. Two-part mitigation:
 --   1. warm-up: hidden FontStrings created at load start the TTF loads as
 --      early as possible (normally done before any UI is built);
---   2. probe: re-measure a fixed string during the first seconds; if its
---      width changes (the font finished loading late), re-notify all theme
---      listeners so components re-run _applyTheme → re-measure their text.
+--   2. probe: re-measure a fixed string for up to ~20s; if its width changes
+--      (the font finished loading late), re-notify all theme listeners so
+--      components re-run _applyTheme → re-measure their text. The window must
+--      outlast a cold first-ever TTF read: a 3s window let slow boots miss the
+--      load, leaving buttons collapsed to a square until a page change recreated
+--      them (the re-notify never fired). ~20s covers a cold disk read.
 -- T.onFontsReady(fn) lets container UIs (e.g. Craft_Browser) re-layout
 -- positions that were derived from pre-load widths; fn(metricsChanged) runs
 -- once — immediately if the fonts already settled.
@@ -307,11 +310,12 @@ do
     if probe and C_Timer and C_Timer.After then
         local w0 = probe:GetStringWidth()
         local tries = 0
+        local MAX_TRIES = 200  -- 200 × 0.1s ≈ 20s (outlasts a cold first-ever TTF read)
         local function check()
             local w = probe:GetStringWidth()
             if w ~= w0 and w > 0 then
                 fireFontsReady(true)  -- font loaded late: widths were wrong
-            elseif tries >= 30 then
+            elseif tries >= MAX_TRIES then
                 fireFontsReady(false) -- stable from the start (cached font)
             else
                 tries = tries + 1

@@ -807,7 +807,7 @@ describe("Craft.Theme font warm-up", function()
         local got
         Craft.Theme.onFontsReady(function(changed) got = changed end)
         assert.is_nil(got) -- probe still pending, callback queued
-        for _ = 1, 35 do C_Timer._flush() end
+        for _ = 1, 205 do C_Timer._flush() end -- window is ~200 ticks (MAX_TRIES)
         assert.is_true(Craft.Theme._fontsReady)
         assert.is_false(got) -- mock metrics never change → no re-notify needed
     end)

@@ -91,8 +91,10 @@ no se reproduce — solo falla el primerísimo boot.
 - **Síntoma:** botones estrechos/solapados solo en el primer arranque del juego; los glifos se
   ven bien (la fuente terminó cargando) pero los anchos quedaron congelados.
 - **Fix aplicado:** warm-up + sonda en `theme/Theme.lua`: FontStrings ocultos al cargar la lib
-  disparan la carga del TTF temprano; una sonda re-mide un string fijo (~3 s) y si el ancho
-  cambia re-notifica a los listeners de tema (todos los `_applyTheme` re-miden). API
+  disparan la carga del TTF temprano; una sonda re-mide un string fijo (~20 s) y si el ancho
+  cambia re-notifica a los listeners de tema (todos los `_applyTheme` re-miden). La ventana
+  es larga a propósito: con 3 s un arranque en frío (disco frío) podía cargar el TTF *después*
+  de que la sonda se rindiera → botones cuadrados hasta cambiar de página. API
   `Craft.Theme.onFontsReady(fn)` para contenedores que congelan posiciones (Craft_Browser
   re-renderiza la página activa). Regla: en componentes con auto-ancho, la re-medición vive
   DENTRO de `_applyTheme` (lección AGENTS.md §9).

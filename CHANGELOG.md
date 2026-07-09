@@ -60,6 +60,11 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   1; además, holgura anti-wrap para el flicker de dos líneas al inicio de la animación de aparición.
 - **`Craft.Scroll`**: el rail (track) se dibujaba siempre, también cuando el contenido cabía. Ahora se
   oculta el scrollbar completo (rail + thumb) cuando `childH <= viewH`.
+- **Anchos de auto-tamaño en el primer arranque** (bug #4, botones cuadrados): la sonda de fuente de
+  `theme/Theme.lua` se rendía a los 3 s; en un arranque en frío el TTF de Inter podía cargar *después*,
+  así que la re-notificación nunca disparaba y los componentes de auto-ancho (Button, Checkbox,
+  ToggleGroup, RadioGroup, ColorSwatch, Tabs) quedaban colapsados a un cuadrado hasta cambiar de página.
+  La ventana de la sonda se extendió a ~20 s para cubrir una lectura de disco fría.
 
 ## [2.2.0] - 2026-07-08
 
