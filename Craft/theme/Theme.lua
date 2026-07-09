@@ -167,6 +167,31 @@ function T.accentFrom(color, fg)
     }
 end
 
+-- ─── registerFont() ────────────────────────────────────────────────────────
+-- Registra una familia de fuente en runtime (ADR-0015 Fase 2), disponible luego en
+-- los ejes `font` y `headingFont` (aparece en getAxisOptions → UIs de selección).
+-- `paths = { font=<path>, fontMedium=<path?>, fontBold=<path?> }`; medium/bold caen
+-- a `font` si faltan. Craft NO depende de LibSharedMedia: el consumidor resuelve el
+-- path (p. ej. `LibStub("LibSharedMedia-3.0"):Fetch("font", name)`) y lo pasa aquí.
+--   local p = LSM:Fetch("font", "MyFont")
+--   Craft.Theme.registerFont("myfont", { font = p })
+--   Craft.Theme.use(Craft.Theme.build{ font = "myfont", headingFont = "myfont" })
+-- Alternativa sin registrar: build{ font = { font=p, fontMedium=p, fontBold=p } }.
+
+function T.registerFont(name, paths)
+    if type(name) ~= "string" or type(paths) ~= "table" or type(paths.font) ~= "string" then
+        if DEFAULT_CHAT_FRAME then
+            DEFAULT_CHAT_FRAME:AddMessage("|cffff4444Craft:|r registerFont(name, {font=...}) inválido")
+        end
+        return
+    end
+    local reg   = paths.font
+    local med   = paths.fontMedium or reg
+    local bold  = paths.fontBold   or reg
+    CraftThemeAxes.font[name]        = { font = reg, fontMedium = med, fontBold = bold }
+    CraftThemeAxes.headingFont[name] = { fontHeading = med }
+end
+
 -- ─── getAxisOptions() ────────────────────────────────────────────────────────
 -- Nombres disponibles por eje (para UIs de selección de tema). Ordenados.
 

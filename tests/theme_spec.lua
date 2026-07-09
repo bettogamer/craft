@@ -93,6 +93,33 @@ describe("Theme axes (ADR-0014)", function()
         assert.is_not_nil((t.fontHeading or ""):match("Geist%-Medium%.ttf$"))
     end)
 
+    it("build acepta una tabla inline de paths (ADR-0015 Fase 2 — LSM)", function()
+        local t = Craft.Theme.build({
+            font        = { font = "X.ttf", fontMedium = "Y.ttf", fontBold = "Z.ttf" },
+            headingFont = { fontHeading = "H.ttf" },
+        })
+        assert.equals("X.ttf", t.font)
+        assert.equals("Y.ttf", t.fontMedium)
+        assert.equals("Z.ttf", t.fontBold)
+        assert.equals("H.ttf", t.fontHeading)
+    end)
+
+    it("registerFont añade una familia a los ejes font y headingFont", function()
+        Craft.Theme.registerFont("mylsm", { font = "A.ttf" })  -- medium/bold caen a font
+        local opts = Craft.Theme.getAxisOptions()
+        local function has(list, v)
+            for _, x in ipairs(list) do if x == v then return true end end
+            return false
+        end
+        assert.is_true(has(opts.font, "mylsm"))
+        assert.is_true(has(opts.headingFont, "mylsm"))
+
+        local t = Craft.Theme.build({ font = "mylsm", headingFont = "mylsm" })
+        assert.equals("A.ttf", t.font)
+        assert.equals("A.ttf", t.fontMedium)   -- fallback a font
+        assert.equals("A.ttf", t.fontHeading)
+    end)
+
     it("el preset registrado lyra-dark coincide con build{}", function()
         local preset = Craft.Theme.get()   -- activo por defecto = lyra-dark
         for k, e in pairs(EXPECT) do checkColor(preset, k, e) end

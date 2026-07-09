@@ -243,6 +243,11 @@ end
 local function compose(spec)
     spec = spec or {}
     local function pick(axis, name, def)
+        -- Capa INLINE (ADR-0015 Fase 2): un eje puede recibir su tabla directamente en
+        -- vez de un nombre del catálogo. Uso típico: fuentes por path (LSM) —
+        -- build{ font = { font=<path>, fontMedium=<path>, fontBold=<path> } }. Craft
+        -- queda LSM-agnóstico: el consumidor hace LSM:Fetch(...) → path y lo pasa aquí.
+        if type(name) == "table" then return name end
         local opts = CraftThemeAxes[axis]
         local layer = opts[name or def]
         if not layer then

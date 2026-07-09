@@ -8,7 +8,7 @@
 | Título | API de personalización para addons consumidores — overrides de token, fuentes por path/LSM y font outline |
 | Fecha | 09/07/2026 |
 | Autor(es) | bettogamer |
-| Estado | **Aceptada** (Fase 1 implementada; Fases 2–3 planificadas) |
+| Estado | **Aceptada** (Fases 1–2 implementadas; Fase 3 planificada) |
 | Alcance | `Craft.Theme`, `Presets.lua`, componentes con `SetFont` (Fase 3), docs de diseño |
 | Relacionado | ADR-0014 (theming multi-eje), ADR-0005 (theming), ADR-0002 (Lyra), ADR-0012 (dark-only) |
 
@@ -56,10 +56,13 @@ Extender la API de theming en **3 fases** incrementales.
 **Decisión (owner): NO se integra un helper de color de clase en Craft.** La lib queda genérica; el
 conocimiento WoW-específico (clases) vive en el consumidor.
 
-#### Fase 2 — Fuentes por path / LSM (PLANIFICADA)
+#### Fase 2 — Fuentes por path / LSM (IMPLEMENTADA)
 
-- Permitir `build{ font = { font=<path>, fontMedium=<path>, fontBold=<path> } }` (tabla inline de paths,
-  no solo un nombre del eje) y/o `Craft.Theme.registerFont(name, paths)` para añadir familias en runtime.
+- `build{ font = { font=<path>, fontMedium=<path>, fontBold=<path> } }`: cualquier eje acepta una **tabla
+  inline** además de un nombre del catálogo (el `pick` de `compose` devuelve la tabla tal cual si `name`
+  es table). Sirve para body y heading (`headingFont = { fontHeading=<path> }`).
+- `Craft.Theme.registerFont(name, paths)`: registra una familia en runtime en los ejes `font` **y**
+  `headingFont` (aparece en `getAxisOptions` → UIs de selección). `medium/bold` caen a `font` si faltan.
 - **Craft queda LSM-agnóstico**: el consumidor hace el puente `LSM:Fetch("font", name)` → path → Craft.
   No se vendorea ni se depende de LibSharedMedia.
 
@@ -96,11 +99,14 @@ con riesgo y testing; es la razón del faseo. El outline añade una divergencia 
 ### 5. Estado de implementación
 
 - **Fase 1: HECHA** — `build{overrides}` en `compose` (`Presets.lua`), `Craft.Theme.accentFrom` (`Theme.lua`),
-  tests en `tests/theme_spec.lua`, doc en `docs/components/theme.md`.
-- **Fase 2 / Fase 3: pendientes** — se abordarán en tandas propias cuando el owner las priorice.
+  demo en la página Theme del Browser, tests en `tests/theme_spec.lua`, doc en `docs/components/theme.md`.
+- **Fase 2: HECHA** — `pick` acepta tabla inline (`Presets.lua`), `Craft.Theme.registerFont` (`Theme.lua`),
+  tests + doc con ejemplo LSM.
+- **Fase 3: pendiente** — outline; tanda propia (refactor de ~43 `SetFont` → applier central) cuando el owner la priorice.
 
 ### 6. Historial
 
 | Rev | Fecha | Autor | Cambio |
 |-----|-------|-------|--------|
 | 1 | 09/07/2026 | bettogamer | Propuesta y aceptación; Fase 1 implementada; decisiones: API genérica (sin helper de clase), outline global, fuentes por path (LSM-agnóstico), faseo colores→fonts→outline |
+| 2 | 09/07/2026 | bettogamer | Fase 2 implementada (tabla inline de paths + `registerFont`, LSM-agnóstico) |

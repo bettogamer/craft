@@ -74,8 +74,9 @@ El preset **built-in `lyra-dark`** es la composición por defecto: `Lyra` · `ne
 
 | Función | Firma | Descripción |
 |---------|-------|-------------|
-| `Craft.Theme.build(spec)` | `(table) → table` | Compone un tema desde los ejes. `spec = { style=, base=, accent=, font=, headingFont=, overrides= }` (todos opcionales, defaultean al MVP). `overrides` es una tabla de tokens sueltos que **pisa** las capas (se fusiona al final) — la vía de personalización del consumidor (ADR-0015). Retorna una tabla plana, lista para `use()`/`register_preset()`. Eje desconocido → default con aviso. |
+| `Craft.Theme.build(spec)` | `(table) → table` | Compone un tema desde los ejes. `spec = { style=, base=, accent=, font=, headingFont=, overrides= }` (todos opcionales, defaultean al MVP). Cada eje acepta un **nombre** del catálogo o una **tabla inline** (p. ej. `font = { font=<path>, fontMedium=<path>, fontBold=<path> }` para fuentes por path / LSM — ADR-0015 Fase 2). `overrides` es una tabla de tokens sueltos que **pisa** las capas (se fusiona al final). Retorna una tabla plana, lista para `use()`/`register_preset()`. Eje desconocido → default con aviso. |
 | `Craft.Theme.accentFrom(color[, fg])` | `(table[, table]) → table` | Genera un **override de accent** desde UN color: `primary` = `sidebarPrimary` = `color`, con foregrounds contrastados por luminancia (o el `fg` dado). Color-agnóstico (no conoce clases). Se pasa a `build{ overrides = ... }`. |
+| `Craft.Theme.registerFont(name, paths)` | `(string, table) → void` | Registra una familia de fuente en runtime (ADR-0015 Fase 2), disponible en los ejes `font` y `headingFont` (y en `getAxisOptions`). `paths = { font=<path>, fontMedium=<path?>, fontBold=<path?> }`; medium/bold caen a `font` si faltan. Craft NO depende de LibSharedMedia — el consumidor resuelve el path (`LSM:Fetch("font", ...)`) y lo pasa. |
 | `Craft.Theme.getAxisOptions()` | `() → table` | Retorna `{ style=..., base=..., accent=..., font=..., headingFont=... }` con los nombres disponibles por eje (array de strings, ordenados alfabéticamente). Útil para UIs de selección de tema. |
 
 ### Ejemplo: componer un tema personalizado
@@ -109,6 +110,22 @@ Craft.Theme.use(Craft.Theme.build{
     base      = "zinc",
     overrides = Craft.Theme.accentFrom({ r = cc.r, g = cc.g, b = cc.b }),
 })
+```
+
+### Ejemplo: fuente de LibSharedMedia (consumidor)
+
+Craft no depende de LSM; el addon resuelve el path y lo registra (o lo pasa inline).
+
+```lua
+local LSM  = LibStub("LibSharedMedia-3.0")
+local path = LSM:Fetch("font", "Accidental Presidency")
+
+-- Opción A: registrar (aparece en getAxisOptions → UIs de selección)
+Craft.Theme.registerFont("accidental", { font = path })   -- medium/bold caen a font
+Craft.Theme.use(Craft.Theme.build{ font = "accidental", headingFont = "accidental" })
+
+-- Opción B: inline, sin registrar
+Craft.Theme.use(Craft.Theme.build{ font = { font = path, fontMedium = path, fontBold = path } })
 ```
 
 ### Añadir una opción nueva a un eje
