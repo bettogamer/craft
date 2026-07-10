@@ -5,22 +5,58 @@ model: haiku
 Actualiza los tokens de diseño de Craft desde el CSS de shadcn Lyra y revisa los layouts de componentes.
 
 Este comando hace DOS cosas en secuencia:
-1. Actualiza los tokens de color en `design-reference.md` y `Presets.lua`
-2. Descarga `style-lyra.css` de GitHub y compara los layouts de los 16 componentes con los specs actuales
+1. **Actualiza los tokens de color de un EJE** (`CraftThemeAxes` en `Presets.lua`) desde un bloque CSS
+   `.dark {}` de `ui.shadcn.com/create` — axis-aware (ADR-0014): escribe la capa `base`, `accent` o
+   `style` indicada, sin tocar las demás.
+2. Descarga `style-lyra.css` de GitHub y compara los layouts de los 16 componentes con los specs actuales.
+
+> **Modelo de ejes (ADR-0014).** Craft compone el tema desde ejes ortogonales: `base` (grises), `accent`
+> (primary/sidebarPrimary), `style` (radius/métricas) y `font`. Un export del create tool trae todos los
+> tokens mezclados; este comando extrae SOLO los del eje objetivo y los escribe en `CraftThemeAxes.<eje>.
+> <nombre>`. El preset shippeado `lyra-dark` = `compose{}` (base=neutral · accent=emerald · style=lyra ·
+> font=inter); su gate de paridad vive en `tests/theme_spec.lua`.
 
 ---
 
-## PARTE 1 — Actualizar tokens de color
+## PARTE 1 — Actualizar tokens de color (axis-aware, ADR-0014)
 
-### Si el usuario pasó CSS como argumento
+### Sintaxis
 
-El usuario pegó el bloque `.dark { ... }` de `ui.shadcn.com/create` (Style=Lyra, Base=Zinc, Theme=Emerald). Está en `$ARGUMENTS`.
+`$ARGUMENTS` empieza con un **target de eje** opcional, seguido del bloque `.dark { ... }`:
 
-**Pasos:**
+- `base=<nombre>`   → escribe `CraftThemeAxes.base.<nombre>` (los grises). Ej: `base=zinc`.
+- `accent=<nombre>` → escribe `CraftThemeAxes.accent.<nombre>` (primary + sidebarPrimary). Ej: `accent=blue`.
+- `style=<nombre>`  → escribe `CraftThemeAxes.style.<nombre>` (solo `radius` sale del CSS; el resto de
+  métricas son adaptación Craft — ver PARTE 2). Hoy solo existe `lyra`.
+- **(sin target, o `lyra-dark`)** → default MVP: actualiza `base.neutral` **y** `accent.emerald` a la vez
+  (equivale al preset shippeado).
 
-1. Parsea cada línea `--token-name: oklch(...);` del bloque `.dark { }` de `$ARGUMENTS`
+### Mapa CSS var → token de eje
 
-2. Convierte cada valor OKLCH a RGBA **ejecutando un script Python** (no a mano: la
+**Eje `base`** (grises): `--background`→background · `--foreground`→foreground ·
+`--card(-foreground)`→card/cardForeground · `--popover(-foreground)`→popover/popoverForeground ·
+`--secondary(-foreground)`→secondary/secondaryForeground · `--muted(-foreground)`→muted/mutedForeground ·
+`--accent(-foreground)`→accent/accentForeground · `--border`→border · `--input`→input · `--ring`→ring ·
+`--sidebar`→sidebar · `--sidebar-foreground`→sidebarForeground ·
+`--sidebar-accent(-foreground)`→sidebarAccent/sidebarAccentForeground · `--sidebar-border`→sidebarBorder ·
+`--sidebar-ring`→sidebarRing.
+
+**Eje `accent`**: `--primary`→primary · `--primary-foreground`→primaryForeground ·
+`--sidebar-primary`→sidebarPrimary · `--sidebar-primary-foreground`→sidebarPrimaryForeground.
+
+**Semántico (constante, NO es un eje):** `--destructive`→destructive; `destructiveForeground` es blanco
+puro en Lyra. Vive en `CraftThemeAxes.semantic`; NO se escribe salvo que cambie en el CSS fuente.
+
+**Eje `style`:** `--radius`→radius. (fontSize/spacing/motion son adaptación Craft — no salen del CSS.)
+
+### Pasos
+
+1. Determina el **target** desde `$ARGUMENTS` (default = `base=neutral` + `accent=emerald`). El resto del
+   argumento es el bloque `.dark { ... }`.
+
+2. Parsea cada línea `--token-name: oklch(...);` del bloque `.dark { }`.
+
+3. Convierte cada valor OKLCH a RGBA **ejecutando un script Python** (no a mano: la
    aritmética con matrices 3×3 + corrección gamma es propensa a error para cualquier
    modelo, y los colores son la fuente de verdad del diseño). Escribe un script temporal
    que parsee todos los tokens del bloque, aplique la fórmula exacta de abajo, córrelo con
@@ -42,30 +78,39 @@ El usuario pegó el bloque `.dark { ... }` de `ui.shadcn.com/create` (Style=Lyra
    - Clamp a [0, 1], redondear a 3 decimales
    - Para valores con alpha (`/ N%`): `a = N/100`, el resto como arriba
 
-3. Compara token por token con los valores actuales en `Craft/theme/Presets.lua` (lyra-dark).
-   Muestra una tabla de diferencias:
-   ```
-   Token              | Valor anterior | Valor nuevo | ¿Cambió?
-   primary            | r=0.024...     | r=0.024...  | ✅ igual
-   destructive        | r=0.973...     | r=0.850...  | ⚠️ CAMBIÓ
-   ```
+4. **Extrae SOLO los tokens del eje target** según el mapa de arriba. Los demás tokens del CSS se
+   ignoran (p. ej. si el target es `base=zinc`, se toman los grises y se descartan primary/sidebarPrimary).
 
-4. Si hay diferencias, actualiza:
-   - `docs/design-reference.md` §2: reemplaza el bloque CSS `.dark { }` con el nuevo
-   - `docs/design-reference.md` §4: actualiza la tabla de tokens dark con nuevos hex y RGBA
-   - `Craft/theme/Presets.lua`: actualiza los valores `{r=..., g=..., b=...}` del preset `lyra-dark`
+5. Escribe la entrada en `Craft/theme/Presets.lua` → `CraftThemeAxes.<axis>.<nombre>`:
+   - Si la entrada NO existe (base/accent nuevo): créala con los `{r=..., g=..., b=..., a=...}` extraídos,
+     junto a las existentes de ese eje, siguiendo el mismo formato/comentarios.
+   - Si existe: muestra tabla de diferencias token por token y actualiza solo lo que cambió.
+     ```
+     Token       | Valor anterior | Valor nuevo | ¿Cambió?
+     primary     | r=0.024...     | r=0.024...  | ✅ igual
+     ```
+   - **Solo para el default** (`base=neutral` + `accent=emerald`): además refresca `docs/design-reference.md`
+     §2 (bloque CSS `.dark {}`) y §4 (tabla de tokens dark). Para bases/accents NUEVOS el canónico es
+     `Presets.lua` (design-reference documenta el MODELO, no cada paleta).
 
-5. Reporta cuántos tokens cambiaron y cuáles.
+6. **Corre el gate de paridad + suite:**
+   `lua tests/run.lua tests/theme_spec.lua tests/button_spec.lua tests/sidebar_spec.lua tests/reactive_spec.lua`
+   El snapshot de `lyra-dark` NO debe cambiar salvo que el target sea `neutral`/`emerald` con cambios reales;
+   añadir un base/accent NUEVO nunca debe romperlo. Luego `luac -p Craft/theme/Presets.lua`.
+
+7. Reporta el eje/opción escrito y cuántos tokens se añadieron/cambiaron.
 
 ### Si no hay argumento
 
 Instruye al usuario:
 ```
-Necesito el CSS de shadcn Lyra dark. Pasos:
-1. Ir a ui.shadcn.com/create
-2. Seleccionar: Style=Lyra, Base=Zinc, Theme=Emerald
-3. Hacer clic en "Copy code" o "Copy CSS"
-4. Correr: /update-design-tokens <pegar el bloque .dark { ... } aquí>
+Pásame el eje objetivo + el CSS dark de shadcn. Pasos:
+1. ui.shadcn.com/create → Style=Lyra, modo dark; elegí el Base Color o el Theme que querés capturar.
+2. "Copy code" / "Copy CSS".
+3. Correr uno de:
+   /update-design-tokens base=<nombre>   <pegar bloque .dark { ... }>
+   /update-design-tokens accent=<nombre> <pegar bloque .dark { ... }>
+   (sin target = actualiza el default base=neutral + accent=emerald)
 ```
 
 ---

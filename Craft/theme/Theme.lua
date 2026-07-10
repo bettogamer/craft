@@ -5,7 +5,7 @@
 --
 -- Depends on: CraftPresets global (defined in theme/Presets.lua, loaded first in Craft.toc)
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local T = {}
@@ -133,6 +133,84 @@ function T.register_preset(name, tbl)
     T._presets[name] = tbl
 end
 
+-- ─── build() ─────────────────────────────────────────────────────────────────
+-- Compone un tema desde los ejes (ADR-0014): build{ style=, base=, accent=, font= }.
+-- Devuelve una tabla de tokens plana (misma forma que un preset), lista para
+-- Craft.Theme.use(t) o register_preset(name, t). Todos los campos son opcionales;
+-- el default es la config MVP (Lyra · Neutral · Emerald · Inter) = `lyra-dark`.
+-- Un nombre de eje desconocido cae al default con un aviso (no rompe el tema).
+
+function T.build(spec)
+    return CraftThemeAxes.compose(spec)
+end
+
+-- ─── accentFrom() ──────────────────────────────────────────────────────────
+-- Genera una tabla de OVERRIDE de accent desde UN color (ADR-0015): pone `primary`
+-- y `sidebarPrimary` = color, con foregrounds contrastados (o el `fg` dado). Es
+-- color-agnóstico — el consumidor pasa el color (p. ej. RAID_CLASS_COLORS[class]);
+-- Craft NO conoce clases. Uso: Craft.Theme.use(Craft.Theme.build{
+--   base = "zinc", overrides = Craft.Theme.accentFrom(classColor) }).
+
+function T.accentFrom(color, fg)
+    if not fg then
+        -- luminancia relativa (sRGB aprox.) → texto oscuro sobre accent claro, blanco sobre oscuro
+        local lum = 0.2126 * (color.r or 0) + 0.7152 * (color.g or 0) + 0.0722 * (color.b or 0)
+        fg = (lum > 0.55) and { r = 0.10, g = 0.10, b = 0.10, a = 1 }
+                            or { r = 1,    g = 1,    b = 1,    a = 1 }
+    end
+    local c = { r = color.r, g = color.g, b = color.b, a = color.a or 1 }
+    return {
+        primary                  = c,
+        primaryForeground        = fg,
+        sidebarPrimary           = c,
+        sidebarPrimaryForeground = fg,
+    }
+end
+
+-- ─── registerFont() ────────────────────────────────────────────────────────
+-- Registra una familia de fuente en runtime (ADR-0015 Fase 2), disponible luego en
+-- los ejes `font` y `headingFont` (aparece en getAxisOptions → UIs de selección).
+-- `paths = { font=<path>, fontMedium=<path?>, fontBold=<path?> }`; medium/bold caen
+-- a `font` si faltan. Craft NO depende de LibSharedMedia: el consumidor resuelve el
+-- path (p. ej. `LibStub("LibSharedMedia-3.0"):Fetch("font", name)`) y lo pasa aquí.
+--   local p = LSM:Fetch("font", "MyFont")
+--   Craft.Theme.registerFont("myfont", { font = p })
+--   Craft.Theme.use(Craft.Theme.build{ font = "myfont", headingFont = "myfont" })
+-- Alternativa sin registrar: build{ font = { font=p, fontMedium=p, fontBold=p } }.
+
+function T.registerFont(name, paths)
+    if type(name) ~= "string" or type(paths) ~= "table" or type(paths.font) ~= "string" then
+        if DEFAULT_CHAT_FRAME then
+            DEFAULT_CHAT_FRAME:AddMessage("|cffff4444Craft:|r registerFont(name, {font=...}) inválido")
+        end
+        return
+    end
+    local reg   = paths.font
+    local med   = paths.fontMedium or reg
+    local bold  = paths.fontBold   or reg
+    CraftThemeAxes.font[name]        = { font = reg, fontMedium = med, fontBold = bold }
+    CraftThemeAxes.headingFont[name] = { fontHeading = med }
+end
+
+-- ─── getAxisOptions() ────────────────────────────────────────────────────────
+-- Nombres disponibles por eje (para UIs de selección de tema). Ordenados.
+
+function T.getAxisOptions()
+    local function names(map)
+        local out = {}
+        for k in pairs(map) do out[#out + 1] = k end
+        table.sort(out)
+        return out
+    end
+    return {
+        style       = names(CraftThemeAxes.style),
+        base        = names(CraftThemeAxes.base),
+        accent      = names(CraftThemeAxes.accent),
+        font        = names(CraftThemeAxes.font),
+        headingFont = names(CraftThemeAxes.headingFont),
+    }
+end
+
 -- ─── getFont() ─────────────────────────────────────────────────────────────
 
 function T.getFont(weight)
@@ -140,6 +218,19 @@ function T.getFont(weight)
     if weight == "bold"   then return t.fontBold end
     if weight == "medium" then return t.fontMedium end
     return t.font
+end
+
+-- ─── applyFont() ───────────────────────────────────────────────────────────
+-- Punto ÚNICO donde los componentes aplican fuente a un FontString/EditBox
+-- (ADR-0015 Fase 3). Recibe la ruta y el tamaño YA resueltos y añade el flag de
+-- outline global (`t.fontFlags`, default "" = sin contorno). Antes cada componente
+-- llamaba `fs:SetFont(path, size)` disperso; centralizar aquí permite el outline
+-- (y cualquier flag futuro) sin tocar 40+ sitios. Pasa siempre el 3er arg, que el
+-- EditBox REQUIERE y el FontString acepta.
+
+function T.applyFont(fs, path, size)
+    local t = T._resolved or T.get()
+    fs:SetFont(path, size, t.fontFlags or "")
 end
 
 -- ─── getPresets() ──────────────────────────────────────────────────────────
@@ -201,8 +292,7 @@ end
 -- alpha there — visible as darker corner dots. Sets geometry only; the caller
 -- colors the textures (SetColorTexture) so it works for any border token/state.
 function T.AnchorBorder(frame, top, bottom, left, right)
-    local p = T.px(1, frame)
-
+    -- top/bottom: tiras horizontales de 1px que OCUPAN las esquinas (ancho completo).
     top:ClearAllPoints()
     top:SetPoint("TOPLEFT",  frame, "TOPLEFT",  0, 0)
     top:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
@@ -213,15 +303,95 @@ function T.AnchorBorder(frame, top, bottom, left, right)
     bottom:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
     T.SetPixelHeight(bottom, 1)
 
+    -- left/right: rellenan EXACTAMENTE el hueco entre las tiras sup/inf, anclándose a
+    -- ellas (no a un inset calculado `px(1)`). Antes el inset se calculaba aparte del
+    -- grosor pixel-perfect (que fija PixelUtil), y en elementos chicos (checkbox 16px)
+    -- los dos redondeos no coincidían → huecos/solapes en las esquinas. Anclar a las
+    -- propias tiras garantiza esquinas perfectas sea cual sea el snapping del grosor.
     left:ClearAllPoints()
-    left:SetPoint("TOPLEFT",    frame, "TOPLEFT",    0, -p)
-    left:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0,  p)
+    left:SetPoint("TOPLEFT",    top,    "BOTTOMLEFT", 0, 0)
+    left:SetPoint("BOTTOMLEFT", bottom, "TOPLEFT",    0, 0)
     T.SetPixelWidth(left, 1)
 
     right:ClearAllPoints()
-    right:SetPoint("TOPRIGHT",    frame, "TOPRIGHT",    0, -p)
-    right:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0,  p)
+    right:SetPoint("TOPRIGHT",    top,    "BOTTOMRIGHT", 0, 0)
+    right:SetPoint("BOTTOMRIGHT", bottom, "TOPRIGHT",    0, 0)
     T.SetPixelWidth(right, 1)
+end
+
+-- ─── Font warm-up + ready probe (first-boot width bug) ─────────────────────
+-- The first time a session uses a bundled TTF the client loads it ASYNC:
+-- GetStringWidth() right after SetFont/SetText reports metrics from the
+-- not-yet-loaded font, so every auto-width component (Button, Checkbox,
+-- ToggleGroup, RadioGroup, ColorSwatch, Tabs) comes out too narrow — only on
+-- the very FIRST boot; after /reload the file is in the process cache and
+-- loads sync. Two-part mitigation:
+--   1. warm-up: hidden FontStrings created at load start the TTF loads as
+--      early as possible (normally done before any UI is built);
+--   2. probe: re-measure a fixed string for up to ~20s; if its width changes
+--      (the font finished loading late), re-notify all theme listeners so
+--      components re-run _applyTheme → re-measure their text. The window must
+--      outlast a cold first-ever TTF read: a 3s window let slow boots miss the
+--      load, leaving buttons collapsed to a square until a page change recreated
+--      them (the re-notify never fired). ~20s covers a cold disk read.
+-- T.onFontsReady(fn) lets container UIs (e.g. Craft_Browser) re-layout
+-- positions that were derived from pre-load widths; fn(metricsChanged) runs
+-- once — immediately if the fonts already settled.
+
+T._fontsReady = false
+local fontsReadyCbs = {}
+
+function T.onFontsReady(fn)
+    if T._fontsReady then fn(false); return end
+    fontsReadyCbs[#fontsReadyCbs + 1] = fn
+end
+
+local function fireFontsReady(metricsChanged)
+    if T._fontsReady then return end
+    T._fontsReady = true
+    if metricsChanged then
+        -- Same notification use() performs: components re-run _applyTheme
+        local t = T.get()
+        for _, entry in ipairs(T._listeners) do
+            entry.fn(t)
+        end
+    end
+    for i = 1, #fontsReadyCbs do fontsReadyCbs[i](metricsChanged) end
+    for i = #fontsReadyCbs, 1, -1 do fontsReadyCbs[i] = nil end
+end
+
+do
+    local tokens = T.get()
+    local warm = CreateFrame("Frame")
+    warm:Hide()
+    local probe -- regular-weight string tracked for metric changes
+    for _, path in ipairs({ tokens.font, tokens.fontMedium, tokens.fontBold }) do
+        if path then
+            local fs = warm:CreateFontString(nil, "ARTWORK")
+            fs:SetFont(path, 12, "")
+            fs:SetText("Craft warmup 0123456789")
+            probe = probe or fs
+        end
+    end
+    if probe and C_Timer and C_Timer.After then
+        local w0 = probe:GetStringWidth()
+        local tries = 0
+        local MAX_TRIES = 200  -- 200 × 0.1s ≈ 20s (outlasts a cold first-ever TTF read)
+        local function check()
+            local w = probe:GetStringWidth()
+            if w ~= w0 and w > 0 then
+                fireFontsReady(true)  -- font loaded late: widths were wrong
+            elseif tries >= MAX_TRIES then
+                fireFontsReady(false) -- stable from the start (cached font)
+            else
+                tries = tries + 1
+                C_Timer.After(0.1, check)
+            end
+        end
+        C_Timer.After(0.05, check)
+    else
+        T._fontsReady = true -- no timer available: nothing to wait for
+    end
 end
 
 Craft.register("Theme", T, _BUILD)

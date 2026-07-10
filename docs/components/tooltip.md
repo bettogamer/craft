@@ -19,6 +19,10 @@ valor exacto del tooltip de Lyra no es verificable desde el CSS — esta es una 
 
 Etiqueta informativa flotante que aparece al hacer hover sobre cualquier frame ancla, con delay configurable y posicionamiento automático relativo a la pantalla.
 
+## Animación ([Unreleased])
+
+Fade + `zoom-in-95` + `slide-in-from-side` (ADR-0013 §4.6): alpha eases 0→1, escala interpola `motionZoomFrom`→1.0, y el desplazamiento desliza ~`motionSlide` px desde el anchor (signo según placement vertical: hacia arriba si el tooltip abre arriba, hacia abajo si abre abajo). **Medición a escala 1 ANTES de dimensionar**: el frame idle está a `SetScale(motionZoomFrom)` tras ocultarse, y si se mide a esa escala el texto se subestima (WoW escala `GetStringWidth/Height` con el effective scale). El singleton no tiene destructor → el grafo reactivo (alpha, shown, scale, slide effects) se guarda en `_tooltip._fade` para que nunca sea garbage-collected.
+
 ## Jerarquía de frames WoW
 
 ```

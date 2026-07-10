@@ -7,7 +7,7 @@
 --   Rows are NOT recreated on reorder — each row stays bound to its item and is repositioned,
 --   so `renderRow(content, item, index)` runs once per item at build time.
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local DragList = {}
@@ -37,6 +37,22 @@ function DragList:Create(parent, config)
     self._order = {}   -- row objects, in current visual order
     self._drag  = nil
 
+    -- Reactive props (ADR-0013): `items` may be a signal. It binds through
+    -- SetItems (rebuilds the rows) AFTER the initial build below. Two-way: a
+    -- reorder writes the new order back to a writable signal. The echo guard
+    -- (_lastWritten) skips the rebuild that our own :set would otherwise
+    -- trigger — the rows already reflect the new order after the drag.
+    -- `disabled` also binds (through SetEnabled); until then _cfg holds a safe
+    -- literal so a signal object is never mistaken for a truthy "disabled".
+    local R = Craft.Reactive
+    local itemsSource    = R.isCallable(config.items)    and config.items    or nil
+    local disabledSource = R.isCallable(config.disabled) and config.disabled or nil
+    if itemsSource    then self._items = {} end        -- empty until the bind runs
+    if disabledSource then self._cfg.disabled = false end
+    if itemsSource and R.isWritableSignal(itemsSource) then
+        self._itemsSignal = itemsSource
+    end
+
     self.frame = CreateFrame("Frame", nil, parent)
     self.frame:SetWidth(self._cfg.width)
 
@@ -47,6 +63,14 @@ function DragList:Create(parent, config)
     self:_build()
     self:_applyTheme(Craft.Theme.get())
 
+    -- ── Reactive binds — after the initial build. `items`: skip the rebuild
+    -- when the incoming table is the one we just wrote back (post-reorder echo).
+    R.applyOrBind(self, itemsSource, function(s, v)
+        if v == s._lastWritten then s._items = v; return end
+        s:SetItems(v)
+    end)
+    R.applyOrBind(self, disabledSource, function(s, off) s:SetEnabled(not off) end)
+
     if self._cfg.disabled then self:SetEnabled(false) end
 
     return self
@@ -55,7 +79,7 @@ end
 -- ─── Build rows ───────────────────────────────────────────────────────────────
 function DragList:_build()
     if self._order then
-        for _, row in ipairs(self._order) do row.frame:Hide(); row.frame:SetParent(nil) end
+        for _, row in ipairs(self._order) do row:Hide(); row:SetParent(nil) end
     end
     self._order = {}
 
@@ -184,6 +208,12 @@ function DragList:_dragStop()
     if changed then
         self._items = {}
         for i, row in ipairs(self._order) do self._items[i] = row.item end
+        -- Two-way: write the new order back before onReorder. _lastWritten lets
+        -- the bind recognize this table as its own echo and skip rebuilding.
+        if self._itemsSignal then
+            self._lastWritten = self._items
+            self._itemsSignal:set(self._items)
+        end
         if self._cfg.onReorder then self._cfg.onReorder(self._items) end
     end
 end
@@ -215,7 +245,7 @@ function DragList:_applyTheme(t)
         row.divider:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
         row.dragBg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 1)
         if row.fs then
-            row.fs:SetFont(t.font, FONT_SIZE, "")   -- font BEFORE SetText (see _build)
+            Craft.Theme.applyFont(row.fs, t.font, FONT_SIZE)   -- font BEFORE SetText (see _build)
             row.fs:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
             row.fs:SetText(row.labelText or "")
         end
@@ -227,6 +257,9 @@ function DragList:SetItems(items)
     self._items = items or {}
     self:_build()
     if self._t then self:_applyTheme(self._t) end
+    -- Re-apply the enabled state to the freshly built rows (grips default to
+    -- mouse-enabled), so a rebuild while disabled doesn't make rows draggable.
+    self:SetEnabled(not self._cfg.disabled)
 end
 
 function DragList:GetItems()
@@ -248,6 +281,7 @@ end
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function DragList:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)  -- cut the items bind (ghost updates on reuse)
     self.frame:SetScript("OnUpdate", nil)
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()

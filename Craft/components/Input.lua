@@ -2,11 +2,15 @@
 -- Spec: docs/components/input.md
 -- Design: shadcn Lyra — .cn-input (h-8, px-2.5, py-1, text-xs, rounded-none, border)
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
+local Weave = LibStub("Weave-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Input = {}
 Input.__index = Input
+
+-- Scalar interpolation for the focus-ring fade (idle border → ring color).
+local function lerp(a, b, p) return a + (b - a) * p end
 
 -- ─── Constants ────────────────────────────────────────────────────────────────
 local HEIGHT      = 32    -- h-8
@@ -32,10 +36,27 @@ function Input:Create(parent, config)
         maxLetters     = config.maxLetters      or 0,
         iconLeading    = config.iconLeading,
         iconTrailing   = config.iconTrailing,
+        clearable      = config.clearable      or false,   -- FR-016: ✕ clear button
+        onClear        = config.onClear,                   -- fired (with onChange("")) on clear
+        onTrailingClick= config.onTrailingClick,           -- makes iconTrailing clickable
         onChange       = config.onChange,
         onEnterPressed = config.onEnterPressed,
         width          = config.width,
     }
+
+    -- Reactive props (ADR-0013): a callable prop binds through the setters
+    -- (after the theme pass, below); until then _cfg holds safe literals so
+    -- Create/_applyTheme never operate on a signal object.
+    local R = Craft.Reactive
+    local valueSource       = R.isCallable(config.value)       and config.value       or nil
+    local disabledSource    = R.isCallable(config.disabled)    and config.disabled    or nil
+    local placeholderSource = R.isCallable(config.placeholder) and config.placeholder or nil
+    if valueSource       then self._cfg.value       = "" end
+    if disabledSource    then self._cfg.disabled    = false end
+    if placeholderSource then self._cfg.placeholder = "" end -- the bind writes the resolved text
+    if valueSource and R.isWritableSignal(valueSource) then
+        self._valueSignal = valueSource -- two-way: user typing writes back
+    end
 
     -- ── Root frame ────────────────────────────────────────────────────────────
     self.frame = CreateFrame("Frame", nil, parent)
@@ -64,15 +85,61 @@ function Input:Create(parent, config)
         self._iconLeading:Hide()
     end
 
-    -- ── _iconTrailing: right icon 16×16 — ARTWORK ────────────────────────────
+    -- ── _iconTrailing: right icon 16×16 — ARTWORK (decorative only) ───────────
+    -- Used when there is a trailing icon WITHOUT a callback. When the trailing
+    -- affordance is interactive (clearable / onTrailingClick), the _trailBtn below
+    -- owns the icon instead and this decorative texture stays hidden.
     self._iconTrailing = self.frame:CreateTexture(nil, "ARTWORK")
     self._iconTrailing:SetSize(ICON_SIZE, ICON_SIZE)
-    if self._cfg.iconTrailing then
+    local decorativeTrailing = self._cfg.iconTrailing
+        and not self._cfg.clearable and not self._cfg.onTrailingClick
+    if decorativeTrailing then
         Craft.Icons.Apply(self._iconTrailing, self._cfg.iconTrailing, 16)
         self._iconTrailing:SetPoint("RIGHT", self.frame, "RIGHT", -ICON_PAD, 0)
         self._iconTrailing:Show()
     else
         self._iconTrailing:Hide()
+    end
+
+    -- ── _trailBtn: interactive trailing button (clearable ✕ or onTrailingClick) ─
+    -- FR-016. A Button holding a Lucide icon, positioned at the same spot as the
+    -- decorative trailing icon. For `clearable` it shows the `x` glyph only while
+    -- there is text and clears the field on click; for `onTrailingClick` it shows
+    -- the given `iconTrailing` and forwards the click. Reuses the trailing padding.
+    if self._cfg.clearable or self._cfg.onTrailingClick then
+        self._trailBtn = CreateFrame("Button", nil, self.frame)
+        self._trailBtn:SetSize(ICON_SIZE + 8, HEIGHT)
+        self._trailBtn:SetPoint("RIGHT", self.frame, "RIGHT", -(ICON_PAD - 4), 0)
+        self._trailIcon = self._trailBtn:CreateTexture(nil, "ARTWORK")
+        self._trailIcon:SetSize(ICON_SIZE, ICON_SIZE)
+        self._trailIcon:SetPoint("RIGHT", self._trailBtn, "RIGHT", -4, 0)
+        local glyph = self._cfg.clearable and "x" or self._cfg.iconTrailing or "x"
+        Craft.Icons.Apply(self._trailIcon, glyph, 16)
+
+        self._trailBtn:SetScript("OnClick", function()
+            if self._cfg.disabled then return end
+            if self._cfg.clearable then
+                self:Clear()
+            elseif self._cfg.onTrailingClick then
+                self._cfg.onTrailingClick()
+            end
+        end)
+        -- Hover: muted → foreground, like a subtle affordance.
+        self._trailBtn:SetScript("OnEnter", function()
+            local c = self._t and self._t.foreground
+            if c then self._trailIcon:SetVertexColor(c.r, c.g, c.b, 1) end
+        end)
+        self._trailBtn:SetScript("OnLeave", function()
+            local c = self._t and self._t.mutedForeground
+            if c then self._trailIcon:SetVertexColor(c.r, c.g, c.b, 1) end
+        end)
+
+        -- clearable is text-gated (hidden when empty); onTrailingClick is persistent.
+        if self._cfg.clearable then
+            self._trailBtn:Hide()
+        else
+            self._trailBtn:Show()
+        end
     end
 
     -- ── EditBox — OVERLAY ─────────────────────────────────────────────────────
@@ -119,19 +186,23 @@ function Input:Create(parent, config)
     -- ── EditBox scripts ───────────────────────────────────────────────────────
     self._edit:SetScript("OnEditFocusGained", function()
         self._placeholder:Hide()
-        self:_showFocusBorder()
+        self._focused:set(true)   -- tween fades the border → ring (see focus-ring fade)
     end)
 
     self._edit:SetScript("OnEditFocusLost", function()
         if self._edit:GetText() == "" then
             self._placeholder:Show()
         end
-        self:_hideFocusBorder()
+        self._focused:set(false)  -- tween fades the border back → idle
     end)
 
+    -- OnTextChanged also fires on programmatic SetText (the reactive bind's
+    -- SetValue path) — the userInput guard keeps the signal writeback strictly
+    -- user-driven, so a bind sync never echoes back into the signal.
     self._edit:SetScript("OnTextChanged", function(editbox, userInput)
         if userInput then
             local text = editbox:GetText()
+            if self._valueSignal then self._valueSignal:set(text) end
             if self._cfg.onChange then
                 self._cfg.onChange(text)
             end
@@ -142,6 +213,9 @@ function Input:Create(parent, config)
                 self._placeholder:Hide()
             end
         end
+        -- Clear ✕ visibility tracks the text on both user input and programmatic
+        -- SetText (fires OnTextChanged with userInput=false), so it stays in sync.
+        self:_updateClear()
     end)
 
     self._edit:SetScript("OnEnterPressed", function(editbox)
@@ -150,15 +224,45 @@ function Input:Create(parent, config)
         end
     end)
 
+    -- ── Focus-ring fade (Weave.tween) ─────────────────────────────────────────
+    -- shadcn v4 `transition-[color,box-shadow]`: instead of snapping the 4 border
+    -- textures between the idle color and the focus-ring color, ease them. Private
+    -- signal flips in the focus scripts (above); the tween drives an effect that
+    -- lerps each border color between the cached endpoints. Mirrors the Dialog fade.
+    self._focused = Weave.signal(false)
+    local m = Craft.Theme.get()
+    local prog = Weave.tween(
+        Weave.computed(function() return self._focused() and 1 or 0 end),
+        { duration = m.motionFast, easing = Weave.easing[m.motionEasing] })
+    self._prog = prog
+
+    self._effects = self._effects or {}
+    -- Endpoints (self._borderIdle / self._borderFocus) are cached in _applyTheme;
+    -- the first effect run is a no-op until they exist (guarded in _paintBorder).
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        self:_paintBorder(prog())
+    end)
+    self._effects[#self._effects + 1] = prog  -- dispose the tween (effect + driver reg)
+
     -- ── Theme registration ────────────────────────────────────────────────────
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
     self._placeholder:SetText(self._cfg.placeholder)  -- after SetFont in _applyTheme
 
+    -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
+    -- value binds through SetValue: it never fires onChange (OnTextChanged only
+    -- reacts to userInput), so a programmatic signal sync stays silent.
+    R.applyOrBind(self, valueSource,       function(s, v) s:SetValue(v) end)
+    R.applyOrBind(self, placeholderSource, function(s, text) s:SetPlaceholder(text) end)
+    R.applyOrBind(self, disabledSource,    function(s, off) s:SetEnabled(not off) end)
+
     -- ── Initial disabled state ────────────────────────────────────────────────
     if self._cfg.disabled then
         self:SetEnabled(false)
     end
+
+    -- Initial clear ✕ visibility (a non-empty initial value shows it right away).
+    self:_updateClear()
 
     return self
 end
@@ -169,45 +273,50 @@ function Input:_leftPad()
 end
 
 function Input:_rightPad()
-    return self._cfg.iconTrailing and (PAD_H + ICON_DELTA) or PAD_H
+    -- Reserve the trailing slot for a decorative icon OR the interactive button
+    -- (clearable/onTrailingClick). Reserved always for `clearable` so the text
+    -- doesn't shift when the ✕ appears/disappears.
+    local hasTrailing = self._cfg.iconTrailing or self._cfg.clearable or self._cfg.onTrailingClick
+    return hasTrailing and (PAD_H + ICON_DELTA) or PAD_H
 end
 
--- ─── Focus border (ring over the existing border) ────────────────────────────
--- Shown on OnEditFocusGained and hidden on OnEditFocusLost.
--- Reuses the same 4 border frames by changing their color.
-function Input:_showFocusBorder()
-    local t = self._t
-    if not t then return end
-    local r, g, b, a = t.ring.r, t.ring.g, t.ring.b, t.ring.a or 0.5
+-- ─── Focus-ring fade: endpoints + painter ────────────────────────────────────
+-- The 4 border textures no longer snap between idle and ring; a Weave.tween
+-- (self._prog, driven by self._focused) eases the fade. This effect painter runs
+-- every tick with prog ∈ [0,1] and lerps the border color between the cached
+-- endpoints (self._borderIdle → self._borderFocus).
+function Input:_paintBorder(p)
+    local idle, focus = self._borderIdle, self._borderFocus
+    if not idle or not focus then return end  -- endpoints set in _applyTheme
+    local r = lerp(idle.r, focus.r, p)
+    local g = lerp(idle.g, focus.g, p)
+    local b = lerp(idle.b, focus.b, p)
+    local a = lerp(idle.a, focus.a, p)
     self._borderTop:SetColorTexture(r, g, b, a)
     self._borderBottom:SetColorTexture(r, g, b, a)
     self._borderLeft:SetColorTexture(r, g, b, a)
     self._borderRight:SetColorTexture(r, g, b, a)
 end
 
-function Input:_hideFocusBorder()
-    -- Restore base colors
-    self:_applyBorderColor()
-end
-
--- ─── _applyBorderColor ────────────────────────────────────────────────────────
--- Applies the border color based on the current state (error / default).
+-- ─── _updateBorderEndpoints ───────────────────────────────────────────────────
+-- Recomputes the idle/focus color endpoints from the current state (error /
+-- default) and RE-APPLIES the color at the live tween progress. Called from
+-- _applyTheme (AGENTS §9: a theme change re-applies with the vigente prog, it
+-- must NOT snap the border back to idle mid-fade) and from SetError.
 -- Does NOT call Craft.Theme.get() — uses self._t.
-function Input:_applyBorderColor()
+function Input:_updateBorderEndpoints()
     local t = self._t
     if not t then return end
 
-    local r, g, b, a
     if self._cfg.error then
-        r, g, b, a = t.destructive.r, t.destructive.g, t.destructive.b, 1
+        self._borderIdle = { r = t.destructive.r, g = t.destructive.g, b = t.destructive.b, a = 1 }
     else
         -- border-input (not --border): white @ 0.15, same token as Checkbox / Button outline
-        r, g, b, a = t.input.r, t.input.g, t.input.b, t.input.a
+        self._borderIdle = { r = t.input.r, g = t.input.g, b = t.input.b, a = t.input.a }
     end
-    self._borderTop:SetColorTexture(r, g, b, a)
-    self._borderBottom:SetColorTexture(r, g, b, a)
-    self._borderLeft:SetColorTexture(r, g, b, a)
-    self._borderRight:SetColorTexture(r, g, b, a)
+    self._borderFocus = { r = t.ring.r, g = t.ring.g, b = t.ring.b, a = t.ring.a or 0.5 }
+
+    self:_paintBorder(self._prog and self._prog() or 0)
 end
 
 -- ─── _applyTheme ──────────────────────────────────────────────────────────────
@@ -215,8 +324,8 @@ function Input:_applyTheme(t)
     self._t = t
 
     -- Font for EditBox and placeholder
-    self._edit:SetFont(t.font, FONT_SIZE, "")  -- EditBox requires flags arg (FontString does not)
-    self._placeholder:SetFont(t.font, FONT_SIZE)
+    Craft.Theme.applyFont(self._edit, t.font, FONT_SIZE)  -- EditBox requires flags arg (FontString does not)
+    Craft.Theme.applyFont(self._placeholder, t.font, FONT_SIZE)
 
     -- Text colors
     if self._cfg.disabled then
@@ -238,6 +347,9 @@ function Input:_applyTheme(t)
     if self._cfg.iconTrailing then
         self._iconTrailing:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)
     end
+    if self._trailIcon then
+        self._trailIcon:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)
+    end
 
     -- Pixel-perfect 4-texture border (corner-safe)
     Craft.Theme.AnchorBorder(self.frame, self._borderTop, self._borderBottom,
@@ -248,8 +360,8 @@ function Input:_applyTheme(t)
     self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     px1,  -px1)
     self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1,  px1)
 
-    -- Border color
-    self:_applyBorderColor()
+    -- Border color endpoints (re-applies at the live tween progress)
+    self:_updateBorderEndpoints()
 
     -- Update TextInsets for the EditBox (may change when theme is re-applied)
     self._edit:SetTextInsets(self:_leftPad() - px1, self:_rightPad() - px1, 0, 0)
@@ -267,6 +379,32 @@ function Input:SetValue(text)
         end
     else
         self._placeholder:Hide()
+    end
+    self:_updateClear()
+end
+
+-- ─── Clear (FR-016) ───────────────────────────────────────────────────────────
+-- Empties the field, fires onChange("") + onClear(), writes back into a bound
+-- value signal, and returns focus to the EditBox. SetText("") itself fires
+-- OnTextChanged with userInput=false, so it does NOT double-fire onChange — this
+-- method fires it explicitly (a clear is a value change the caller should see).
+function Input:Clear()
+    self._edit:SetText("")
+    self:_updateClear()
+    if self._valueSignal then self._valueSignal:set("") end
+    if self._cfg.onChange then self._cfg.onChange("") end
+    if self._cfg.onClear  then self._cfg.onClear()   end
+    self._edit:SetFocus()   -- keep/return focus (search-box reset UX)
+end
+
+-- Shows the clear ✕ only while there is text and the field is enabled. No-op
+-- unless the input is `clearable` (onTrailingClick buttons are persistent).
+function Input:_updateClear()
+    if not self._trailBtn or not self._cfg.clearable then return end
+    if self._edit:GetText() ~= "" and not self._cfg.disabled then
+        self._trailBtn:Show()
+    else
+        self._trailBtn:Hide()
     end
 end
 
@@ -290,11 +428,12 @@ function Input:SetEnabled(enabled)
     if self._t then
         self:_applyTheme(self._t)
     end
+    self:_updateClear()   -- a disabled field hides its clear ✕
 end
 
 function Input:SetError(hasError)
     self._cfg.error = hasError
-    self:_applyBorderColor()
+    self:_updateBorderEndpoints()
 end
 
 function Input:SetPlaceholder(text)
@@ -309,6 +448,7 @@ end
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function Input:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil

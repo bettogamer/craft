@@ -10,6 +10,10 @@ de cierre), área de contenido, handle de resize abajo-derecha, min/max size, cl
 pantalla y cierre con Escape. El dev mete su UI (p. ej. un `Craft.Sidebar` + `Craft.Panel`)
 dentro de `GetContent()`. Modela el main frame de Craft_Browser.
 
+## Animación ([Unreleased])
+
+Igual que Dialog (fade + `zoom-in-95` desde el centro con `motionZoomFrom`, tokens de movimiento del tema). Como Window es **arrastrable**, compensa el re-anclado por tick para que `SetScale` no derive el centro: al abrir/cerrar, recaptura la posición escala-1 del frame y durante el tween re-ancla con offset÷escala para mantener el centro geométrico estable. No usa el gesto Sheet de shadcn (deslizamiento de borde). `IsShown()` refleja el estado LÓGICO `_open:peek()`.
+
 ## Por qué un componente aparte (no Panel/Dialog)
 
 Una ventana top-level tiene necesidades que Panel (contenedor embebido) y Dialog (modal

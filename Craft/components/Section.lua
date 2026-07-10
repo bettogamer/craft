@@ -4,10 +4,19 @@
 --   (py-2.5 text-xs font-medium, chevron size-4 muted-foreground rotating 180° on open),
 --   .cn-accordion-content (text-xs, pb-2.5 pt-0).
 --   Craft models a SINGLE collapsible section (the consumer stacks several); shadcn's
---   "only one open" group behaviour can be layered on top. Toggle is instant (no height
---   animation) — same approach as the Sidebar tree (divergence noted in spec).
+--   "only one open" group behaviour can be layered on top.
+--
+-- Expand/collapse animation (ADR-0013 §4.6, collapse pattern):
+--   An `_open` signal drives two tweens. A `prog` tween (0=collapsed → 1=expanded,
+--   m.motionBase) interpolates the FRAME height between the header height (collapsed
+--   FLOOR — never 0, WoW won't repaint a frame that collapsed to 0 then regrew) and
+--   header + body. A faster `alpha` tween (m.motionFast) fades the content; `shown`
+--   stays true through the fade-out so the body isn't cut before it finishes fading.
+--   Height is derived as HEADER_H + prog*bodyH, so a content resize (SetContent/Refresh)
+--   snaps the open height without re-animating — only toggling animates.
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
+local Weave = LibStub("Weave-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Section = {}
@@ -60,6 +69,65 @@ function Section:Create(parent, config)
 
     self._header:SetScript("OnClick", function() self:Toggle() end)
 
+    -- ── Expand/collapse animation (Weave.tween — ADR-0013 §4.6) ────────────────
+    -- `_open` mirrors `_expanded` and is the reactive source; `_bodyH` publishes the
+    -- expandable region height (content + pb-2.5) so a content resize re-derives the
+    -- open height without re-animating (only a toggle moves `prog`).
+    local m = Craft.Theme.get()
+    self._open  = Weave.signal(self._expanded)
+    self._bodyH = Weave.signal(0)
+
+    -- prog: 0 (collapsed) → 1 (expanded), eased over motionBase (larger transition).
+    local prog = Weave.tween(
+        Weave.computed(function() return self._open() and 1 or 0 end),
+        { duration = m.motionBase, easing = Weave.easing[m.motionEasing] })
+
+    -- Frame height interpolates between the header height (collapsed FLOOR — NEVER 0,
+    -- ADR-0013 §4.6) and header + body. Snaps on content resize (bodyH changes) while
+    -- open; animates only when prog moves (a toggle).
+    local height = Weave.computed(function()
+        return HEADER_H + prog() * self._bodyH()
+    end)
+
+    -- Content fades with its own faster curve; kept shown through the fade-out so the
+    -- body isn't hidden before alpha reaches 0 (mirrors the Dialog open/close pattern).
+    local alpha = Weave.tween(
+        Weave.computed(function() return self._open() and 1 or 0 end),
+        { duration = m.motionFast, easing = Weave.easing[m.motionEasing] })
+    local contentShown = Weave.computed(function()
+        return self._open() or alpha:animating()
+    end)
+
+    self._effects = self._effects or {}
+    -- Height bind registered FIRST so it applies before the onToggle reflow below reads
+    -- GetHeight() during the animation.
+    self._effects[#self._effects + 1] = Weave.bind(self.frame,    "height", height)
+    self._effects[#self._effects + 1] = Weave.bind(self._content, "alpha",  alpha)
+    self._effects[#self._effects + 1] = Weave.bind(self._content, "shown",  contentShown)
+    self._effects[#self._effects + 1] = prog   -- dispose the tween (effect + driver reg)
+    self._effects[#self._effects + 1] = alpha  -- dispose the tween (effect + driver reg)
+
+    -- Continuous reflow: consumers that stack sections re-anchor them in onToggle by
+    -- reading each frame's GetHeight() (see the showcase). Since the height now changes
+    -- across the whole animation, ping onToggle on every prog tick so the stack follows
+    -- the animating height and settles correctly on the last tick ("notifies as today at
+    -- the end"). The initial seed is skipped (onToggle never fired during Create before);
+    -- content-resize snaps don't move prog, so they don't ping here.
+    local seededProg = false
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        prog()  -- track: re-runs each animation frame
+        if not seededProg then seededProg = true; return end
+        if self._cfg.onToggle then self._cfg.onToggle(self._expanded) end
+    end)
+
+    -- Chevron rotation (shadcn v4 `[&[data-state=open]>svg]:rotate-180` + transition-transform
+    -- duration-200): reuse the existing `prog` tween (already 200ms = motionBase, synced to the
+    -- expand/collapse) as the driver. chevron-down base → 0 rad collapsed (points down) → π rad
+    -- expanded (points up). SetRotation rotates the visible atlas quad around its centre.
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        self._chevron:SetRotation(prog() * math.pi)
+    end)
+
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
 
@@ -85,17 +153,17 @@ end
 -- ─── Layout ───────────────────────────────────────────────────────────────────
 function Section:_relayout()
     local contentH = (self._child and self._child:GetHeight()) or 0
+    local bodyH    = contentH + PAD_BOTTOM   -- content + pb-2.5 (expandable region)
 
-    if self._expanded then
-        self._content:SetHeight(contentH + PAD_BOTTOM)
-        self._content:Show()
-    else
-        self._content:SetHeight(0.001)   -- avoid 0-height anchor degeneracy
-        self._content:Hide()
-    end
+    -- The content frame keeps its natural height at all times; visibility is handled
+    -- by the alpha/shown binds (fade), NOT by collapsing height to ~0 (WoW won't
+    -- repaint a frame that collapsed to 0 then regrew, ADR-0013 §4.6).
+    self._content:SetHeight(bodyH)
 
-    local h = HEADER_H + (self._expanded and (contentH + PAD_BOTTOM) or 0)
-    self.frame:SetHeight(h)
+    -- Publish the expandable height. The frame height (HEADER_H + prog*bodyH) re-derives
+    -- reactively: it snaps to the new open size when content resizes, and interpolates
+    -- when a toggle moves prog. The header height is the collapsed floor (never 0).
+    if self._bodyH then self._bodyH:set(bodyH) end
 
     self._border:SetShown(self._cfg.divider)
 end
@@ -108,7 +176,13 @@ end
 function Section:SetExpanded(expanded)
     self._expanded = expanded
     self:_refreshChevron()
-    self:_relayout()
+    self:_relayout()            -- refresh bodyH from current content before animating
+    if self._open then
+        self._open:set(expanded)  -- drives the height/alpha tweens (equality-cut on no-op)
+    end
+    -- Fire onToggle once here (preserves the "notify per toggle" semantics, including a
+    -- redundant SetExpanded(sameValue) that moves no tween). The prog effect adds the
+    -- per-frame reflow pings while the animation runs.
     if self._cfg.onToggle then self._cfg.onToggle(self._expanded) end
 end
 
@@ -117,8 +191,14 @@ function Section:Collapse() self:SetExpanded(false) end
 function Section:IsExpanded() return self._expanded end
 
 function Section:_refreshChevron()
-    -- closed → chevron-down ("expand"); open → chevron-up (shadcn rotates 180°)
-    Craft.Icons.Apply(self._chevron, self._expanded and "chevron-up" or "chevron-down", CHEVRON_SZ)
+    -- Single ROTATABLE base icon (shadcn v4 AccordionTrigger): the chevron points DOWN
+    -- when collapsed (0 rad, the "expand" affordance) and rotates a continuous 180° to
+    -- point UP when expanded — driven by the `prog` tween in Create (rotation = prog*π,
+    -- 200ms = duration-200). We keep chevron-down as the base so 0 rad = natural collapsed
+    -- orientation and π rad = shadcn's `rotate-180`. Apply() only sets texture/texcoords/
+    -- size; it does NOT touch the rotation set by SetRotation, so re-applying (theme change)
+    -- is safe mid-rotation.
+    Craft.Icons.Apply(self._chevron, "chevron-down", CHEVRON_SZ)
     if self._t then
         local c = self._t.mutedForeground
         self._chevron:SetVertexColor(c.r, c.g, c.b, 1)
@@ -129,7 +209,8 @@ end
 function Section:_applyTheme(t)
     self._t = t
 
-    self._title:SetFont(t.fontMedium or t.font, FONT_SIZE, "")   -- .cn-accordion-trigger font-medium
+    -- .cn-accordion-trigger font-medium; t.fontHeading = eje headingFont (ADR-0014)
+    Craft.Theme.applyFont(self._title, t.fontHeading or t.fontMedium or t.font, FONT_SIZE)
     self._title:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
     self._title:SetText(self._cfg.title)
 
@@ -157,6 +238,7 @@ end
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function Section:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)            -- cut height/alpha/shown binds + tweens
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil

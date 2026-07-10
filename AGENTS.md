@@ -1,6 +1,8 @@
 # AGENTS.md — Craft
 
 > README para agentes de IA. Leer antes de cualquier tarea. Sincronizado con `docs/DTI_v0.1.md`.
+> Craft sigue el **estándar de addons del workspace** (`Workspace/AddonTemplate`, docs 01-05):
+> proyecto nivel L, release Ruta B (packager). Ante duda de proceso/tooling, la respuesta está allí.
 
 ---
 
@@ -8,7 +10,7 @@
 
 - **Nombre**: Craft
 - **Dominio**: WoW Addon Development — librería de componentes UI
-- **Resumen**: librería open source de componentes UI para addons de World of Warcraft. Librería embebible — developers descargan `Craft.zip` de GitHub Releases y lo colocan en `libs/` de su addon. Craft_Browser es el único addon en CurseForge/Wago. Diseño basado en shadcn Lyra (Zinc + Emerald, Radius=0) con íconos Lucide y fuente Inter bundled en `Craft/media/`. **Dark mode únicamente** — WoW addon dev es dark-mode exclusivo. Ver ADR-0012.
+- **Resumen**: librería open source de componentes UI para addons de World of Warcraft. Librería embebible — developers descargan `Craft.zip` de GitHub Releases y lo colocan en `libs/` de su addon. Craft_Browser es el único addon en CurseForge/Wago. Diseño basado en shadcn Lyra (Style=Lyra/Radius=0, Base=Neutral, Theme=Emerald) con íconos Lucide y fuente Inter bundled en `Craft/media/`. **Dark mode únicamente** — WoW addon dev es dark-mode exclusivo. Ver ADR-0012 y ADR-0014 (modelo de ejes + roadmap).
 - **DTI**: `docs/DTI_v0.1.md`
 - **FSD**: `docs/FSD_v0.1.md`
 - **BRD**: `docs/BRD_v0.1.md`
@@ -48,11 +50,13 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
 │   ├── check-traceability.md   ← /check-traceability
 │   └── update-design-tokens.md ← /update-design-tokens
 ├── .claude/agents/
-│   └── component-builder.md    ← subagente: implementa componentes aislando lecturas de specs
+│   ├── component-builder.md    ← subagente: implementa componentes aislando lecturas de specs
+│   ├── addon-scout.md          ← subagente read-only: localizar código/patrones, API WoW (estándar)
+│   └── error-triager.md        ← subagente read-only: diagnóstico de errores Lua/BugSack (estándar)
 │
 ├── Craft/                  ← LA LIBRERÍA (lo que se distribuye)
 │   ├── Craft.toc
-│   ├── Craft.lua           ← entry point, LibStub:NewLibrary("Craft-1.0", BUILD)
+│   ├── Craft.lua           ← entry point, LibStub:NewLibrary("Craft-2.0", BUILD)
 │   ├── libs/LibStub/LibStub.lua  ← para desarrollo standalone
 │   ├── theme/
 │   │   ├── Theme.lua       ← Craft.Theme (register, use, get, extend)
@@ -77,9 +81,11 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
 │   ├── Craft_Browser.toc
 │   ├── Browser.lua
 │   └── pages/              ← 16 páginas de demo
-├── tests/                  ← unit tests con busted + mock WoW API
+├── tests/                  ← unit tests (busted en CI, mini-runner local)
 │   ├── mock_wow.lua        ← WoW API mock (no es test, no ejecutar directo)
-│   └── test_button.lua
+│   ├── run.lua             ← mini-runner Lua puro (busted no instala local — estándar doc 03)
+│   ├── button_spec.lua
+│   └── sidebar_spec.lua
 ├── scripts/
 │   ├── export-icons.py     ← genera lucide-*.tga
 │   └── bump-build.sh       ← incrementa CRAFT_BUILD en Craft.lua
@@ -135,6 +141,10 @@ hotfix/fix-critico → PR → main → tag v1.0.x → CurseForge
 
 El agente **MUST NOT** hacer push ni crear PRs — el maintainer (Alberto Gomez) lo hace manualmente.
 
+**Reglas git del estándar:** Conventional Commits en inglés (repo público); identidad
+`Betto <betto.gamer@icloud.com>`; **sin trailers de co-autoría de IA ni atribuciones de
+herramientas, nunca** (`Co-Authored-By: Claude ...`, "Generated with..." — prohibidos).
+
 ---
 
 ## 4. Stack tecnológico autoritativo
@@ -142,12 +152,13 @@ El agente **MUST NOT** hacer push ni crear PRs — el maintainer (Alberto Gomez)
 | Capa | Tecnología | Notas |
 |------|------------|-------|
 | Lenguaje | Lua 5.1 | WoW sandbox — sin librerías externas |
-| Librería compartida | LibStub | `LibStub:NewLibrary("Craft-1.0", BUILD)` |
-| Diseño | shadcn Lyra dark | Base=Zinc, Theme=Emerald, Radius=0. Ver ADR-0002 |
+| Librería compartida | LibStub | `LibStub:NewLibrary("Craft-2.0", BUILD)` |
+| Reactividad | Weave **v0.5.0** vendoreada (`Craft/libs/Weave/`, READ-ONLY) | `LibStub("Weave-1.0")`; solo builds etiquetados `v*`; bugs → issue en repo Weave + re-vendoreo. Ver ADR-0013 |
+| Diseño | shadcn Lyra dark | Style=Lyra (Radius=0), Base=**Neutral**, Theme=Emerald, Font=Inter, Icons=Lucide. Ver ADR-0002 + ADR-0014 (ejes/roadmap) |
 | Íconos | Lucide (atlas TGA bundled) | Ver ADR-0003 |
 | Fuente | Inter (TTF bundled) | `Craft/media/Inter-Regular.ttf` |
 | Linter | luacheck | `.luacheckrc` con globals WoW |
-| Tests | busted | Headless con `tests/mock_wow.lua` |
+| Tests | busted (CI) + `tests/run.lua` (local) | Headless con `tests/mock_wow.lua`; specs compatibles con ambos runners |
 | Packaging | bigwigsmods/packager | ADR-0009 |
 | CI | GitHub Actions | `ci.yml` + `package.yml` (push) + `release.yml` (tags v*) |
 | Distribución | GitHub Releases (Craft.zip) + CurseForge/Wago (Craft_Browser) | ADR-0012: Craft es embebible, solo Craft_Browser en CurseForge |
@@ -178,11 +189,51 @@ function MyComponent:_applyTheme(t)
 end
 
 function MyComponent:Destroy()
+  Craft.Reactive.disposeAll(self)            -- CRÍTICO: corta binds de señales (ghost updates)
   Craft.Theme.unregister(self._themeHandle)  -- CRÍTICO: evita memory leak
   self.frame:Hide()
   self.frame = nil
 end
 ```
+
+**Props reactivas (ADR-0013)** — las props de estado aceptan un literal (se aplica una
+vez, comportamiento clásico) **o** una señal/computed de Weave (se bindea). Patrón:
+
+```lua
+-- en Create(), tras construir los frames:
+Craft.Reactive.applyOrBind(self, config.value, function(s, v) s:SetValue(v) end)
+-- controles two-way: si la señal es escribible, escribir de vuelta donde dispara onChange
+if Craft.Reactive.isWritableSignal(config.value) then self._valueSignal = config.value end
+-- ... en el punto de onChange:  if self._valueSignal then self._valueSignal:set(v) end
+```
+
+`disposeAll(self)` en `Destroy()` es obligatorio en todo componente que use `applyOrBind`.
+El corte por igualdad de las señales evita el feedback loop del two-way. `onChange` se
+sigue disparando igual (compatibilidad).
+
+**Props de LISTA reactivas (ADR-0013, oleada 3)** — además de los escalares (`value`,
+`checked`, …), las props de colección aceptan señal/computed: `options` en Select /
+RadioGroup / ToggleGroup, e `items` en Sidebar y DragList. El bind re-renderiza vía el
+setter público (`SetOptions` / `SetItems`). Reglas:
+- **Reusar frames por índice**, no destruir+recrear (WoW no destruye frames; recrear en
+  cada cambio los filtra). Patrón: un factory `_makeRow()`/`_makeItem()` que crea el frame
+  una vez y cuyas closures leen `item.value` en tiempo de llamada; `_buildItems()` sólo
+  hace fluir datos y reposiciona; el excedente se **oculta y neutraliza** (`value = nil`)
+  y queda en el pool. Llevar un contador de visibles (`self._count`) y que
+  `_applyTheme`/`_refresh` iteren `1.._count`, no `#pool`.
+- **`options` bindea ANTES que `value`** para que la selección resuelva su label contra la
+  lista viva. Una selección que desaparece de la lista se conserva y degrada como
+  `SetValue` con valor desconocido (nada marcado).
+- **One-way salvo DragList**: las listas de opciones no se escriben de vuelta. DragList SÍ
+  es two-way (reordenar escribe el nuevo orden en la señal escribible); usar un **guard de
+  eco** por identidad de tabla (`_lastWritten`) para saltarse el rebuild que dispararía
+  nuestro propio `:set`.
+- `Weave.each` (v0.2.0, listas reactivas con frame pooling combat-safe) queda disponible en
+  el embed para consumidores; los componentes de Craft usan el patrón de reuso propio de
+  arriba, no `Weave.each` (sus listas son pequeñas y el pooling manual basta).
+- La detección señal-vs-literal delega en Weave (v0.3.0+): `Craft.Reactive.isCallable` →
+  `Weave.isReactive`, `isWritableSignal` → `Weave.isWritable`. No re-inferir la forma interna
+  del signal en Craft.
 
 **Violaciones MUST NOT:**
 - Llamar `Craft.Theme.get()` dentro de `_applyTheme()` → re-entrancia.
@@ -207,7 +258,7 @@ end
 - **MUST NOT**: globales Lua no declaradas en `.luacheckrc`.
 - **MUST NOT**: soporte TypeScriptToLua — rechazar PRs con `.d.ts` (ADR-0007).
 - **MUST NOT**: addon companion para assets — todo en `Craft/media/` (ADR-0003).
-- **MUST NOT**: `radius > 0` — Lyra usa Radius=0 (ADR-0002).
+- **MUST NOT**: `radius > 0` — Lyra usa Radius=0 (ADR-0002). Sigue vigente hasta el ADR futuro del eje Style (Mira); ver ADR-0014 §6.2 y RFC-002.
 - **MUST NOT**: modificar ADRs aceptados — crear un nuevo ADR que los superede.
 - **MUST NOT**: crear `lyra-light` ni ningún preset de tema claro — WoW es dark-mode exclusivo.
 
@@ -293,6 +344,19 @@ label:SetHeight(14)
 **Frame hijo con height=0 clipea sus FontStrings a invisible**
 Si un Frame contenedor (e.g. `_header` en Panel) no tiene altura definida, WoW clipea todos sus children a 0 — incluidos FontStrings. Siempre dar `SetHeight()` explícito o BOTTOM anchor a frames que contienen texto.
 
+**Fuente TTF custom carga ASÍNCRONA en el primer arranque → `GetStringWidth()` erróneo**
+La primerísima vez que una sesión del cliente usa un TTF bundled (Inter), el archivo se carga
+async: `GetStringWidth()` medido justo tras `SetFont`/`SetText` devuelve métricas de la fuente
+aún no cargada, y todo componente de auto-ancho sale demasiado estrecho (los glifos luego se ven
+bien — solo los anchos quedaron congelados). Tras `/reload` el TTF ya está en la caché del
+proceso (carga síncrona) y no se reproduce. Mitigación en `theme/Theme.lua` (warm-up + sonda):
+FontStrings ocultos al cargar disparan la carga temprano, y una sonda re-mide un string fijo
+durante los primeros segundos — si su ancho cambia, re-notifica a los listeners de tema (los
+componentes re-ejecutan `_applyTheme`, que DEBE re-medir: `_recalcWidth`/`_layout`/
+`_recalcTriggerWidths`). Los layouts de contenedor que acumulan posiciones desde anchos medidos
+usan `Craft.Theme.onFontsReady(fn)` para re-renderizar (ver Craft_Browser). REGLA para
+componentes nuevos con auto-ancho: la re-medición debe vivir DENTRO de `_applyTheme`.
+
 **`frame:EnableMouse(true)` es obligatorio para bloquear eventos**
 Un frame con fondo visible NO bloquea clics/hover por defecto. Sin `EnableMouse(true)`, los eventos pasan al juego debajo. Aplicar en el frame raíz de cualquier ventana o panel que actúe como superficie interactiva.
 
@@ -354,11 +418,18 @@ flowchart TD
 ## 11. Comandos de verificación y slash commands
 
 ```bash
-# Lint — MUST pasar sin warnings nuevos
-luacheck Craft/ --config .luacheckrc
+# Sintaxis — tras editar cada archivo (lua local es 5.4; el target 5.1 lo vigila luacheck std=lua51)
+luac -p <archivo>
 
-# Tests unitarios headless
-busted tests/
+# Lint — MUST pasar sin warnings nuevos.
+# OJO máquina local: luacheck sin lfs NO escanea carpetas — archivos explícitos:
+luacheck Craft/*.lua Craft/components/*.lua Craft/theme/*.lua Craft/layout/*.lua Craft/icons/*.lua --config .luacheckrc
+# (en CI Linux sí funciona `luacheck Craft/ --config .luacheckrc`)
+
+# Tests unitarios headless.
+# OJO máquina local: busted no instala (luarocks necesita compilador C) — mini-runner:
+lua tests/run.lua tests/button_spec.lua tests/sidebar_spec.lua tests/reactive_spec.lua
+# (en CI Linux corre busted real: `busted tests/`; specs compatibles con ambos)
 
 # Generar atlas TGA de Lucide (requiere Python + Pillow)
 python3 scripts/export-icons.py
@@ -395,7 +466,7 @@ Todos los componentes usan `t.*` en `_applyTheme(t)`. **Fuente de verdad**: `doc
 | `t.destructive` / `t.destructiveForeground` | RGBA | `destructive/20` bg + `destructive` text (Lyra — tinte, no sólido). `destructiveForeground` = blanco puro |
 | `t.border` | RGBA | Bordes de componentes (blanco a=0.1 en dark) |
 | `t.input` | RGBA | Fondo de Input/Select trigger (blanco a=0.15 en dark) |
-| `t.ring` | RGBA | **Zinc** (gris) — NO primary. Solo Input ring en OnEditFocusGained (mouse click, no teclado) |
+| `t.ring` | RGBA | **Gris neutro** (neutral-500) — NO primary/emerald. Solo Input ring en OnEditFocusGained (mouse click, no teclado) |
 
 ### Tokens Sidebar (exclusivos de `Craft.Sidebar`)
 
@@ -418,10 +489,10 @@ Todos los componentes usan `t.*` en `_applyTheme(t)`. **Fuente de verdad**: `doc
 | `t.fontSizeSm` | 11 | Adaptación Craft (no existe en Lyra CSS) |
 | `t.spacingXs/Sm/Md/Lg/Xl` | 4/8/12/16/24 px | UI units directos |
 | `t.borderWidth` | 1 | Usar con `Craft.Theme.SetPixelHeight/Width` |
-| `t.radius` | 0 | **Sin border radius** — Lyra usa Radius=0 |
-| `t.iconSizeSm` / `t.iconSizeMd` | 16 / 24 | Atlas lucide-16 / lucide-24 |
+| `t.radius` | 0 | **Sin border radius** — Lyra usa Radius=0 (dato reservado hasta ADR de Style, ADR-0014 §6.2) |
+| `t.iconSizeSm` / `t.iconSizeMd` | 16 / 24 | Atlas supersampleado `media/lucide.tga` |
 
-> **`t.ring` es zinc (gris), NO emerald/primary.** Ring en WoW solo aplica para Input EditBox (OnEditFocusGained via click), no por navegación de teclado.
+> **`t.ring` es gris neutro (neutral-500), NO emerald/primary.** Ring en WoW solo aplica para Input EditBox (OnEditFocusGained via click), no por navegación de teclado.
 
 ---
 
@@ -451,3 +522,4 @@ Todos los componentes usan `t.*` en `_applyTheme(t)`. **Fuente de verdad**: `doc
 |---------|-------|-------|--------|
 | v0.1 | 30/05/2026 | Alberto Gomez | Versión inicial |
 | v0.2 | 30/05/2026 | Alberto Gomez | ADR-0011 pixel-perfect; 11 ADRs; slash commands; token ring corregido (zinc, no primary); lyra-light eliminado; tabla de tokens completa; regla pixel-perfect en §6; WoW mouse-only en §7 |
+| v0.3 | 03/07/2026 | Alberto Gomez | Adopción del estándar AddonTemplate: `tests/run.lua` (mini-runner local, busted solo en CI); invocaciones reales de la máquina en §11; reglas git del estándar en §3 (identidad, sin trailers de IA); agentes `addon-scout`/`error-triager` en `.claude/agents/`; `.gitignore` alineado |

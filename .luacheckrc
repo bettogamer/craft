@@ -27,6 +27,11 @@ globals = {
     -- Mouse helpers
     "MouseIsOver",
     "IsMouseButtonDown",
+    -- Player/class info (used by consumers to feed Craft.Theme; ADR-0015 demo)
+    "UnitClass",
+    "RAID_CLASS_COLORS",
+    -- Font global del juego (ElvUI y otros lo sobreescriben; ADR-0015 demo)
+    "STANDARD_TEXT_FONT",
     -- Native color picker (Craft.ColorSwatch wraps it; mutated pre-Dragonflight style)
     "ColorPickerFrame",
     "OpacitySliderFrame",
@@ -42,6 +47,7 @@ globals = {
     -- Craft globals defined by Craft.lua and Presets.lua
     "Craft",
     "CraftPresets",
+    "CraftThemeAxes",
     -- Craft_Browser globals
     "CraftBrowserPages",
     "CraftBrowserDB",
@@ -60,6 +66,7 @@ ignore = {
 
 -- Exclude files not part of the distributed addon
 exclude_files = {
+    "Craft/libs/",   -- vendored third-party code (LibStub, Weave) — read-only, not linted
     "tests/",
     "scripts/",
     "docs/",

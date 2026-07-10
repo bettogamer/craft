@@ -28,6 +28,10 @@
 
 Ventana flotante draggable que se eleva sobre el contenido de la UI para capturar la atención del usuario; contiene un área de header (título + descripción), área de contenido editable y zona de acciones opcional.
 
+## Animación ([Unreleased])
+
+Show/Hide/Toggle animan con `Weave.tween` (ADR-0013 §4.6): **fade** por alpha (el overlay en sincronía) + **`zoom-in-95`** (escala `motionZoomFrom`→1.0 al abrir, 1.0→`motionZoomFrom` al cerrar) desde el centro. **Nunca anima height** — WoW no repinta un frame colapsado a 0. Duración/easing salen de los tokens de movimiento del tema (`motionFast`/`motionEasing`). Señal privada `_open`; `shown = open|animating` para mantener visible durante la fade-out. Disposal por `Craft.Reactive.disposeAll` en `Destroy`.
+
 ## Jerarquía de frames WoW
 
 ```

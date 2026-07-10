@@ -3,15 +3,34 @@
 
 require("tests.mock_wow")
 
+-- Load the vendored Weave in its Weave.xml order (Button animates its hover bg
+-- with Weave.tween → hard dep on Weave + Craft.Reactive since the motion tier)
+dofile("Craft/libs/Weave/Weave.lua")
+dofile("Craft/libs/Weave/core/Core.lua")
+dofile("Craft/libs/Weave/core/Reconcile.lua")
+dofile("Craft/libs/Weave/core/Tween.lua")
+dofile("Craft/libs/Weave/core/Window.lua")
+dofile("Craft/libs/Weave/core/Flow.lua")
+dofile("Craft/libs/Weave/wow/Events.lua")
+dofile("Craft/libs/Weave/wow/Props.lua")
+dofile("Craft/libs/Weave/wow/Ticker.lua")
+dofile("Craft/libs/Weave/wow/Anim.lua")
+dofile("Craft/libs/Weave/wow/Promise.lua")
+dofile("Craft/libs/Weave/store/Store.lua")
+dofile("Craft/libs/Weave/ui/Ui.lua")
+dofile("Craft/libs/Weave/ui/Each.lua")
+dofile("Craft/libs/Weave/ui/Virtual.lua")
+
 -- Load Craft modules in order
 dofile("Craft/Craft.lua")
+dofile("Craft/Reactive.lua")
 dofile("Craft/theme/Presets.lua")
 dofile("Craft/theme/Theme.lua")
 dofile("Craft/icons/Atlas.lua")
 dofile("Craft/icons/Icons.lua")
 dofile("Craft/components/Button.lua")
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 
 -- ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -260,11 +279,14 @@ describe("Craft.Button", function()
     -- ── Hover / active ────────────────────────────────────────────────────
 
     describe("hover and active states", function()
-        it("OnEnter → changes background alpha (default hover = 0.80)", function()
+        it("OnEnter → targets the hover background (default hover alpha = 0.80)", function()
             local btn = newBtn({ variant="default" })
             btn:GetFrame():_fire("OnEnter")
-            local r, g, b, a = btn._bg:GetColorTexture()
-            assert.near(0.80, a, 0.01)
+            -- Hover bg now animates via Weave.tween; the test clock is frozen
+            -- (GetTime()=0) so the painted value can't advance. Assert the hover
+            -- STATE flipped and the resolved hover endpoint (the tween's goal).
+            assert.is_true(btn._hover:peek())
+            assert.near(0.80, btn._bgHover.a, 0.01)
         end)
 
         it("OnLeave → restores the original variant background", function()
@@ -341,6 +363,14 @@ describe("Craft.Button", function()
             assert.has_no_errors(function()
                 newBtn({ icon="icon-that-does-not-exist" })
             end)
+        end)
+
+        -- FR-014 (won't-do): the icon side keeps the reduced optical inset (padHIcon),
+        -- which compensates for the glyph's own transparent margin. See docs/components/button.md.
+        it("xs icon+text: icon anchored at the reduced padHIcon (6px), not padH", function()
+            local btn = newBtn({ size="xs", icon="check", text="New" })
+            local point = btn._icon._points[1]  -- {"LEFT", frame, "LEFT", offsetX, offsetY}
+            assert.equals(6, point[4])
         end)
     end)
 

@@ -24,6 +24,10 @@ El HTML renderizado: cada `toggle-group-item` lleva `cn-toggle-variant-outline` 
 Selección **única** mostrada como una fila de segmentos con borde (display Barra/Icono/Texto,
 modo de trigger). Alternativa compacta y horizontal al `RadioGroup`/`Select`.
 
+## Animación ([Unreleased])
+
+Como shadcn (`transition-all`), el ToggleGroup **anima** el relleno (hover + selección) **por segmento** usando `Weave.tween` (ADR-0013 §4.6). Cada segmento reacciona a dos señales: `onSig` (seleccionado) y `hoverSig` (hover); ambas disparan el mismo relleno `t.muted` (no hay distinción visual: checked y hovered comparten color). El alpha interpola suavemente entre 0 (idle) y 1 (filled) en ~150ms. Por eficiencia, los segmentos se **reciclan** en un pool de frames, cada uno con su propio tween+effect que sigue siendo válido al re-usarse con nuevos datos. Los endpoints se cachean en `_applyTheme` y se re-aplican al progreso vigente en cambios de tema (AGENTS §9).
+
 ## Jerarquía de frames WoW
 
 ```
@@ -58,12 +62,17 @@ togglegroup.frame            (Frame — h-8, w-fit; ancho = Σ segmentos + gaps)
 | `disabled` | boolean | false | Deshabilita el control |
 | `onChange` | function | nil | `fn(value)` al seleccionar |
 
+> **Props reactivas (ADR-0013):** `options`, `value` y `disabled` aceptan señal/computed.
+> `options` re-renderiza reutilizando segmentos por índice (un segmento reciclado puede
+> ganar/perder su icono); `value` es two-way.
+
 ## API pública
 
 | Método | Descripción |
 |---|---|
 | `SetValue(v[, silent])` | Selecciona un segmento; `silent=true` no dispara `onChange` |
 | `GetValue()` | Valor seleccionado |
+| `SetOptions(options)` | Reemplaza la lista y re-renderiza (segmentos reutilizados). Conserva la selección si sigue presente; no dispara `onChange` |
 | `SetEnabled(bool)` | Habilita/deshabilita |
 | `GetFrame()` | Frame raíz |
 

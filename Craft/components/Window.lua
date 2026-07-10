@@ -8,7 +8,8 @@
 -- Models Craft_Browser's main frame: body = background (oklch 0.145), title bar a
 -- touch lighter (+0.03) for separation, 1px ring (foreground/10) around the whole frame.
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
+local Weave = LibStub("Weave-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Window = {}
@@ -61,6 +62,92 @@ function Window:Create(parent, config)
             if self._cfg.maxWidth then self.frame:SetMaxResize(self._cfg.maxWidth, self._cfg.maxHeight) end
         end
     end
+
+    -- ── Open/close fade (Weave.tween) ───────────────────────────────────────
+    -- Mirrors Dialog: showing/hiding the window fades it in/out. ONLY alpha —
+    -- NOT height/size: WoW won't repaint a frame collapsed to 0, and a window is
+    -- not a collapse. Show/Hide/Toggle/Close/Escape all flow through this signal.
+    self._open = Weave.signal(false)  -- private open/close state (NOT a public prop)
+
+    -- Alpha eases 0↔1 as the open state flips. Duration/easing from the shared
+    -- motion tokens (theme/Presets) so every animated component feels consistent.
+    local motion = Craft.Theme.get()
+    local alpha = Weave.tween(
+        Weave.computed(function() return self._open() and 1 or 0 end),
+        { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
+
+    -- Stay visible through the CLOSE fade, then hide once the tween settles.
+    local shown = Weave.computed(function()
+        return self._open() or alpha:animating()
+    end)
+
+    self._effects = self._effects or {}
+    self._effects[#self._effects + 1] = Weave.bind(self.frame, "alpha", alpha)
+    self._effects[#self._effects + 1] = Weave.bind(self.frame, "shown", shown)
+    self._effects[#self._effects + 1] = alpha  -- dispose the tween (effect + driver reg)
+
+    -- ── Open/close zoom (Weave.tween) — shadcn v4 zoom-in-95 ────────────────
+    -- Same source (_open), same duration/easing as the fade so the window POPS from
+    -- motionZoomFrom (0.95) to 1.0 on open and 1.0→0.95 on close, in lockstep with
+    -- alpha (mirrors Dialog's fade+zoom gesture, NOT Sheet's edge slide).
+    --
+    -- Pivot problem: SetScale scales around the frame's anchor point, and SetPoint
+    -- offsets scale with the frame's OWN scale (this is exactly what Craft.Theme.px
+    -- relies on). A window is movable — once the user drags it off screen-centre its
+    -- CENTER offset is non-zero, so a naive SetScale would slide the frame toward/away
+    -- from centre while it zooms. To keep the on-screen position rock-steady we
+    -- re-anchor each tick with the offset divided by the current scale: offset*scale
+    -- stays constant, so the geometric centre never moves and the pop reads as coming
+    -- from the window's own centre. A centred window has offset 0 → this is a no-op.
+    local zoom = Weave.tween(
+        Weave.computed(function() return self._open() and 1 or motion.motionZoomFrom end),
+        { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
+
+    -- Capture the scale-1 CENTER offset (in frame units) at every open/close flip,
+    -- BEFORE the tween advances, so it reads the resting position (whatever the user
+    -- dragged to) and not a mid-zoom one. Scale-invariant: the `* GetScale()` term
+    -- divides out whatever scale the frame is currently parked at (e.g. 0.95 while
+    -- hidden after a close), recovering the true scale-1 offset.
+    local function captureZoomAnchor()
+        local f = self.frame
+        if not f then return end
+        local fx, fy = f:GetCenter()
+        local ux, uy = UIParent:GetCenter()
+        if not (fx and ux) then
+            self._zoomBaseX, self._zoomBaseY = 0, 0
+            return
+        end
+        local fe = f:GetEffectiveScale()
+        local ue = UIParent:GetEffectiveScale()
+        local s  = f:GetScale()
+        self._zoomBaseX = (fx * fe - ux * ue) * s / fe
+        self._zoomBaseY = (fy * fe - uy * ue) * s / fe
+    end
+
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        self._open()               -- track: recapture the resting offset on each flip
+        captureZoomAnchor()
+    end)
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        local s = zoom()
+        local f = self.frame
+        if not f then return end
+        f:SetScale(s)
+        f:ClearAllPoints()
+        f:SetPoint("CENTER", UIParent, "CENTER",
+            (self._zoomBaseX or 0) / s, (self._zoomBaseY or 0) / s)
+    end)
+    self._effects[#self._effects + 1] = zoom  -- dispose the tween (effect + driver reg)
+
+    -- Escape / UISpecialFrames: Blizzard calls frame:Hide() DIRECTLY, bypassing the
+    -- signal. Re-sync the state so a later Show() works (idempotent: the signal's
+    -- equality-cut drops the no-op when already false). Escape-close is instant
+    -- (acceptable); binds are reactive (no polling) so this Hide() won't re-show.
+    self.frame:HookScript("OnHide", function()
+        if self._open and self._open:peek() then
+            self._open:set(false)
+        end
+    end)
 
     -- ── Ring + background (background surface, ring-1 ring-foreground/10) ─────
     -- Ring sits BEHIND (sublevel -2); the opaque bg in FRONT (-1) is inset 1px so the
@@ -229,9 +316,9 @@ function Window:_applyTheme(t)
     Craft.Theme.SetPixelHeight(self._titleBarSep, 1)
 
     -- Title + description (title font-medium, mirrors Dialog/Panel)
-    self._title:SetFont(t.fontMedium or t.font, t.fontSizeLg or 14)
+    Craft.Theme.applyFont(self._title, t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14)
     self._title:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
-    self._desc:SetFont(t.font, t.fontSize or 12)
+    Craft.Theme.applyFont(self._desc, t.font, t.fontSize or 12)
     self._desc:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
 
     if self._closeIcon then
@@ -265,23 +352,28 @@ function Window:Center()
     self.frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 end
 
-function Window:Show()   self.frame:Show() end
-function Window:Hide()   self.frame:Hide() end
-function Window:IsShown() return self.frame:IsShown() end
+-- Shows the window (fade in).
+function Window:Show()   self._open:set(true)  end
+-- Hides the window (fade out).
+function Window:Hide()   self._open:set(false) end
+-- Reflects the logical open state (false as soon as a close begins, even while the
+-- fade-out is still running).
+function Window:IsShown() return self._open:peek() end
 
 function Window:Toggle()
-    if self.frame:IsShown() then self.frame:Hide() else self.frame:Show() end
+    self._open:set(not self._open:peek())
 end
 
--- Close: fires onClose, then hides. Used by the X button.
+-- Close: fires onClose, then fades out. Used by the X button.
 function Window:Close()
     if self._cfg.onClose then self._cfg.onClose(self) end
-    self.frame:Hide()
+    self._open:set(false)
 end
 
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Window:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)            -- cut alpha/shown binds + the tween
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil

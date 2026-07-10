@@ -5,6 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Lua 5.1](https://img.shields.io/badge/Lua-5.1-blue.svg)](https://www.lua.org/versions.html#5.1)
 [![WoW 11.x+](https://img.shields.io/badge/WoW-11.x%2B-orange.svg)](https://www.curseforge.com/wow/addons/craft)
+[![taintlint: secret-safe 12.0.7](https://img.shields.io/badge/taintlint-secret--safe_12.0.7-2ea44f?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI%2BPHBhdGggZD0iTTEwLjczMyA1LjA3NmExMC43NDQgMTAuNzQ0IDAgMCAxIDExLjIwNSA2LjU3NSAxIDEgMCAwIDEgMCAuNjk2IDEwLjc0NyAxMC43NDcgMCAwIDEtMS40NDQgMi40OSIgLz48cGF0aCBkPSJNMTQuMDg0IDE0LjE1OGEzIDMgMCAwIDEtNC4yNDItNC4yNDIiIC8%2BPHBhdGggZD0iTTE3LjQ3OSAxNy40OTlhMTAuNzUgMTAuNzUgMCAwIDEtMTUuNDE3LTUuMTUxIDEgMSAwIDAgMSAwLS42OTYgMTAuNzUgMTAuNzUgMCAwIDEgNC40NDYtNS4xNDMiIC8%2BPHBhdGggZD0ibTIgMiAyMCAyMCIgLz48L3N2Zz4%3D)](https://github.com/bettogamer/craft/actions/workflows/ci.yml)
 
 Craft es una librería open source de componentes UI para WoW addons escrita en Lua 5.1. Resuelve el problema de tener que construir UI desde cero en cada addon — ofrece 16 componentes listos para usar con diseño consistente basado en [shadcn Lyra](https://ui.shadcn.com/themes) (zinc + emerald, radius=0). A diferencia de AceGUI, Craft está diseñado con tokens semánticos de diseño, sistema de theming con live-switching y fuente Inter bundled — sin dependencias externas.
 
@@ -55,7 +56,7 @@ libs\Craft\components\Input.lua
 **4. Obtener la librería**
 
 ```lua
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 ```
 
 **4. Crear tu primer componente**
@@ -79,7 +80,7 @@ btn:Destroy()  -- desregistra listeners del tema y libera el frame
 ## Ejemplo de uso
 
 ```lua
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 
 -- Panel raíz
 local panel = Craft.Panel:Create(UIParent, { width = 320, height = 200 })
@@ -142,7 +143,7 @@ flex:Layout()
 Craft incluye el preset `lyra-dark` por defecto. Puedes extenderlo o crear el tuyo:
 
 ```lua
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 
 -- Cambiar a un preset registrado
 Craft.Theme.use("mi-tema")

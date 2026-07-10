@@ -8,6 +8,10 @@
 ## Propósito
 Elemento interactivo que ejecuta una acción al hacer clic, con múltiples variantes visuales y tamaños. Lyra usa una estética más compacta y monocromática que new-york.
 
+## Animación ([Unreleased])
+
+Como shadcn v4, el Button **anima** los cambios de fondo en hover usando `Weave.tween` (ADR-0013 §4.6). En lugar de que el fondo cambie instantáneamente, los 4 canales de color (incluyendo alpha) interpolan entre el estado idle y hover — una transición suave de ~150ms. El progreso es una señal privada (`_hover`), que alimenta un tween que re-aplica el fondo en cada frame. Los endpoints (idle/hover) se cachean en `_applyTheme` para que los cambios de tema se re-apliquen en el progreso vigente, sin snapping a mid-animación (AGENTS §9). **Nota:** `Button:Destroy()` ahora llama `Craft.Reactive.disposeAll(self)` para cortar el tween y el effect, evitando actualizaciones fantasma.
+
 ## CSS fuente de Lyra (referencia exacta)
 
 ```css
@@ -209,3 +213,12 @@ self.frame:SetScript("OnMouseUp",   function() self:_positionChildren(0)  end)
 **Ícono sm = size-3.5 = 14px**: tamaño intermedio solo en `sm`. xs=12px, sm=14px, default/lg=16px.
 
 **Padding con ícono usa `has-data-[icon=inline-start/end]`**: en WoW, si `iconPosition="left"` reducir padding izquierdo; si `"right"` reducir padding derecho. El padding opuesto se mantiene normal.
+
+> **Por qué el inset óptico (`padHIcon` < `padH`) es correcto — no igualarlo (FR-014, won't-do)**: el
+> icono se renderiza desde su viewBox 24×24 centrado en la celda, así que arrastra un margen
+> transparente propio (p.ej. `plus` deja ~2.5px de aire a cada lado a 12px). El padding **visible** es
+> `padding_frame + margen_del_glyph` del lado del ícono, y `padding_frame` del lado del texto. Igualar
+> el padding del *frame* (8/8 en `xs`) deja el gap **visible** izquierdo mayor (10.5 vs 8). El inset de
+> shadcn (`padHIcon=6`) compensa ese margen → ~8.5/8, ópticamente balanceado. Padding visible perfecto
+> para íconos arbitrarios requeriría recortar los glyphs a su bounding box en el atlas (pipeline de
+> iconos), no tocar el padding del botón.

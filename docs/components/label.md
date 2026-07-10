@@ -79,6 +79,8 @@ Las variantes `heading`, `caption`, `muted` del spec anterior **no existen en el
 | `color`    | table    | `nil`    | Color RGBA explícito `{r,g,b,a}`. Si nil, hereda el color del contexto.                  |
 | `maxWidth` | number   | `nil`    | Ancho máximo en px. Si el texto supera este ancho, se trunca con "..." al final.          |
 | `onClick`  | function | `nil`    | Callback `function(self)`. Activa cursor hand en hover y color `t.primary` en hover.     |
+| `weight`   | string   | `nil`    | Peso de fuente: `"normal"` (default), `"medium"` (`t.fontMedium`), `"bold"` (`t.fontBold`). Resuelto DENTRO de `_applyTheme` → sobrevive a cambios de tema. |
+| `size`     | number   | `nil`    | Tamaño en px. Default = `t.fontSize` (12). Persiste igual que `weight`.                    |
 
 ## API pública
 
@@ -91,7 +93,7 @@ Las variantes `heading`, `caption`, `muted` del spec anterior **no existen en el
 
 ## Notas de implementación
 
-**Sin variantes de tamaño ni color**: Lyra CSS define Label como texto `text-xs` (`12px`) puro, sin variantes `heading`, `caption` o `muted`. El dev controla el color externamente (vía `config.color`) o simplemente lo hereda del contexto del frame padre. No implementar lógica de variantes en el componente.
+**Sin variantes semánticas**: Lyra CSS define Label como texto `text-xs` (`12px`) puro, sin variantes `heading`, `caption` o `muted`. El dev controla el color externamente (vía `config.color`) o lo hereda del contexto. `weight`/`size` NO son variantes semánticas: son primitivas de estilo que el consumidor combina (p. ej. el header del Browser usa `weight="bold"` + `size=t.fontSizeLg`). **Regla**: peso y tamaño deben pasarse por config —resueltos en `_applyTheme`— y NUNCA pokeando `label._text:SetFont(...)` después de `Create`, porque el siguiente `_applyTheme` (cambio de tema/fuente en runtime) lo pisaría con regular/12 (bug histórico del header del Browser).
 
 **Solo texto (sin icon slot)**: el `gap-2` del CSS de Lyra es el espaciado flex para cuando el `<Label>` envuelve un ícono u otro hijo. Craft.Label es un componente de texto-hoja: no soporta íconos embebidos. Si se necesita ícono + label, se componen externamente.
 

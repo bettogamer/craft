@@ -143,6 +143,8 @@ $BrowserDest = Join-Path $WoWAddOns "Craft_Browser"
 if ($DryRun) {
     Write-Host "[dry-run] Would build Craft_Browser at: $BrowserDest"
     Write-Host "[dry-run]   libs/LibStub/ <- Craft/libs/LibStub/"
+    Write-Host "[dry-run]   libs/Weave/   <- Craft/libs/Weave/"
+    Write-Host "[dry-run]   libs/Loom/    <- Craft_Browser/libs/Loom/ (vendored, rides along)"
     Write-Host "[dry-run]   libs/Craft/   <- Craft/ (without libs/)"
     Write-Host "[dry-run]   *             <- Craft_Browser/*"
 } else {
@@ -165,6 +167,20 @@ if ($DryRun) {
         Write-Error "LibStub not found at $LibStubSrc - deploy aborted"
         exit 1
     }
+
+    # Embed Weave (vendored in Craft/libs/, so the "without libs/" copy below skips it)
+    $WeaveSrc  = Join-Path $CraftSrc "libs\Weave"
+    $WeaveDest = Join-Path $BrowserDest "libs\Weave"
+    if (Test-Path $WeaveSrc) {
+        Copy-Item $WeaveSrc $WeaveDest -Recurse -Force
+        Write-Host "Embedded: Weave -> libs/Weave/"
+    } else {
+        Write-Error "Weave not found at $WeaveSrc - deploy aborted"
+        exit 1
+    }
+
+    # Loom is vendored (committed) in Craft_Browser/libs/Loom and already rode along
+    # with the "Craft_Browser/*" copy above — nothing to embed here.
 
     # Embed Craft (without its own libs/ subfolder to avoid duplication)
     $EmbeddedCraftDest = Join-Path $BrowserDest "libs\Craft"

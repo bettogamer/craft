@@ -3,7 +3,7 @@
 -- ADR:  docs/adr/0006-craft-flex-motor-layout.md
 -- Pixel: math.floor() en offsets antes de SetPoint (ADR-0011)
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Flex = {}

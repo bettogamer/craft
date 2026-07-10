@@ -133,8 +133,62 @@ Añadidos para el árbol de packs, editores de trigger/panel y barra de acciones
 | 41 | `type` | Tipo de panel Texto |
 | 42 | `disc` | Círculo relleno (Craft-sintetizado, no Lucide) — controles redondos (RadioGroup) |
 
-**Total**: 42 glyphs (41 Lucide + 1 Craft-sintetizado `disc`). Ocupan ~6 filas del grid 8×8
-(42 de 64 slots disponibles).
+### Solicitados por consumers (FR-012 — Beacon: test-fire / selector de historial)
+
+Iconos de acción para el clúster de creación de auras de Beacon (Modo prueba / Selector).
+
+| # | Nombre Lucide | Uso |
+|---|---|---|
+| 43 | `circle-play` | Disparar test-fire (acción de fila; botón "Probar" de la toolbar) |
+| 44 | `circle-stop` | Detener el test-fire |
+| 45 | `rotate-ccw` | Re-disparar el último evento |
+
+> La acción "usar / insertar en el trigger" del Selector se cubre con `chevron-right` (ya en el
+> atlas); `corner-down-left` se excluyó del FR-012 — ver `docs/requests/FR-012-action-icons-beacon.md`.
+
+### Solicitados por consumers (FR-013 — Beacon: toggles de edit-mode del header)
+
+Glyphs para los dos toggles globales del header de opciones de Beacon (`OptionsFrame.lua`).
+
+| # | Nombre Lucide | Uso |
+|---|---|---|
+| 46 | `lock` | Toggle "Lock Positions" (estado activo) |
+| 47 | `lock-open` | Toggle "Lock Positions" (estado inactivo) |
+| 48 | `magnet` | Toggle "Magnetically Align" |
+
+### Solicitados por consumers (FR-017 — Coffer: dominio bolsas/inventario)
+
+Núcleo del set de bolsas/inventario para el rail lateral de paneles y los botones del footer
+de Coffer. Todos son iconos Lucide reales.
+
+| # | Nombre Lucide | Uso |
+|---|---|---|
+| 49 | `landmark` | Banco de personaje (rail/tab) |
+| 50 | `vault` | Warbank / account bank (rail/tab) |
+| 51 | `users` | Guild bank (rail/tab) |
+| 52 | `coins` | Panel de monedas (rail/tab) + moneda genérica |
+| 53 | `shopping-cart` | Botón "Sell Trash" (merchant) |
+| 54 | `sparkles` | Botón "Disenchant" |
+| 55 | `backpack` | Identidad de bolsas / "volver a bolsas de WoW" |
+| 56 | `funnel` | Filtro activo (búsqueda / categorías) — Lucide renombró `filter` → `funnel` |
+
+> **`funnel`**: el icono de filtro de Lucide fue renombrado de `filter` a `funnel` en upstream
+> (igual que `bar-chart-3` → `chart-column`). Se cataloga con el nombre nuevo; los consumidores
+> usan `icon="funnel"`.
+
+Nice-to-have (FR-017): mejoran la semántica, no bloquean.
+
+| # | Nombre Lucide | Uso |
+|---|---|---|
+| 57 | `tag` | Etiquetas de UI |
+| 58 | `package` | Categoría/grupo "Containers" |
+| 59 | `combine` | Combinar stacks (área 8) |
+| 60 | `arrow-up-narrow-wide` | Indicador de sort ascendente |
+| 61 | `arrow-down-wide-narrow` | Indicador de sort descendente |
+
+**Total**: 61 glyphs (60 Lucide + 1 Craft-sintetizado `disc`). Ocupan 8 filas del grid 8×8
+(61 de 64 slots disponibles → 3 libres). Al agotarse el margen, crecer el grid (p. ej. 1024² →
+16×16) es decisión del owner.
 
 > **`disc`** no es de Lucide (que es stroke-only, sin formas rellenas). Se define inline en
 > `scripts/export-icons.py` (`LOCAL_SVGS`) y se rasteriza por el mismo pipeline supersampleado,

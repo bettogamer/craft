@@ -62,6 +62,7 @@ local function makeFrame(frameType, name, parent)
         _text       = "",
         _font       = nil,
         _fontSize   = 12,
+        _fontFlags  = nil,
         _vertexColor= { r=1, g=1, b=1, a=1 },
         _texCoords  = { 0, 1, 0, 1 },
         _texture    = nil,
@@ -122,6 +123,8 @@ local function makeFrame(frameType, name, parent)
     function f:IsMouseEnabled()     return self._mouseEnabled end
     function f:EnableMouseWheel(v)  end
     function f:RegisterForDrag(...)  end
+    function f:SetHitRectInsets(...) end
+    function f:IsMouseOver()        return false end
 
     -- Movable / resizable behavior
     function f:SetMovable(v)        self._movable = v end
@@ -129,6 +132,7 @@ local function makeFrame(frameType, name, parent)
     function f:SetMinResize(...)     end
     function f:SetMaxResize(...)     end
     function f:SetClampedToScreen(v) end
+    function f:SetClipsChildren(v)   end
     function f:SetFrameStrata(s)    self._strata = s end
     function f:GetFrameStrata()     return self._strata end
     function f:SetFrameLevel(n)     end
@@ -160,8 +164,8 @@ local function makeFrame(frameType, name, parent)
     function f:SetDrawLayer(...)    end
 
     -- FontString methods
-    function f:SetFont(path, size, flags) self._font = path; self._fontSize = size end
-    function f:GetFont()                  return self._font, self._fontSize end
+    function f:SetFont(path, size, flags) self._font = path; self._fontSize = size; self._fontFlags = flags end
+    function f:GetFont()                  return self._font, self._fontSize, self._fontFlags end
     function f:SetText(t)
         -- Real WoW errors "FontString:SetText(): Font not set" when a FontString has no
         -- font yet. Mirror it so headless tests catch SetText-before-SetFont ordering bugs
@@ -170,6 +174,11 @@ local function makeFrame(frameType, name, parent)
             error("FontString:SetText(): Font not set", 2)
         end
         self._text = tostring(t or "")
+        -- Real WoW fires OnTextChanged with userInput=false on programmatic
+        -- SetText — mirror it so specs exercise the reactive no-echo guard.
+        if self._type == "EditBox" then
+            self:_fire("OnTextChanged", false)
+        end
     end
     function f:GetText()                  return self._text end
     function f:SetTextColor(r,g,b,a)      self._color = {r=r,g=g,b=b,a=a or 1} end
@@ -177,8 +186,39 @@ local function makeFrame(frameType, name, parent)
     function f:SetWordWrap(v)             end
     function f:SetNonSpaceWrap(v)         end
     function f:SetJustifyH(v)             end
+    function f:SetJustifyV(v)             end
     function f:GetStringWidth()           return #self._text * 7 end  -- approx 7px per character
     function f:GetStringHeight()          return self._fontSize or 12 end
+
+    -- EditBox methods
+    f._focused = false
+    function f:SetAutoFocus(v)            self._autoFocus = v end
+    function f:SetMultiLine(v)            self._multiLine = v end
+    function f:IsMultiLine()              return self._multiLine end
+    function f:SetMaxLetters(n)           self._maxLetters = n end
+    function f:SetTextInsets(...)         end
+    function f:SetEnabled(v)              self._enabled = v end
+    function f:IsEnabled()                return self._enabled ~= false end
+    function f:HasFocus()                 return self._focused end
+    function f:SetFocus()
+        self._focused = true
+        self:_fire("OnEditFocusGained")
+    end
+    function f:ClearFocus()
+        self._focused = false
+        self:_fire("OnEditFocusLost")
+    end
+
+    -- ScrollFrame methods
+    f._vScroll = 0
+    function f:SetScrollChild(c)          self._scrollChild = c end
+    function f:GetScrollChild()           return self._scrollChild end
+    function f:SetVerticalScroll(v)       self._vScroll = v or 0 end
+    function f:GetVerticalScroll()        return self._vScroll end
+    function f:GetVerticalScrollRange()   return 0 end
+    function f:SetHorizontalScroll(v)     self._hScroll = v or 0 end
+    function f:GetHorizontalScroll()      return self._hScroll or 0 end
+    function f:GetHorizontalScrollRange() return 0 end
 
     -- Button methods
     function f:SetNormalTexture(t)        end
@@ -246,12 +286,44 @@ UISpecialFrames = {}
 -- DEFAULT_CHAT_FRAME
 DEFAULT_CHAT_FRAME = { AddMessage = function(self, msg) end }
 
--- C_Timer
+-- C_Timer — callbacks queue so tests can advance time deterministically.
+-- Nothing runs unless a test calls C_Timer._flush() (one flush = one tick:
+-- runs everything queued so far; re-schedules land in the next flush).
 C_Timer = {
+    _queue = {},
     After = function(delay, fn)
+        table.insert(C_Timer._queue, fn)
         return { Cancel = function() end }
-    end
+    end,
 }
+function C_Timer._flush()
+    local q = C_Timer._queue
+    C_Timer._queue = {}
+    for _, fn in ipairs(q) do fn() end
+end
 
 -- SlashCmdList
 SlashCmdList = {}
+
+-- ColorPickerFrame (Retail 10.2.5+ SetupColorPickerAndShow path).
+-- Test helper _pick(r,g,b,a) simulates the user choosing a color.
+ColorPickerFrame = CreateFrame("Frame", "ColorPickerFrame")
+ColorPickerFrame._rgb   = { r = 1, g = 1, b = 1 }
+ColorPickerFrame._alpha = 1
+function ColorPickerFrame:SetupColorPickerAndShow(info)
+    self._info = info
+    if info.r then self._rgb = { r = info.r, g = info.g, b = info.b } end
+    if info.opacity then self._alpha = info.opacity end
+    self._shown = true
+end
+function ColorPickerFrame:SetColorRGB(r, g, b) self._rgb = { r = r, g = g, b = b } end
+function ColorPickerFrame:GetColorRGB() return self._rgb.r, self._rgb.g, self._rgb.b end
+function ColorPickerFrame:GetColorAlpha() return self._alpha end
+function ColorPickerFrame:_pick(r, g, b, a)
+    self._rgb   = { r = r, g = g, b = b }
+    self._alpha = a or 1
+    if self._info then
+        if self._info.swatchFunc  then self._info.swatchFunc()  end
+        if self._info.opacityFunc then self._info.opacityFunc() end
+    end
+end

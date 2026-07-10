@@ -4,7 +4,7 @@
 -- Blizzard's native ColorPickerFrame (with optional alpha) on click. A small swatch shows
 -- the current colour over a checkerboard (so transparency is visible), with an optional label.
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local ColorSwatch = {}
@@ -26,7 +26,23 @@ function ColorSwatch:Create(parent, config)
         label    = config.label,
         disabled = config.disabled or false,
     }
-    local c = config.color or { 1, 1, 1, 1 }
+    -- Reactive props (ADR-0013): a callable prop binds through the setters
+    -- (after the theme pass, below); until then the internals hold safe
+    -- literals so Create/_applyTheme never operate on a signal object.
+    -- NOTE: a plain colour table ({1,1,1,1} / {r=,g=,b=,a=}) has no __call,
+    -- so isCallable is false and literals keep taking the classic path.
+    local R = Craft.Reactive
+    local colorSource    = R.isCallable(config.color)    and config.color    or nil
+    local disabledSource = R.isCallable(config.disabled) and config.disabled or nil
+    local labelSource    = R.isCallable(config.label)    and config.label    or nil
+    if disabledSource then self._cfg.disabled = false end
+    if labelSource    then self._cfg.label    = nil   end -- the bind writes the resolved text
+    if colorSource and R.isWritableSignal(colorSource) then
+        self._valueSignal = colorSource -- two-way: picker input writes back
+    end
+
+    local c = (not colorSource) and config.color or nil  -- signal → classic default
+    c = c or { 1, 1, 1, 1 }
     self._r = c[1] or c.r or 1
     self._g = c[2] or c.g or 1
     self._b = c[3] or c.b or 1
@@ -77,6 +93,13 @@ function ColorSwatch:Create(parent, config)
     self:_applyTheme(Craft.Theme.get())
     if self._cfg.label then self._label:SetText(self._cfg.label) end  -- after SetFont
 
+    -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
+    -- color binds through _applyColor (not SetColor) so a programmatic signal
+    -- sync never fires onChange — SetColor already fires it on picker input.
+    R.applyOrBind(self, colorSource,    function(s, col) s:_applyColor(col) end)
+    R.applyOrBind(self, labelSource,    function(s, text) s:SetLabel(text) end)
+    R.applyOrBind(self, disabledSource, function(s, off) s:SetEnabled(not off) end)
+
     self:_recalcWidth()
     if self._cfg.disabled then self:SetEnabled(false) end
 
@@ -100,10 +123,11 @@ function ColorSwatch:_applyTheme(t)
     self._fill:SetPoint("BOTTOMRIGHT", self._swatch, "BOTTOMRIGHT", -px1, px1)
 
     -- Label
-    self._label:SetFont(t.font, FONT_SIZE)
+    Craft.Theme.applyFont(self._label, t.font, FONT_SIZE)
     self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
 
     self:_refresh()
+    self:_recalcWidth() -- re-measure the label (font metrics may have changed)
 end
 
 -- Lays out the 2×2 checkerboard inside the swatch (inset 1px for the border).
@@ -124,6 +148,19 @@ function ColorSwatch:_layoutChecker(px1)
         local v = (i == 1 or i == 4) and 0.55 or 0.38   -- light / dark cells
         tex:SetColorTexture(v, v, v, 1)
     end
+end
+
+-- ─── Internal: apply a colour without firing onChange ────────────────────────
+-- Sink for the reactive bind: the signal is the source of truth, and firing
+-- onChange from a programmatic sync would double-fire it on picker input.
+-- Accepts both colour shapes ({ r, g, b, a } array or { r=, g=, b=, a= }).
+function ColorSwatch:_applyColor(c)
+    if type(c) ~= "table" then return end
+    self._r = c[1] or c.r or self._r
+    self._g = c[2] or c.g or self._g
+    self._b = c[3] or c.b or self._b
+    self._a = c[4] or c.a or self._a
+    self:_refresh()
 end
 
 -- Applies the current colour (and alpha, if enabled) to the fill texture.
@@ -203,6 +240,11 @@ function ColorSwatch:SetColor(r, g, b, a)
     self._b = b or self._b
     if a ~= nil then self._a = a end
     self:_refresh()
+    if self._valueSignal then
+        -- Write a NEW table: Weave's equality cut compares by identity, so
+        -- mutating the table already inside the signal would not notify.
+        self._valueSignal:set({ r = self._r, g = self._g, b = self._b, a = self._a })
+    end
     if self._cfg.onChange then
         self._cfg.onChange(self._r, self._g, self._b, self._a)
     end
@@ -236,6 +278,7 @@ end
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function ColorSwatch:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil

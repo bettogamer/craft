@@ -17,7 +17,7 @@
 -- grows in height to fit them. Faithful to shadcn (triggers size to content) and
 -- degrades gracefully with few or many tabs. See docs/components/tabs.md.
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Tabs = {}
@@ -45,6 +45,15 @@ function Tabs:Create(parent, config)
     self._buttons    = {}      -- id → trigger Button
     self._activeId   = nil
     self._onTabChange = config.onTabChange
+
+    -- Reactive props (ADR-0013): a callable active-tab prop binds after the
+    -- tabs exist (below); until then the classic default (first tab) applies
+    -- so Create/_applyTheme never operate on a signal object.
+    local R = Craft.Reactive
+    local activeSource = R.isCallable(config.defaultTab) and config.defaultTab or nil
+    if activeSource and R.isWritableSignal(activeSource) then
+        self._valueSignal = activeSource -- two-way: user clicks write back
+    end
 
     -- Root frame
     self.frame = CreateFrame("Frame", nil, parent)
@@ -98,14 +107,25 @@ function Tabs:Create(parent, config)
         end
     end
 
-    -- Set default active tab
-    local defaultId = config.defaultTab
+    -- Set default active tab. A reactive defaultTab is not a literal id: seed
+    -- the classic default (first tab) through the no-callback sink and let the
+    -- bind below apply the signal's value on top (unknown ids keep the seed).
+    local defaultId = (not activeSource) and config.defaultTab or nil
     if not defaultId and config.tabs and config.tabs[1] then
         defaultId = config.tabs[1].id
     end
     if defaultId then
-        self:SetActiveTab(defaultId)
+        if activeSource then
+            self:_applyActiveTab(defaultId)
+        else
+            self:SetActiveTab(defaultId)
+        end
     end
+
+    -- Reactive bind — after the tabs above exist so the bound id can resolve.
+    -- Binds through _applyActiveTab (not SetActiveTab) so a programmatic
+    -- signal sync never fires onTabChange nor writes back into the signal.
+    R.applyOrBind(self, activeSource, function(s, id) s:_applyActiveTab(id) end)
 
     return self
 end
@@ -131,7 +151,7 @@ function Tabs:AddTab(id, label, opts)
 
     local btnText = btn:CreateFontString(nil, "OVERLAY")
     if self._t then
-        btnText:SetFont(self._t.fontMedium or self._t.font, FONT_SIZE)
+        Craft.Theme.applyFont(btnText, self._t.fontMedium or self._t.font, FONT_SIZE)
     end
     btnText:SetText(label or id)
 
@@ -220,7 +240,7 @@ function Tabs:_styleButton(btn, isActive)
     if not t then return end
 
     -- Font (.cn-tabs-trigger font-medium)
-    btn._text:SetFont(t.fontMedium or t.font, FONT_SIZE)
+    Craft.Theme.applyFont(btn._text, t.fontMedium or t.font, FONT_SIZE)
 
     -- Pixel-perfect 4-texture border (corner-safe)
     Craft.Theme.AnchorBorder(btn, btn._borderTop, btn._borderBottom,
@@ -300,10 +320,31 @@ function Tabs:_applyTheme(t)
             self:_styleButton(btn, tabDef.id == self._activeId)
         end
     end
+
+    -- Trigger widths hug the text and are set once in _addTabButton; font
+    -- metrics may have changed since (first-boot font load, preset switch) —
+    -- re-derive them from a fresh measurement and reflow the bar.
+    self:_recalcTriggerWidths()
 end
 
--- ─── Public API ────────────────────────────────────────────────────────────
-function Tabs:SetActiveTab(id)
+-- ─── _recalcTriggerWidths ───────────────────────────────────────────────────
+-- Re-derives each trigger's width from its re-measured text (same formula as
+-- _addTabButton) and re-runs the flex layout.
+function Tabs:_recalcTriggerWidths()
+    for _, btn in pairs(self._buttons) do
+        local textW = math.max(btn._text:GetStringWidth(), 1)
+        if btn._icon then
+            btn:SetWidth(ICON_SIZE + ICON_GAP + textW + TRIGGER_PX * 2)
+        else
+            btn:SetWidth(textW + TRIGGER_PX * 2)
+        end
+    end
+    self:_relayout()
+end
+
+-- ─── Internal: switch the visual active tab, no callbacks ──────────────────
+-- Returns the previously active id so callers can decide whether to notify.
+function Tabs:_setActive(id)
     local prev = self._activeId
 
     -- Hide previous content
@@ -325,8 +366,29 @@ function Tabs:SetActiveTab(id)
         self:_styleButton(self._buttons[id], true)
     end
 
-    if prev ~= id and self._onTabChange then
-        self._onTabChange(id, prev)
+    return prev
+end
+
+-- ─── Internal: activate a tab without firing onTabChange ───────────────────
+-- Sink for the reactive bind: the signal is the source of truth, and firing
+-- onTabChange from a programmatic sync would double-fire it on user clicks.
+-- Unknown ids degrade gracefully (kept active tab; the bound signal may hold
+-- an id that was never added or was removed).
+function Tabs:_applyActiveTab(id)
+    if id == nil or not self._buttons[id] then return end
+    if id == self._activeId then return end
+    self:_setActive(id)
+end
+
+-- ─── Public API ────────────────────────────────────────────────────────────
+function Tabs:SetActiveTab(id)
+    local prev = self:_setActive(id)
+
+    if prev ~= id then
+        if self._valueSignal then self._valueSignal:set(id) end
+        if self._onTabChange then
+            self._onTabChange(id, prev)
+        end
     end
 end
 
@@ -364,6 +426,8 @@ function Tabs:RemoveTab(id)
     end
 
     -- If it was active, fall back to the first remaining tab (or clear).
+    -- SetActiveTab (not _setActive): this change originates in the component,
+    -- so it must write back into a bound signal and fire onTabChange.
     if self._activeId == id then
         self._activeId = nil
         local nextTab = self._tabs[1]
@@ -411,6 +475,7 @@ end
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Tabs:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil

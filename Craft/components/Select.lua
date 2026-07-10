@@ -8,7 +8,8 @@
 --   .cn-select-item     { focus:bg-accent rounded-none py-2 pr-8 pl-2 text-xs }
 --   .cn-select-separator{ bg-border h-px }
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
+local Weave = LibStub("Weave-1.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Select = {}
@@ -52,7 +53,24 @@ function Select:Create(parent, config)
         disabled    = config.disabled    or false,
         onSelect    = config.onSelect,
     }
-    self._open = false
+    -- self._open is a Weave.signal (created below, once self._panel exists) — the
+    -- private open/close state that drives the dropdown fade. NOT a public prop.
+
+    -- Reactive props (ADR-0013): a callable prop binds through the setters
+    -- (after the theme pass, below); until then _cfg holds safe literals so
+    -- Create/_applyTheme never operate on a signal object.
+    local R = Craft.Reactive
+    local optionsSource     = R.isCallable(config.options)     and config.options     or nil
+    local valueSource       = R.isCallable(config.value)       and config.value       or nil
+    local disabledSource    = R.isCallable(config.disabled)    and config.disabled    or nil
+    local placeholderSource = R.isCallable(config.placeholder) and config.placeholder or nil
+    if optionsSource     then self._cfg.options     = {} end -- empty until the bind runs
+    if valueSource       then self._cfg.value       = nil end -- no selection until the bind runs
+    if disabledSource    then self._cfg.disabled    = false end
+    if placeholderSource then self._cfg.placeholder = "Select..." end -- the bind writes the resolved text
+    if valueSource and R.isWritableSignal(valueSource) then
+        self._valueSignal = valueSource -- two-way: user picks write back
+    end
 
     -- ── Root frame (Frame — invisible container) ──────────────────────────────
     local sz = SIZES[self._cfg.size] or SIZES["default"]
@@ -106,6 +124,64 @@ function Select:Create(parent, config)
     -- _items: array of item frames (created in _buildItems)
     self._items = {}
 
+    -- ── Open/close fade (Weave.tween) ─────────────────────────────────────────
+    -- The dropdown panel fades in/out (shadcn .cn-select-content duration-100)
+    -- instead of popping. ONLY alpha is animated — NEVER height: the panel height
+    -- is variable (item count) and WoW won't repaint a frame collapsed to 0.
+    -- Duration/easing come from the shared motion tokens so every animated
+    -- component feels consistent. Open()/Close() flip this signal; the binds below
+    -- drive the panel's visibility, replacing the old imperative Show()/Hide().
+    self._open = Weave.signal(false)  -- private open/close state (NOT a public prop)
+
+    local motion = Craft.Theme.get()
+    local alpha = Weave.tween(
+        Weave.computed(function() return self._open() and 1 or 0 end),
+        { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
+
+    -- Stay visible through the CLOSE fade, then hide once the tween settles.
+    local shown = Weave.computed(function()
+        return self._open() or alpha:animating()
+    end)
+
+    -- Collect on the SAME self._effects list that the reactive props use, so
+    -- Destroy()'s disposeAll cuts these binds + the tween along with everything
+    -- else. (applyOrBind appends to this list further below.)
+    self._effects = self._effects or {}
+    self._effects[#self._effects + 1] = Weave.bind(self._panel, "alpha", alpha)
+    self._effects[#self._effects + 1] = Weave.bind(self._panel, "shown", shown)
+    self._effects[#self._effects + 1] = alpha  -- dispose the tween (effect + driver reg)
+
+    -- ── Pop: zoom-in-95 + slide-in-from-top-2 (shadcn v4 SelectContent popper) ──
+    -- Reuses the SAME alpha tween as a single eased 0→1 progress, so the zoom, the
+    -- slide and the fade share one source / one duration / one curve and land
+    -- together (task: "un solo progreso 0→1"). "scale" and position are not
+    -- built-in Weave props, so a lone effect drives SetScale/SetPoint directly
+    -- (same technique as Dialog's zoom). UI-only — no secret values involved.
+    --   ZOOM  — lerp(motionZoomFrom, 1, prog) is MULTIPLIED onto the container-
+    --           scale compensation (base = triggerEff/uiParentEff, refreshed in
+    --           Open); it never replaces it. Close reverses 1→0.95 for free
+    --           (same progress running backwards).
+    --   SLIDE — the panel opens below the trigger, so its content enters from the
+    --           top: it starts motionSlide px higher (pegged to the trigger) and
+    --           settles at the resting Y. _panelSlideDir flips the sign so a
+    --           future upward-opening panel slides from the bottom instead.
+    -- Safe defaults until Open() refreshes them (panel is hidden at alpha 0 here).
+    self._panelBaseScale = 1
+    self._panelRestY     = -2
+    self._panelSlideDir  = 1
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        local prog = alpha()
+        if type(prog) ~= "number" then return end -- seed/degraded value: skip
+        local m    = self._t or motion
+        local base = self._panelBaseScale or 1
+        -- ZOOM on top of the container-scale compensation (multiply, never replace).
+        self._panel:SetScale(base * (m.motionZoomFrom + (1 - m.motionZoomFrom) * prog))
+        -- SLIDE: motionSlide px toward the anchor side at prog=0, resting at prog=1.
+        local dy = self._panelRestY + m.motionSlide * (1 - prog) * self._panelSlideDir
+        self._panel:ClearAllPoints()
+        self._panel:SetPoint("TOPLEFT", self._trigger, "BOTTOMLEFT", 0, dy)
+    end)
+
     -- ── Trigger scripts ───────────────────────────────────────────────────────
     self._trigger:SetScript("OnEnter", function()
         if not self._cfg.disabled then
@@ -123,7 +199,7 @@ function Select:Create(parent, config)
     end)
     self._trigger:SetScript("OnClick", function()
         if self._cfg.disabled then return end
-        if self._open then
+        if self._open:peek() then
             self:Close()
         else
             self:Open()
@@ -148,6 +224,26 @@ function Select:Create(parent, config)
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
 
+    -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
+    -- options binds FIRST so the value bind below resolves its label against
+    -- the real list. One-way: the component never writes options back. Item
+    -- rows are reused across rebuilds (_buildItems pools by index), so a
+    -- frequently-updating signal doesn't churn frames. A selected value that
+    -- disappears from the new list is kept and the trigger degrades to the
+    -- raw value (same as SetValue with an unknown value).
+    -- value binds through the public SetValue: it never fires onSelect (the
+    -- item OnClick fires it on user picks), so a programmatic signal sync
+    -- cannot double-fire the callback. A value missing from the options list
+    -- degrades the same way SetValue does (trigger shows the raw value).
+    -- placeholder has no public setter — inline sink, no API change.
+    R.applyOrBind(self, optionsSource,     function(s, v) s:SetOptions(v) end)
+    R.applyOrBind(self, valueSource,       function(s, v) s:SetValue(v) end)
+    R.applyOrBind(self, placeholderSource, function(s, text)
+        s._cfg.placeholder = text or "Select..."
+        s:_updateTriggerText()
+    end)
+    R.applyOrBind(self, disabledSource,    function(s, off) s:SetEnabled(not off) end)
+
     -- ── Initial state ─────────────────────────────────────────────────────────
     if self._cfg.disabled then
         self:SetEnabled(false)
@@ -156,101 +252,108 @@ function Select:Create(parent, config)
     return self
 end
 
+-- ─── _makeItem ────────────────────────────────────────────────────────────────
+-- Creates one pooled item row (frame + bg + text + checkmark + scripts). Built
+-- ONCE per slot and reused across rebuilds — the scripts read item.value/label
+-- at call time, so _buildItems only flows data through the bundle.
+function Select:_makeItem()
+    local itemFrame = CreateFrame("Button", nil, self._scrollChild)
+    itemFrame:SetHeight(ITEM_HEIGHT)
+
+    -- Item background (transparent by default, accent on hover/selected)
+    local itemBg = itemFrame:CreateTexture(nil, "BACKGROUND")
+    itemBg:SetAllPoints(itemFrame)
+    itemBg:SetColorTexture(0, 0, 0, 0)
+
+    -- Item text
+    local itemText = itemFrame:CreateFontString(nil, "OVERLAY")
+    itemText:SetJustifyH("LEFT")
+    itemText:SetJustifyV("MIDDLE")
+    itemText:SetPoint("LEFT",        itemFrame, "LEFT",  ITEM_PL, 0)
+    itemText:SetPoint("RIGHT",       itemFrame, "RIGHT", -ITEM_PR, 0)
+    itemText:SetPoint("TOP",         itemFrame, "TOP",    0, 0)
+    itemText:SetPoint("BOTTOM",      itemFrame, "BOTTOM", 0, 0)
+
+    -- Checkmark: "check" icon 12px, visible when this item is selected
+    local checkmark = itemFrame:CreateTexture(nil, "ARTWORK")
+    checkmark:SetSize(CHECK_SIZE, CHECK_SIZE)
+    checkmark:SetPoint("RIGHT", itemFrame, "RIGHT", -(ITEM_PR - CHECK_SIZE) / 2, 0)
+    Craft.Icons.Apply(checkmark, "check", 16)
+
+    local item = { frame = itemFrame, bg = itemBg, text = itemText, checkmark = checkmark }
+
+    -- Hover = focus:bg-accent focus:text-accent-foreground; leave restores the
+    -- normal popover text. Selection is shown by the checkmark, never by bg.
+    itemFrame:SetScript("OnEnter", function()
+        local tt = self._t
+        if tt then
+            itemBg:SetColorTexture(tt.accent.r, tt.accent.g, tt.accent.b, 1)
+            itemText:SetTextColor(tt.accentForeground.r, tt.accentForeground.g, tt.accentForeground.b)
+        end
+    end)
+    itemFrame:SetScript("OnLeave", function()
+        local tt = self._t
+        itemBg:SetColorTexture(0, 0, 0, 0)
+        if tt then itemText:SetTextColor(tt.popoverForeground.r, tt.popoverForeground.g, tt.popoverForeground.b) end
+    end)
+    itemFrame:SetScript("OnClick", function()
+        self:SetValue(item.value)
+        self:Close()
+        if self._valueSignal then self._valueSignal:set(item.value) end
+        if self._cfg.onSelect then
+            self._cfg.onSelect(item.value, item.label)
+        end
+    end)
+
+    return item
+end
+
 -- ─── _buildItems ──────────────────────────────────────────────────────────────
--- Rebuilds all panel items from self._cfg.options.
+-- Re-renders the panel items from self._cfg.options, REUSING row frames by index
+-- (WoW frames can't be destroyed; recreating them each pass leaks). Surplus rows
+-- are hidden and neutralized, kept in self._items for the next rebuild.
 -- Called after _applyTheme (to have self._t available) and from SetOptions().
 function Select:_buildItems()
     local t = self._t
     if not t then return end
 
-    -- Destroy previous items
-    for _, item in ipairs(self._items) do
-        item.frame:Hide()
-        item.frame = nil
-    end
-    self._items = {}
-
     local opts = self._cfg.options
     local totalH = 0
 
-    for _, opt in ipairs(opts) do
-        local itemFrame = CreateFrame("Button", nil, self._scrollChild)
-        itemFrame:SetHeight(ITEM_HEIGHT)
-
-        -- Item background (transparent by default, accent on hover/selected)
-        local itemBg = itemFrame:CreateTexture(nil, "BACKGROUND")
-        itemBg:SetAllPoints(itemFrame)
-        itemBg:SetColorTexture(0, 0, 0, 0)
-
-        -- Item text
-        local itemText = itemFrame:CreateFontString(nil, "OVERLAY")
-        itemText:SetFont(t.font, ITEM_FONT)
-        itemText:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
-        itemText:SetJustifyH("LEFT")
-        itemText:SetJustifyV("MIDDLE")
-        itemText:SetPoint("LEFT",        itemFrame, "LEFT",  ITEM_PL, 0)
-        itemText:SetPoint("RIGHT",       itemFrame, "RIGHT", -ITEM_PR, 0)
-        itemText:SetPoint("TOP",         itemFrame, "TOP",    0, 0)
-        itemText:SetPoint("BOTTOM",      itemFrame, "BOTTOM", 0, 0)
-        itemText:SetText(opt.label or opt.value or "")
-
-        -- Checkmark: "check" icon 12px, visible when this item is selected
-        local checkmark = itemFrame:CreateTexture(nil, "ARTWORK")
-        checkmark:SetSize(CHECK_SIZE, CHECK_SIZE)
-        checkmark:SetPoint("RIGHT", itemFrame, "RIGHT", -(ITEM_PR - CHECK_SIZE) / 2, 0)
-        Craft.Icons.Apply(checkmark, "check", 16)
-        checkmark:SetVertexColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b, 1)
-
-        if self._cfg.value == opt.value then
-            checkmark:Show()
-        else
-            checkmark:Hide()
+    for i, opt in ipairs(opts) do
+        local item = self._items[i]
+        if not item then
+            item = self:_makeItem()
+            self._items[i] = item
         end
+        item.value = opt.value
+        item.label = opt.label
 
-        -- Vertical position in scrollChild
-        itemFrame:SetPoint("TOPLEFT",  self._scrollChild, "TOPLEFT",  0, -totalH)
-        itemFrame:SetPoint("TOPRIGHT", self._scrollChild, "TOPRIGHT", 0, -totalH)
+        Craft.Theme.applyFont(item.text, t.font, ITEM_FONT)
+        item.text:SetText(opt.label or opt.value or "")
+        item.checkmark:SetVertexColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b, 1)
 
-        -- Hover and click scripts
-        local optValue = opt.value
-        local optLabel = opt.label
-        -- Hover = focus:bg-accent focus:text-accent-foreground; leave restores the
-        -- normal popover text. Selection is shown by the checkmark, never by bg.
-        itemFrame:SetScript("OnEnter", function()
-            local tt = self._t
-            if tt then
-                itemBg:SetColorTexture(tt.accent.r, tt.accent.g, tt.accent.b, 1)
-                itemText:SetTextColor(tt.accentForeground.r, tt.accentForeground.g, tt.accentForeground.b)
-            end
-        end)
-        itemFrame:SetScript("OnLeave", function()
-            local tt = self._t
-            itemBg:SetColorTexture(0, 0, 0, 0)
-            if tt then itemText:SetTextColor(tt.popoverForeground.r, tt.popoverForeground.g, tt.popoverForeground.b) end
-        end)
-        itemFrame:SetScript("OnClick", function()
-            self:SetValue(optValue)
-            self:Close()
-            if self._cfg.onSelect then
-                self._cfg.onSelect(optValue, optLabel)
-            end
-        end)
-
-        table.insert(self._items, {
-            frame     = itemFrame,
-            bg        = itemBg,
-            text      = itemText,
-            checkmark = checkmark,
-            value     = optValue,
-        })
+        -- Vertical position in scrollChild (re-anchored: the slot count can change)
+        item.frame:ClearAllPoints()
+        item.frame:SetPoint("TOPLEFT",  self._scrollChild, "TOPLEFT",  0, -totalH)
+        item.frame:SetPoint("TOPRIGHT", self._scrollChild, "TOPRIGHT", 0, -totalH)
+        item.frame:Show()
 
         totalH = totalH + ITEM_HEIGHT
+    end
+
+    -- Surplus rows: hide and clear their value so no state check matches them
+    for i = #opts + 1, #self._items do
+        local item = self._items[i]
+        item.value = nil
+        item.label = nil
+        item.frame:Hide()
     end
 
     -- Adjust scrollChild size
     self._scrollChild:SetSize(1, math.max(totalH, 1))
 
-    -- Refresh the background of selected items
+    -- Refresh checkmarks/text colors (covers hidden surplus harmlessly)
     self:_refreshItemStates()
 end
 
@@ -283,7 +386,7 @@ function Select:_applyTheme(t)
     local px1 = Craft.Theme.px(1, self._trigger)
 
     -- Trigger font
-    self._selectedText:SetFont(t.font, FONT_SIZE)
+    Craft.Theme.applyFont(self._selectedText, t.font, FONT_SIZE)
 
     -- Text color (placeholder or selected value)
     self:_updateTriggerText()
@@ -368,21 +471,27 @@ end
 
 -- ─── Open / Close ─────────────────────────────────────────────────────────────
 function Select:Open()
-    if self._open or self._cfg.disabled then return end
-    self._open = true
+    if self._open:peek() or self._cfg.disabled then return end
 
     -- Scale correction: the panel is in UIParent but the trigger may be
-    -- in a container with a different scale (e.g. Craft_Browser at 0.75x)
+    -- in a container with a different scale (e.g. Craft_Browser at 0.75x).
+    -- Store it as the base the pop effect multiplies the zoom onto (the effect
+    -- keeps this compensation intact, it only scales it by lerp(zoom)).
     local triggerEff  = self._trigger:GetEffectiveScale()
     local uiParentEff = UIParent:GetEffectiveScale()
-    self._panel:SetScale(triggerEff / uiParentEff)
+    self._panelBaseScale = triggerEff / uiParentEff
+    self._panel:SetScale(self._panelBaseScale)
 
     -- Update panel width and size (may have changed since _buildItems)
     self:_updatePanelSize()
 
-    -- Anchor the panel below the trigger
+    -- Anchor the panel below the trigger (opens downward → slide-in-from-top).
+    -- The pop effect re-anchors this Y each frame while the fade runs; at rest
+    -- (prog=1) it lands exactly on _panelRestY, matching this anchor.
+    self._panelRestY    = -2
+    self._panelSlideDir = 1
     self._panel:ClearAllPoints()
-    self._panel:SetPoint("TOPLEFT", self._trigger, "BOTTOMLEFT", 0, -2)
+    self._panel:SetPoint("TOPLEFT", self._trigger, "BOTTOMLEFT", 0, self._panelRestY)
 
     -- Scroll to top
     self._scroll:SetVerticalScroll(0)
@@ -396,13 +505,29 @@ function Select:Open()
         self._triggerBorder:SetColorTexture(t.ring.r, t.ring.g, t.ring.b, t.ring.a)
     end
 
-    self._panel:Show()
+    -- Re-arm item hit-testing (Close() drops it during the fade-out so the
+    -- fading panel can't eat clicks — see Close()).
+    for _, item in ipairs(self._items) do
+        item.frame:EnableMouse(true)
+    end
+
+    -- Flip the signal: the shown/alpha binds fade the panel in.
+    self._open:set(true)
 end
 
 function Select:Close()
-    if not self._open then return end
-    self._open = false
-    self._panel:Hide()
+    if not self._open:peek() then return end
+    -- Flip the signal: the shown binding keeps the panel visible through the
+    -- fade-out and hides it once the tween settles.
+    self._open:set(false)
+
+    -- Drop item hit-testing IMMEDIATELY (not when the fade ends) so the still-
+    -- visible, fading-out panel can't capture clicks meant for the UI behind it.
+    -- Open() re-arms it. The item Buttons default to EnableMouse(true), so this
+    -- surgical toggle is the only place mouse capture is gated during the fade.
+    for _, item in ipairs(self._items) do
+        item.frame:EnableMouse(false)
+    end
 
     -- Chevron: restore closed state
     Craft.Icons.Apply(self._chevron, "chevron-down", 16)
@@ -451,6 +576,7 @@ end
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function Select:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)
     self:Close()
     Craft.Theme.unregister(self._themeHandle)
     if self._panel then

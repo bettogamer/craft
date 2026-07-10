@@ -2,6 +2,11 @@
 templates/
 skill-examples/
 
+# Estándar AddonTemplate: referencia read-only, builds y settings locales
+related-addons/
+dist/
+.claude/settings.local.json
+
 # Generados en el build — bigwigsmods/packager los descarga/crea
 Craft/libs/LibStub/
 
@@ -12,8 +17,11 @@ Craft/media/*.ttf
 # Caché local del generador de íconos
 .icon-cache/
 
-# Craft embebido en Craft_Browser — generado en CI, no commitear
-Craft_Browser/libs/
+# LibStub/Weave/Craft embebidos en Craft_Browser — generados en CI, no commitear.
+# Loom SÍ se vendorea (committed): solo Craft_Browser lo usa (no la librería Craft) y
+# el CI no lo genera, así el paquete lo lleva sin fetch externo.
+Craft_Browser/libs/*
+!Craft_Browser/libs/Loom/
 
 # Paquetes de release
 *.zip

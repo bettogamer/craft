@@ -29,6 +29,10 @@
 
 Selector de opción única con trigger visible y panel dropdown flotante, implementado completamente en Lua ya que WoW no provee un widget select nativo moderno.
 
+## Animación ([Unreleased])
+
+Panel fade + `zoom-in-95` + `slide-in-from-top` (ADR-0013 §4.6): alpha eases 0→1 (Close la invierte 1→0), escala y slide reutilizan el mismo progreso. **Zoom se MULTIPLICA sobre la compensación de escala del contenedor** (`triggerEff/uiParentEff`) en lugar de reemplazarla — el panel siempre compensa si el trigger está en un frame escalado (p. ej. Craft_Browser a 0.75x), y el pop suma el zoom encima. Slide eases `motionSlide` px desde el top (signo= +1 downward), con gancho `_panelSlideDir` listo para invertir si algún día se implementa apertura hacia arriba. **Al cerrar**: inmediatamente disables mouse en los items (antes de que la fade termine) para que el panel fading no capture clics a la UI de fondo.
+
 ## Jerarquía de frames WoW
 
 ```
@@ -163,6 +167,10 @@ Item height: 28px (py-2=8px top + text-xs=12px + py-2=8px bottom). Padding: 8px 
 | `disabled`   | `boolean`  | `false`     | Deshabilita el trigger y cierra el panel si estaba abierto                  |
 | `onSelect`   | `function` | `nil`       | `fn(value, label)` — se dispara al seleccionar un item                      |
 | `width`      | `number`   | `nil`       | Ancho fijo en px. Si es nil, ocupa 100% del parent                          |
+
+> **Props reactivas (ADR-0013):** `options`, `value`, `placeholder` y `disabled` aceptan una
+> señal/computed de Weave además del literal. `options` re-renderiza la lista reutilizando
+> frames por índice; `value` es two-way (elegir un item escribe de vuelta si es escribible).
 
 ## API pública
 

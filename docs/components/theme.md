@@ -52,6 +52,112 @@ CraftPresets  (global table)  — definida en theme/Presets.lua, cargada antes
 > `lyra-light` sería código muerto. Sus valores están en `docs/design-reference.md §3`
 > como referencia. Addons que necesiten un tema claro pueden usar `register_preset()`.
 
+## Ejes componibles (ADR-0014)
+
+Un tema resuelto en Craft es una **composición de 5 ejes ortogonales** (sin colisión de claves):
+
+| Eje | Significado | Opciones actuales |
+|-----|-------------|-------------------|
+| **Style** | Métricas, radius, spacing, motion | `lyra` (rounded-none, motion shadcn-like) |
+| **Base** | Grises neutrales (fondos, texto, cards) | `neutral`, `zinc` (frío), `stone` (cálido), `mist` (cian) |
+| **Accent** | Color principal y barra lateral | `emerald`, `blue`, `orange`, `cyan` |
+| **Font** | Familia del body (`font`/`fontMedium`/`fontBold`) | `inter`, `geist` |
+| **HeadingFont** | Familia de títulos (token `fontHeading`, weight medium) | `inter`, `geist` |
+
+El eje **HeadingFont** es independiente del body (se puede mezclar: body `inter` + títulos `geist`). Lo leen
+los 4 componentes de título (Dialog, Window, Panel, Section) vía `t.fontHeading`; su default (`inter`) resuelve
+a Inter-Medium — el mismo peso que usaban antes, así que el MVP no cambia.
+
+El preset **built-in `lyra-dark`** es la composición por defecto: `Lyra` · `neutral` · `emerald` · `inter` · `inter`.
+
+### API de composición
+
+| Función | Firma | Descripción |
+|---------|-------|-------------|
+| `Craft.Theme.build(spec)` | `(table) → table` | Compone un tema desde los ejes. `spec = { style=, base=, accent=, font=, headingFont=, overrides= }` (todos opcionales, defaultean al MVP). Cada eje acepta un **nombre** del catálogo o una **tabla inline** (p. ej. `font = { font=<path>, fontMedium=<path>, fontBold=<path> }` para fuentes por path / LSM — ADR-0015 Fase 2). `overrides` es una tabla de tokens sueltos que **pisa** las capas (se fusiona al final). Retorna una tabla plana, lista para `use()`/`register_preset()`. Eje desconocido → default con aviso. |
+| `Craft.Theme.accentFrom(color[, fg])` | `(table[, table]) → table` | Genera un **override de accent** desde UN color: `primary` = `sidebarPrimary` = `color`, con foregrounds contrastados por luminancia (o el `fg` dado). Color-agnóstico (no conoce clases). Se pasa a `build{ overrides = ... }`. |
+| `Craft.Theme.registerFont(name, paths)` | `(string, table) → void` | Registra una familia de fuente en runtime (ADR-0015 Fase 2), disponible en los ejes `font` y `headingFont` (y en `getAxisOptions`). `paths = { font=<path>, fontMedium=<path?>, fontBold=<path?> }`; medium/bold caen a `font` si faltan. Craft NO depende de LibSharedMedia — el consumidor resuelve el path (`LSM:Fetch("font", ...)`) y lo pasa. |
+| `Craft.Theme.getAxisOptions()` | `() → table` | Retorna `{ style=..., base=..., accent=..., font=..., headingFont=... }` con los nombres disponibles por eje (array de strings, ordenados alfabéticamente). Útil para UIs de selección de tema. |
+| `Craft.Theme.applyFont(fs, path, size)` | `(FontString/EditBox, string, number) → void` | Aplica fuente a un `FontString`/`EditBox` añadiendo el flag de outline global (`t.fontFlags`). Es el punto ÚNICO que usan los componentes (ADR-0015 Fase 3) en vez de `fs:SetFont(...)` directo. Pasa siempre el 3er arg (el `EditBox` lo requiere). |
+
+**Outline (`fontFlags`, ADR-0015 Fase 3 — divergencia de shadcn):** token del eje Style, default `""` (sin
+contorno, fiel a shadcn). El consumidor lo pisa para legibilidad tipo HUD:
+```lua
+-- Todo el texto de la UI con contorno:
+Craft.Theme.use(Craft.Theme.build{ overrides = { fontFlags = "OUTLINE" } })  -- ""|OUTLINE|THICKOUTLINE|MONOCHROME
+```
+shadcn no tiene outline (su tipografía es familia+peso+tamaño); ver `design-reference.md §9`.
+
+### Ejemplo: componer un tema personalizado
+
+```lua
+-- Crear un tema custom con base neutral, accent blue, fuente inter
+local myTheme = Craft.Theme.build({
+  style  = "lyra",           -- omitible (default: "lyra")
+  base   = "neutral",        -- omitible (default: "neutral")
+  accent = "blue",
+  font   = "inter",          -- omitible (default: "inter")
+})
+
+-- Usarlo inmediatamente
+Craft.Theme.use(myTheme)
+
+-- O registrarlo con nombre para reutilizarlo
+Craft.Theme.register_preset("my-blue-theme", myTheme)
+Craft.Theme.use("my-blue-theme")
+```
+
+### Ejemplo: tema con el color de la clase del personaje (consumidor)
+
+`overrides` + `accentFrom` cubren la personalización del addon sin tocar Craft. Craft es
+color-agnóstico: el addon lee el color y lo pasa.
+
+```lua
+local _, class = UnitClass("player")
+local cc = RAID_CLASS_COLORS[class]   -- API de WoW (vive en el addon, NO en Craft)
+Craft.Theme.use(Craft.Theme.build{
+    base      = "zinc",
+    overrides = Craft.Theme.accentFrom({ r = cc.r, g = cc.g, b = cc.b }),
+})
+```
+
+### Ejemplo: fuente de LibSharedMedia (consumidor)
+
+Craft no depende de LSM; el addon resuelve el path y lo registra (o lo pasa inline).
+
+```lua
+local LSM  = LibStub("LibSharedMedia-3.0")
+local path = LSM:Fetch("font", "Accidental Presidency")
+
+-- Opción A: registrar (aparece en getAxisOptions → UIs de selección)
+Craft.Theme.registerFont("accidental", { font = path })   -- medium/bold caen a font
+Craft.Theme.use(Craft.Theme.build{ font = "accidental", headingFont = "accidental" })
+
+-- Opción B: inline, sin registrar
+Craft.Theme.use(Craft.Theme.build{ font = { font = path, fontMedium = path, fontBold = path } })
+```
+
+### Ejemplo: usar la fuente del juego (la que cambia ElvUI)
+
+`STANDARD_TEXT_FONT` es el global de WoW para la fuente estándar de la UI; ElvUI y otros
+lo **sobreescriben** para cambiar la fuente de todo el juego. Craft solo lee ese global
+(no depende de ElvUI):
+
+```lua
+Craft.Theme.registerFont("system", { font = STANDARD_TEXT_FONT })
+Craft.Theme.use(Craft.Theme.build{ font = "system", headingFont = "system" })
+```
+
+### Añadir una opción nueva a un eje
+
+Para añadir una nueva paleta base (p. ej. `slate`), una nuevo accent (p. ej. `purple`), o una nueva
+fuente, **no se toca ningún componente**. Solo:
+
+1. Ejecuta `/update-design-tokens` con los parámetros correspondientes (p. ej. `base=slate`) para
+   generar los valores desde el create tool de shadcn.
+2. Agrega la entrada en `Craft/theme/Presets.lua` bajo la tabla `CraftThemeAxes.base`/`.accent`/`.font`.
+3. Los temas compuestos automáticamente incluyen la opción nueva.
+
 ## Comportamiento detallado
 
 ### `use(preset, variant?)`

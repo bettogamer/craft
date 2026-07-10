@@ -14,7 +14,7 @@
 --   .cn-sidebar-header          { gap-2 p-2 }
 --   .cn-sidebar-footer          { gap-2 p-2 }
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Sidebar = {}
@@ -65,6 +65,14 @@ function Sidebar:Create(parent, config)
     }
     self._hasTree  = false  -- true once any collapsible (tree) item is added
     self._building = false  -- defers _rebuildLayout() during bulk add
+
+    -- Reactive props (ADR-0013): `items` may be a signal/computed returning a
+    -- tree. It binds through SetItems (one-way: never written back) AFTER the
+    -- initial build below, so the direct-read _cfg.items stays a safe literal
+    -- during Create. Expansion is preserved across updates (SetItems default).
+    local R = Craft.Reactive
+    local itemsSource = R.isCallable(config.items) and config.items or nil
+    if itemsSource then self._cfg.items = {} end -- empty until the bind runs
 
     -- Internal list of sections and items in insertion order
     self._sections = {}   -- array: {type="section"|"item"|"separator", ...}
@@ -243,6 +251,11 @@ function Sidebar:Create(parent, config)
     self._building = false
     self:_rebuildLayout()
 
+    -- ── Reactive bind — after the initial build. A callable `items` re-renders
+    -- the whole tree via SetItems whenever the signal changes; a literal was
+    -- already built above and never reaches here.
+    R.applyOrBind(self, itemsSource, function(s, v) s:SetItems(v) end)
+
     return self
 end
 
@@ -333,7 +346,7 @@ function Sidebar:_recolorAll()
                 t.sidebarForeground.b,
                 GROUP_ALPHA
             )
-            entry.labelFs:SetFont(t.font, GROUP_FONT)
+            Craft.Theme.applyFont(entry.labelFs, t.font, GROUP_FONT)
 
         elseif entry.type == "item" and entry.frame then
             self:_colorItem(entry, entry.itemId == self._cfg.activeItem)
@@ -364,7 +377,7 @@ function Sidebar:_colorItem(entry, isActive)
     if isActive then
         -- data-active: bg-sidebar-accent text-sidebar-accent-foreground font-medium
         entry.bg:SetColorTexture(t.sidebarAccent.r, t.sidebarAccent.g, t.sidebarAccent.b, 1)
-        entry.labelFs:SetFont(t.fontMedium or t.font, ITEM_FONT)  -- data-active:font-medium
+        Craft.Theme.applyFont(entry.labelFs, t.fontMedium or t.font, ITEM_FONT)  -- data-active:font-medium
         entry.labelFs:SetTextColor(
             t.sidebarAccentForeground.r,
             t.sidebarAccentForeground.g,
@@ -384,7 +397,7 @@ function Sidebar:_colorItem(entry, isActive)
         end
     else
         entry.bg:SetColorTexture(0, 0, 0, 0)
-        entry.labelFs:SetFont(t.font, ITEM_FONT)  -- regular weight when inactive
+        Craft.Theme.applyFont(entry.labelFs, t.font, ITEM_FONT)  -- regular weight when inactive
         entry.labelFs:SetTextColor(
             t.sidebarForeground.r,
             t.sidebarForeground.g,
@@ -490,7 +503,7 @@ function Sidebar:AddSection(label)
     labelFs:SetJustifyV("MIDDLE")
 
     if t then
-        labelFs:SetFont(t.font, GROUP_FONT)
+        Craft.Theme.applyFont(labelFs, t.font, GROUP_FONT)
         labelFs:SetTextColor(
             t.sidebarForeground.r,
             t.sidebarForeground.g,
@@ -555,7 +568,7 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
     -- Label — SINGLE-point anchor set in _positionRow (avoids the FontString two-anchor
     -- bug #2 when _child width resolves late).
     local labelFs = itemFrame:CreateFontString(nil, "OVERLAY")
-    if t then labelFs:SetFont(t.font, ITEM_FONT) end
+    if t then Craft.Theme.applyFont(labelFs, t.font, ITEM_FONT) end
     labelFs:SetJustifyH("LEFT")
     labelFs:SetJustifyV("MIDDLE")
     labelFs:SetText(label)
@@ -768,7 +781,14 @@ end
 -- ─── Tree API (FR-008) ──────────────────────────────────────────────────────────
 
 -- Replaces all items/sections with a new (possibly nested) tree and rebuilds.
-function Sidebar:SetItems(items)
+-- By default (retrocompatible, FR-010) it PRESERVES the expand/collapse state of
+-- branches whose `id` exists both before and after the rebuild; new ids fall back
+-- to their `defaultOpen`. Pass `{ preserveExpansion = false }` to reset everything
+-- to `defaultOpen` (the pre-FR-010 behavior).
+function Sidebar:SetItems(items, opts)
+    local preserve = (opts == nil) or (opts.preserveExpansion ~= false)
+    local prev     = preserve and self:GetExpandedState() or nil
+
     for _, e in ipairs(self._sections) do
         if e.frame then e.frame:Hide(); e.frame:ClearAllPoints() end
     end
@@ -779,7 +799,56 @@ function Sidebar:SetItems(items)
     self._building   = true
     self:_addItems(self._cfg.items, 0, nil)
     self._building   = false
+
+    -- Reapply preserved expansion by id (only for branches that existed before).
+    -- Sets _open + chevron directly; the single _rebuildLayout below picks it up
+    -- (no extra layout pass).
+    if prev then
+        for _, e in ipairs(self._sections) do
+            if e.type == "item" and e.collapsible and e.itemId ~= nil
+               and prev[e.itemId] ~= nil then
+                e._open = prev[e.itemId]
+                self:_updateChevron(e)
+            end
+        end
+    end
+
     self:_rebuildLayout()
+end
+
+-- ─── Expansion state API (FR-010) ─────────────────────────────────────────────
+
+-- Returns a snapshot { [id] = true/false } of every collapsible branch's open
+-- state. Leaf items and branches without an id are omitted.
+function Sidebar:GetExpandedState()
+    local state = {}
+    for _, e in ipairs(self._sections) do
+        if e.type == "item" and e.collapsible and e.itemId ~= nil then
+            state[e.itemId] = e._open and true or false
+        end
+    end
+    return state
+end
+
+-- Applies an { [id] = open } map to collapsible branches. Ignores ids that don't
+-- exist or aren't collapsible. Runs a single layout pass at the end.
+function Sidebar:SetExpandedState(map)
+    if type(map) ~= "table" then return end
+    for id, open in pairs(map) do
+        local e = self._itemFrames[id]
+        if e and e.collapsible then
+            e._open = open and true or false
+            self:_updateChevron(e)
+        end
+    end
+    self:_rebuildLayout()
+end
+
+-- Returns true if the branch `id` is currently expanded. Returns false for leaf
+-- items, unknown ids, or non-collapsible items.
+function Sidebar:IsExpanded(id)
+    local e = id and self._itemFrames[id]
+    return (e and e.collapsible and e._open) and true or false
 end
 
 -- Expand / collapse / toggle a collapsible branch by id.
@@ -825,6 +894,7 @@ end
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function Sidebar:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)  -- cut the items bind (ghost updates on reuse)
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil

@@ -6,7 +6,7 @@
 --   (56px icon centered with a 4px transparent gutter — supersampled)
 --   UV: left=col/8, right=(col+1)/8, top=row/8, bottom=(row+1)/8
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 -- Versioned (production bug #1): skip if a newer/equal Icons atlas is already loaded.
@@ -62,4 +62,23 @@ Craft.Icons._atlas = {
     ["image"] = { 7, 4 },
     ["type"] = { 0, 5 },
     ["disc"] = { 1, 5 },
+    ["circle-play"] = { 2, 5 },
+    ["circle-stop"] = { 3, 5 },
+    ["rotate-ccw"] = { 4, 5 },
+    ["lock"] = { 5, 5 },
+    ["lock-open"] = { 6, 5 },
+    ["magnet"] = { 7, 5 },
+    ["landmark"] = { 0, 6 },
+    ["vault"] = { 1, 6 },
+    ["users"] = { 2, 6 },
+    ["coins"] = { 3, 6 },
+    ["shopping-cart"] = { 4, 6 },
+    ["sparkles"] = { 5, 6 },
+    ["backpack"] = { 6, 6 },
+    ["funnel"] = { 7, 6 },
+    ["tag"] = { 0, 7 },
+    ["package"] = { 1, 7 },
+    ["combine"] = { 2, 7 },
+    ["arrow-up-narrow-wide"] = { 3, 7 },
+    ["arrow-down-wide-narrow"] = { 4, 7 },
 }

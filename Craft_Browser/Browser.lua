@@ -122,16 +122,16 @@ function CB._build()
     -- Title: bold, fontSizeLg (14px) — top of the two-line block
     -- Two-line block: title(14) + gap(4) + subtitle(11) = 29px → top offset = (48-29)/2 = ~10px
     local titleLabel = Craft.Label:Create(hdr, {
-        text  = "Craft Browser",
-        color = { r=t.sidebarForeground.r, g=t.sidebarForeground.g,
-                  b=t.sidebarForeground.b, a=1 },
+        text   = "Craft Browser",
+        color  = { r=t.sidebarForeground.r, g=t.sidebarForeground.g,
+                   b=t.sidebarForeground.b, a=1 },
+        weight = "bold",           -- persiste al cambiar de tema (ver Label._applyTheme)
+        size   = t.fontSizeLg,
     })
     local tlf = titleLabel:GetFrame()
     tlf:SetPoint("TOPLEFT", hdr, "TOPLEFT", 12, -10)
     tlf:SetPoint("RIGHT",   hdr, "RIGHT",   -36,  0)
     tlf:SetHeight(16)
-    -- Override font to bold + larger
-    titleLabel._text:SetFont(t.fontBold, t.fontSizeLg)
 
     -- Subtitle: version, smaller + muted
     local versionLabel = Craft.Label:Create(hdr, {
@@ -171,7 +171,6 @@ function CB._build()
     _nav:AddItem({ id="Checkbox",    label="Checkbox",    onClick=function() CB.Navigate("Checkbox")    end })
     _nav:AddItem({ id="ColorSwatch", label="ColorSwatch", onClick=function() CB.Navigate("ColorSwatch") end })
     _nav:AddItem({ id="Input",       label="Input",       onClick=function() CB.Navigate("Input")       end })
-    _nav:AddItem({ id="NumberInput", label="NumberInput", onClick=function() CB.Navigate("NumberInput") end })
     _nav:AddItem({ id="Textarea",    label="Textarea",    onClick=function() CB.Navigate("Textarea")    end })
     _nav:AddItem({ id="RadioGroup",  label="RadioGroup",  onClick=function() CB.Navigate("RadioGroup")  end })
     _nav:AddItem({ id="ToggleGroup", label="ToggleGroup", onClick=function() CB.Navigate("ToggleGroup") end })
@@ -186,6 +185,7 @@ function CB._build()
     _nav:AddSection("Navigation")
     _nav:AddItem({ id="Window",    label="Window",    onClick=function() CB.Navigate("Window")    end })
     _nav:AddItem({ id="Dialog",    label="Dialog",    onClick=function() CB.Navigate("Dialog")    end })
+    _nav:AddItem({ id="Menu",      label="Menu",      onClick=function() CB.Navigate("Menu")      end })
     _nav:AddItem({ id="Sidebar",   label="Sidebar",   onClick=function() CB.Navigate("Sidebar")   end })
     _nav:AddItem({ id="DragList",  label="DragList",  onClick=function() CB.Navigate("DragList")  end })
     _nav:AddItem({ id="Tabs",      label="Tabs",      onClick=function() CB.Navigate("Tabs")      end })
@@ -194,6 +194,9 @@ function CB._build()
     _nav:AddItem({ id="Label",     label="Label",     onClick=function() CB.Navigate("Label")     end })
     _nav:AddItem({ id="Theme",     label="Theme",     onClick=function() CB.Navigate("Theme")     end })
     _nav:AddItem({ id="Tooltip",   label="Tooltip",   onClick=function() CB.Navigate("Tooltip")   end })
+    _nav:AddSection("Integration")
+    _nav:AddItem({ id="Reactive",  label="Reactive",  onClick=function() CB.Navigate("Reactive")  end })
+    _nav:AddItem({ id="Async",     label="Async",     onClick=function() CB.Navigate("Async")     end })
 
     -- SidebarFooter: p-2 gap-2 per sidebar spec = 8px padding all sides, 8px gap
     -- Label row: pad(8)+label(12) = 20px from top
@@ -294,14 +297,15 @@ function CB._build()
 
     -- Title: fontBold, fontSizeLg — same layout as sidebar header
     _titleLabel = Craft.Label:Create(_demoHeader, {
-        text  = "",
-        color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+        text   = "",
+        color  = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+        weight = "bold",           -- persiste al cambiar de tema (ver Label._applyTheme)
+        size   = t.fontSizeLg,
     })
     local tlf = _titleLabel:GetFrame()
     tlf:SetPoint("TOPLEFT", _demoHeader, "TOPLEFT", 16, -10)
     tlf:SetPoint("RIGHT",   _demoHeader, "RIGHT",   -36,  0)
     tlf:SetHeight(16)
-    _titleLabel._text:SetFont(t.fontBold, t.fontSizeLg)
 
     -- Description: font, text-xs, mutedForeground
     _descLabel = Craft.Label:Create(_demoHeader, {
@@ -326,14 +330,18 @@ function CB._build()
     _demoScroll = Craft.Scroll:Create(scrollContainer, {})
     _demoScroll:GetFrame():SetAllPoints(scrollContainer)
     _demoFrame = _demoScroll:GetScrollChild()
-    _demoFrame:SetWidth(scrollContainer:GetWidth())
     _demoFrame:SetScale(CraftBrowserDB.scale / 100)
+    -- NO seteamos el ancho del scroll child aquí: Craft.Scroll lo gestiona en su
+    -- propio OnSizeChanged con el ancho INTERNO (viewport − SCROLLBAR_W). Si el
+    -- Browser también lo seteaba (a scrollContainer:GetWidth(), el ancho COMPLETO),
+    -- ambos peleaban cada frame del resize → el ancho oscilaba SCROLLBAR_W (8px),
+    -- el contenido se pasaba del viewport (overflow) y los bordes 1px re-snapeaban
+    -- (parpadeo/temblor). Dejar que el Scroll sea el único dueño del ancho.
 
-    -- Re-layout on resize
+    -- Persistir tamaño en resize (el layout lo maneja Craft.Scroll)
     _mainFrame:SetScript("OnSizeChanged", function(self, w, h)
         CraftBrowserDB.width  = w
         CraftBrowserDB.height = h
-        _demoFrame:SetWidth(scrollContainer:GetWidth())
     end)
 
     -- ── Resize handle ─────────────────────────────────────────────────────
@@ -394,6 +402,12 @@ function CB.Navigate(pageId)
             ))
         end
     end
+
+    -- Reset the scroll to the top on every page change: otherwise the retained
+    -- offset from a long page leaves a shorter page scrolled past its content with
+    -- no way to scroll back up. Runs AFTER the new content height is set so the
+    -- scroll range is already correct when we clamp to 0.
+    _demoScroll:ScrollToTop()
 end
 
 -- ─── Show / Hide / Toggle ──────────────────────────────────────────────────
@@ -414,6 +428,20 @@ function CB.Toggle()
     else
         CB.Show()
     end
+end
+
+-- ─── First-boot font fix ───────────────────────────────────────────────────
+-- Page layouts freeze positions computed from pre-font-load text widths (see
+-- Theme.lua font warm-up). If the font settles late, re-render the visible
+-- page so rows re-measure with the real metrics; hidden pages render fresh
+-- on Show and need nothing.
+if Craft.Theme.onFontsReady then
+    Craft.Theme.onFontsReady(function(metricsChanged)
+        if metricsChanged and _mainFrame and _mainFrame:IsShown()
+            and CraftBrowserDB and CraftBrowserDB.page then
+            CB.Navigate(CraftBrowserDB.page)
+        end
+    end)
 end
 
 -- ─── Slash commands ────────────────────────────────────────────────────────

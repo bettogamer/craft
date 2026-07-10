@@ -8,7 +8,7 @@
 -- Thumb minimum height: 32px
 -- Mouse wheel: 20px per tick
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Scroll = {}
@@ -177,12 +177,16 @@ function Scroll:_updateScrollbar()
     local viewH   = self._scrollFrame:GetHeight() or 0
     local trackH  = self._scrollbar:GetHeight() or 0
 
-    -- Hide scrollbar when content fits
+    -- Hide the WHOLE scrollbar (track rail + thumb) when content fits: a page shorter
+    -- than the viewport must not show a rail. Hiding only the thumb (as before) left
+    -- the always-drawn track visible on short pages. A hidden frame still reports its
+    -- anchored height, so trackH stays correct for the next call when content grows.
     if childH <= viewH or trackH <= 0 then
-        self._scrollThumb:Hide()
+        self._scrollbar:Hide()
         return
     end
 
+    self._scrollbar:Show()
     self._scrollThumb:Show()
 
     local thumbH     = self:_calcThumbHeight()

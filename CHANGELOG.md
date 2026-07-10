@@ -6,6 +6,260 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-07-10
+
+> **Release v2.4.0 — Menu + pulido de consumidores (Coffer).** Añade el componente **`Craft.Menu`**
+> (dropdown + context menu, FR-015), el **botón clear ✕** de `Input` (FR-016), el **set de iconos de
+> dominio bolsas/inventario** (FR-017, 13 glyphs) y sube el **Weave vendoreado a v0.7.0**. MINOR,
+> retrocompatible (key sigue `Craft-2.0`). `CRAFT_BUILD` 4→5.
+
+### Changed
+- **Weave vendoreado v0.5.0 → v0.7.0** (`Craft/libs/Weave/`, READ-ONLY). Añade 3 archivos nuevos
+  (`core/Window.lua`, `core/Flow.lua`, `ui/Virtual.lua`) al orden de carga de `Craft.toc` /
+  `Craft_Browser.toc` (espeja `Weave.xml`). Retrocompatible: la suite completa (183 tests) pasa sin
+  cambios en los componentes. Empaquetado con `weave/scripts/build-embed.ps1` (281 tests + luacheck
+  verdes). Los specs cargan los 3 archivos nuevos como smoke-test del embed.
+
+### Added
+- **Iconos de dominio bolsas/inventario** (FR-017): 13 glyphs Lucide al atlas. Núcleo (8): `landmark`,
+  `vault`, `users`, `coins`, `shopping-cart`, `sparkles`, `backpack`, `funnel` (el filtro; Lucide
+  renombró `filter`→`funnel`). Nice-to-have (5): `tag`, `package`, `combine`, `arrow-up-narrow-wide`,
+  `arrow-down-wide-narrow`. Total 48→61 (3 slots libres en el grid 8×8, sin crecerlo). Regenerados
+  `Craft/icons/Atlas.lua` + `scripts/export-icons.py` + `docs/components/icons.md`; `lucide.tga` se
+  rebuildea en deploy. Crecer el grid diferido a decisión del owner. Requiere bump de `CRAFT_BUILD`
+  al release para servir el atlas a los consumidores (como FR-012/FR-013).
+- **`Input` clearable ✕** (FR-016): props `clearable` (botón ✕ derecho visible solo con texto; al click
+  vacía el campo, dispara `onChange("")` + `onClear()` y devuelve el foco) y `onClear`; además
+  `onTrailingClick` hace clickeable el `iconTrailing` (excluyente con `clearable`), y nuevo método
+  público `Input:Clear()`. Aditivo — sin estas props el `Input` no cambia. **Extensión Craft**: shadcn
+  no tiene `clearable` (su patrón de búsqueda es `Input`+`Button` en `ButtonGroup`, distinto). Tests:
+  `tests/input_spec.lua`. Demo en la página Input del Browser.
+- **`Craft.Menu`** (FR-015): componente nuevo que cubre `DropdownMenu` + `ContextMenu` de shadcn en uno
+  (misma anatomía, solo cambia el disparador). Menú rico flotante de una columna con entradas por `type`:
+  `heading`, `item` (+`icon` +`rightText` +`onDelete`→✕ +`variant="destructive"`), `checkbox` (tri-estado),
+  `radio` (exclusivo por `group`) y `separator`; filas `disabled`; props reactivas (`label`/`checked`/
+  `disabled` aceptan señal Weave). API: `Create(config)` (sin `parent`), `Open(anchor, opts)` anclado,
+  `OpenAtCursor()`, `Close()`, `SetItems(items)`, `Destroy()`, y el helper `AttachContextMenu(frame, builder)`
+  para click-derecho. Reutiliza la infra de panel de `Select` (UIParent/TOOLTIP, ring 1px + `popover`,
+  scroll, fade+zoom+slide) con dismissal unificado (catcher fullscreen + Esc vía `UISpecialFrames`).
+  Indicadores a la **derecha** (fiel a Lyra). Binds reactivos efímeros: se crean en `Open` y se descartan
+  en `Close`. Submenús y `layout="grid"` diferidos (v1: key `submenu` reservada/no-op). Spec:
+  `docs/components/menu.md`. Divergencias vs shadcn: `onDelete` (extensión Craft); las filas `checkbox`
+  **no cierran** el menú (multi-toggle), `item`/`radio` sí.
+
+## [2.3.0] - 2026-07-09
+
+> **Release v2.3.0 — theming componible + personalización para consumidores.** Reúne **ADR-0014**
+> (theming multi-eje: Style · Base · Accent · Font · HeadingFont), **ADR-0015** (API de personalización:
+> overrides de token, fuentes por path/LSM, font outline) y la **paridad de animación con shadcn v4**, más
+> una tanda de fixes de theming/render. MINOR, retrocompatible (key sigue `Craft-2.0`).
+
+> **Theming multi-eje (ADR-0014).** Un tema resuelto pasa a ser la composición de ejes ortogonales
+> —**Style · Base Color · Accent · Font**— en `CraftThemeAxes` (`theme/Presets.lua`). Cada eje es solo
+> dato: añadir un base color, un accent o una fuente es agregar una entrada, **sin tocar componentes**.
+> `lyra-dark` = `compose{}` (Lyra · Neutral · Emerald · Inter) y su paridad la fija `tests/theme_spec.lua`.
+> MINOR, retrocompatible (key sigue `Craft-2.0`).
+>
+> **Paridad de animación con shadcn v4.** Lleva el gesto de shadcn (`zoom-in-95` + `slide-in-from-side`
+> en overlays; `transition-colors` en controles) a los componentes que hasta ahora animaban solo con
+> fade o cambiaban de color de golpe. MINOR, retrocompatible en API pública (key sigue `Craft-2.0`).
+> Verificado contra el `.tsx` real del registry `new-york-v4`. Ver ADR-0013 §4.6.
+
+### Added
+- **Ejes de tema componibles** (`CraftThemeAxes` + `Craft.Theme.build{ style=, base=, accent=, font= }`
+  y `Craft.Theme.getAxisOptions()`): componen la tabla de tokens plana desde capas ortogonales. Los ejes
+  son disjuntos (sin colisión de claves); un nombre desconocido cae al default con aviso. Ver ADR-0014.
+- **Base colors** (grises neutrales, eje `base`): `zinc` (fríos, hue azul), `stone` (cálidos, hue marrón)
+  y `mist` (fríos, hue cian/teal). Se suman al MVP `neutral`. Valores del create tool de shadcn (Lyra,
+  dark) convertidos OKLCH→sRGB vía `/update-design-tokens base=<nombre>`.
+- **Accents** (primary + sidebarPrimary, eje `accent`): `blue`, `orange` y `cyan`. Se suman al MVP
+  `emerald`. Mismo pipeline (`/update-design-tokens accent=<nombre>`).
+- **Familia de fuente `geist`** (eje `font`): Geist (Vercel, OFL) bundleada en `media/` como 3 TTFs
+  estáticos (Regular/Medium/Bold), instanciados del variable `Geist[wght]` con fontTools (WoW no
+  sintetiza pesos). Se suma al MVP `inter`.
+- **Eje `headingFont`** (ADR-0014 §6.1): separa la fuente de **títulos** de la del **body**. Aporta el
+  token `fontHeading` que leen Dialog/Window/Panel/Section; default `inter` → Inter-Medium (el peso que
+  ya usaban → sin cambio de look). Permite mezclar (body `inter` + títulos `geist`). Opciones: `inter`, `geist`.
+- **API de personalización para consumidores (ADR-0015, Fases 1–2)**:
+  - **Fase 1 — colores**: `Craft.Theme.build{ overrides = <tokens> }` fusiona tokens sueltos AL FINAL
+    (pisa los ejes). `Craft.Theme.accentFrom(color[, fg])` genera un override de accent desde un color
+    (primary/sidebarPrimary + foregrounds contrastados por luminancia), color-agnóstico. Caso de uso: tema
+    con color de clase → `use(build{ overrides = accentFrom(RAID_CLASS_COLORS[class]) })`. Demo en la
+    página Theme del Browser.
+  - **Fase 2 — fuentes por path / LSM**: cada eje de `build` acepta una **tabla inline** además de un
+    nombre (`font = { font=<path>, fontMedium=<path>, fontBold=<path> }`). `Craft.Theme.registerFont(name,
+    paths)` registra una familia en runtime (en los ejes `font` y `headingFont`, visible en `getAxisOptions`).
+    Craft sigue **sin depender de LibSharedMedia**: el consumidor resuelve el path (`LSM:Fetch`) y lo pasa.
+    Cubre también usar la **fuente del juego** (`STANDARD_TEXT_FONT`, el global que ElvUI y otros
+    sobreescriben) → `registerFont("system", { font = STANDARD_TEXT_FONT })`. Demos (color de clase, outline,
+    font del juego) en la página Theme del Browser.
+  - **Fase 3 — font outline**: token global `fontFlags` en el eje Style (`""`/`OUTLINE`/`THICKOUTLINE`/
+    `MONOCHROME`, default `""` = sin contorno). `Craft.Theme.applyFont(fs, path, size)` es ahora el punto
+    único de aplicación de fuente (aplica `fontFlags`); los 32 `SetFont` de los componentes se migraron a él.
+    Opt-in del consumidor para legibilidad tipo HUD — **divergencia deliberada de shadcn** (design-reference
+    §9); el default no diverge.
+  - Sin `overrides`/tablas inline/outline, `build` es idéntico al de ADR-0014 (sin regresión).
+- **`Craft.Label` — config `weight` y `size`**: `weight` (`"normal"`/`"medium"`/`"bold"`) y `size` (px)
+  resueltos DENTRO de `_applyTheme`, así que **persisten a los cambios de tema/fuente en runtime** (antes
+  el peso solo se lograba pokeando `label._text:SetFont` tras `Create`, que un re-`_applyTheme` pisaba).
+- **Tokens de movimiento para el "pop" de overlays** (`theme/Presets.lua`): `motionZoomFrom` (0.95 —
+  escala de entrada, shadcn `zoom-in-95`) y `motionSlide` (8px — desplazamiento direccional, shadcn
+  `slide-*-2`). Resueltos por los componentes; Theme sigue Weave-agnóstico.
+- **`zoom-in-95` en la familia overlay** (escala 0.95→1.0 en apertura, 1.0→0.95 en cierre, sincronizada
+  con el fade existente): `Craft.Dialog` y `Craft.Window` (pop desde el centro), `Craft.Tooltip` y
+  `Craft.Select` (origen hacia el anchor). En Select el zoom **multiplica** la compensación de escala
+  del contenedor, no la reemplaza.
+- **`slide-in-from-side` en Tooltip y Select**: entran desplazándose ~8px desde el lado del anchor hacia
+  su posición de reposo (Tooltip según su placement vertical; Select desde arriba, con gancho listo para
+  invertir si algún día abre hacia arriba).
+- **Micro-interacciones de color** (`transition-colors`/`transition-all` de shadcn, con `motionFast`;
+  antes eran cambios instantáneos): `Craft.Button` (fondo en hover), `Craft.Input` y `Craft.Textarea`
+  (borde/ring de foco), `Craft.Checkbox` (relleno + borde + alpha del check), `Craft.ToggleGroup`
+  (relleno de hover/selección por segmento), `Craft.RadioGroup` (ring/fill/dot de selección por ítem).
+  Los endpoints se cachean en `_applyTheme` y se re-aplican al progreso vigente en cambios de tema
+  (AGENTS §9). En listas reactivas (ToggleGroup/RadioGroup) los tweens viven en el pool de frames y
+  no dejan efectos colgando al reciclar.
+
+### Changed
+- **`Craft.Section`**: el chevron pasa de un icon-swap discreto (`chevron-down`↔`chevron-up`) a una
+  **rotación continua 0°→180°** que reutiliza el tween `prog` del expand/collapse (shadcn `rotate-180`
+  + `transition-transform duration-200`).
+
+### Fixed
+- **`Craft.Button:Destroy()`** no llamaba a `Craft.Reactive.disposeAll(self)`; ahora sí (necesario para
+  cortar el tween/effect del hover; antes no había estado reactivo que disponer).
+- **`Craft.RadioGroup` / `Craft.ToggleGroup`** (regresión, verificación in-game): la selección no
+  repintaba fuera de la página Reactive — el `Weave.effect` de pintado hacía early-return antes de leer el
+  progreso del tween, así que no se suscribía a nada. Ahora lee `prog()` en la primera línea del painter.
+- **`Craft.Tooltip` con icono** (regresión in-game): se veía en doble fila con alto de una sola línea —
+  `GetStringWidth/Height` medían con el frame a la escala del zoom (`SetScale` idle). Ahora mide a escala
+  1; además, holgura anti-wrap para el flicker de dos líneas al inicio de la animación de aparición.
+- **`Craft.Scroll`**: el rail (track) se dibujaba siempre, también cuando el contenido cabía. Ahora se
+  oculta el scrollbar completo (rail + thumb) cuando `childH <= viewH`.
+- **`Craft.Theme.AnchorBorder` — esquinas con hueco/solape**: los bordes izq/der se inseteaban por un valor
+  calculado (`px(1)`) que no coincidía con el grosor que PixelUtil fija para las tiras sup/inf; en elementos
+  chicos (checkbox 16px) los dos redondeos divergían → esquinas con hueco o solape. Ahora izq/der se anclan
+  EXACTAMENTE entre las tiras sup/inf (a las propias texturas), así el marco cierra perfecto sea cual sea el
+  snapping. Mejora todos los componentes con borde (Button/Input/Textarea/Checkbox/…).
+- **`Craft.Checkbox` — bordes con línea fantasma/fuera de sitio**: (1) las 4 texturas de borde estaban en la
+  capa `"BACKGROUND"`, la misma que el `_bg`, que al crearse después se dibujaba ENCIMA del borde → pasan a
+  `"BORDER"` (encima del `_bg`, como `Craft.Button`). (2) el `_bg` se inseteaba `px(1)`, dejando un anillo
+  oscuro entre relleno y borde cuando el inset no calzaba con el grosor pixel-perfect → ahora el `_bg` rellena
+  TODO el box y el borde dibuja el anillo encima (sin hueco posible). Combinado con el fix de esquinas de
+  `AnchorBorder`, el box de 16px queda limpio.
+- **`Craft.Separator` perdía su posición del caller al cambiar de tema**: `_applyTheme` llamaba a
+  `_applyOrientation`, que hace `ClearAllPoints()` + re-ancla al parent (LEFT/RIGHT o TOP/BOTTOM). Eso
+  BORRABA cualquier anclaje que el caller hubiera fijado tras `Create` (p. ej. el separator del header del
+  Browser anclado a `BOTTOMLEFT/BOTTOMRIGHT`), y en un cambio de tema en runtime el separator saltaba a
+  media altura (línea gris entre título y descripción). Ahora `_applyTheme` solo re-aplica la dimensión
+  pixel-perfect, sin re-anclar (el anclaje vive en `Create`/`SetOrientation`).
+- **Títulos del header del Browser encogían al cambiar de tema en runtime**: el header pokeaba
+  `label._text:SetFont(fontBold, fontSizeLg)` tras `Create`, y el `_applyTheme` del Label lo pisaba con
+  regular/12 en el primer cambio de tema (destapado por el nuevo selector de ejes). Ahora el peso/tamaño
+  van por `config.weight`/`config.size` y se resuelven en `_applyTheme` → sobreviven. Ver `Craft.Label` Added.
+- **Anchos de auto-tamaño en el primer arranque** (bug #4, botones cuadrados): la sonda de fuente de
+  `theme/Theme.lua` se rendía a los 3 s; en un arranque en frío el TTF de Inter podía cargar *después*,
+  así que la re-notificación nunca disparaba y los componentes de auto-ancho (Button, Checkbox,
+  ToggleGroup, RadioGroup, ColorSwatch, Tabs) quedaban colapsados a un cuadrado hasta cambiar de página.
+  La ventana de la sonda se extendió a ~20 s para cubrir una lectura de disco fría.
+
+## [2.2.0] - 2026-07-08
+
+> Extiende la adopción de `Weave.tween` al **tier de aparición** de componentes. MINOR,
+> retrocompatible en API pública (key sigue `Craft-2.0`). Ver ADR-0013 §4.6.
+
+### Added
+- **Tokens de movimiento en el tema** (`theme/Presets.lua`): `motionFast` (0.12s — fades/hovers),
+  `motionBase` (0.20s — transiciones grandes) y `motionEasing` (`"outQuad"`, resuelto por los
+  componentes como `Weave.easing[t.motionEasing]`). Vocabulario compartido para que toda animación
+  se sienta consistente y se ajuste en un solo sitio. Dialog migró su `FADE` local a estos tokens.
+- **Animaciones de aparición/transición** (todas con `Weave.tween`, solo alpha salvo Section, nunca
+  height a 0, combat-safe, disponen con el ciclo de vida del componente):
+  - **`Craft.Tooltip`** — fade in/out en hover.
+  - **`Craft.Select`** — el panel dropdown hace fade al abrir/cerrar; hit-testing de ítems se corta
+    de inmediato al cerrar (el panel que se desvanece no captura clics).
+  - **`Craft.Window`** — fade show/hide (mismo patrón que Dialog).
+  - **`Craft.Section`** — expand/collapse animado: la altura interpola entre header (colapsado) y
+    expandida (**nunca 0**) y el contenido hace fade. `onToggle` ahora se dispara durante la
+    animación para que el consumidor reflowee la pila (handler debe ser barato/idempotente).
+
+### Changed
+- **`Craft.Window:IsShown()`** devuelve el estado lógico (abierto/cerrado) en vez del físico del
+  frame: tras `Hide()` devuelve `false` de inmediato aunque el fade-out siga corriendo unos ms.
+
+## [2.1.0] - 2026-07-07
+
+> Adopción de las novedades de Weave v0.5.0. Sin cambios de API pública (MINOR,
+> 100% retrocompatible): la key LibStub sigue siendo `Craft-2.0`.
+
+### Added
+- **Weave embebida actualizada a v0.5.0** (`Craft/libs/Weave/`, READ-ONLY): v0.4.0 añade
+  `Weave.tween` / `Weave.easing` (driver de animación combat-safe, solo muta, coste cero en
+  reposo); v0.5.0 añade `Weave.fromPromise` (puente a las promesas de Loom). `fromPromise`
+  NO lo consumen los componentes Craft — queda disponible en runtime para addons que también
+  carguen Loom. Ver ADR-0013.
+- **`Craft.Dialog`: animación de apertura/cierre (fade)** — `Show()`/`Hide()`/`Toggle()` (y la X)
+  hacen fade in/out por alpha con `Weave.tween` en vez de aparecer/desaparecer de golpe; el
+  overlay backdrop desvanece en sincronía. Solo alpha (nunca height). Primer componente que
+  adopta `Weave.tween`. API pública sin cambios; el fade se dispone con el ciclo de vida del
+  componente (`Destroy`).
+
+### Changed
+- **Craft_Browser**: nueva página **Async** (sección Integration) que demuestra el stack completo
+  — `Loom.item`/`Loom.all` → `Weave.fromPromise` → widgets Craft por bind (skeleton → valor →
+  fallback), sin handlers de evento a mano. **Loom v0.1.0** queda vendoreado (READ-ONLY) en
+  `Craft_Browser/libs/Loom/` (solo el Browser lo usa; la librería Craft no depende de Loom).
+
+## [2.0.0] - 2026-07-05
+
+> **BREAKING — nueva key LibStub `Craft-2.0`.** Por la eliminación de `Craft.NumberInput`
+> (cambio de API pública), este release sube a SemVer MAJOR y renombra la librería LibStub de
+> `"Craft-1.0"` a `"Craft-2.0"` (ADR-0010 §3.2); `CRAFT_BUILD` se reinicia a `1` bajo la nueva
+> key. Los consumidores que hagan `LibStub("Craft-1.0")` **deben** cambiar a
+> `LibStub("Craft-2.0")` al re-vendorear este build. Craft_Browser no se ve afectado (usa el
+> accessor global `_G.Craft`).
+
+### Removed
+- **`Craft.NumberInput` eliminado** (**BREAKING** — shippeó en 1.1.0): componente retirado por
+  decisión del maintainer. Se quitan el componente, su página del Browser, su spec doc y sus
+  entradas en los `.toc`. Consumidores que lo usen deben migrar (p. ej. `Craft.Slider` o
+  `Craft.Input` + validación numérica propia) antes de re-vendorear este build.
+
+### Added
+- **Props reactivas — señales de Weave como props** (ADR-0013): los 9 componentes con estado
+  (Slider, Checkbox, Input, Textarea, Select, RadioGroup, ToggleGroup, ColorSwatch, Tabs)
+  aceptan una señal/computed de Weave en sus props de estado además del literal clásico
+  (100% retrocompatible). Controles two-way escriben de vuelta en señales escribibles.
+  Craft embebe Weave en `libs/Weave/` (READ-ONLY, solo builds etiquetados) y expone el
+  helper `Craft.Reactive` (`applyOrBind`/`isWritableSignal`/`disposeAll`).
+- **Props de lista reactivas** (ADR-0013, oleada 3): la prop `options` de `Craft.Select`,
+  `Craft.RadioGroup` y `Craft.ToggleGroup`, y la prop `items` de `Craft.Sidebar` y
+  `Craft.DragList`, aceptan una señal/computed además del literal. El bind re-renderiza
+  reutilizando frames por índice (sin fugas). `DragList` es two-way: reordenar escribe el
+  nuevo orden en una señal escribible; además su prop `disabled` pasa a ser reactiva (antes
+  no lo era: pasarle una señal la dejaba deshabilitada de forma permanente). Nuevos setters
+  públicos `RadioGroup:SetOptions()` y
+  `ToggleGroup:SetOptions()` (equivalentes al ya existente `Select:SetOptions()`).
+- **Weave embebida actualizada a v0.3.0**: v0.2.0 añadió `Weave.each` (listas reactivas con
+  frame pooling combat-safe) y `core/Reconcile.lua`; v0.3.0 añade los predicados públicos
+  `Weave.isReactive` / `Weave.isWritable`. `Craft.Reactive.isCallable` / `isWritableSignal`
+  ahora delegan en ellos en vez de inferir la forma interna de un signal.
+
+### Fixed
+- **`Craft.DragList:SetItems()` filtraba/rompía al reconstruir**: el cleanup de filas usaba
+  `row.frame` (las filas SON el frame), así que un segundo build lanzaba error. Ahora libera
+  las filas con `row:Hide()` + `row:SetParent(nil)`. Se exponía al hacer `items` reactiva.
+- **`Craft.Sidebar`: API de estado de expansión** (FR-010) — `GetExpandedState()` devuelve un
+  snapshot `{ [id] = bool }` de las ramas colapsables; `SetExpandedState(map)` lo reaplica
+  (ignora ids inexistentes/no colapsables); `IsExpanded(id)` → boolean. Reemplaza el workaround
+  de Sentry que leía los internos (`_sections`/`_open`).
+
+### Changed
+- **`Craft.Sidebar:SetItems(tree, opts?)` ahora preserva la expansión por defecto** (FR-010) —
+  las ramas cuyo `id` exista antes y después de un refresco conservan su estado abierto/cerrado;
+  las nuevas usan su `defaultOpen`. Antes, cada `SetItems` colapsaba todo a `defaultOpen`. Para
+  recuperar el comportamiento anterior: `SetItems(tree, { preserveExpansion = false })`.
+
 ## [1.1.0] - 2026-06-11
 
 > Incluye también los cambios etiquetados como `v1.0.1` (2026-06-09), que se taguearon

@@ -8,11 +8,19 @@
 | Título | Sistema de diseño shadcn Lyra como fuente de verdad visual |
 | Fecha | 30/05/2026 |
 | Autor(es) | Alberto Gomez |
-| Estado | **Aceptada** |
+| Estado | **Aceptada** — superseded (parcial) por ADR-0014 |
 | Alcance | Todo el sistema — tokens de color, tipografía, espaciado, radio de bordes |
 | Stakeholders consultados | Comunidad addon-dev WoW, análisis de sistemas de diseño modernos |
 
 ---
+
+> **⚠️ Superseded (parcial) por [ADR-0014](0014-theming-multi-eje.md).** Esta ADR se conserva como
+> registro histórico de por qué el MVP adoptó Lyra. Dos puntos quedaron **corregidos** por ADR-0014 y
+> NO deben tomarse de aquí:
+> - **Base Color = Neutral**, no Zinc (la implementación usa grises neutros C=0; las menciones a "Zinc"
+>   en §3/§5/§9 son obsoletas).
+> - **La fuente NO es parte del Style Lyra** — Inter es un eje independiente (Style solo define la forma
+>   `rounded-none`). El resto de la ADR (razón de elegir Lyra, radius=0, dark) sigue vigente.
 
 ### 1. Contexto
 

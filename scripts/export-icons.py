@@ -109,6 +109,29 @@ ICONS = [
     "type",           # Panel type: Text
     # Craft-synthesized (not Lucide) — see LOCAL_SVGS
     "disc",           # Filled circle for round controls (RadioGroup) — supersampled = crisp
+    # Consumer-requested (FR-012 — Beacon: test-fire / selector de historial)
+    "circle-play",    # Disparar test-fire (acción de fila; toolbar "Probar")
+    "circle-stop",    # Detener el test-fire
+    "rotate-ccw",     # Re-disparar el último evento
+    # Consumer-requested (FR-013 — Beacon: toggles de edit-mode del header de opciones)
+    "lock",           # Toggle "Lock Positions" (estado activo)
+    "lock-open",      # Toggle "Lock Positions" (estado inactivo)
+    "magnet",         # Toggle "Magnetically Align"
+    # Consumer-requested (FR-017 — Coffer: dominio bolsas/inventario). Núcleo (8).
+    "landmark",       # Banco de personaje (rail/tab)
+    "vault",          # Warbank / account bank (rail/tab)
+    "users",          # Guild bank (rail/tab)
+    "coins",          # Panel de monedas (rail/tab) + moneda genérica
+    "shopping-cart",  # Botón "Sell Trash" (merchant)
+    "sparkles",       # Botón "Disenchant"
+    "backpack",       # Identidad de bolsas / "volver a bolsas de WoW"
+    "funnel",         # Filtro activo (búsqueda / categorías) — Lucide renombró filter → funnel
+    # FR-017 nice-to-have (mejoran, no bloquean)
+    "tag",            # Etiquetas de UI
+    "package",        # Categoría/grupo "Containers"
+    "combine",        # Combinar stacks (área 8)
+    "arrow-up-narrow-wide",   # Indicador sort ascendente
+    "arrow-down-wide-narrow", # Indicador sort descendente
 ]
 
 # ─── Local (non-Lucide) glyphs ────────────────────────────────────────────────
@@ -363,7 +386,7 @@ def generate_atlas_lua(coords: dict):
         f"--   ({INNER}px icon centered with a {GUTTER}px transparent gutter — supersampled)",
         f"--   UV: left=col/{CPR}, right=(col+1)/{CPR}, top=row/{CPR}, bottom=(row+1)/{CPR}",
         "",
-        'local Craft = LibStub("Craft-1.0")',
+        'local Craft = LibStub("Craft-2.0")',
         "local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)",
         "",
         "-- Versioned (production bug #1): skip if a newer/equal Icons atlas is already loaded.",

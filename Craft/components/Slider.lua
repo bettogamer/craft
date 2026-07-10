@@ -21,7 +21,7 @@
 -- Frame heights (LABEL_H=12): hasHeader+showMinMax=42px  hasHeader-only=30px
 --                             showMinMax-only=28px        plain=16px
 
-local Craft = LibStub("Craft-1.0")
+local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
 local Slider = {}
@@ -58,7 +58,21 @@ function Slider:Create(parent, config)
     self._onChange = config.onChange
     self._dragging = false
 
-    local hasLabel  = config.label and config.label ~= ""
+    -- Reactive props (ADR-0013): a callable prop binds through the public
+    -- setters (after the theme pass, below); until then the direct-read fields
+    -- hold safe literals so Create/_applyTheme never operate on a signal object.
+    local R = Craft.Reactive
+    local valueSource    = R.isCallable(config.value)    and config.value    or nil
+    local disabledSource = R.isCallable(config.disabled) and config.disabled or nil
+    local labelSource    = R.isCallable(config.label)    and config.label    or nil
+    if valueSource    then self._value    = self._min end
+    if disabledSource then self._disabled = false end
+    if labelSource    then self._cfg.label = "" end -- the bind writes the resolved text
+    if valueSource and R.isWritableSignal(valueSource) then
+        self._valueSignal = valueSource -- two-way: user input writes back
+    end
+
+    local hasLabel  = labelSource ~= nil or (config.label and config.label ~= "")
     local hasHeader = hasLabel or config.showValue
     local hasMinMax = config.showMinMax
 
@@ -184,6 +198,7 @@ function Slider:Create(parent, config)
         if v ~= self._value then
             self._value = v
             self:_updateVisuals()
+            if self._valueSignal then self._valueSignal:set(v) end
             if self._onChange then self._onChange(v) end
         end
     end)
@@ -214,6 +229,11 @@ function Slider:Create(parent, config)
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
 
+    -- ── Reactive binds — after the theme pass (SetText needs the font set) ────
+    R.applyOrBind(self, labelSource,    function(s, text) s:SetLabel(text) end)
+    R.applyOrBind(self, valueSource,    function(s, v) s:SetValue(v) end)
+    R.applyOrBind(self, disabledSource, function(s, off) s:SetEnabled(not off) end)
+
     if self._disabled then
         self:SetEnabled(false)
     end
@@ -234,6 +254,7 @@ function Slider:_updateFromCursor()
     if v ~= self._value then
         self._value = v
         self:_updateVisuals()
+        if self._valueSignal then self._valueSignal:set(v) end
         if self._onChange then self._onChange(v) end
     end
 end
@@ -340,21 +361,21 @@ function Slider:_applyTheme(t)
     Craft.Theme.SetPixelWidth(self._thumbRingRight, 1)
 
     if self._label then
-        self._label:SetFont(t.font, t.fontSizeSm)
+        Craft.Theme.applyFont(self._label, t.font, t.fontSizeSm)
         self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
         self._label:SetText(self._cfg.label or "")
     end
     if self._valueLabel then
-        self._valueLabel:SetFont(t.font, t.fontSizeSm)
+        Craft.Theme.applyFont(self._valueLabel, t.font, t.fontSizeSm)
         self._valueLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
         self._valueLabel:SetText(tostring(self._value))
     end
     if self._minLabel then
-        self._minLabel:SetFont(t.font, t.fontSizeSm)
+        Craft.Theme.applyFont(self._minLabel, t.font, t.fontSizeSm)
         self._minLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     end
     if self._maxLabel then
-        self._maxLabel:SetFont(t.font, t.fontSizeSm)
+        Craft.Theme.applyFont(self._maxLabel, t.font, t.fontSizeSm)
         self._maxLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     end
 
@@ -414,6 +435,7 @@ end
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Slider:Destroy()
     if not self.frame then return end
+    Craft.Reactive.disposeAll(self)
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
