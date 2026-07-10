@@ -11,11 +11,13 @@
 # Libraries — LibStub en su propio folder (convención estándar WoW)
 libs\LibStub\LibStub.lua
 
-# Weave v0.5.0 (vendored, READ-ONLY) — reactive signals; load order mirrors its Weave.xml
+# Weave v0.7.0 (vendored, READ-ONLY) — reactive signals; load order mirrors its Weave.xml
 libs\Weave\Weave.lua
 libs\Weave\core\Core.lua
 libs\Weave\core\Reconcile.lua
 libs\Weave\core\Tween.lua
+libs\Weave\core\Window.lua
+libs\Weave\core\Flow.lua
 libs\Weave\wow\Events.lua
 libs\Weave\wow\Props.lua
 libs\Weave\wow\Ticker.lua
@@ -24,6 +26,7 @@ libs\Weave\wow\Promise.lua
 libs\Weave\store\Store.lua
 libs\Weave\ui\Ui.lua
 libs\Weave\ui\Each.lua
+libs\Weave\ui\Virtual.lua
 
 # Core — must load first; creates the Craft namespace
 Craft.lua

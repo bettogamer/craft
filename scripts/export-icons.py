@@ -126,6 +126,12 @@ ICONS = [
     "sparkles",       # Botón "Disenchant"
     "backpack",       # Identidad de bolsas / "volver a bolsas de WoW"
     "funnel",         # Filtro activo (búsqueda / categorías) — Lucide renombró filter → funnel
+    # FR-017 nice-to-have (mejoran, no bloquean)
+    "tag",            # Etiquetas de UI
+    "package",        # Categoría/grupo "Containers"
+    "combine",        # Combinar stacks (área 8)
+    "arrow-up-narrow-wide",   # Indicador sort ascendente
+    "arrow-down-wide-narrow", # Indicador sort descendente
 ]
 
 # ─── Local (non-Lucide) glyphs ────────────────────────────────────────────────

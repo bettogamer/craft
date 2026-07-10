@@ -76,4 +76,9 @@ Craft.Icons._atlas = {
     ["sparkles"] = { 5, 6 },
     ["backpack"] = { 6, 6 },
     ["funnel"] = { 7, 6 },
+    ["tag"] = { 0, 7 },
+    ["package"] = { 1, 7 },
+    ["combine"] = { 2, 7 },
+    ["arrow-up-narrow-wide"] = { 3, 7 },
+    ["arrow-down-wide-narrow"] = { 4, 7 },
 }

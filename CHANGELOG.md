@@ -6,13 +6,21 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+### Changed
+- **Weave vendoreado v0.5.0 → v0.7.0** (`Craft/libs/Weave/`, READ-ONLY). Añade 3 archivos nuevos
+  (`core/Window.lua`, `core/Flow.lua`, `ui/Virtual.lua`) al orden de carga de `Craft.toc` /
+  `Craft_Browser.toc` (espeja `Weave.xml`). Retrocompatible: la suite completa (183 tests) pasa sin
+  cambios en los componentes. Empaquetado con `weave/scripts/build-embed.ps1` (281 tests + luacheck
+  verdes). Los specs cargan los 3 archivos nuevos como smoke-test del embed.
+
 ### Added
-- **Iconos de dominio bolsas/inventario** (FR-017): 8 glyphs Lucide núcleo al atlas — `landmark`,
+- **Iconos de dominio bolsas/inventario** (FR-017): 13 glyphs Lucide al atlas. Núcleo (8): `landmark`,
   `vault`, `users`, `coins`, `shopping-cart`, `sparkles`, `backpack`, `funnel` (el filtro; Lucide
-  renombró `filter`→`funnel`). Total 48→56 (8 slots libres en el grid 8×8, sin crecerlo). Regenerados
+  renombró `filter`→`funnel`). Nice-to-have (5): `tag`, `package`, `combine`, `arrow-up-narrow-wide`,
+  `arrow-down-wide-narrow`. Total 48→61 (3 slots libres en el grid 8×8, sin crecerlo). Regenerados
   `Craft/icons/Atlas.lua` + `scripts/export-icons.py` + `docs/components/icons.md`; `lucide.tga` se
-  rebuildea en deploy. Nice-to-have + crecer el grid diferidos a decisión del owner. Requiere bump de
-  `CRAFT_BUILD` al release para servir el atlas a los consumidores (como FR-012/FR-013).
+  rebuildea en deploy. Crecer el grid diferido a decisión del owner. Requiere bump de `CRAFT_BUILD`
+  al release para servir el atlas a los consumidores (como FR-012/FR-013).
 - **`Input` clearable ✕** (FR-016): props `clearable` (botón ✕ derecho visible solo con texto; al click
   vacía el campo, dispara `onChange("")` + `onClear()` y devuelve el foco) y `onClear`; además
   `onTrailingClick` hace clickeable el `iconTrailing` (excluyente con `clearable`), y nuevo método

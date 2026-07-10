@@ -4,11 +4,12 @@
 **Componente:** `Craft/icons/Atlas.lua` + `media/lucide.tga` + `scripts/export-icons.py`
 **Tipo:** Feature Request
 **Prioridad:** Media — hay fallback (atlas Blizzard para lo WoW-intrínseco); es identidad visual
-**Estado:** Implementado (núcleo) en `dev` (2026-07-10, rama `feat/menu`) — los **8 iconos núcleo**
-añadidos al catálogo (`export-icons.py` + `Atlas.lua` regenerado + `icons.md`). Total 48→56 (8 slots
-libres, sin crecer el grid). Nice-to-have y grid-growth **diferidos a decisión del owner** (no
-bloquean). `filter` se cataloga como **`funnel`** (Lucide lo renombró upstream). El `lucide.tga`
-(gitignoreado) se rebuildea en deploy; requiere `CRAFT_BUILD` bump al cortar release para servirlo.
+**Estado:** Implementado (núcleo **+ nice-to-have**) en `dev` (2026-07-10, rama `feat/menu`). Los 8
+núcleo + 5 nice-to-have (`tag`, `package`, `combine`, `arrow-up-narrow-wide`, `arrow-down-wide-narrow`)
+añadidos al catálogo (`export-icons.py` + `Atlas.lua` regenerado + `icons.md`). Total 48→61 (3 slots
+libres). **Crecer el grid diferido a decisión del owner** (al agotar el margen). `filter` se cataloga
+como **`funnel`** (Lucide lo renombró upstream). El `lucide.tga` (gitignoreado) se rebuildea en deploy;
+requiere `CRAFT_BUILD` bump al cortar release para servirlo.
 
 ---
 

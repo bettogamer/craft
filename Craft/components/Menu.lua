@@ -480,8 +480,8 @@ function Menu:_onRowClick(item)
 
     elseif typ == "checkbox" then
         -- Tri-state toggles as a plain on/off (indeterminate counts as off).
-        -- `not (== true)` — never the `a and false or true` idiom (always true).
-        local next = not (item._checked == true)
+        -- `~= true` — never the `a and false or true` idiom (always true).
+        local next = item._checked ~= true
         item._checked = next
         self:_setCheckboxIndicator(item, next)
         if item._checkedSignal then item._checkedSignal:set(next) end

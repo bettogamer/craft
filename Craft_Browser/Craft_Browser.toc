@@ -12,11 +12,13 @@
 # generado en CI: descargado directo a libs/LibStub/LibStub.lua (no pasa por Craft/libs/)
 libs\LibStub\LibStub.lua
 
-# Weave v0.5.0 (embedded — copied from Craft/libs/Weave in CI/deploy, not in repo)
+# Weave v0.7.0 (embedded — copied from Craft/libs/Weave in CI/deploy, not in repo)
 libs\Weave\Weave.lua
 libs\Weave\core\Core.lua
 libs\Weave\core\Reconcile.lua
 libs\Weave\core\Tween.lua
+libs\Weave\core\Window.lua
+libs\Weave\core\Flow.lua
 libs\Weave\wow\Events.lua
 libs\Weave\wow\Props.lua
 libs\Weave\wow\Ticker.lua
@@ -25,6 +27,7 @@ libs\Weave\wow\Promise.lua
 libs\Weave\store\Store.lua
 libs\Weave\ui\Ui.lua
 libs\Weave\ui\Each.lua
+libs\Weave\ui\Virtual.lua
 
 # Loom v0.1.0 (vendored, READ-ONLY — committed in libs/Loom, only Craft_Browser uses it).
 # Async/deferred data; Weave.fromPromise bridges its promises to signals (Async page).

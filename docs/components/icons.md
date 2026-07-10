@@ -176,8 +176,19 @@ de Coffer. Todos son iconos Lucide reales.
 > (igual que `bar-chart-3` → `chart-column`). Se cataloga con el nombre nuevo; los consumidores
 > usan `icon="funnel"`.
 
-**Total**: 56 glyphs (55 Lucide + 1 Craft-sintetizado `disc`). Ocupan 7 filas del grid 8×8
-(56 de 64 slots disponibles → 8 libres).
+Nice-to-have (FR-017): mejoran la semántica, no bloquean.
+
+| # | Nombre Lucide | Uso |
+|---|---|---|
+| 57 | `tag` | Etiquetas de UI |
+| 58 | `package` | Categoría/grupo "Containers" |
+| 59 | `combine` | Combinar stacks (área 8) |
+| 60 | `arrow-up-narrow-wide` | Indicador de sort ascendente |
+| 61 | `arrow-down-wide-narrow` | Indicador de sort descendente |
+
+**Total**: 61 glyphs (60 Lucide + 1 Craft-sintetizado `disc`). Ocupan 8 filas del grid 8×8
+(61 de 64 slots disponibles → 3 libres). Al agotarse el margen, crecer el grid (p. ej. 1024² →
+16×16) es decisión del owner.
 
 > **`disc`** no es de Lucide (que es stroke-only, sin formas rellenas). Se define inline en
 > `scripts/export-icons.py` (`LOCAL_SVGS`) y se rasteriza por el mismo pipeline supersampleado,
