@@ -6,6 +6,20 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+### Added
+- **`Craft.Menu`** (FR-015): componente nuevo que cubre `DropdownMenu` + `ContextMenu` de shadcn en uno
+  (misma anatomía, solo cambia el disparador). Menú rico flotante de una columna con entradas por `type`:
+  `heading`, `item` (+`icon` +`rightText` +`onDelete`→✕ +`variant="destructive"`), `checkbox` (tri-estado),
+  `radio` (exclusivo por `group`) y `separator`; filas `disabled`; props reactivas (`label`/`checked`/
+  `disabled` aceptan señal Weave). API: `Create(config)` (sin `parent`), `Open(anchor, opts)` anclado,
+  `OpenAtCursor()`, `Close()`, `SetItems(items)`, `Destroy()`, y el helper `AttachContextMenu(frame, builder)`
+  para click-derecho. Reutiliza la infra de panel de `Select` (UIParent/TOOLTIP, ring 1px + `popover`,
+  scroll, fade+zoom+slide) con dismissal unificado (catcher fullscreen + Esc vía `UISpecialFrames`).
+  Indicadores a la **derecha** (fiel a Lyra). Binds reactivos efímeros: se crean en `Open` y se descartan
+  en `Close`. Submenús y `layout="grid"` diferidos (v1: key `submenu` reservada/no-op). Spec:
+  `docs/components/menu.md`. Divergencias vs shadcn: `onDelete` (extensión Craft); las filas `checkbox`
+  **no cierran** el menú (multi-toggle), `item`/`radio` sí.
+
 ## [2.3.0] - 2026-07-09
 
 > **Release v2.3.0 — theming componible + personalización para consumidores.** Reúne **ADR-0014**
