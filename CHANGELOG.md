@@ -6,6 +6,13 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-07-10
+
+> **Release v2.4.0 — Menu + pulido de consumidores (Coffer).** Añade el componente **`Craft.Menu`**
+> (dropdown + context menu, FR-015), el **botón clear ✕** de `Input` (FR-016), el **set de iconos de
+> dominio bolsas/inventario** (FR-017, 13 glyphs) y sube el **Weave vendoreado a v0.7.0**. MINOR,
+> retrocompatible (key sigue `Craft-2.0`). `CRAFT_BUILD` 4→5.
+
 ### Changed
 - **Weave vendoreado v0.5.0 → v0.7.0** (`Craft/libs/Weave/`, READ-ONLY). Añade 3 archivos nuevos
   (`core/Window.lua`, `core/Flow.lua`, `ui/Virtual.lua`) al orden de carga de `Craft.toc` /
