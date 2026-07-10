@@ -156,8 +156,28 @@ Glyphs para los dos toggles globales del header de opciones de Beacon (`OptionsF
 | 47 | `lock-open` | Toggle "Lock Positions" (estado inactivo) |
 | 48 | `magnet` | Toggle "Magnetically Align" |
 
-**Total**: 48 glyphs (47 Lucide + 1 Craft-sintetizado `disc`). Ocupan ~6 filas del grid 8×8
-(48 de 64 slots disponibles).
+### Solicitados por consumers (FR-017 — Coffer: dominio bolsas/inventario)
+
+Núcleo del set de bolsas/inventario para el rail lateral de paneles y los botones del footer
+de Coffer. Todos son iconos Lucide reales.
+
+| # | Nombre Lucide | Uso |
+|---|---|---|
+| 49 | `landmark` | Banco de personaje (rail/tab) |
+| 50 | `vault` | Warbank / account bank (rail/tab) |
+| 51 | `users` | Guild bank (rail/tab) |
+| 52 | `coins` | Panel de monedas (rail/tab) + moneda genérica |
+| 53 | `shopping-cart` | Botón "Sell Trash" (merchant) |
+| 54 | `sparkles` | Botón "Disenchant" |
+| 55 | `backpack` | Identidad de bolsas / "volver a bolsas de WoW" |
+| 56 | `funnel` | Filtro activo (búsqueda / categorías) — Lucide renombró `filter` → `funnel` |
+
+> **`funnel`**: el icono de filtro de Lucide fue renombrado de `filter` a `funnel` en upstream
+> (igual que `bar-chart-3` → `chart-column`). Se cataloga con el nombre nuevo; los consumidores
+> usan `icon="funnel"`.
+
+**Total**: 56 glyphs (55 Lucide + 1 Craft-sintetizado `disc`). Ocupan 7 filas del grid 8×8
+(56 de 64 slots disponibles → 8 libres).
 
 > **`disc`** no es de Lucide (que es stroke-only, sin formas rellenas). Se define inline en
 > `scripts/export-icons.py` (`LOCAL_SVGS`) y se rasteriza por el mismo pipeline supersampleado,

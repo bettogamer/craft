@@ -68,4 +68,12 @@ Craft.Icons._atlas = {
     ["lock"] = { 5, 5 },
     ["lock-open"] = { 6, 5 },
     ["magnet"] = { 7, 5 },
+    ["landmark"] = { 0, 6 },
+    ["vault"] = { 1, 6 },
+    ["users"] = { 2, 6 },
+    ["coins"] = { 3, 6 },
+    ["shopping-cart"] = { 4, 6 },
+    ["sparkles"] = { 5, 6 },
+    ["backpack"] = { 6, 6 },
+    ["funnel"] = { 7, 6 },
 }

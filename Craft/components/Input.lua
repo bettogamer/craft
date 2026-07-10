@@ -36,6 +36,9 @@ function Input:Create(parent, config)
         maxLetters     = config.maxLetters      or 0,
         iconLeading    = config.iconLeading,
         iconTrailing   = config.iconTrailing,
+        clearable      = config.clearable      or false,   -- FR-016: ✕ clear button
+        onClear        = config.onClear,                   -- fired (with onChange("")) on clear
+        onTrailingClick= config.onTrailingClick,           -- makes iconTrailing clickable
         onChange       = config.onChange,
         onEnterPressed = config.onEnterPressed,
         width          = config.width,
@@ -82,15 +85,61 @@ function Input:Create(parent, config)
         self._iconLeading:Hide()
     end
 
-    -- ── _iconTrailing: right icon 16×16 — ARTWORK ────────────────────────────
+    -- ── _iconTrailing: right icon 16×16 — ARTWORK (decorative only) ───────────
+    -- Used when there is a trailing icon WITHOUT a callback. When the trailing
+    -- affordance is interactive (clearable / onTrailingClick), the _trailBtn below
+    -- owns the icon instead and this decorative texture stays hidden.
     self._iconTrailing = self.frame:CreateTexture(nil, "ARTWORK")
     self._iconTrailing:SetSize(ICON_SIZE, ICON_SIZE)
-    if self._cfg.iconTrailing then
+    local decorativeTrailing = self._cfg.iconTrailing
+        and not self._cfg.clearable and not self._cfg.onTrailingClick
+    if decorativeTrailing then
         Craft.Icons.Apply(self._iconTrailing, self._cfg.iconTrailing, 16)
         self._iconTrailing:SetPoint("RIGHT", self.frame, "RIGHT", -ICON_PAD, 0)
         self._iconTrailing:Show()
     else
         self._iconTrailing:Hide()
+    end
+
+    -- ── _trailBtn: interactive trailing button (clearable ✕ or onTrailingClick) ─
+    -- FR-016. A Button holding a Lucide icon, positioned at the same spot as the
+    -- decorative trailing icon. For `clearable` it shows the `x` glyph only while
+    -- there is text and clears the field on click; for `onTrailingClick` it shows
+    -- the given `iconTrailing` and forwards the click. Reuses the trailing padding.
+    if self._cfg.clearable or self._cfg.onTrailingClick then
+        self._trailBtn = CreateFrame("Button", nil, self.frame)
+        self._trailBtn:SetSize(ICON_SIZE + 8, HEIGHT)
+        self._trailBtn:SetPoint("RIGHT", self.frame, "RIGHT", -(ICON_PAD - 4), 0)
+        self._trailIcon = self._trailBtn:CreateTexture(nil, "ARTWORK")
+        self._trailIcon:SetSize(ICON_SIZE, ICON_SIZE)
+        self._trailIcon:SetPoint("RIGHT", self._trailBtn, "RIGHT", -4, 0)
+        local glyph = self._cfg.clearable and "x" or self._cfg.iconTrailing or "x"
+        Craft.Icons.Apply(self._trailIcon, glyph, 16)
+
+        self._trailBtn:SetScript("OnClick", function()
+            if self._cfg.disabled then return end
+            if self._cfg.clearable then
+                self:Clear()
+            elseif self._cfg.onTrailingClick then
+                self._cfg.onTrailingClick()
+            end
+        end)
+        -- Hover: muted → foreground, like a subtle affordance.
+        self._trailBtn:SetScript("OnEnter", function()
+            local c = self._t and self._t.foreground
+            if c then self._trailIcon:SetVertexColor(c.r, c.g, c.b, 1) end
+        end)
+        self._trailBtn:SetScript("OnLeave", function()
+            local c = self._t and self._t.mutedForeground
+            if c then self._trailIcon:SetVertexColor(c.r, c.g, c.b, 1) end
+        end)
+
+        -- clearable is text-gated (hidden when empty); onTrailingClick is persistent.
+        if self._cfg.clearable then
+            self._trailBtn:Hide()
+        else
+            self._trailBtn:Show()
+        end
     end
 
     -- ── EditBox — OVERLAY ─────────────────────────────────────────────────────
@@ -164,6 +213,9 @@ function Input:Create(parent, config)
                 self._placeholder:Hide()
             end
         end
+        -- Clear ✕ visibility tracks the text on both user input and programmatic
+        -- SetText (fires OnTextChanged with userInput=false), so it stays in sync.
+        self:_updateClear()
     end)
 
     self._edit:SetScript("OnEnterPressed", function(editbox)
@@ -209,6 +261,9 @@ function Input:Create(parent, config)
         self:SetEnabled(false)
     end
 
+    -- Initial clear ✕ visibility (a non-empty initial value shows it right away).
+    self:_updateClear()
+
     return self
 end
 
@@ -218,7 +273,11 @@ function Input:_leftPad()
 end
 
 function Input:_rightPad()
-    return self._cfg.iconTrailing and (PAD_H + ICON_DELTA) or PAD_H
+    -- Reserve the trailing slot for a decorative icon OR the interactive button
+    -- (clearable/onTrailingClick). Reserved always for `clearable` so the text
+    -- doesn't shift when the ✕ appears/disappears.
+    local hasTrailing = self._cfg.iconTrailing or self._cfg.clearable or self._cfg.onTrailingClick
+    return hasTrailing and (PAD_H + ICON_DELTA) or PAD_H
 end
 
 -- ─── Focus-ring fade: endpoints + painter ────────────────────────────────────
@@ -288,6 +347,9 @@ function Input:_applyTheme(t)
     if self._cfg.iconTrailing then
         self._iconTrailing:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)
     end
+    if self._trailIcon then
+        self._trailIcon:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)
+    end
 
     -- Pixel-perfect 4-texture border (corner-safe)
     Craft.Theme.AnchorBorder(self.frame, self._borderTop, self._borderBottom,
@@ -318,6 +380,32 @@ function Input:SetValue(text)
     else
         self._placeholder:Hide()
     end
+    self:_updateClear()
+end
+
+-- ─── Clear (FR-016) ───────────────────────────────────────────────────────────
+-- Empties the field, fires onChange("") + onClear(), writes back into a bound
+-- value signal, and returns focus to the EditBox. SetText("") itself fires
+-- OnTextChanged with userInput=false, so it does NOT double-fire onChange — this
+-- method fires it explicitly (a clear is a value change the caller should see).
+function Input:Clear()
+    self._edit:SetText("")
+    self:_updateClear()
+    if self._valueSignal then self._valueSignal:set("") end
+    if self._cfg.onChange then self._cfg.onChange("") end
+    if self._cfg.onClear  then self._cfg.onClear()   end
+    self._edit:SetFocus()   -- keep/return focus (search-box reset UX)
+end
+
+-- Shows the clear ✕ only while there is text and the field is enabled. No-op
+-- unless the input is `clearable` (onTrailingClick buttons are persistent).
+function Input:_updateClear()
+    if not self._trailBtn or not self._cfg.clearable then return end
+    if self._edit:GetText() ~= "" and not self._cfg.disabled then
+        self._trailBtn:Show()
+    else
+        self._trailBtn:Hide()
+    end
 end
 
 function Input:GetValue()
@@ -340,6 +428,7 @@ function Input:SetEnabled(enabled)
     if self._t then
         self:_applyTheme(self._t)
     end
+    self:_updateClear()   -- a disabled field hides its clear ✕
 end
 
 function Input:SetError(hasError)

@@ -115,10 +115,20 @@ Notas sobre estados:
 | `error`         | `boolean`  | `false`     | Activa variante error (borde destructive)                                |
 | `maxLetters`    | `number`   | `0`         | Límite de caracteres; `0` = sin límite                                   |
 | `iconLeading`   | `string`   | `nil`       | Path de textura del icono izquierdo (16px). Ajusta padding automáticamente |
-| `iconTrailing`  | `string`   | `nil`       | Path de textura del icono derecho (16px). Ajusta padding automáticamente |
+| `iconTrailing`  | `string`   | `nil`       | Icono derecho (16px). Decorativo salvo que se pase `onTrailingClick`. Ajusta padding |
+| `clearable`     | `boolean`  | `false`     | **Extensión Craft** (FR-016): botón ✕ derecho visible solo con texto; al click limpia el campo |
+| `onClear`       | `function` | `nil`       | `fn()` — se dispara al limpiar con ✕ (además de `onChange("")`)          |
+| `onTrailingClick`| `function`| `nil`       | `fn()` — hace `iconTrailing` clickeable (persistente). Excluyente con `clearable` |
 | `onChange`      | `function` | `nil`       | `fn(value)` — se dispara en `OnTextChanged`                              |
 | `onEnterPressed`| `function` | `nil`       | `fn(value)` — se dispara en `OnEnterPressed` del EditBox                 |
 | `width`         | `number`   | `nil`       | Ancho fijo en px. Si es nil, ocupa 100% del parent                       |
+
+> **Nota de fidelidad (FR-016).** El botón **clear ✕ dentro del input es una extensión de Craft**,
+> NO existe en shadcn: el Input de shadcn no tiene prop `clearable`. El patrón shadcn para búsqueda es
+> **componer** un `Input` + un `Button` en un `ButtonGroup` (cosa distinta — un botón de acción "Search"
+> al lado, no un ✕ de reset dentro). Por eso el ✕ se estila mínimamente (glyph `x`, muted→foreground en
+> hover) sin un `.tsx` de referencia que replicar. Requerido por Coffer (search-box, `docs/UI-DESIGN.md`
+> §5.1). Análogo a la extensión `onDelete` de `Craft.Menu`.
 
 ## API pública
 
@@ -129,6 +139,7 @@ Notas sobre estados:
 | `SetEnabled(bool)`       | Habilita/deshabilita el campo. Aplica estilos de disabled                    |
 | `SetError(bool)`         | Activa/desactiva variante error y actualiza color del borde                  |
 | `SetPlaceholder(text)`   | Actualiza el texto del placeholder                                           |
+| `Clear()`                | Vacía el campo, dispara `onChange("")` + `onClear()`, escribe `""` en la señal ligada y devuelve el foco (FR-016) |
 | `GetFrame()`             | Retorna el frame raíz del componente                                         |
 
 ## Notas de implementación

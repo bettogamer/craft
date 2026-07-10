@@ -41,6 +41,9 @@ CraftBrowserPages["Input"] = {
         y = addLabel("With icon (trailing)", y)
         y = addInput({ placeholder="Password", iconTrailing="eye" }, y)
 
+        y = addLabel("Clearable search (FR-016 — ✕ appears with text)", y)
+        y = addInput({ placeholder="Search...", iconLeading="search", clearable=true, value="flask of power" }, y)
+
         y = addLabel("Error", y)
         y = addInput({ placeholder="Required field", error=true }, y)
 

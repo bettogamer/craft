@@ -117,6 +117,15 @@ ICONS = [
     "lock",           # Toggle "Lock Positions" (estado activo)
     "lock-open",      # Toggle "Lock Positions" (estado inactivo)
     "magnet",         # Toggle "Magnetically Align"
+    # Consumer-requested (FR-017 — Coffer: dominio bolsas/inventario). Núcleo (8).
+    "landmark",       # Banco de personaje (rail/tab)
+    "vault",          # Warbank / account bank (rail/tab)
+    "users",          # Guild bank (rail/tab)
+    "coins",          # Panel de monedas (rail/tab) + moneda genérica
+    "shopping-cart",  # Botón "Sell Trash" (merchant)
+    "sparkles",       # Botón "Disenchant"
+    "backpack",       # Identidad de bolsas / "volver a bolsas de WoW"
+    "funnel",         # Filtro activo (búsqueda / categorías) — Lucide renombró filter → funnel
 ]
 
 # ─── Local (non-Lucide) glyphs ────────────────────────────────────────────────

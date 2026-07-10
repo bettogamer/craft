@@ -7,6 +7,18 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 ## [Unreleased]
 
 ### Added
+- **Iconos de dominio bolsas/inventario** (FR-017): 8 glyphs Lucide núcleo al atlas — `landmark`,
+  `vault`, `users`, `coins`, `shopping-cart`, `sparkles`, `backpack`, `funnel` (el filtro; Lucide
+  renombró `filter`→`funnel`). Total 48→56 (8 slots libres en el grid 8×8, sin crecerlo). Regenerados
+  `Craft/icons/Atlas.lua` + `scripts/export-icons.py` + `docs/components/icons.md`; `lucide.tga` se
+  rebuildea en deploy. Nice-to-have + crecer el grid diferidos a decisión del owner. Requiere bump de
+  `CRAFT_BUILD` al release para servir el atlas a los consumidores (como FR-012/FR-013).
+- **`Input` clearable ✕** (FR-016): props `clearable` (botón ✕ derecho visible solo con texto; al click
+  vacía el campo, dispara `onChange("")` + `onClear()` y devuelve el foco) y `onClear`; además
+  `onTrailingClick` hace clickeable el `iconTrailing` (excluyente con `clearable`), y nuevo método
+  público `Input:Clear()`. Aditivo — sin estas props el `Input` no cambia. **Extensión Craft**: shadcn
+  no tiene `clearable` (su patrón de búsqueda es `Input`+`Button` en `ButtonGroup`, distinto). Tests:
+  `tests/input_spec.lua`. Demo en la página Input del Browser.
 - **`Craft.Menu`** (FR-015): componente nuevo que cubre `DropdownMenu` + `ContextMenu` de shadcn en uno
   (misma anatomía, solo cambia el disparador). Menú rico flotante de una columna con entradas por `type`:
   `heading`, `item` (+`icon` +`rightText` +`onDelete`→✕ +`variant="destructive"`), `checkbox` (tri-estado),
