@@ -58,4 +58,47 @@ describe("Craft.Label", function()
 
         Craft.Theme.use("lyra-dark")   -- restaura para otros tests
     end)
+
+    -- ─── FR-024: el frame abraza al texto (natural sizing) ──────────────────
+
+    it("el frame raíz abraza al texto tras Create (FR-024)", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Hello" })
+        assert.equals(#"Hello" * 7, lbl.frame:GetWidth())   -- mock: 7px/char
+        assert.equals(lbl._text:GetStringHeight(), lbl.frame:GetHeight())
+    end)
+
+    it("SetText re-mide el frame", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Hi" })
+        lbl:SetText("Hello world")
+        assert.equals(#"Hello world" * 7, lbl.frame:GetWidth())
+    end)
+
+    it("maxWidth acota el frame pero GetTextWidth devuelve el natural", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Texto muy largo", maxWidth = 40 })
+        assert.equals(40, lbl.frame:GetWidth())              -- capped
+        assert.equals(40, lbl._text:GetWidth())              -- string elide en maxWidth
+        assert.equals(#"Texto muy largo" * 7, lbl:GetTextWidth())  -- natural intacto
+    end)
+
+    it("maxWidth mayor que el natural no estira el frame", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Hi", maxWidth = 400 })
+        assert.equals(#"Hi" * 7, lbl.frame:GetWidth())
+    end)
+
+    it("align ~= LEFT fija ancho explícito del string (justify efectivo)", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Hi", align = "CENTER" })
+        assert.equals(lbl.frame:GetWidth(), lbl._text:GetWidth())
+    end)
+
+    it("label plano (LEFT, sin maxWidth) no fija ancho del string (auto-size)", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Hi" })
+        assert.equals(0, lbl._text:GetWidth())   -- sin constraint → WoW auto-dimensiona
+        assert.equals(#"Hi" * 7, lbl.frame:GetWidth())
+    end)
 end)

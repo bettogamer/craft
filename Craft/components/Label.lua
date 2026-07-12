@@ -18,6 +18,7 @@ function Label:Create(parent, config)
         color    = config.color,          -- {r,g,b,a} override, nil = inherit
         disabled = config.disabled or false,
         maxWidth = config.maxWidth,        -- number or nil
+        align    = config.align    or "LEFT",  -- "LEFT"|"CENTER"|"RIGHT"
         onClick  = config.onClick,         -- function(self) or nil
         weight   = config.weight,          -- "normal"|"medium"|"bold", nil = normal (t.font)
         size     = config.size,            -- px override, nil = t.fontSize (12)
@@ -34,12 +35,17 @@ function Label:Create(parent, config)
 
     -- maxWidth: truncate with "..." — WoW truncates automatically via SetWordWrap(false)
     if self._cfg.maxWidth then
-        self._text:SetWidth(self._cfg.maxWidth)
         self._text:SetWordWrap(false)
         self._text:SetNonSpaceWrap(false)
     end
 
-    -- Anchor text to the frame (frame size follows text when no maxWidth set)
+    -- align: justify within the FontString width. Effective when the string has
+    -- an explicit width (maxWidth, or align ~= LEFT — see _recalcSize).
+    self._text:SetJustifyH(self._cfg.align)
+
+    -- SINGLE anchor only (TOPLEFT) — never add a second horizontal anchor here:
+    -- TOPLEFT+TOPRIGHT with a 0-width parent freezes the text invisible until
+    -- /reload (CLAUDE.md bug #2). Explicit SetWidth in _recalcSize instead.
     self._text:SetPoint("TOPLEFT", self.frame, "TOPLEFT")
 
     -- Register in theming system and apply initial theme (sets font before SetText below)
@@ -48,6 +54,7 @@ function Label:Create(parent, config)
 
     -- SetText must come after _applyTheme so the font is set before WoW renders the string
     self._text:SetText(self._cfg.text)
+    self:_recalcSize()
 
     -- Mouse interaction for onClick variant
     if self._cfg.onClick then
@@ -91,8 +98,41 @@ function Label:_applyTheme(t)
     elseif self._cfg.weight == "medium" then font = t.fontMedium or t.font end
     Craft.Theme.applyFont(self._text, font, self._cfg.size or t.fontSize or 12)
 
+    -- Re-measure AFTER applyFont — MANDATORY here (CLAUDE.md bug #4): the Inter
+    -- TTF loads async on the very first boot, so the theme font-probe re-fires
+    -- _applyTheme and this re-measure unfreezes frames sized with wrong metrics.
+    self:_recalcSize()
+
     -- Restore color (handles both initial apply and theme switch)
     self:_restoreColor()
+end
+
+-- ─── Sizing ────────────────────────────────────────────────────────────────
+-- Makes the root frame hug the text (FR-024): width = natural string width
+-- (capped at maxWidth), height = string height. Called from Create, SetText
+-- and _applyTheme (font changes / async font load re-measure).
+function Label:_recalcSize()
+    local text = self._text
+    if not text then return end
+
+    -- Measure the NATURAL width: release any width constraint first — with an
+    -- explicit width set, GetStringWidth reports the truncated ("...") width.
+    text:SetWidth(0)
+    local natural = text:GetStringWidth()
+    self._naturalWidth = natural
+
+    local w = natural
+    if self._cfg.maxWidth and self._cfg.maxWidth < w then
+        w = self._cfg.maxWidth
+    end
+
+    -- Explicit string width when the text must elide (maxWidth) or justify
+    -- (align ~= LEFT) inside the frame. Plain left labels stay auto-sized.
+    if self._cfg.maxWidth or self._cfg.align ~= "LEFT" then
+        text:SetWidth(w)
+    end
+
+    self.frame:SetSize(w, text:GetStringHeight())
 end
 
 -- Applies the base text color: config.color override or t.foreground
@@ -115,6 +155,13 @@ end
 function Label:SetText(text)
     self._cfg.text = text
     self._text:SetText(text)
+    self:_recalcSize()
+end
+
+-- Returns the natural (untruncated) width of the current text in px.
+-- Lets layouts measure the label without touching the private FontString.
+function Label:GetTextWidth()
+    return self._naturalWidth or 0
 end
 
 -- Changes the text color. Pass {r,g,b,a} table or nil to restore inherited color.
