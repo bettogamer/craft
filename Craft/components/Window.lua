@@ -27,9 +27,11 @@ function Window:Create(parent, config)
     self._cfg = {
         title         = config.title or "",
         description   = config.description,
+        header        = config.header ~= false,     -- default true; false = headless (FR-019)
+        strata        = config.strata or "DIALOG",  -- per-window strata (FR-021)
         movable       = config.movable   ~= false,  -- default true
         resizable     = config.resizable ~= false,  -- default true
-        closable      = config.closable  ~= false,  -- default true
+        closable      = config.closable  ~= false,  -- default true (ignored when header=false)
         closeOnEscape = config.closeOnEscape ~= false,
         minWidth      = config.minWidth  or 360,
         minHeight     = config.minHeight or 240,
@@ -45,10 +47,14 @@ function Window:Create(parent, config)
 
     -- ── Root frame ─────────────────────────────────────────────────────────
     self.frame = CreateFrame("Frame", frameName, parent or UIParent)
-    self.frame:SetFrameStrata("DIALOG")
+    self.frame:SetFrameStrata(self._cfg.strata)
     self.frame:SetSize(config.width or 640, config.height or 420)
     self.frame:SetClampedToScreen(true)
     self.frame:EnableMouse(true)   -- block click-through to the game world
+    -- Raise-on-click (FR-021): WoW brings a toplevel frame above its strata
+    -- siblings when it (or any mouse-enabled child) is clicked — standard
+    -- multi-window behaviour, no manual SetFrameLevel juggling between instances.
+    self.frame:SetToplevel(true)
     self.frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 
     if self._cfg.movable then self.frame:SetMovable(true) end
@@ -158,73 +164,75 @@ function Window:Create(parent, config)
     self._ringTex:SetAllPoints(self.frame)
     self._bg = self.frame:CreateTexture(nil, "BACKGROUND", nil, -1)
 
-    -- ── Title bar (drag handle) ─────────────────────────────────────────────
-    self._titleBar = CreateFrame("Frame", nil, self.frame)
-    -- Horizontal anchors (inset by the 1px ring) are (re)set in _applyTheme, which
-    -- knows px1. Initial flush anchors here just give it a rect before the first theme pass.
-    self._titleBar:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
-    self._titleBar:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
-    self._titleBar:EnableMouse(true)
+    -- ── Title bar (drag handle) — not created in headless mode (FR-019) ─────
+    -- With header=false the consumer builds their own header inside GetContent()
+    -- (title/closable are ignored) and wires dragging via EnableDragFrom(region).
+    if self._cfg.header then
+        self._titleBar = CreateFrame("Frame", nil, self.frame)
+        -- Horizontal anchors (inset by the 1px ring) are (re)set in _applyTheme, which
+        -- knows px1. Initial flush anchors here just give it a rect before the first theme pass.
+        self._titleBar:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
+        self._titleBar:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
+        self._titleBar:EnableMouse(true)
 
-    self._titleBarBg  = self._titleBar:CreateTexture(nil, "BACKGROUND")
-    self._titleBarBg:SetAllPoints(self._titleBar)
-    self._titleBarSep = self._titleBar:CreateTexture(nil, "BORDER")
-    self._titleBarSep:SetPoint("BOTTOMLEFT",  self._titleBar, "BOTTOMLEFT",  0, 0)
-    self._titleBarSep:SetPoint("BOTTOMRIGHT", self._titleBar, "BOTTOMRIGHT", 0, 0)
+        self._titleBarBg  = self._titleBar:CreateTexture(nil, "BACKGROUND")
+        self._titleBarBg:SetAllPoints(self._titleBar)
+        self._titleBarSep = self._titleBar:CreateTexture(nil, "BORDER")
+        self._titleBarSep:SetPoint("BOTTOMLEFT",  self._titleBar, "BOTTOMLEFT",  0, 0)
+        self._titleBarSep:SetPoint("BOTTOMRIGHT", self._titleBar, "BOTTOMRIGHT", 0, 0)
 
-    if self._cfg.movable then
-        self._titleBar:SetScript("OnMouseDown", function() self.frame:StartMoving() end)
-        self._titleBar:SetScript("OnMouseUp", function()
-            self.frame:StopMovingOrSizing()
-            if self._cfg.onMoved then
-                self._cfg.onMoved(self, self.frame:GetLeft(), self.frame:GetTop())
-            end
-        end)
-    end
+        self:EnableDragFrom(self._titleBar)   -- no-op unless movable
 
-    -- Title + description
-    self._title = self._titleBar:CreateFontString(nil, "OVERLAY")
-    self._title:SetJustifyH("LEFT")
-    self._title:SetJustifyV("TOP")
-    self._desc = self._titleBar:CreateFontString(nil, "OVERLAY")
-    self._desc:SetJustifyH("LEFT")
-    self._desc:SetJustifyV("TOP")
-    self._desc:SetWordWrap(false)
-    if not self._cfg.description then self._desc:Hide() end
+        -- Title + description
+        self._title = self._titleBar:CreateFontString(nil, "OVERLAY")
+        self._title:SetJustifyH("LEFT")
+        self._title:SetJustifyV("TOP")
+        self._desc = self._titleBar:CreateFontString(nil, "OVERLAY")
+        self._desc:SetJustifyH("LEFT")
+        self._desc:SetJustifyV("TOP")
+        self._desc:SetWordWrap(false)
+        if not self._cfg.description then self._desc:Hide() end
 
-    -- ── Close button (top-right) ────────────────────────────────────────────
-    if self._cfg.closable then
-        self._closeBtn = CreateFrame("Frame", nil, self._titleBar)
-        self._closeBtn:SetSize(CLOSE_SIZE, CLOSE_SIZE)
-        self._closeBtn:SetPoint("TOPRIGHT", self._titleBar, "TOPRIGHT", -12, -12)
-        self._closeBtn:EnableMouse(true)
+        -- ── Close button (top-right) ────────────────────────────────────────
+        if self._cfg.closable then
+            self._closeBtn = CreateFrame("Frame", nil, self._titleBar)
+            self._closeBtn:SetSize(CLOSE_SIZE, CLOSE_SIZE)
+            self._closeBtn:SetPoint("TOPRIGHT", self._titleBar, "TOPRIGHT", -12, -12)
+            self._closeBtn:EnableMouse(true)
 
-        self._closeBg = self._closeBtn:CreateTexture(nil, "BACKGROUND")
-        self._closeBg:SetAllPoints(self._closeBtn)
-        self._closeBg:SetColorTexture(0, 0, 0, 0)
-
-        self._closeIcon = self._closeBtn:CreateTexture(nil, "ARTWORK")
-        self._closeIcon:SetSize(ICON_SIZE, ICON_SIZE)
-        self._closeIcon:SetPoint("CENTER", self._closeBtn, "CENTER")
-        Craft.Icons.Apply(self._closeIcon, "x", ICON_SIZE)
-
-        self._closeBtn:SetScript("OnEnter", function()
-            local t = self._t; if not t then return end
-            self._closeBg:SetColorTexture(t.accent.r, t.accent.g, t.accent.b, 1)
-            self._closeIcon:SetVertexColor(t.foreground.r, t.foreground.g, t.foreground.b)
-        end)
-        self._closeBtn:SetScript("OnLeave", function()
-            local t = self._t; if not t then return end
+            self._closeBg = self._closeBtn:CreateTexture(nil, "BACKGROUND")
+            self._closeBg:SetAllPoints(self._closeBtn)
             self._closeBg:SetColorTexture(0, 0, 0, 0)
-            self._closeIcon:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
-        end)
-        self._closeBtn:SetScript("OnMouseUp", function() self:Close() end)
+
+            self._closeIcon = self._closeBtn:CreateTexture(nil, "ARTWORK")
+            self._closeIcon:SetSize(ICON_SIZE, ICON_SIZE)
+            self._closeIcon:SetPoint("CENTER", self._closeBtn, "CENTER")
+            Craft.Icons.Apply(self._closeIcon, "x", ICON_SIZE)
+
+            self._closeBtn:SetScript("OnEnter", function()
+                local t = self._t; if not t then return end
+                self._closeBg:SetColorTexture(t.accent.r, t.accent.g, t.accent.b, 1)
+                self._closeIcon:SetVertexColor(t.foreground.r, t.foreground.g, t.foreground.b)
+            end)
+            self._closeBtn:SetScript("OnLeave", function()
+                local t = self._t; if not t then return end
+                self._closeBg:SetColorTexture(0, 0, 0, 0)
+                self._closeIcon:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+            end)
+            self._closeBtn:SetScript("OnMouseUp", function() self:Close() end)
+        end
     end
 
     -- ── Content area (dev adds their UI here) ───────────────────────────────
+    -- Headless: anchors to the frame's TOP instead of the title bar; the 1px
+    -- ring insets are (re)applied in _applyTheme (which knows px1).
     self._content = CreateFrame("Frame", nil, self.frame)
-    self._content:SetPoint("TOPLEFT",     self._titleBar, "BOTTOMLEFT",  0, 0)
-    self._content:SetPoint("BOTTOMRIGHT", self.frame,     "BOTTOMRIGHT", 0, 0)
+    if self._titleBar then
+        self._content:SetPoint("TOPLEFT", self._titleBar, "BOTTOMLEFT", 0, 0)
+    else
+        self._content:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 0, 0)
+    end
+    self._content:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
 
     -- ── Resize handle (bottom-right) ────────────────────────────────────────
     if self._cfg.resizable then
@@ -253,8 +261,10 @@ function Window:Create(parent, config)
     -- ── Theme + initial layout ──────────────────────────────────────────────
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
-    self._title:SetText(self._cfg.title)           -- after SetFont
-    if self._cfg.description then self._desc:SetText(self._cfg.description) end
+    if self._title then
+        self._title:SetText(self._cfg.title)       -- after SetFont
+        if self._cfg.description then self._desc:SetText(self._cfg.description) end
+    end
     self:_layout()
 
     self.frame:Hide()  -- created hidden; caller Show()s when ready
@@ -267,6 +277,7 @@ end
 function Window:_layout()
     local t = self._t
     if not t then return end
+    if not self._titleBar then return end   -- headless: content anchors do all the work
     local lg = t.spacingLg   -- 16
     local sm = t.spacingSm   -- 8
     local xs = t.spacingXs   -- 4
@@ -305,21 +316,26 @@ function Window:_applyTheme(t)
     -- Title bar + content sit INSIDE the 1px ring (inset by px1 on the outer edges),
     -- so the header is flush with the body and not 1px wider on each side. Set here —
     -- not in Create — because px1 depends on the frame's effective scale.
-    self._titleBar:ClearAllPoints()
-    self._titleBar:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",   px1, -px1)
-    self._titleBar:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -px1, -px1)
+    if self._titleBar then
+        self._titleBar:ClearAllPoints()
+        self._titleBar:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",   px1, -px1)
+        self._titleBar:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -px1, -px1)
+
+        -- Title bar: slightly lighter than the body for separation; 1px bottom border.
+        self._titleBarBg:SetColorTexture(t.background.r + 0.03, t.background.g + 0.03, t.background.b + 0.03, 1)
+        self._titleBarSep:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
+        Craft.Theme.SetPixelHeight(self._titleBarSep, 1)
+
+        -- Title + description (title font-medium, mirrors Dialog/Panel)
+        Craft.Theme.applyFont(self._title, t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14)
+        self._title:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
+        Craft.Theme.applyFont(self._desc, t.font, t.fontSize or 12)
+        self._desc:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+    else
+        -- Headless (FR-019): content hangs from the frame's TOP, inset by the ring.
+        self._content:SetPoint("TOPLEFT", self.frame, "TOPLEFT", px1, -px1)
+    end
     self._content:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1, px1)
-
-    -- Title bar: slightly lighter than the body for separation; 1px bottom border.
-    self._titleBarBg:SetColorTexture(t.background.r + 0.03, t.background.g + 0.03, t.background.b + 0.03, 1)
-    self._titleBarSep:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
-    Craft.Theme.SetPixelHeight(self._titleBarSep, 1)
-
-    -- Title + description (title font-medium, mirrors Dialog/Panel)
-    Craft.Theme.applyFont(self._title, t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14)
-    self._title:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
-    Craft.Theme.applyFont(self._desc, t.font, t.fontSize or 12)
-    self._desc:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
 
     if self._closeIcon then
         self._closeIcon:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
@@ -334,17 +350,35 @@ end
 -- ─── Public API ──────────────────────────────────────────────────────────────
 function Window:GetFrame()    return self.frame     end
 function Window:GetContent()  return self._content  end
-function Window:GetTitleBar() return self._titleBar end
+function Window:GetTitleBar() return self._titleBar end   -- nil when header=false
 
 function Window:SetTitle(text)
     self._cfg.title = text or ""
-    self._title:SetText(self._cfg.title)
+    if self._title then self._title:SetText(self._cfg.title) end
 end
 
 function Window:SetDescription(text)
     self._cfg.description = text
-    if text then self._desc:SetText(text) end
+    if self._desc and text then self._desc:SetText(text) end
     self:_layout()
+end
+
+-- Registers `region` as a drag handle for the window (FR-019): dragging it moves
+-- the root frame (StartMoving/StopMovingOrSizing) and fires onMoved on release —
+-- exactly the built-in title bar behaviour. Meant for consumer-owned headers in
+-- headless mode, but works with the standard header too (the title bar itself is
+-- wired through this). Overwrites the region's OnMouseDown/OnMouseUp scripts.
+-- No-op if the window is not movable or `region` is nil.
+function Window:EnableDragFrom(region)
+    if not region or not self._cfg.movable then return end
+    region:EnableMouse(true)
+    region:SetScript("OnMouseDown", function() self.frame:StartMoving() end)
+    region:SetScript("OnMouseUp", function()
+        self.frame:StopMovingOrSizing()
+        if self._cfg.onMoved then
+            self._cfg.onMoved(self, self.frame:GetLeft(), self.frame:GetTop())
+        end
+    end)
 end
 
 function Window:Center()

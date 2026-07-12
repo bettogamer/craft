@@ -71,10 +71,12 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
 |---|---|---|---|
 | `title` | string | `""` | Título en el title bar |
 | `description` | string | nil | Subtítulo bajo el título |
+| `header` | boolean | true | Muestra el title bar; con `false` (headless) el dev proporciona su propio header |
+| `strata` | string | `"DIALOG"` | Estrato WoW del frame (`SetFrameStrata`); e.g. `"DIALOG"`, `"FULLSCREEN"` |
 | `width` / `height` | number | 640 / 420 | Tamaño inicial |
 | `minWidth` / `minHeight` | number | 360 / 240 | Límite mínimo de resize |
 | `maxWidth` / `maxHeight` | number | nil | Límite máximo (opcional) |
-| `movable` | boolean | true | Permite arrastrar por el title bar |
+| `movable` | boolean | true | Permite arrastrar (por el title bar o por región registrada con `EnableDragFrom`) |
 | `resizable` | boolean | true | Muestra el handle de resize |
 | `closable` | boolean | true | Muestra el botón "x" |
 | `closeOnEscape` | boolean | true | Escape cierra la ventana (`UISpecialFrames`) |
@@ -88,11 +90,12 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
 |---|---|
 | `GetFrame()` | Frame raíz |
 | `GetContent()` | Frame de contenido — el dev añade aquí su UI |
-| `GetTitleBar()` | Frame del title bar |
+| `GetTitleBar()` | Frame del title bar (devuelve nil si `header = false`) |
 | `SetTitle(text)` / `SetDescription(text)` | Actualizan el título / descripción |
 | `Show()` / `Hide()` / `Toggle()` / `IsShown()` | Visibilidad |
 | `Close()` | Dispara `onClose` y oculta (igual que el botón "x") |
 | `Center()` | Re-centra en la pantalla |
+| `EnableDragFrom(region)` | Registra la región como drag handle (StartMoving/StopMovingOrSizing en el frame raíz; dispara `onMoved` al soltar). No-op si `movable = false` o region nil. Sobrescribe los scripts OnMouseDown/OnLeave de la región. |
 
 ## Notas de implementación
 
