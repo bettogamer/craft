@@ -4,6 +4,15 @@ Todos los cambios notables de Craft se documentan aquí.
 Formato: [Keep a Changelog](https://keepachangelog.com/es/1.0.0/)
 Versioning: [SemVer](https://semver.org/lang/es/)
 
+## [Unreleased]
+
+### Added
+- **Iconos `layout-grid` y `list`** (FR-022, Coffer): toggle de modo de vista grid/list. El atlas creció de 512×512 (8×8, 64 slots — estaba lleno) a **512×1024** (8×16, 128 slots): crecer hacia abajo mantiene CPR=8, así que las coordenadas de los iconos existentes no cambian; `Icons.lua` pasa a divisores UV por eje (`_div` columnas / `_rows` filas del `Atlas.lua` autogenerado).
+- **`Craft.Label` — `align = "LEFT"|"CENTER"|"RIGHT"`** (FR-024): `SetJustifyH` con ancla única + ancho explícito del string (nunca doble ancla horizontal — bug conocido #2). Nuevo método **`GetTextWidth()`**: ancho natural del texto sin exponer el FontString privado.
+
+### Fixed
+- **`Craft.Label` — el frame raíz quedaba 0×0** (FR-024): ahora abraza al texto (`_recalcSize`: ancho = min(natural, `maxWidth`), alto = string height) en `Create`, `SetText` y DENTRO de `_applyTheme` (patrón `_recalcWidth` de Button — obligatorio por la carga async de Inter en el primer arranque, bug conocido #4). Arregla `SetPoint("CENTER")`/anclas a `GetRight()` sobre Labels y el colapso a 0px de un Label con `basis="auto"` dentro de `Craft.Flex`. Tests nuevos: 6 en `tests/label_spec.lua`.
+
 ## [2.5.0] - 2026-07-12
 
 > **Release v2.5.0 — Window headless + multi-window, tooltips y fix Checkbox (Coffer).** Añade el modo
