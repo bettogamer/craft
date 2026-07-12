@@ -133,6 +133,7 @@ function Checkbox:Create(parent, config)
     self:_applyTheme(Craft.Theme.get())
     if self._cfg.label and self._cfg.label ~= "" then
         self._label:SetText(self._cfg.label)  -- after SetFont in _applyTheme
+        self:_recalcWidth()                   -- recalc now that text is set (GetStringWidth was 0 before)
     end
 
     -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
