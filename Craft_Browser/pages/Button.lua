@@ -65,21 +65,22 @@ CraftBrowserPages["Button"] = {
         y = addRow(withIcon, y)
         y = y + 8
 
-        -- Icon only
-        y = addLabel("Icon only", y)
+        -- Icon only (tooltip on hover, FR-020)
+        y = addLabel("Icon only — hover for tooltip", y)
         local iconOnly = {
-            Craft.Button:Create(parent, { icon="settings", size="icon-xs" }),
-            Craft.Button:Create(parent, { icon="settings", size="icon-sm" }),
-            Craft.Button:Create(parent, { icon="settings", size="icon"    }),
-            Craft.Button:Create(parent, { icon="settings", size="icon-lg" }),
+            Craft.Button:Create(parent, { icon="settings", size="icon-xs", tooltip="Settings (icon-xs)" }),
+            Craft.Button:Create(parent, { icon="settings", size="icon-sm", tooltip="Settings (icon-sm)" }),
+            Craft.Button:Create(parent, { icon="settings", size="icon",    tooltip="Settings (icon)"    }),
+            Craft.Button:Create(parent, { icon="settings", size="icon-lg", tooltip="Settings (icon-lg)" }),
         }
         y = addRow(iconOnly, y)
         y = y + 8
 
-        -- Disabled
-        y = addLabel("Disabled", y)
+        -- Disabled (tooltip still shows on the first one, FR-020)
+        y = addLabel("Disabled — first one keeps its tooltip", y)
         local disabled = {
-            Craft.Button:Create(parent, { text="Default",   variant="default",   disabled=true }),
+            Craft.Button:Create(parent, { text="Default",   variant="default",   disabled=true,
+                                          tooltip="Disabled, but the tooltip still works" }),
             Craft.Button:Create(parent, { text="Outline",   variant="outline",   disabled=true }),
             Craft.Button:Create(parent, { text="Secondary", variant="secondary", disabled=true }),
         }

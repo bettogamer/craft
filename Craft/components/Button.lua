@@ -48,6 +48,7 @@ function Button:Create(parent, config)
         icon         = config.icon,                    -- Lucide name or nil
         iconPosition = config.iconPosition or "left",  -- "left" | "right"
         onClick      = config.onClick,
+        tooltip      = config.tooltip,                 -- string or nil (FR-020)
     }
 
     -- Root frame (WoW Button — has native OnClick)
@@ -118,6 +119,15 @@ function Button:Create(parent, config)
             self._cfg.onClick(self)
         end
     end)
+
+    -- Tooltip (FR-020): optional hover label — the idiom for icon-only buttons.
+    -- Attached AFTER the SetScript block above: Tooltip.Attach hooks OnEnter/OnLeave
+    -- via HookScript, and a later SetScript would wipe the hook. The hook fires even
+    -- while disabled (our handlers early-return; the hook doesn't) — intentional,
+    -- the tooltip explains a greyed-out button. See SetEnabled for the mouse policy.
+    if self._cfg.tooltip then
+        Craft.Tooltip.Attach(self.frame, { text = self._cfg.tooltip })
+    end
 
     if self._cfg.disabled then
         self:SetEnabled(false)
@@ -385,7 +395,10 @@ function Button:SetEnabled(enabled)
     else
         -- disabled:opacity-50 (button.md)
         self.frame:SetAlpha(0.5)
-        self.frame:EnableMouse(false)
+        -- FR-020: keep the mouse ON when a tooltip is configured so hover can still
+        -- explain the greyed-out button; clicks and hover states stay ignored via
+        -- the disabled guards in OnClick/_onEnter/_onLeave.
+        self.frame:EnableMouse(self._cfg.tooltip ~= nil)
     end
 end
 
@@ -411,6 +424,9 @@ end
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Button:Destroy()
     if not self.frame then return end
+    if self._cfg.tooltip then
+        Craft.Tooltip.Detach(self.frame)       -- FR-020: cancels any pending delayed show
+    end
     Craft.Reactive.disposeAll(self)            -- cut the hover tween + effect (ghost updates)
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()

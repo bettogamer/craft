@@ -29,6 +29,7 @@ dofile("Craft/theme/Theme.lua")
 dofile("Craft/icons/Atlas.lua")
 dofile("Craft/icons/Icons.lua")
 dofile("Craft/components/Button.lua")
+dofile("Craft/components/Tooltip.lua")  -- FR-020: config.tooltip attaches Craft.Tooltip
 
 local Craft = LibStub("Craft-2.0")
 
@@ -314,6 +315,63 @@ describe("Craft.Button", function()
             assert.has_no_errors(function()
                 btn:GetFrame():_fire("OnMouseUp")
             end)
+        end)
+    end)
+
+    -- ── Tooltip (FR-020) ──────────────────────────────────────────────────
+
+    describe("tooltip (FR-020)", function()
+        -- The Tooltip singleton is a named child of UIParent (the mock does not
+        -- register frame names in _G, so we look it up by _name).
+        local function tooltipFrame()
+            for _, child in ipairs(UIParent._children) do
+                if child._name == "CraftTooltipFrame" then return child end
+            end
+        end
+
+        it("without config.tooltip hover never creates the tooltip singleton", function()
+            local btn = newBtn({ size="icon", icon="check" })
+            btn:GetFrame():_fire("OnEnter")
+            C_Timer._flush()
+            assert.is_nil(tooltipFrame())
+            btn:GetFrame():_fire("OnLeave")
+        end)
+
+        it("config.tooltip shows the tooltip after the hover delay", function()
+            local btn = newBtn({ size="icon", icon="check", tooltip="Banco" })
+            btn:GetFrame():_fire("OnEnter")
+            C_Timer._flush()                       -- fires the 300ms delayed show
+            local tt = tooltipFrame()
+            assert.is_not_nil(tt)
+            assert.is_true(tt:IsShown())
+            assert.equals("Banco", tt._text:GetText())
+            btn:GetFrame():_fire("OnLeave")
+        end)
+
+        it("disabled + tooltip keeps the mouse enabled and still shows the tooltip", function()
+            local btn = newBtn({ size="icon", icon="check", tooltip="Gris", disabled=true })
+            assert.is_true(btn:GetFrame():IsMouseEnabled())
+            btn:GetFrame():_fire("OnEnter")
+            C_Timer._flush()
+            assert.equals("Gris", tooltipFrame()._text:GetText())
+            btn:GetFrame():_fire("OnLeave")
+        end)
+
+        it("disabled + tooltip still ignores clicks", function()
+            local called = false
+            local btn = newBtn({ tooltip="T", disabled=true, onClick=function() called = true end })
+            btn:GetFrame():_fire("OnClick")
+            assert.is_false(called)
+        end)
+
+        it("disabled WITHOUT tooltip keeps the mouse disabled (no behavior change)", function()
+            local btn = newBtn({ disabled=true })
+            assert.is_false(btn:GetFrame():IsMouseEnabled())
+        end)
+
+        it("Destroy() detaches the tooltip without error", function()
+            local btn = newBtn({ tooltip="Bye" })
+            assert.has_no_errors(function() btn:Destroy() end)
         end)
     end)
 

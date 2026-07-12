@@ -165,6 +165,7 @@ inset 1px (padding-box). El borde se vuelve visible en `outline` (`dark:border-i
 | `disabled` | boolean | `false` | `SetAlpha(0.5)` + `EnableMouse(false)`. |
 | `icon` | string | `nil` | Nombre ícono Lucide. Activa padding reducido (`has-data-[icon]`). |
 | `iconPosition` | string | `"left"` | `"left"` (`inline-start`) o `"right"` (`inline-end`). |
+| `tooltip` | string | `nil` | Tooltip de `Craft.Tooltip` mostrado en hover. Visible aun si el botón está disabled. |
 | `onClick` | function | `nil` | `function(self)` en OnClick. |
 
 ---

@@ -156,6 +156,32 @@ function ToggleGroup:_makeSegment(initialOn)
     return seg
 end
 
+-- ─── Segment tooltip (FR-020) ─────────────────────────────────────────────────
+-- Syncs Craft.Tooltip on a pooled segment from seg.tooltip. Attach hooks
+-- OnEnter/OnLeave via HookScript, so it must run AFTER _makeSegment's SetScripts
+-- (a later SetScript would wipe the hook) — _buildItems guarantees that order.
+-- The config TABLE is created once per slot and MUTATED on rebuilds: Tooltip reads
+-- config.text at show time, so a reused slot that changes its tooltip needs no
+-- re-Attach (re-attaching stacks hook closures — WoW can't unhook). Detach gates
+-- a slot whose current option has no tooltip; a later re-Attach reuses the same
+-- table, so any stale hook closure fires with identical config (harmless).
+-- The hook also fires while disabled (our OnEnter guard returns early; the hook
+-- doesn't) — intentional: the tooltip explains a greyed-out segment. See
+-- SetEnabled/_buildItems for the matching mouse policy.
+function ToggleGroup:_applySegTooltip(seg)
+    if seg.tooltip then
+        if not seg._ttCfg then seg._ttCfg = {} end
+        seg._ttCfg.text = seg.tooltip
+        if not seg._ttOn then
+            Craft.Tooltip.Attach(seg.btn, seg._ttCfg)
+            seg._ttOn = true
+        end
+    elseif seg._ttOn then
+        Craft.Tooltip.Detach(seg.btn)
+        seg._ttOn = false
+    end
+end
+
 -- ─── _buildItems ──────────────────────────────────────────────────────────────
 -- Re-renders segments from self._cfg.options, REUSING frames by index (WoW frames
 -- can't be destroyed). Surplus segments are hidden and kept in the pool. Widths
@@ -171,6 +197,11 @@ function ToggleGroup:_buildItems()
         seg.value = opt.value
         seg.label = opt.label or ""
         seg.icon  = opt.icon
+        seg.tooltip = opt.tooltip                     -- optional hover label (FR-020)
+        self:_applySegTooltip(seg)
+        -- FR-020 mouse policy (mirror of SetEnabled): a rebuild while disabled must
+        -- keep the mouse ON only for segments that have a tooltip to show.
+        seg.btn:EnableMouse(not self._cfg.disabled or seg.tooltip ~= nil)
         seg.btn:Show()
     end
 
@@ -180,6 +211,8 @@ function ToggleGroup:_buildItems()
     for i = #opts + 1, #self._segs do
         local seg = self._segs[i]
         seg.value = nil
+        seg.tooltip = nil
+        self:_applySegTooltip(seg)   -- detach: a pooled slot must not keep a stale tooltip
         seg.onSig:set(false)
         seg.hoverSig:set(false)
         seg.btn:Hide()
@@ -321,7 +354,10 @@ function ToggleGroup:SetEnabled(enabled)
     self._cfg.disabled = not enabled
     self.frame:SetAlpha(enabled and 1 or 0.5)
     for _, seg in ipairs(self._segs) do
-        seg.btn:EnableMouse(enabled)
+        -- FR-020: a segment with tooltip keeps the mouse ON while disabled so the
+        -- hover hook can still explain it; clicks and hover fills stay ignored via
+        -- the disabled guards in OnClick/_hover.
+        seg.btn:EnableMouse(enabled or seg.tooltip ~= nil)
     end
     if self._t then self:_applyTheme(self._t) end
 end
@@ -333,6 +369,9 @@ end
 -- ─── Destructor ───────────────────────────────────────────────────────────────
 function ToggleGroup:Destroy()
     if not self.frame then return end
+    for _, seg in ipairs(self._segs) do
+        if seg._ttOn then Craft.Tooltip.Detach(seg.btn) end  -- FR-020: cancels pending shows
+    end
     Craft.Reactive.disposeAll(self)
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()

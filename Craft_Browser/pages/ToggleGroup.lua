@@ -35,13 +35,13 @@ CraftBrowserPages["ToggleGroup"] = {
         table.insert(comps, sc)
         y = y + 32 + 16
 
-        -- With icons
-        y = addLabel("With icons.", y)
+        -- With icons + per-segment tooltips (FR-020)
+        y = addLabel("With icons — hover a segment for its tooltip.", y)
         local sc2 = Craft.ToggleGroup:Create(parent, {
             value = "list",
             options = {
-                { value = "list",  label = "Lista", icon = "layers" },
-                { value = "grid",  label = "Grid",  icon = "image" },
+                { value = "list",  label = "Lista", icon = "layers", tooltip = "Ver como lista" },
+                { value = "grid",  label = "Grid",  icon = "image",  tooltip = "Ver como cuadrícula" },
             },
         })
         sc2:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(y + 4))

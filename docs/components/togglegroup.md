@@ -57,7 +57,7 @@ togglegroup.frame            (Frame — h-8, w-fit; ancho = Σ segmentos + gaps)
 
 | Clave | Tipo | Default | Descripción |
 |---|---|---|---|
-| `options` | table | `{}` | Lista de `{ value, label, icon? }` |
+| `options` | table | `{}` | Lista de `{ value, label, icon?, tooltip? }` |
 | `value` | any | nil | Valor seleccionado inicial |
 | `disabled` | boolean | false | Deshabilita el control |
 | `onChange` | function | nil | `fn(value)` al seleccionar |
@@ -86,5 +86,6 @@ togglegroup.frame            (Frame — h-8, w-fit; ancho = Σ segmentos + gaps)
   `t.foreground` siempre (los botones on/off solo difieren en `data-state`).
 - **font-medium** → `t.fontBold` (Craft solo trae Regular + Bold).
 - **Iconos** opcionales por segmento (`icon = "<lucide>"`), tintados al color del texto.
+- **Tooltips** opcionales por segmento (`tooltip = "texto"`); muestran `Craft.Tooltip` en hover, incluso si el segmento está disabled.
 - **Selección múltiple** y la variante **conectada** (`spacing=0`, bordes compartidos) del
   ToggleGroup no se implementan (sin caso de uso en Sentry); añadir si se necesitan.
