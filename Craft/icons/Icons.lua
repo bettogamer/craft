@@ -14,12 +14,17 @@ if not I or I._buildOwner ~= _BUILD then return end
 -- in a host addon's libs/ (AGENTS.md § Craft.mediaPath). Never hardcode media paths.
 local PATH = Craft.mediaPath .. "lucide.tga"
 
--- Single supersampled atlas: 512×512, _div×_div grid of 64px cells (set in Atlas.lua).
--- Icons are stored at high resolution and downscaled by WoW at display time, so they
--- stay crisp at any UIScale. A half-texel inset keeps bilinear filtering from sampling
--- the cell boundary (the 4px transparent gutter already separates neighbours).
-local DIV   = I._div or 8
-local INSET = 0.5 / 512
+-- Single supersampled atlas: 512×1024 (non-square — power-of-two per side), grid of
+-- _div columns × _rows rows of 64px cells (set in Atlas.lua; grew from 512×512 in
+-- FR-022 when the 64 slots filled up). Icons are stored at high resolution and
+-- downscaled by WoW at display time, so they stay crisp at any UIScale. A half-texel
+-- inset keeps bilinear filtering from sampling the cell boundary (the 4px transparent
+-- gutter already separates neighbours). UV divisors and insets are per-axis because
+-- the atlas is taller than it is wide.
+local DIVX   = I._div  or 8
+local DIVY   = I._rows or DIVX
+local INSETX = 0.5 / (DIVX * 64)  -- 64 = cell size in px → DIV*64 = texture size
+local INSETY = 0.5 / (DIVY * 64)
 
 -- ─── Get() ─────────────────────────────────────────────────────────────────
 -- Returns the texture descriptor for the icon, or nil if not found in the atlas.
@@ -37,10 +42,10 @@ function I.Get(name, size)
     return {
         path   = PATH,
         size   = size,
-        left   = col       / DIV + INSET,
-        right  = (col + 1) / DIV - INSET,
-        top    = row       / DIV + INSET,
-        bottom = (row + 1) / DIV - INSET,
+        left   = col       / DIVX + INSETX,
+        right  = (col + 1) / DIVX - INSETX,
+        top    = row       / DIVY + INSETY,
+        bottom = (row + 1) / DIVY - INSETY,
     }
 end
 
