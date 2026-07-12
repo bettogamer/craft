@@ -4,7 +4,21 @@ Todos los cambios notables de Craft se documentan aquí.
 Formato: [Keep a Changelog](https://keepachangelog.com/es/1.0.0/)
 Versioning: [SemVer](https://semver.org/lang/es/)
 
-## [Unreleased]
+## [2.5.0] - 2026-07-12
+
+> **Release v2.5.0 — Window headless + multi-window, tooltips y fix Checkbox (Coffer).** Añade el modo
+> **headless** de `Craft.Window` (`header=false` + `EnableDragFrom`, FR-019), **multi-window con
+> raise-on-click** (`SetToplevel` + `strata`, FR-021), **tooltips** en `Button` y `ToggleGroup` (FR-020)
+> y el fix de ancho del `Checkbox` con label estático (FR-018). MINOR, retrocompatible (key sigue
+> `Craft-2.0`). `CRAFT_BUILD` 5→6.
+
+### Added
+- **`Craft.Window` — modo headless sin titleBar** (FR-019): nueva key config `header` (boolean, default `true`). Con `header = false`, el titleBar no se crea y `_content` ancla al TOP del frame; `title`/`closable`/`description` se ignoran; `GetTitleBar()` devuelve nil. Nuevo método `Window:EnableDragFrom(region)` registra regiones como drag handles alternativos (implementa StartMoving/StopMovingOrSizing en el frame raíz + dispara `onMoved` al soltar, idéntico al titleBar de serie). Permite headers propios del consumidor (Coffer, ADR-0004).
+- **`Craft.Window` — multi-window con raise-on-click** (FR-021): `SetToplevel(true)` en frame raíz → raise-on-click nativo de WoW entre ventanas de la misma strata. Nueva key config `strata` (string, default `"DIALOG"`) → `SetFrameStrata`; permite multi-window en estratos distintos sin competencia visual.
+- **Tooltips en Button y ToggleGroup** (FR-020): config `tooltip` (string, opcional) en `Button:Create`; por segmento en `ToggleGroup` (e.g. `{ id, icon, tooltip = "Banco" }`). Muestra `Craft.Tooltip` on hover anclado al botón/segmento. Tooltip visible aun con el botón/segmento disabled (explica por qué está gris). Tests nuevos: 6 en `tests/button_spec.lua` + `tests/togglegroup_spec.lua` NUEVO (9 tests). Suite total: 198 tests passed.
+
+### Fixed
+- **`Craft.Checkbox` — ancho incorrecto con label estático** (FR-018): el frame quedaba sin contar el ancho del label (`BOX_SIZE + GAP` sin `labelW`) porque `_recalcWidth()` corría antes del `SetText` inicial en `Create` y nunca se re-llamaba en el path estático (solo el reactivo vía `SetLabel` recalculaba). Fix: una línea en `Checkbox.lua:136` — `self:_recalcWidth()` tras `SetText` inicial (mismo patrón que `Button`).
 
 ## [2.4.0] - 2026-07-10
 
