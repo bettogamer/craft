@@ -78,6 +78,7 @@ Las variantes `heading`, `caption`, `muted` del spec anterior **no existen en el
 | `text`     | string   | `""`     | Texto a mostrar.                                                                          |
 | `color`    | table    | `nil`    | Color RGBA explícito `{r,g,b,a}`. Si nil, hereda el color del contexto.                  |
 | `maxWidth` | number   | `nil`    | Ancho máximo en px. Si el texto supera este ancho, se trunca con "..." al final.          |
+| `align`    | string   | `"LEFT"` | Justificado horizontal: `"LEFT"`\|`"CENTER"`\|`"RIGHT"`. Solo tiene efecto visible con `maxWidth` (caja más ancha que el texto) o texto multilínea; sin `maxWidth` NO constriñe el string (FR-025). |
 | `onClick`  | function | `nil`    | Callback `function(self)`. Activa cursor hand en hover y color `t.primary` en hover.     |
 | `weight`   | string   | `nil`    | Peso de fuente: `"normal"` (default), `"medium"` (`t.fontMedium`), `"bold"` (`t.fontBold`). Resuelto DENTRO de `_applyTheme` → sobrevive a cambios de tema. |
 | `size`     | number   | `nil`    | Tamaño en px. Default = `t.fontSize` (12). Persiste igual que `weight`.                    |
@@ -104,6 +105,8 @@ Las variantes `heading`, `caption`, `muted` del spec anterior **no existen en el
 **Truncado con maxWidth**: Configurar `_text:SetWidth(config.maxWidth)` y `_text:SetWordWrap(false)`. WoW truncará el texto automáticamente con "..." cuando supere el ancho. Importante: `SetNonSpaceWrap(false)` evita que palabras largas sin espacios rompan el truncado.
 
 **Cursor hand en onClick**: En `OnEnter`, llamar `SetCursor("Interface\\CURSOR\\Point")`. En `OnLeave`, llamar `SetCursor(nil)`. Simultáneamente cambiar `_text:SetTextColor(t.primary.r, t.primary.g, t.primary.b)` en `OnEnter` y restaurar el color original en `OnLeave`.
+
+**`align` no constriñe el ancho (FR-025)**: `SetJustifyH` se aplica una vez en `Create`; `_recalcSize` solo hace `SetWidth` explícito cuando hay `maxWidth`. Pinear el string a su propio ancho medido por `align ~= "LEFT"` (comportamiento anterior) no aportaba nada visual y, con `WordWrap` activo, hacía que texturas embebidas `|T..|t` (`GetMoneyString`) saltaran a una segunda línea por redondeo sub-píxel. Para alinear un Label por la derecha sin `maxWidth`, basta anclar el frame por su punto `RIGHT` (el frame abraza el ancho natural).
 
 **Sin focus ring en WoW**: WoW es mouse-only. No implementar el frame `_ring` en el Label.
 

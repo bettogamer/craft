@@ -39,8 +39,9 @@ function Label:Create(parent, config)
         self._text:SetNonSpaceWrap(false)
     end
 
-    -- align: justify within the FontString width. Effective when the string has
-    -- an explicit width (maxWidth, or align ~= LEFT — see _recalcSize).
+    -- align: justify within the FontString rect. Only visible when a box wider
+    -- than the natural text exists (maxWidth) or the string is multi-line —
+    -- never constrain the width just because of align (FR-025).
     self._text:SetJustifyH(self._cfg.align)
 
     -- SINGLE anchor only (TOPLEFT) — never add a second horizontal anchor here:
@@ -126,9 +127,13 @@ function Label:_recalcSize()
         w = self._cfg.maxWidth
     end
 
-    -- Explicit string width when the text must elide (maxWidth) or justify
-    -- (align ~= LEFT) inside the frame. Plain left labels stay auto-sized.
-    if self._cfg.maxWidth or self._cfg.align ~= "LEFT" then
+    -- Explicit string width ONLY when the text must elide (maxWidth). With no
+    -- maxWidth the frame already hugs the natural width, so justifying inside a
+    -- same-width box changes nothing visually — and pinning the width with
+    -- WordWrap still on made embedded |T..|t textures (GetMoneyString) wrap to
+    -- a second line by sub-pixel rounding (FR-025). align ~= LEFT alone must
+    -- NOT constrain the string.
+    if self._cfg.maxWidth then
         text:SetWidth(w)
     end
 

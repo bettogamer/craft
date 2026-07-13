@@ -89,10 +89,22 @@ describe("Craft.Label", function()
         assert.equals(#"Hi" * 7, lbl.frame:GetWidth())
     end)
 
-    it("align ~= LEFT fija ancho explícito del string (justify efectivo)", function()
+    -- Regresión FR-025: align ~= LEFT sin maxWidth pineaba el string a su propio
+    -- ancho medido con WordWrap aún activo → texturas |T..|t embebidas
+    -- (GetMoneyString) saltaban a una segunda línea por redondeo sub-píxel.
+    it("align ~= LEFT sin maxWidth NO fija ancho del string (FR-025)", function()
         Craft.Theme.use("lyra-dark")
         local lbl = Craft.Label:Create(UIParent, { text = "Hi", align = "CENTER" })
-        assert.equals(lbl.frame:GetWidth(), lbl._text:GetWidth())
+        assert.equals(0, lbl._text:GetWidth())               -- sin constraint
+        assert.equals(#"Hi" * 7, lbl.frame:GetWidth())       -- frame abraza igual
+    end)
+
+    it("align + maxWidth sí fija el ancho del string (justify efectivo)", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Texto muy largo",
+                                                   align = "RIGHT", maxWidth = 40 })
+        assert.equals(40, lbl._text:GetWidth())
+        assert.equals(40, lbl.frame:GetWidth())
     end)
 
     it("label plano (LEFT, sin maxWidth) no fija ancho del string (auto-size)", function()
