@@ -4,6 +4,23 @@ Todos los cambios notables de Craft se documentan aquí.
 Formato: [Keep a Changelog](https://keepachangelog.com/es/1.0.0/)
 Versioning: [SemVer](https://semver.org/lang/es/)
 
+## [2.7.0] - 2026-07-13
+
+> **Release v2.7.0 — Popover + Combobox + Badge + fix Label align (FR-025..028, Coffer).**
+> Tres componentes NUEVOS shadcn (`Craft.Popover`, `Craft.Combobox`, `Craft.Badge` — Badge
+> cierra el último gap de la lista MVP del DTI) y el fix del `align` sin `maxWidth` de Label.
+> El drag entre contenedores de FR-026 queda para un FR aparte. Verificado in-game (12.0.x).
+> MINOR, retrocompatible (key sigue `Craft-2.0`). `CRAFT_BUILD` 7→8. Suite: 283 tests.
+
+### Added
+- **`Craft.Popover` — componente NUEVO** (FR-028, Coffer): contenedor flotante anclado genérico (shadcn Popover) — panel no-modal anclado a un trigger, contenido arbitrario vía `GetContent()` (contrato Window), cierre por click-fuera (catcher fullscreen) y Esc (`UISpecialFrames` + reconcile OnHide), fade+zoom+slide sobre un solo progreso (paridad shadcn v4), compensación de escala y `SetClampedToScreen` — extrae la infra flotante de Menu/Select. Config: `{ anchor?, side (bottom), align (center), offset (4), width (288 = w-72), height? (nil = auto del content), padding (16 = p-4; 0 = "p-0"), open (signal two-way ADR-0013), onOpen?, onClose? }`; API: `Open(anchor?)`, `Close`, `Toggle`, `IsOpen`, `GetContent`, `Relayout`, `SetWidth`, `GetFrame`, `Destroy`. `Create(config)` sin `parent` (como Menu: el panel vive en UIParent/TOOLTIP). Spec: `docs/components/popover.md`. Tests: 19 en `tests/popover_spec.lua` NUEVO.
+- **`Craft.Combobox` — componente NUEVO** (FR-027, Coffer): selector con búsqueda tipeada para listas largas/variables (shadcn Combobox = Popover + Command; `Select` sigue siendo el dropdown corto). Trigger estilo Select; panel = `Craft.Popover` (`padding=0`, ancho = trigger con floor 144); search EditBox h-9 con icono + separador 1px (CommandInput); lista pooled filtrada en vivo (match case-insensitive en `label` + `keywords` string/array), grupos opcionales `{ group=, items= }` (un grupo aparece si ≥1 hijo matchea); empty state `emptyText`; highlight ÚNICO hover+teclado (↑/↓ con wrap y auto-scroll, Enter selecciona, Esc cierra); rueda de mouse. Config: `{ options (signal one-way), value (signal two-way), placeholder, searchPlaceholder, emptyText, size (default/sm), width?, disabled (signal), onSelect(value, label) }`. `SetValue` programático NO dispara `onSelect`. Spec: `docs/components/combobox.md`. Tests: 22 en `tests/combobox_spec.lua` NUEVO.
+- **`Craft.Badge` — componente NUEVO** (FR-026 sin drag, Coffer): etiqueta compacta desde `.cn-badge` de Lyra (h-5 20px, rounded-none, `text-xs font-medium` → `t.fontMedium`, px-2 / p·-1.5 en el lado con icono, icono 12px) con variants `default|secondary|outline|destructive` (destructive = TINTE `destructive/20` + texto destructive, como Button) + roles chip (extensión Craft): `removable` (✕ 12px con hit-area propia, `onRemove(self)` — no se auto-destruye, el caller posee el layout) y `selectable` (`selected` signal two-way ADR-0013, `onSelectedChange(sel, self)` solo en clicks; fill selected = `t.muted`, paridad Toggle pressed). SIN `size` (no existe en Lyra) y SIN drag (FR aparte). Spec: `docs/components/badge.md`. Tests: 18 en `tests/badge_spec.lua` NUEVO. Badge era el último componente de la lista MVP del DTI sin implementar.
+- **Craft_Browser**: páginas nuevas **Badge** (Display), **Combobox** (Form Controls) y **Popover** (Navigation) — variants/chips exclusivos/two-way, listas planas+agrupadas con keywords, sides/aligns y señal `open` two-way.
+
+### Fixed
+- **`Craft.Label` — `align ~= "LEFT"` sin `maxWidth` rompía texto con texturas embebidas** (FR-025, Coffer): `_recalcSize` pineaba el string a su propio ancho medido con `WordWrap` aún activo, y las texturas `|T..|t` (`GetMoneyString`) saltaban a una segunda línea por redondeo sub-píxel (el icono de cobre solo, abajo). Ahora `SetWidth` explícito SOLO con `maxWidth` — `align` sin `maxWidth` no constriñe (justificar en una caja del mismo ancho que el contenido no cambia nada visual). Para alinear a la derecha sin `maxWidth`: anclar el frame por su punto `RIGHT`. Tests de regresión: 2 en `tests/label_spec.lua`.
+
 ## [2.6.0] - 2026-07-12
 
 > **Release v2.6.0 — Toggle + Label natural size + iconos grid/list (Coffer).** Añade el
