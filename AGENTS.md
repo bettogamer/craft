@@ -357,6 +357,19 @@ componentes re-ejecutan `_applyTheme`, que DEBE re-medir: `_recalcWidth`/`_layou
 usan `Craft.Theme.onFontsReady(fn)` para re-renderizar (ver Craft_Browser). REGLA para
 componentes nuevos con auto-ancho: la re-medición debe vivir DENTRO de `_applyTheme`.
 
+**Centrar texto verticalmente: ANCLA ÚNICA (LEFT/CENTER), nunca TOP+BOTTOM + `SetJustifyV`**
+Un FontString anclado TOP+BOTTOM con `SetJustifyV("MIDDLE")` renderiza Inter ópticamente
+descentrado dentro de la caja (el line-box incluye ascent/descent completos). El patrón
+verificado in-game es ancla única — `SetPoint("LEFT", ...)` o `SetPoint("CENTER", ...)` —
+que centra verticalmente en el punto de ancla (Toggle, Menu, Badge). _Visto en Badge (FR-026)._
+
+**ScrollFrame: el scroll child necesita ANCHO explícito**
+Las filas ancladas TOPLEFT/TOPRIGHT a un scroll child sin `SetWidth` quedan de 0-1px
+(invisibles) in-game — el child de un ScrollFrame no hereda ancho por anclas. Siempre
+`scrollChild:SetWidth(...)` derivado del panel (Select `_updatePanelSize`, Combobox
+`_buildRows`). El mock no lo detecta: verificar in-game toda lista nueva. _Visto en
+Combobox (FR-027)._
+
 **`frame:EnableMouse(true)` es obligatorio para bloquear eventos**
 Un frame con fondo visible NO bloquea clics/hover por defecto. Sin `EnableMouse(true)`, los eventos pasan al juego debajo. Aplicar en el frame raíz de cualquier ventana o panel que actúe como superficie interactiva.
 
