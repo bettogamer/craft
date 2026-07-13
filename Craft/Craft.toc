@@ -61,6 +61,7 @@ components\Sidebar.lua
 components\Slider.lua
 components\Scroll.lua
 components\Section.lua
+components\Toggle.lua
 components\ToggleGroup.lua
 components\Tabs.lua
 components\Tooltip.lua

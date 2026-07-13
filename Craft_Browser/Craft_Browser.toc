@@ -62,6 +62,7 @@ libs\Craft\components\Select.lua
 libs\Craft\components\Menu.lua
 libs\Craft\components\Separator.lua
 libs\Craft\components\Section.lua
+libs\Craft\components\Toggle.lua
 libs\Craft\components\ToggleGroup.lua
 libs\Craft\components\Sidebar.lua
 libs\Craft\components\Slider.lua
