@@ -12,8 +12,9 @@ FILE="Craft/Craft.lua"
 DRY_RUN=false
 [ "${1:-}" = "--dry-run" ] && DRY_RUN=true
 
-# Read current build
-CURRENT=$(grep -E '^local CRAFT_BUILD = [0-9]+' "$FILE" | grep -oE '[0-9]+')
+# Read current build. head -1: the trailing comment on that line also contains
+# digits ("Reset to 1", "+1 per release") — only the first number is the build.
+CURRENT=$(grep -E '^local CRAFT_BUILD = [0-9]+' "$FILE" | grep -oE '[0-9]+' | head -1)
 if [ -z "$CURRENT" ]; then
     echo "ERROR: 'local CRAFT_BUILD = <n>' not found in $FILE" >&2
     exit 1
