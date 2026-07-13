@@ -48,6 +48,7 @@ libs\Craft\theme\Theme.lua
 libs\Craft\icons\Atlas.lua
 libs\Craft\icons\Icons.lua
 libs\Craft\layout\Flex.lua
+libs\Craft\components\Badge.lua
 libs\Craft\components\Button.lua
 libs\Craft\components\Checkbox.lua
 libs\Craft\components\ColorSwatch.lua
@@ -60,6 +61,8 @@ libs\Craft\components\Panel.lua
 libs\Craft\components\Scroll.lua
 libs\Craft\components\Select.lua
 libs\Craft\components\Menu.lua
+libs\Craft\components\Popover.lua
+libs\Craft\components\Combobox.lua
 libs\Craft\components\Separator.lua
 libs\Craft\components\Section.lua
 libs\Craft\components\Toggle.lua
@@ -73,8 +76,10 @@ libs\Craft\components\Window.lua
 
 # Showcase
 Browser.lua
+pages\Badge.lua
 pages\Button.lua
 pages\Checkbox.lua
+pages\Combobox.lua
 pages\ColorSwatch.lua
 pages\Dialog.lua
 pages\DragList.lua
@@ -90,6 +95,7 @@ pages\Toggle.lua
 pages\ToggleGroup.lua
 pages\Select.lua
 pages\Menu.lua
+pages\Popover.lua
 pages\Separator.lua
 pages\Sidebar.lua
 pages\Slider.lua
