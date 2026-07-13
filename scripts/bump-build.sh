@@ -34,8 +34,8 @@ fi
 sed -i.bak -E "s/^(local CRAFT_BUILD = )$CURRENT([^0-9]|$)/\1$NEXT\2/" "$FILE"
 rm -f "${FILE}.bak"
 
-# Verify the change was applied
-VERIFY=$(grep -E '^local CRAFT_BUILD = [0-9]+' "$FILE" | grep -oE '[0-9]+')
+# Verify the change was applied (head -1: same comment-digits caveat as above)
+VERIFY=$(grep -E '^local CRAFT_BUILD = [0-9]+' "$FILE" | grep -oE '[0-9]+' | head -1)
 if [ "$VERIFY" != "$NEXT" ]; then
     echo "ERROR: change was not applied correctly" >&2
     exit 1
