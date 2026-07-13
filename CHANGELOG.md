@@ -4,7 +4,14 @@ Todos los cambios notables de Craft se documentan aquí.
 Formato: [Keep a Changelog](https://keepachangelog.com/es/1.0.0/)
 Versioning: [SemVer](https://semver.org/lang/es/)
 
-## [Unreleased]
+## [2.6.0] - 2026-07-12
+
+> **Release v2.6.0 — Toggle + Label natural size + iconos grid/list (Coffer).** Añade el
+> componente **`Craft.Toggle`** (botón standalone de dos estados, hermano de `Button`,
+> FR-023) y **`Button:SetIcon`**, el fix de geometría de **`Craft.Label`** (frame abraza
+> al texto + `align` + `GetTextWidth`, FR-024) y los iconos **`layout-grid`/`list`**
+> (atlas crece a 512×1024, FR-022). MINOR, retrocompatible (key sigue `Craft-2.0`).
+> `CRAFT_BUILD` 6→7.
 
 ### Added
 - **`Craft.Toggle` — componente NUEVO** (FR-023, Coffer): botón independiente de dos estados (shadcn `Toggle`/Radix, `aria-pressed`) — hermano de `Button`, no un flag (decisión del owner: el toggle como config rompía la taxonomía shadcn). Variants `default` (sin borde) y `outline` (borde `t.input`); pressed y hover rellenan con `t.muted` (fiel a `.cn-toggle` de Lyra — el `accent` del registry new-york-v4 NO aplica), texto `t.foreground` siempre. Fill animado con el patrón signal→tween de ToggleGroup (sembrado: `pressed = true` monta sin fade). Config: `{ icon?, text?, variant?, size? (sm/default/lg), pressed?, onPressedChange = fn(pressed, self), tooltip?, disabled? }`; API: `SetPressed(bool)` (silencioso, no dispara `onPressedChange`), `IsPressed()`, `SetEnabled`, `SetIcon(name)`, `GetFrame`, `Destroy`. Icon-only es el caso principal (toolbar de windows de banco en Coffer). Spec: `docs/components/toggle.md`. Tests nuevos: 14 en `tests/toggle_spec.lua`.
