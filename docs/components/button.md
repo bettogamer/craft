@@ -177,6 +177,7 @@ inset 1px (padding-box). El borde se vuelve visible en `outline` (`dark:border-i
 | `SetText(text)` | `string → void` | Cambia texto, recalcula ancho. |
 | `SetEnabled(enabled)` | `boolean → void` | `SetAlpha(0.5/1)` + `EnableMouse`. |
 | `SetVariant(variant)` | `string → void` | Cambia variante y repinta. |
+| `SetIcon(icon)` | `string\|nil → void` | Cambia el icono post-Create (FR-023); `nil` lo quita. Re-tinta, re-mide y re-posiciona. |
 | `SetSize(size)` | `string → void` | Cambia tamaño (dimensiones + padding). |
 | `GetFrame()` | `→ Frame` | Frame raíz para posicionamiento. |
 

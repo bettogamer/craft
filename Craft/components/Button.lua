@@ -409,6 +409,17 @@ function Button:SetVariant(variant)
     end
 end
 
+-- Swaps the icon (Lucide name) after Create; nil removes it (FR-023).
+-- Re-runs the theme pass: _applyTheme already re-tints the icon from the label
+-- colour, re-measures (_recalcWidth) and re-positions (_positionChildren re-reads
+-- _cfg.icon and shows/hides + re-applies the atlas).
+function Button:SetIcon(icon)
+    self._cfg.icon = icon
+    if self._t then
+        self:_applyTheme(self._t)
+    end
+end
+
 function Button:SetSize(size)
     self._cfg.size = size
     self:_applySize()

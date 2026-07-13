@@ -423,6 +423,34 @@ describe("Craft.Button", function()
             end)
         end)
 
+        -- FR-023: SetIcon — swap/remove the icon post-Create
+        it("SetIcon() swaps the icon post-Create (mutates _cfg.icon, atlas re-applied)", function()
+            local btn = newBtn({ size="icon", icon="layout-grid" })
+            local beforeL, beforeT = btn._icon._texCoords[1], btn._icon._texCoords[3]
+            btn:SetIcon("list")
+            assert.equals("list", btn._cfg.icon)
+            assert.is_true(btn._icon:IsShown())
+            local after = btn._icon._texCoords
+            assert.is_true(beforeL ~= after[1] or beforeT ~= after[3])
+        end)
+
+        it("SetIcon() on a text button adds the icon and re-measures the width", function()
+            local btn = newBtn({ text="View" })
+            local w0 = btn:GetFrame():GetWidth()
+            btn:SetIcon("layout-grid")
+            assert.is_true(btn._icon:IsShown())
+            assert.is_true(btn:GetFrame():GetWidth() > w0)  -- icon + gap added
+        end)
+
+        it("SetIcon(nil) removes the icon (hidden + width back to text-only)", function()
+            local btn = newBtn({ text="View", icon="layout-grid" })
+            local w0 = btn:GetFrame():GetWidth()
+            btn:SetIcon(nil)
+            assert.is_false(btn._icon:IsShown())
+            assert.is_nil(btn._cfg.icon)
+            assert.is_true(btn:GetFrame():GetWidth() < w0)
+        end)
+
         -- FR-014 (won't-do): the icon side keeps the reduced optical inset (padHIcon),
         -- which compensates for the glyph's own transparent margin. See docs/components/button.md.
         it("xs icon+text: icon anchored at the reduced padHIcon (6px), not padH", function()
