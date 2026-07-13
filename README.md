@@ -189,8 +189,8 @@ luacheck Craft/ --config .luacheckrc
 # Tests unitarios headless
 busted tests/
 
-# Incrementar CRAFT_BUILD antes de un release
-bash scripts/bump-build.sh
+# Incrementar CRAFT_BUILD + actualizar Craft.VERSION antes de un release
+bash scripts/bump-build.sh <X.Y.Z>
 ```
 
 El CI en GitHub Actions ejecuta lint + tests en cada push y PR.

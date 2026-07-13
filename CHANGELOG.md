@@ -4,6 +4,16 @@ Todos los cambios notables de Craft se documentan aquí.
 Formato: [Keep a Changelog](https://keepachangelog.com/es/1.0.0/)
 Versioning: [SemVer](https://semver.org/lang/es/)
 
+## [Unreleased]
+
+### Fixed
+- **`Craft.VERSION` quedó en `"2.6.0"` en el release v2.7.0** (FR-029, Coffer): el commit de
+  release solo bumpeó `CRAFT_BUILD`, y `/coffer status` (que lee `Craft.VERSION`, el contrato
+  runtime de versión) reportaba `Craft 2.6.0` tras re-vendorear v2.7.0 — falso negativo en el
+  gate de verificación del consumidor. Corregido a `"2.7.0"` y **hardening del proceso**:
+  `scripts/bump-build.sh <X.Y.Z>` ahora actualiza `CRAFT_BUILD` + `Craft.VERSION` en el mismo
+  commit y aborta si `Craft.VERSION` fuera a quedar igual al último tag `v*`.
+
 ## [2.7.0] - 2026-07-13
 
 > **Release v2.7.0 — Popover + Combobox + Badge + fix Label align (FR-025..028, Coffer).**

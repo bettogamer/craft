@@ -88,7 +88,7 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
 │   └── sidebar_spec.lua
 ├── scripts/
 │   ├── export-icons.py     ← genera lucide-*.tga
-│   └── bump-build.sh       ← incrementa CRAFT_BUILD en Craft.lua
+│   └── bump-build.sh       ← incrementa CRAFT_BUILD + actualiza Craft.VERSION en Craft.lua
 │
 └── docs/
     ├── design-reference.md ← FUENTE DE VERDAD de tokens de color (CSS shadcn Lyra)
@@ -248,7 +248,7 @@ setter público (`SetOptions` / `SetItems`). Reglas:
 
 - **MUST**: todo componente implementa el contrato §5 completo.
 - **MUST**: los valores visuales de un componente (tamaños, paddings, colores, variantes) se derivan **exclusivamente** de `docs/components/<nombre>.md` y `docs/design-reference.md`. Nunca usar conocimiento de entrenamiento sobre shadcn, Tailwind o Lyra como fuente — ese conocimiento puede estar desactualizado o ser incorrecto. Si un valor no está en los docs, ejecutar `/update-design-tokens` o preguntar al maintainer antes de asumir.
-- **MUST**: `CRAFT_BUILD` se incrementa antes de cada release (`scripts/bump-build.sh`).
+- **MUST**: `CRAFT_BUILD` **y `Craft.VERSION`** se actualizan antes de cada release: `bash scripts/bump-build.sh <X.Y.Z>` hace ambos en un solo commit. `Craft.VERSION` es el contrato runtime de versión que leen los consumidores (p. ej. `/coffer status`) y DEBE coincidir con el tag; el script aborta si quedaría igual al último tag `v*` (FR-029: v2.7.0 salió con `Craft.VERSION = "2.6.0"`).
 - **MUST**: colores desde tokens semánticos del tema, nunca hardcodeados.
 - **MUST**: usar `Craft.Icons.Apply(tex, name)` para íconos — nunca rutas TGA directas.
 - **MUST**: usar `Craft.Theme.getFont()` para fuentes — nunca rutas TTF directas.
@@ -447,8 +447,8 @@ lua tests/run.lua tests/button_spec.lua tests/sidebar_spec.lua tests/reactive_sp
 # Generar atlas TGA de Lucide (requiere Python + Pillow)
 python3 scripts/export-icons.py
 
-# Incrementar LibStub build antes de release
-bash scripts/bump-build.sh
+# Incrementar LibStub build + Craft.VERSION antes de release (X.Y.Z = versión del tag que se va a cortar)
+bash scripts/bump-build.sh <X.Y.Z>
 ```
 
 **Slash commands de Claude Code** (invocar con `/nombre`):
@@ -517,7 +517,10 @@ Todos los componentes usan `t.*` en `_applyTheme(t)`. **Fuente de verdad**: `doc
 | Nuevo componente o feature | `MINOR` → `v1.1.0`, incrementar `CRAFT_BUILD` |
 | Breaking change de API | `MAJOR` → `v2.0.0`, LibStub `"Craft-2.0"`, `CRAFT_BUILD = 1` |
 
-`CRAFT_BUILD` en `Craft.lua` es un integer siempre creciente. Usar `scripts/bump-build.sh`.
+`CRAFT_BUILD` en `Craft.lua` es un integer siempre creciente; `Craft.VERSION` es el string
+SemVer runtime y DEBE coincidir con el tag del release (es lo que verifican los consumidores
+al re-vendorear). `bash scripts/bump-build.sh <X.Y.Z>` actualiza ambos y aborta si
+`Craft.VERSION` fuera a quedar igual al último tag (FR-029).
 
 ---
 
