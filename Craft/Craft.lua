@@ -4,7 +4,7 @@
 
 local ADDON_NAME, _addonTable = ...  -- "Craft" standalone, or the embedding addon's name + its per-addon table
 local CRAFT_NAME  = "Craft-2.0"  -- API name. Bumped from Craft-1.0 on the v2.0.0 break (ADR-0010 §3.2).
-local CRAFT_BUILD = 7            -- Integer. Reset to 1 with the MAJOR (new LibStub name); +1 per release.
+local CRAFT_BUILD = 8            -- Integer. Reset to 1 with the MAJOR (new LibStub name); +1 per release.
 
 -- Propagate THIS copy's build to its sibling files via the per-addon table (2nd vararg).
 -- Done BEFORE the early return below so that even when this Craft.lua bails (a newer
