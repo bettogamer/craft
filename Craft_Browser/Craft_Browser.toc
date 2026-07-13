@@ -86,6 +86,7 @@ pages\Label.lua
 pages\Panel.lua
 pages\Scroll.lua
 pages\Section.lua
+pages\Toggle.lua
 pages\ToggleGroup.lua
 pages\Select.lua
 pages\Menu.lua
