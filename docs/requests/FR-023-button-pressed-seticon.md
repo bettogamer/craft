@@ -4,7 +4,7 @@
 **Componente:** `Craft/components/Button.lua`
 **Tipo:** Feature Request
 **Prioridad:** Media — hay workarounds con API pública (`SetVariant`, botones superpuestos)
-**Estado:** Aceptado con cambio de forma (2026-07-12) — decisión del owner: el toggle NO va como config de Button (rompe la taxonomía shadcn); se implementará como **componente nuevo `Craft.Toggle`** (shadcn `Toggle`/Radix: hermano de Button, variants default/outline, pressed pinta con `accent` — no `muted`), reutilizando el chasis de Button + el patrón fill signal→tween de ToggleGroup. `Button:SetIcon(name)` sí se acepta tal cual (pieza aparte, barata: mutar `_cfg.icon` + `_recalcWidth` + `_positionChildren` + color de variante). Pendiente de implementar.
+**Estado:** Implementado en dev (2026-07-12) — decisión del owner: el toggle NO va como config de Button (rompe la taxonomía shadcn); implementado como **componente nuevo `Craft.Toggle`** (shadcn `Toggle`/Radix: hermano de Button, variants default/outline), reutilizando el chasis de Button + el patrón fill signal→tween de ToggleGroup. Corrección de spec del owner contra el estilo Lyra real (`style-lyra.css` `.cn-toggle`): el pressed pinta con **`muted`** (mismo token que hover y que el fill de ToggleGroup) — el `accent` que decía el registry base new-york-v4 no es el norte de Craft; el texto no cambia de color en pressed. `Button:SetIcon(name)` aceptado tal cual (mutar `_cfg.icon` + re-pase de tema). Spec: `docs/components/toggle.md`; tests: `tests/toggle_spec.lua` (14) + 3 specs de `SetIcon` en `tests/button_spec.lua`.
 
 ---
 
