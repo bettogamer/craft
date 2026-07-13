@@ -57,6 +57,7 @@ components\DragList.lua
 components\Select.lua
 components\Menu.lua
 components\Popover.lua
+components\Combobox.lua
 components\Separator.lua
 components\Sidebar.lua
 components\Slider.lua
