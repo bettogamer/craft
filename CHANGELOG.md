@@ -6,6 +6,11 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+### Added
+- **Icono `pencil` en el atlas Lucide** (FR-030, Coffer): icono canónico de "renombrar/editar
+  inline" (✎), para el editor de secciones WYSIWYG de Coffer. Aditivo — slot `{ 7, 7 }` (64/128),
+  sin API nueva: `Craft.Icons.Apply(tex, "pencil", size)` funciona al existir la entrada.
+
 ### Fixed
 - **`Craft.VERSION` quedó en `"2.6.0"` en el release v2.7.0** (FR-029, Coffer): el commit de
   release solo bumpeó `CRAFT_BUILD`, y `/coffer status` (que lee `Craft.VERSION`, el contrato

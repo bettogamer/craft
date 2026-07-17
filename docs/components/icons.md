@@ -35,7 +35,11 @@ Craft.Icons
 
 | Resolución TGA | Grid | Celda | Icono renderizado | Gutter | Fórmula UV (col/row base-0) |
 |---|---|---|---|---|---|
-| 512×512 px | 8×8 (64 slots) | 64px | 56px centrado | 4px transparente | `left=col/8, right=(col+1)/8, top=row/8, bottom=(row+1)/8` |
+| 512×1024 px | 8×16 (128 slots) | 64px | 56px centrado | 4px transparente | `left=col/8, right=(col+1)/8, top=row/16, bottom=(row+1)/16` |
+
+> El atlas original 512×512 (8×8) se agotó en FR-022 y creció **hacia abajo** a 512×1024:
+> potencia-de-2 por lado (requisito de WoW) y CPR=8 estable, así ninguna coordenada
+> existente cambió. Los divisores UV por eje viven en `Atlas.lua` (`_div`/`_rows`).
 
 **Supersampling**: cada ícono se rasteriza a 56px y se centra en una celda de 64px con
 4px de gutter transparente. WoW lo reduce al tamaño de display (16/24/…) en runtime. Como
@@ -51,9 +55,9 @@ filtrado bilineal "sangre" celdas vecinas al reducir.
   path   = "Interface\\AddOns\\Craft\\media\\lucide.tga",
   size   = 16,       -- tamaño de DISPLAY pedido (16, 24, … — el atlas es agnóstico)
   left   = 0.0012,   -- UV normalizadas [0–1], con inset de medio texel
-  right  = 0.1238,   -- ≈ 1/8 para col=0
-  top    = 0.0012,
-  bottom = 0.1238,
+  right  = 0.1238,   -- ≈ 1/8 para col=0 (eje X divide entre 8 columnas)
+  top    = 0.0005,
+  bottom = 0.0620,   -- ≈ 1/16 para row=0 (eje Y divide entre 16 filas — atlas no cuadrado)
 }
 ```
 
@@ -186,9 +190,25 @@ Nice-to-have (FR-017): mejoran la semántica, no bloquean.
 | 60 | `arrow-up-narrow-wide` | Indicador de sort ascendente |
 | 61 | `arrow-down-wide-narrow` | Indicador de sort descendente |
 
-**Total**: 61 glyphs (60 Lucide + 1 Craft-sintetizado `disc`). Ocupan 8 filas del grid 8×8
-(61 de 64 slots disponibles → 3 libres). Al agotarse el margen, crecer el grid (p. ej. 1024² →
-16×16) es decisión del owner.
+### Solicitados por consumers (FR-022 — Coffer: modo de vista del header)
+
+Toggle de modo de vista grid/list del header de Coffer. Con estos dos el atlas 8×8 se agotó
+(63/64) y creció hacia abajo a 512×1024 (8×16, 128 slots) — potencia-de-2 por lado y CPR=8
+estable, así las coordenadas existentes no cambian.
+
+| # | Nombre Lucide | Uso |
+|---|---|---|
+| 62 | `layout-grid` | Vista de grilla (▦) |
+| 63 | `list` | Vista de lista (☰) |
+
+### Solicitados por consumers (FR-030 — Coffer: rename inline)
+
+| # | Nombre Lucide | Uso |
+|---|---|---|
+| 64 | `pencil` | Renombrar/editar inline (✎) — editor de secciones WYSIWYG |
+
+**Total**: 64 glyphs (63 Lucide + 1 Craft-sintetizado `disc`). Ocupan las primeras 8 filas del
+grid 8×16 (64 de 128 slots disponibles → 64 libres).
 
 > **`disc`** no es de Lucide (que es stroke-only, sin formas rellenas). Se define inline en
 > `scripts/export-icons.py` (`LOCAL_SVGS`) y se rasteriza por el mismo pipeline supersampleado,
