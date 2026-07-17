@@ -4,6 +4,32 @@ Todos los cambios notables de Craft se documentan aquí.
 Formato: [Keep a Changelog](https://keepachangelog.com/es/1.0.0/)
 Versioning: [SemVer](https://semver.org/lang/es/)
 
+## [Unreleased]
+
+### Added
+- **Atlas Lucide COMPLETO** (ADR-0016, cierra FR-031): el atlas pasa del catálogo curado
+  (64 glyphs) al **set Lucide entero de un release pinneado** — 1747 íconos (Lucide 1.24.0
+  + `disc` sintetizado) en un TGA 2048×4096 (grid 32×64, celdas de 64px — celda/supersampling/
+  gutter idénticos, calidad por icono sin cambio). Cualquier
+  `Craft.Icons.Apply(tex, "<nombre-lucide>")` funciona (incluido `brush-cleaning` de FR-031);
+  se elimina la clase entera de FRs "añadir icono X" — el flujo pasa a bumpear `LUCIDE_TAG`
+  1–2×/año. TGA con compresión **RLE** (sin pérdida): 4.2 MB vs 32 MB. **Verificación
+  in-game pendiente y bloqueante** (ADR-0016 §7): TGA-RLE renderiza, spot-check visual,
+  sin hitch al primer uso; plan B `--no-rle`.
+- **`Craft.Icons._aliases`** — 249 nombres deprecados de Lucide (`filter`→`funnel`,
+  `bar-chart-3`→`chart-column`, …) resuelven al canónico en `Get`/`Has`/`Apply` (desde la
+  metadata JSON de upstream). `List()` sigue devolviendo solo canónicos. `Craft.Icons._lucide`
+  expone el release pinneado.
+- **`tests/icons_spec.lua` NUEVO** (9 tests): gate del output del generador — sistema en
+  fila 0, UVs normalizadas, aliases, set ≥1700, nil silencioso.
+
+### Changed
+- **`scripts/export-icons.py`**: catálogo enumerado del tarball oficial pinneado
+  (`LUCIDE_TAG`, un request de ~3 MB — adiós lista manual y ~1750 requests raw); fallback
+  pycairo (Windows) ahora soporta `<ellipse>` y `<rect rx/ry>` redondeado (los usa el set
+  completo: familia `database`, `image`, etc.); flags nuevos `--no-rle` y `--dry-run`
+  sincroniza+cataloga sin generar.
+
 ## [2.8.0] - 2026-07-16
 
 > **Release v2.8.0 — icono `pencil` + hardening del proceso de versión (FR-029/030, Coffer).**
