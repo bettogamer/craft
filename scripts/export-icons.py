@@ -135,6 +135,8 @@ ICONS = [
     # Consumer-requested (FR-022 — Coffer: toggle de modo de vista grid/list en el header)
     "layout-grid",    # Vista de grilla (▦)
     "list",           # Vista de lista (☰)
+    # Consumer-requested (FR-030 — Coffer: rename inline de secciones, editor WYSIWYG M8)
+    "pencil",         # Renombrar/editar inline (✎)
 ]
 
 # ─── Local (non-Lucide) glyphs ────────────────────────────────────────────────

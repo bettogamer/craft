@@ -84,4 +84,5 @@ Craft.Icons._atlas = {
     ["arrow-down-wide-narrow"] = { 4, 7 },
     ["layout-grid"] = { 5, 7 },
     ["list"] = { 6, 7 },
+    ["pencil"] = { 7, 7 },
 }
