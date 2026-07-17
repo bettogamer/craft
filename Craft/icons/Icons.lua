@@ -14,17 +14,29 @@ if not I or I._buildOwner ~= _BUILD then return end
 -- in a host addon's libs/ (AGENTS.md § Craft.mediaPath). Never hardcode media paths.
 local PATH = Craft.mediaPath .. "lucide.tga"
 
--- Single supersampled atlas: 512×1024 (non-square — power-of-two per side), grid of
--- _div columns × _rows rows of 64px cells (set in Atlas.lua; grew from 512×512 in
--- FR-022 when the 64 slots filled up). Icons are stored at high resolution and
--- downscaled by WoW at display time, so they stay crisp at any UIScale. A half-texel
--- inset keeps bilinear filtering from sampling the cell boundary (the 4px transparent
--- gutter already separates neighbours). UV divisors and insets are per-axis because
--- the atlas is taller than it is wide.
+-- Single supersampled atlas: 2048×4096 (non-square — power-of-two per side), grid of
+-- _div columns × _rows rows of 64px cells (set in Atlas.lua). Since ADR-0016 the atlas
+-- holds the FULL Lucide set of a pinned release (I._lucide) — any canonical Lucide
+-- name resolves, plus deprecated aliases via I._aliases. Icons are stored at high
+-- resolution and downscaled by WoW at display time, so they stay crisp at any UIScale.
+-- A half-texel inset keeps bilinear filtering from sampling the cell boundary (the 4px
+-- transparent gutter already separates neighbours). UV divisors and insets are per-axis
+-- because the atlas is taller than it is wide.
 local DIVX   = I._div  or 8
 local DIVY   = I._rows or DIVX
 local INSETX = 0.5 / (DIVX * 64)  -- 64 = cell size in px → DIV*64 = texture size
 local INSETY = 0.5 / (DIVY * 64)
+
+-- ─── resolve ─────────────────────────────────────────────────────────────────
+-- Canonical lookup: direct hit in _atlas, or a deprecated Lucide alias
+-- (filter → funnel, …) resolved through _aliases (ADR-0016).
+
+local function resolve(name)
+    local cell = I._atlas[name]
+    if cell then return cell end
+    local canonical = I._aliases and I._aliases[name]
+    return canonical and I._atlas[canonical] or nil
+end
 
 -- ─── Get() ─────────────────────────────────────────────────────────────────
 -- Returns the texture descriptor for the icon, or nil if not found in the atlas.
@@ -35,7 +47,7 @@ function I.Get(name, size)
     if not name then return nil end
     size = size or 16
 
-    local cell = I._atlas[name]
+    local cell = resolve(name)
     if not cell then return nil end
 
     local col, row = cell[1], cell[2]
@@ -65,10 +77,11 @@ end
 -- ─── Has() ─────────────────────────────────────────────────────────────────
 
 function I.Has(name)
-    return name ~= nil and I._atlas[name] ~= nil
+    return name ~= nil and resolve(name) ~= nil
 end
 
 -- ─── List() ────────────────────────────────────────────────────────────────
+-- Canonical names only — aliases are resolvable but not listed.
 
 function I.List()
     local names = {}
