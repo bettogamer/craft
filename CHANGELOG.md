@@ -4,7 +4,13 @@ Todos los cambios notables de Craft se documentan aquí.
 Formato: [Keep a Changelog](https://keepachangelog.com/es/1.0.0/)
 Versioning: [SemVer](https://semver.org/lang/es/)
 
-## [Unreleased]
+## [2.8.0] - 2026-07-16
+
+> **Release v2.8.0 — icono `pencil` + hardening del proceso de versión (FR-029/030, Coffer).**
+> Añade el icono Lucide **`pencil`** al atlas (FR-030) y cierra FR-029: `Craft.VERSION` corregido
+> tras el miss de v2.7.0 y `bump-build.sh <X.Y.Z>` ahora bumpea build + versión en el mismo commit
+> (aborta si la versión fuera a quedar igual al último tag). MINOR, retrocompatible (key sigue
+> `Craft-2.0`). `CRAFT_BUILD` 8→9. Suite: 283 tests.
 
 ### Added
 - **Icono `pencil` en el atlas Lucide** (FR-030, Coffer): icono canónico de "renombrar/editar
