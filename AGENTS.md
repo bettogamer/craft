@@ -61,7 +61,9 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
 │   ├── theme/
 │   │   ├── Theme.lua       ← Craft.Theme (register, use, get, extend)
 │   │   └── Presets.lua     ← lyra-dark (único preset built-in, dark mode solo)
-│   ├── layout/Flex.lua     ← Craft.Flex (motor CSS Flexbox en Lua)
+│   ├── layout/
+│   │   ├── Flex.lua       ← Craft.Flex (motor CSS Flexbox en Lua)
+│   │   └── Grid.lua       ← Craft.Grid (motor CSS Grid 2D en Lua — FR-040)
 │   ├── icons/
 │   │   ├── Icons.lua       ← Craft.Icons.Get/Apply/Has/List
 │   │   └── Atlas.lua       ← coordenadas UV del atlas TGA

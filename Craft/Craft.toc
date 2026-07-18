@@ -42,6 +42,7 @@ icons\Icons.lua
 
 # Layout
 layout\Flex.lua
+layout\Grid.lua
 
 # Components
 components\Badge.lua

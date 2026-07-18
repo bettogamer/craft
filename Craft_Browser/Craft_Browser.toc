@@ -48,6 +48,7 @@ libs\Craft\theme\Theme.lua
 libs\Craft\icons\Atlas.lua
 libs\Craft\icons\Icons.lua
 libs\Craft\layout\Flex.lua
+libs\Craft\layout\Grid.lua
 libs\Craft\components\Badge.lua
 libs\Craft\components\Button.lua
 libs\Craft\components\Checkbox.lua
@@ -84,6 +85,7 @@ pages\ColorSwatch.lua
 pages\Dialog.lua
 pages\DragList.lua
 pages\Flex.lua
+pages\Grid.lua
 pages\Icons.lua
 pages\Input.lua
 pages\RadioGroup.lua

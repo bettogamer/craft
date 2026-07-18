@@ -83,4 +83,5 @@ Craft.mediaPath = _mediaRoot .. "\\media\\"
 --   icons/Atlas.lua    → Craft.Icons internal atlas tables
 --   icons/Icons.lua    → Craft.Icons
 --   layout/Flex.lua    → Craft.Flex
+--   layout/Grid.lua    → Craft.Grid
 --   components/*.lua   → Craft.Button, Craft.Input, etc.
