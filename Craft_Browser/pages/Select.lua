@@ -36,6 +36,14 @@ CraftBrowserPages["Select"] = {
             return yOff + 44
         end
 
+        -- Width comes from config.width (FR-036) — no external SetWidth here.
+        local function addSelectFixedWidth(cfg, yOff)
+            local sel = Craft.Select:Create(parent, cfg)
+            sel:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -yOff)
+            table.insert(comps, sel)
+            return yOff + 44
+        end
+
         y = addLabel("Default", y)
         y = addSelect({ options=opts, placeholder="Select an option..." }, y)
 
@@ -47,6 +55,9 @@ CraftBrowserPages["Select"] = {
 
         y = addLabel("Disabled", y)
         y = addSelect({ options=opts, placeholder="Disabled", disabled=true }, y)
+
+        y = addLabel("Fixed width (config.width = 160)", y)
+        y = addSelectFixedWidth({ options=opts, placeholder="Currency...", width=160 }, y)
 
         return {
             height  = y + 24,

@@ -52,6 +52,7 @@ function Select:Create(parent, config)
         size        = config.size        or "default",
         disabled    = config.disabled    or false,
         onSelect    = config.onSelect,
+        width       = config.width,               -- fixed trigger width (nil = fill parent)
     }
     -- self._open is a Weave.signal (created below, once self._panel exists) — the
     -- private open/close state that drives the dropdown fade. NOT a public prop.
@@ -76,6 +77,9 @@ function Select:Create(parent, config)
     local sz = SIZES[self._cfg.size] or SIZES["default"]
     self.frame = CreateFrame("Frame", nil, parent)
     self.frame:SetHeight(sz.h)
+    if self._cfg.width then
+        self.frame:SetWidth(self._cfg.width)
+    end
 
     -- ── _trigger: Button WoW ──────────────────────────────────────────────────
     self._trigger = CreateFrame("Button", nil, self.frame)
@@ -265,14 +269,13 @@ function Select:_makeItem()
     itemBg:SetAllPoints(itemFrame)
     itemBg:SetColorTexture(0, 0, 0, 0)
 
-    -- Item text
+    -- Item text — single LEFT anchor + explicit width, (re)applied in _buildItems.
+    -- A double horizontal anchor (LEFT+RIGHT) would derive the string width from
+    -- the frame, which is 0 until layout resolves → invisible text on a cold boot
+    -- (Bug #2, CLAUDE.md). _makeItem only creates it; _buildItems positions/sizes it.
     local itemText = itemFrame:CreateFontString(nil, "OVERLAY")
     itemText:SetJustifyH("LEFT")
     itemText:SetJustifyV("MIDDLE")
-    itemText:SetPoint("LEFT",        itemFrame, "LEFT",  ITEM_PL, 0)
-    itemText:SetPoint("RIGHT",       itemFrame, "RIGHT", -ITEM_PR, 0)
-    itemText:SetPoint("TOP",         itemFrame, "TOP",    0, 0)
-    itemText:SetPoint("BOTTOM",      itemFrame, "BOTTOM", 0, 0)
 
     -- Checkmark: "check" icon 12px, visible when this item is selected
     local checkmark = itemFrame:CreateTexture(nil, "ARTWORK")
@@ -320,6 +323,11 @@ function Select:_buildItems()
     local opts = self._cfg.options
     local totalH = 0
 
+    -- Width available for each item label: mirrors _updatePanelSize's panelW
+    -- (trigger width floored at MIN_PANEL_W), minus the 1px ring and the item
+    -- padding. Never 0 → item text stays visible even before the trigger is sized.
+    local availW = math.max(self._trigger:GetWidth() or 0, MIN_PANEL_W) - 2 - ITEM_PL - ITEM_PR
+
     for i, opt in ipairs(opts) do
         local item = self._items[i]
         if not item then
@@ -332,6 +340,12 @@ function Select:_buildItems()
         Craft.Theme.applyFont(item.text, t.font, ITEM_FONT)
         item.text:SetText(opt.label or opt.value or "")
         item.checkmark:SetVertexColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b, 1)
+
+        -- Single-anchor + explicit width (re-applied each rebuild → survives
+        -- onFontsReady re-measure; avoids Bug #2 invisible text on cold boot).
+        item.text:ClearAllPoints()
+        item.text:SetPoint("LEFT", item.frame, "LEFT", ITEM_PL, 0)
+        item.text:SetWidth(math.max(availW, 1))
 
         -- Vertical position in scrollChild (re-anchored: the slot count can change)
         item.frame:ClearAllPoints()
