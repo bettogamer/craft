@@ -29,8 +29,8 @@ function Window:Create(parent, config)
         description   = config.description,
         header        = config.header ~= false,     -- default true; false = headless (FR-019)
         -- Layer `page` (DIALOG): the addon's main frame. A Craft.Dialog (`modal`,
-        -- FULLSCREEN) floats above it; popovers (TOOLTIP) above that. See Craft.Strata.
-        -- Per-window strata (FR-021).
+        -- FULLSCREEN_DIALOG) floats above it; popovers (TOOLTIP) above that. See
+        -- Craft.Strata. Per-window strata (FR-021).
         strata        = config.strata or (Craft.Strata and Craft.Strata.page) or "DIALOG",
         movable       = config.movable   ~= false,  -- default true
         resizable     = config.resizable ~= false,  -- default true

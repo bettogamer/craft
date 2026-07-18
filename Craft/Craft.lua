@@ -43,25 +43,29 @@ end
 -- WoW strata order (low → high):
 --   BACKGROUND < LOW < MEDIUM < HIGH < DIALOG < FULLSCREEN < FULLSCREEN_DIALOG < TOOLTIP
 -- Components pick a LAYER, not a raw strata, so the invariant
---     page (Window) < modal (Dialog) < popover (Select/Combobox/Menu/Tooltip)
+--     page (Window) < modal backdrop < modal frame < popover
 -- holds no matter how a consumer nests them. In particular a modal opened FROM a
 -- Craft.Window must float ABOVE it and its backdrop must dim it — the bug FR-033
 -- fixes (before, both Window and Dialog sat at DIALOG and the backdrop at HIGH,
 -- BELOW the window, so the modal was buried and the backdrop never covered it).
 --
--- The one implicit rung is the popover click-outside CATCHER: it lives at
--- FULLSCREEN_DIALOG — between `modal` and `popover` — so a dropdown opened inside
--- a modal still dismisses on outside-click while its panel (TOOLTIP) stays on top.
+-- IMPORTANT: the modal frame and its backdrop live in DIFFERENT stratas (frame one
+-- rung above the backdrop), NOT the same strata separated by frame-level. The
+-- backdrop uses EnableMouse(true) to swallow clicks to the UI behind; if it shared
+-- the frame's strata it would also swallow the dialog's own buttons/close (only Esc
+-- would work). A strictly-higher strata for the frame guarantees its children win
+-- the mouse — the same relationship the original DIALOG-over-HIGH setup had.
 --   BACKGROUND/LOW/MEDIUM  content
---   DIALOG                 page      (Craft.Window)
---   FULLSCREEN             modal     (Craft.Dialog frame + backdrop; frame level > backdrop)
---   FULLSCREEN_DIALOG      (popover catchers — implicit, between modal and popover)
---   TOOLTIP                popover   (Select/Combobox/Menu/Popover/Tooltip panels)
+--   DIALOG                 page          (Craft.Window)
+--   FULLSCREEN             modalOverlay  (Craft.Dialog backdrop — above any Window)
+--   FULLSCREEN_DIALOG      modal         (Craft.Dialog frame — above its own backdrop)
+--   TOOLTIP                popover       (Select/Combobox/Menu/Popover/Tooltip panels)
 Craft.Strata = {
-    content = "MEDIUM",     -- default in-page content (Panels inherit their parent)
-    page    = "DIALOG",     -- Craft.Window — the addon's main frame / "page"
-    modal   = "FULLSCREEN", -- Craft.Dialog frame + backdrop (always above any Window)
-    popover = "TOOLTIP",    -- Select/Combobox/Menu/Popover/Tooltip panels (topmost)
+    content      = "MEDIUM",             -- default in-page content (Panels inherit their parent)
+    page         = "DIALOG",             -- Craft.Window — the addon's main frame / "page"
+    modalOverlay = "FULLSCREEN",         -- Craft.Dialog backdrop (above any Window, below its frame)
+    modal        = "FULLSCREEN_DIALOG",  -- Craft.Dialog frame (above its own backdrop + any Window)
+    popover      = "TOOLTIP",            -- Select/Combobox/Menu/Popover/Tooltip panels (topmost)
 }
 
 -- mediaPath: absolute WoW path to Craft/media/. Changes when Craft is embedded in another addon.

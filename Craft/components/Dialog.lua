@@ -36,17 +36,20 @@ function Dialog:Create(parent, config)
         size         = config.size         or "default",
         onClose      = config.onClose,
         closeOnEscape= config.closeOnEscape ~= false,  -- default true
-        -- Layer: `modal` (FULLSCREEN) sits ABOVE any Craft.Window (`page` = DIALOG),
-        -- so a modal opened from a window floats over it. See Craft.Strata / FR-033.
-        strata       = config.strata or (Craft.Strata and Craft.Strata.modal) or "FULLSCREEN",
+        -- Layer `modal` (FULLSCREEN_DIALOG) sits ABOVE any Craft.Window (`page` =
+        -- DIALOG) AND above the backdrop (`modalOverlay` = FULLSCREEN), so a modal
+        -- opened from a window floats over it and its own buttons stay clickable.
+        -- See Craft.Strata / FR-033.
+        strata       = config.strata or (Craft.Strata and Craft.Strata.modal) or "FULLSCREEN_DIALOG",
     }
 
     _instanceCount = _instanceCount + 1
     self._instanceId = _instanceCount
 
     -- ── Root frame ─────────────────────────────────────────────────────────
-    -- Strata `modal` (FULLSCREEN by default, see Craft.Strata): a modal must float
-    -- above any Craft.Window (`page` = DIALOG) it was opened from — FR-033.
+    -- Strata `modal` (FULLSCREEN_DIALOG by default, see Craft.Strata): a modal must
+    -- float above any Craft.Window (`page` = DIALOG) it was opened from, and above
+    -- its own backdrop (`modalOverlay` = FULLSCREEN, one rung below) — FR-033.
     -- Named frame required for UISpecialFrames (closeOnEscape).
     local frameName = "CraftDialog_" .. self._instanceId
     self.frame = CreateFrame("Frame", frameName, parent or UIParent)
@@ -58,23 +61,19 @@ function Dialog:Create(parent, config)
     -- ── Modal overlay (backdrop) ─────────────────────────────────────────────
     -- shadcn .cn-dialog-overlay (bg-black/10): dims and blocks the UI behind the
     -- dialog. WoW has no backdrop-blur, so it's the flat black/10 fill only.
-    -- SAME strata as the frame so the backdrop actually covers a Craft.Window
-    -- (DIALOG) sitting below; the frame is then lifted one frame-level ABOVE the
-    -- overlay (below) so the dialog content still paints over its own backdrop.
+    -- Strata `modalOverlay` = ONE RUNG BELOW the frame's `modal` strata: above any
+    -- Craft.Window (DIALOG) so the backdrop covers it, but strictly below the frame
+    -- so the backdrop's EnableMouse (which swallows clicks to the UI behind) does
+    -- NOT eat the dialog's own buttons/close. Different stratas — never rely on
+    -- frame-level within a shared strata for this (that broke every click). FR-033.
     self._overlay = CreateFrame("Frame", nil, UIParent)
-    self._overlay:SetFrameStrata(self._cfg.strata)
+    self._overlay:SetFrameStrata((Craft.Strata and Craft.Strata.modalOverlay) or "FULLSCREEN")
     self._overlay:SetAllPoints(UIParent)
     self._overlay:EnableMouse(true)   -- modal: swallow clicks to the UI behind
     self._overlay:Hide()
     local overlayTex = self._overlay:CreateTexture(nil, "BACKGROUND")
     overlayTex:SetAllPoints(self._overlay)
     overlayTex:SetColorTexture(0, 0, 0, 0.10)  -- bg-black/10
-
-    -- Frame above its own backdrop within the shared strata. Strata/levels are set
-    -- once and never change afterwards, so this ordering is stable for the dialog's
-    -- lifetime (the popover catcher at FULLSCREEN_DIALOG still sits above both, so a
-    -- dropdown opened inside the dialog dismisses on outside-click — see Craft.Strata).
-    self.frame:SetFrameLevel((self._overlay:GetFrameLevel() or 0) + 10)
 
     -- ── Open/close fade (Weave.tween) ───────────────────────────────────────
     -- shadcn dialog fades in/out. ONLY alpha — NOT height: WoW won't repaint a

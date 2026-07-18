@@ -89,24 +89,44 @@ Craft.Strata = {
 }
 ```
 
-Invariante garantizada: **`page (Window) < modal (Dialog) < popover`**. El catcher de
-click-outside de los popovers queda implícito en `FULLSCREEN_DIALOG` — entre `modal` y
-`popover` — así que un dropdown abierto DENTRO de un modal sigue cerrándose al clicar fuera
-y su panel queda por encima del modal.
+```lua
+Craft.Strata = {
+    content      = "MEDIUM",             -- contenido normal in-page
+    page         = "DIALOG",             -- Craft.Window — el "main frame" / página
+    modalOverlay = "FULLSCREEN",         -- Craft.Dialog backdrop (sobre la Window, bajo el frame)
+    modal        = "FULLSCREEN_DIALOG",  -- Craft.Dialog frame (sobre su backdrop + cualquier Window)
+    popover      = "TOOLTIP",            -- Select/Combobox/Menu/Popover/Tooltip (siempre arriba)
+}
+```
+
+Invariante garantizada: **`page (Window) < modalOverlay < modal (Dialog) < popover`**. El
+catcher de click-outside de los popovers está en `FULLSCREEN_DIALOG` (igual que el frame del
+modal), así que un dropdown abierto DENTRO de un modal sigue cerrándose al clicar fuera y su
+panel (TOOLTIP) queda por encima.
 
 ### 2. Fix del Dialog (Dialog.lua)
 
-- Frame y overlay pasan a la capa **`modal`** (`FULLSCREEN` por defecto) — misma strata para
-  ambos, así el backdrop cubre de verdad cualquier `Craft.Window` (que está en `DIALOG`).
-- El frame se eleva **1 frame-level por encima** del overlay
-  (`SetFrameLevel(overlay:GetFrameLevel() + 10)`) para pintar sobre su propio backdrop. Strata
-  y niveles se fijan una sola vez y no cambian → orden estable durante toda la vida del dialog
-  (no depende de `Raise()` ni de timing).
+- El frame va a la capa **`modal`** (`FULLSCREEN_DIALOG`) y el overlay a **`modalOverlay`**
+  (`FULLSCREEN`), una strata **por debajo**. Ambos por encima de cualquier `Craft.Window`
+  (`DIALOG`), así que el backdrop la cubre y el modal flota sobre ella.
+- **Stratas DISTINTAS, no misma strata + frame-level.** El overlay tiene `EnableMouse(true)`
+  (traga clics a la UI de abajo); si compartiera la strata del frame se tragaría también los
+  botones y la ✕ del propio dialog (solo cerraría con Escape). Con el frame en una strata
+  estrictamente superior, sus hijos ganan el mouse — la misma relación que el `DIALOG` sobre
+  `HIGH` original.
 - Nuevo config opcional **`strata`** en `Dialog:Create` (default = `Craft.Strata.modal`), como
-  ya tiene `Window`; el frame siempre queda 1 nivel sobre su overlay aunque se cambie.
+  ya tiene `Window`; el overlay siempre va en `Craft.Strata.modalOverlay`.
 
-`FULLSCREEN` (modal) queda siempre sobre `DIALOG` (Window) sin importar toplevel/raise — el
-raise-on-click solo reordena DENTRO de una strata, nunca cruza a otra. Por eso es determinista.
+`FULLSCREEN_DIALOG` (modal) queda siempre sobre `DIALOG` (Window) sin importar toplevel/raise
+— el raise-on-click solo reordena DENTRO de una strata, nunca cruza a otra. Determinista.
+
+> ⚠️ **Post-mortem (regresión y corrección durante la implementación):** el primer intento
+> puso frame + overlay en la MISMA strata (`FULLSCREEN`) separados por `SetFrameLevel`. In-game
+> eso rompió TODOS los clics del dialog (botones y ✕ no respondían; solo cerraba con Escape,
+> que va por `UISpecialFrames` y no depende del z-order del mouse): el overlay full-screen con
+> `EnableMouse` se comía los clics pese al frame-level. **Lección:** para "backdrop modal que
+> bloquea la UI de abajo pero deja clicable el contenido de arriba", el contenido debe ir en
+> una strata **estrictamente superior** al backdrop, nunca en la misma separada por nivel.
 
 ### 3. Window (Window.lua)
 
