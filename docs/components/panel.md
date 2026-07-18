@@ -44,7 +44,7 @@ panel.frame          (Frame, strata=MEDIUM, level=BACKGROUND -1)
     └── panel._footerBorder (Frame, 1px alto)   línea separadora top (ADR-0011)
 ```
 
-**Notas de stacking:** `_ring` es un Frame hijo que cubre el `panel.frame` completo (outward 0px en todos los lados), pintado con `t.border` ({r=0.980,g=0.980,b=0.980,a=0.10}). `_bg` ocupa el área interna completa del frame. El ring se dibuja sobre el fondo sin afectar el layout.
+**Notas de stacking:** `_ring` es un Frame hijo que cubre el `panel.frame` completo (outward 0px en todos los lados), pintado con `t.foreground` a=0.10 (Lyra `ring-foreground/10`; {r=0.980,g=0.980,b=0.980,a=0.10}). `_bg` ocupa el área interna completa del frame. El ring se dibuja sobre el fondo sin afectar el layout.
 
 ### Patrón ring-1 ring-foreground/10 (ADR-0011)
 
@@ -117,10 +117,10 @@ Si se decide añadir, requiere aprobación del maintainer (cambio de API).
 | Elemento | Token | Valor dark mode |
 |---|---|---|
 | Fondo del panel | `t.card` | {r=0.091, g=0.091, b=0.091} |
-| Ring perimetral | `t.border` | {r=1, g=1, b=1, a=0.10} |
+| Ring perimetral | `t.foreground` a=0.10 (`ring-foreground/10`) | {r=0.980, g=0.980, b=0.980, a=0.10} |
 | Separador footer-top | `t.border` | {r=1, g=1, b=1, a=0.10} |
 | Texto del título | `t.cardForeground` | {r=0.980, g=0.980, b=0.980} |
-| Fuente del título | `t.fontBold`, `t.fontSizeLg` (14px) | — |
+| Fuente del título | `t.fontHeading or t.fontMedium`, `t.fontSizeLg` (14px) — Lyra NO usa bold/semibold (`text-sm font-medium`) | — |
 | Texto de descripción | `t.mutedForeground` | {r=0.630, g=0.630, b=0.630} |
 | Fuente de descripción | `t.font`, `t.fontSize` (12px) | — |
 | Padding content / header / footer | `t.spacingLg` (16px) | — |
@@ -134,7 +134,7 @@ Si se decide añadir, requiere aprobación del maintainer (cambio de API).
 | `title` | string | nil | Texto del título en el header; omitir oculta el header |
 | `description` | string | nil | Texto de descripción bajo el título |
 | `footer` | Frame | nil | Frame a insertar en la zona footer; omitir oculta el footer |
-| `padding` | number | 16 | Override del padding de content (todos los lados) |
+| `padding` | number | 16 | Override del padding **horizontal** de content (`px-4`); el vertical siempre usa `lg` |
 
 ## API pública
 
@@ -174,7 +174,7 @@ El frame exterior (`panel.frame`) se pinta con el color del ring:
 ```lua
 panel._ringTex = panel.frame:CreateTexture(nil, "BACKGROUND", nil, -1)
 panel._ringTex:SetAllPoints(panel.frame)
-panel._ringTex:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
+panel._ringTex:SetColorTexture(t.foreground.r, t.foreground.g, t.foreground.b, 0.10)
 ```
 
 **Scroll:** el Panel no scrollea por sí mismo. Para contenido largo, el dev debe agregar un `Craft.Scroll` dentro de `GetContent()`.
@@ -183,6 +183,8 @@ panel._ringTex:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
 
 **overflow-hidden:** el frame usa `SetClipsChildren(true)` (`.cn-card overflow-hidden`) — el contenido que exceda los límites del panel se recorta. Los popovers (p.ej. el panel de `Craft.Select`) van en UIParent, no como hijos del panel, así que no se recortan.
 
-**Footer externo:** `config.footer` es un Frame ya construido que se reparenta a `panel._footer`. El dev es responsable de dimensionarlo; el footer lo ancla con padding H de 16px y centra verticalmente.
+**Footer externo:** `config.footer` es un Frame ya construido que se reparenta a `panel._footer`. El dev es responsable de dimensionarlo; el footer lo inseta con `p-4` (16px en los 4 lados, `.cn-card-footer p-4`) sobre el separador `border-t`.
+
+**Header con ancla única (bug #2, CLAUDE.md):** el título usa ancla única `TOPLEFT` para que WoW auto-dimensione el string desde su contenido — nunca doble ancla horizontal (deriva el ancho del padre y deja el texto invisible hasta `/reload` si el header tiene width=0 al anclar). La descripción usa `TOPLEFT` único + `SetWidth` explícito (ancho del panel − `2·lg`) dentro de `_applyTheme` para que `SetWordWrap(true)` reparta el texto en varias líneas. El gap header→content es un único `gap-4` (16px): el alto del header NO incluye padding inferior; el espaciado lo aporta el `-lg` del ancla del content.
 
 **Radius = 0:** ninguna textura usa `SetTexCoord` para esquinas redondeadas. Todas las texturas son rectangulares sin modificación (`rounded-none` en Lyra).

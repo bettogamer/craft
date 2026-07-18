@@ -81,9 +81,10 @@ function Panel:Create(parent, config)
     self._footer:Hide()
 
     -- If a pre-built frame was passed as config.footer, reparent it into _footer.
+    -- The inset points (p-4 all sides) are applied in _layoutFrames where lg is known.
     if config.footer then
         config.footer:SetParent(self._footer)
-        config.footer:SetAllPoints(self._footer)
+        self._footerContent = config.footer
     end
 
     -- Footer top separator (border-t, ADR-0011)
@@ -133,26 +134,32 @@ function Panel:_layoutFrames(t)
         self._header:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
         self._header:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
 
-        -- Title: lg top-pad + t.fontSizeLg (14px) + lg bottom-pad
+        -- Title: lg top-pad + t.fontSizeLg (14px). Single anchor (TOPLEFT) so WoW
+        -- auto-sizes the string from its content — a double horizontal anchor derives
+        -- the width from the parent and leaves the text invisible until /reload when the
+        -- header has width=0 at anchor time (production bug #2, see CLAUDE.md).
         local titleH = t.fontSizeLg or 14
         self._title:ClearAllPoints()
-        self._title:SetPoint("TOPLEFT",  self._header, "TOPLEFT",  lg, -lg)
-        self._title:SetPoint("TOPRIGHT", self._header, "TOPRIGHT", -lg, -lg)
+        self._title:SetPoint("TOPLEFT", self._header, "TOPLEFT", lg, -lg)
 
         if hasDesc then
-            -- Desc below title with xs gap
+            -- Desc below title with xs gap. Single left anchor + explicit width so
+            -- SetWordWrap can flow the text across lines within the header padding.
             local descH = t.fontSize or 12
             self._desc:ClearAllPoints()
-            self._desc:SetPoint("TOPLEFT",  self._title, "BOTTOMLEFT",  0, -xs)
-            self._desc:SetPoint("TOPRIGHT", self._title, "BOTTOMRIGHT", 0, -xs)
+            self._desc:SetPoint("TOPLEFT", self._title, "BOTTOMLEFT", 0, -xs)
+            local availW = (self.frame:GetWidth() or 0) - 2 * lg
+            if availW > 0 then
+                self._desc:SetWidth(availW)
+            end
             self._desc:Show()
-            -- Header height: lg + title + xs + desc + lg
-            self._header:SetHeight(lg + titleH + xs + descH + lg)
+            -- Header height: lg + title + xs + desc (trailing gap comes from content's -lg)
+            self._header:SetHeight(lg + titleH + xs + descH)
         else
             self._desc:ClearAllPoints()
             self._desc:Hide()
-            -- Header height: lg + title + lg
-            self._header:SetHeight(lg + titleH + lg)
+            -- Header height: lg + title (trailing gap comes from content's -lg)
+            self._header:SetHeight(lg + titleH)
         end
     else
         self._header:Hide()
@@ -160,6 +167,13 @@ function Panel:_layoutFrames(t)
 
     -- ── Footer ─────────────────────────────────────────────────────────────
     local hasFooter = self._footer:IsShown()
+
+    -- Footer content: p-4 inset (16px all sides) over the border-t separator.
+    if self._footerContent then
+        self._footerContent:ClearAllPoints()
+        self._footerContent:SetPoint("TOPLEFT",     self._footer, "TOPLEFT",      lg, -lg)
+        self._footerContent:SetPoint("BOTTOMRIGHT", self._footer, "BOTTOMRIGHT", -lg,  lg)
+    end
 
     -- ── Content ────────────────────────────────────────────────────────────
     self._content:ClearAllPoints()
