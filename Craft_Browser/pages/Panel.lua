@@ -72,17 +72,31 @@ CraftBrowserPages["Panel"] = {
         payoutPanel:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
         table.insert(comps, payoutPanel)
 
-        -- Content body
+        -- Content body — the vertical field stack is driven by Craft.Grid (FR-040):
+        -- one column, `rowGap` = the 10px rhythm shadcn uses (label→control and
+        -- field→field). This replaces the hand-tracked -yOff offsets with a single
+        -- grid whose row heights come from each control's natural size.
+        --
+        -- The one genuinely-2D spot — the "Minimum Payout Amount" label | big value
+        -- on one row — is NOT expressed as grid cells: the big value updates live on
+        -- slider drag (onChange → SetText → Label auto-resizes its frame) and must
+        -- keep its RIGHT edge pinned. Grid positions items by TOPLEFT with a width
+        -- cached at Add(), so a grid cell would let the value overflow as it grows.
+        -- Instead that row lives in its own `amountField` frame with the proven
+        -- BOTTOMRIGHT/BOTTOMLEFT twin-anchor, and the frame is added as a single grid row.
         local contentFrame = payoutPanel:GetContent()
 
-        -- Row 1: Preferred Currency
+        -- Row 1: Preferred Currency (label)
         local currencyLabel = Craft.Label:Create(contentFrame, {
             text  = "Preferred Currency",
             color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
         })
-        currencyLabel:GetFrame():SetPoint("TOPLEFT", contentFrame, "TOPLEFT", 0, 0)
+        currencyLabel:GetFrame():SetHeight(14)
         table.insert(comps, currencyLabel)
 
+        -- Row 2: Preferred Currency (select). No fixed width — the grid stretches it to
+        -- the full content width (shadcn controls fill the card); the popup reads the
+        -- trigger width at open time so it follows.
         local currencySelect = Craft.Select:Create(contentFrame, {
             options = {
                 { value="USD", label="USD — United States Dollar" },
@@ -90,16 +104,13 @@ CraftBrowserPages["Panel"] = {
                 { value="GBP", label="GBP — British Pound" },
             },
             value = "USD",
-            width = 280,   -- FR-036: fixed trigger width via config (was SetWidth after Create)
         })
-        currencySelect:GetFrame():SetPoint("TOPLEFT", contentFrame, "TOPLEFT", 0, -24)
         table.insert(comps, currencySelect)
 
-        -- Row 2: Minimum Payout Amount
-        -- shadcn shows the amount as a large, bold display number on the right of
-        -- the label row — NOT the slider's small muted header value. So we keep a
-        -- separate big Label and drive it live via the Slider's onChange (fires on
-        -- drag, FR-034 confirmed). The slider only renders the min/max row.
+        -- Row 3: Minimum Payout Amount — self-contained field frame (see note above).
+        -- shadcn shows the amount as a large, bold display number on the right of the
+        -- label row (NOT the slider's small muted header value); we drive it live via
+        -- the Slider's onChange (fires on drag, FR-034 confirmed).
         local function fmtMoney(v, context)
             local s = tostring(math.floor(v + 0.5))
             local k
@@ -109,26 +120,30 @@ CraftBrowserPages["Panel"] = {
             return "$"..s..".00"
         end
 
-        -- label (small, left) + big value (bold, right), bottom-aligned on one row
-        local amountLabel = Craft.Label:Create(contentFrame, {
-            text  = "Minimum Payout Amount",
-            color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
-        })
-        amountLabel:GetFrame():SetPoint("BOTTOMLEFT", contentFrame, "TOPLEFT", 0, -98)
-        amountLabel:GetFrame():SetHeight(14)
-        table.insert(comps, amountLabel)
+        local amountField = CreateFrame("Frame", nil, contentFrame)
+        table.insert(comps, { Destroy = function() amountField:Hide() end })
 
-        local amountValue = Craft.Label:Create(contentFrame, {
+        -- label (small, left) + big value (bold, right), bottom-aligned on one row,
+        -- both pinned to amountField's top edge (row starts at the field's top).
+        local amountValue = Craft.Label:Create(amountField, {
             text   = "$2,500.00",
             weight = "bold",
             size   = 24,                 -- text-2xl display number
             color  = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
         })
-        amountValue:GetFrame():SetPoint("BOTTOMRIGHT", contentFrame, "TOPRIGHT", 0, -98)
         amountValue:GetFrame():SetHeight(28)
+        amountValue:GetFrame():SetPoint("BOTTOMRIGHT", amountField, "TOPRIGHT", 0, -28)
         table.insert(comps, amountValue)
 
-        local amountSlider = Craft.Slider:Create(contentFrame, {
+        local amountLabel = Craft.Label:Create(amountField, {
+            text  = "Minimum Payout Amount",
+            color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+        })
+        amountLabel:GetFrame():SetHeight(14)
+        amountLabel:GetFrame():SetPoint("BOTTOMLEFT", amountField, "TOPLEFT", 0, -28)
+        table.insert(comps, amountLabel)
+
+        local amountSlider = Craft.Slider:Create(amountField, {
             min        = 50,
             max        = 10000,
             step       = 50,
@@ -137,25 +152,47 @@ CraftBrowserPages["Panel"] = {
             format     = fmtMoney,
             onChange   = function(v) amountValue:SetText(fmtMoney(v)) end,
         })
-        amountSlider:GetFrame():SetPoint("TOPLEFT", contentFrame, "TOPLEFT", 0, -106)
-        amountSlider:GetFrame():SetWidth(280)
+        -- Slider fills amountField horizontally (TOPLEFT+TOPRIGHT) so it stretches with
+        -- the field; _updateVisuals retries until the track width resolves.
+        amountSlider:GetFrame():SetPoint("TOPLEFT",  amountField, "TOPLEFT",  0, -36)
+        amountSlider:GetFrame():SetPoint("TOPRIGHT", amountField, "TOPRIGHT", 0, -36)
         table.insert(comps, amountSlider)
 
-        -- Row 3: Notes
+        -- Field height = value/label row (28) + 8px gap + slider — cached by Grid at Add().
+        -- Width is left to the grid (stretch) so the field fills the content and the big
+        -- value's right edge lands on the card's right edge, like the other controls.
+        amountField:SetHeight(36 + amountSlider:GetFrame():GetHeight())
+
+        -- Row 4: Notes (label)
         local notesLabel = Craft.Label:Create(contentFrame, {
             text  = "Notes",
             color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
         })
-        notesLabel:GetFrame():SetPoint("TOPLEFT", contentFrame, "TOPLEFT", 0, -146)
+        notesLabel:GetFrame():SetHeight(14)
         table.insert(comps, notesLabel)
 
+        -- Row 5: Notes (textarea). No fixed width — grid stretches it to full content
+        -- width; the EditBox re-syncs its wrap width on OnSizeChanged.
         local notesTextarea = Craft.Textarea:Create(contentFrame, {
             placeholder = "Add any notes for this payout configuration...",
-            width       = 280,
             height      = 100,
         })
-        notesTextarea:GetFrame():SetPoint("TOPLEFT", contentFrame, "TOPLEFT", 0, -170)
         table.insert(comps, notesTextarea)
+
+        -- Stack the five rows with Craft.Grid. Labels keep their natural width
+        -- (justifySelf="start", left-aligned); the controls and the amount field
+        -- stretch (default) to the full content width — shadcn's full-width fields.
+        local bodyGrid = Craft.Grid.new(contentFrame, {
+            columns = { "1fr" },
+            rows    = { "auto", "auto", "auto", "auto", "auto" },
+            rowGap  = 10,
+        })
+        bodyGrid:Add(currencyLabel:GetFrame(),  { row = 1, justifySelf = "start" })
+        bodyGrid:Add(currencySelect:GetFrame(), { row = 2 })  -- stretch → full width
+        bodyGrid:Add(amountField,               { row = 3 })  -- stretch → full width
+        bodyGrid:Add(notesLabel:GetFrame(),     { row = 4, justifySelf = "start" })
+        bodyGrid:Add(notesTextarea:GetFrame(),  { row = 5 })  -- stretch → full width
+        bodyGrid:Layout()
 
         -- Footer: Save button
         payoutPanel:ShowFooter(52)
