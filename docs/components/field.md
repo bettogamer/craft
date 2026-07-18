@@ -8,9 +8,9 @@
 > Badge/Card: Lyra reajusta gaps/tamaños, no solo radius) → confirmar con `/update-design-tokens`
 > contra el CSS Lyra real (`.cn-field*` dio 404 al fetchear).
 > WoW frame base: `Frame` (sin interacción propia — la interacción vive en `control`).
-> Origen: sin FR/RFC asignado — spec surgido al portar el ejemplo shadcn "Payout Threshold"
-> (Card + Field group). Field NO está implementado; es una propuesta de diseño y, como
-> componente nuevo, requiere aprobación del maintainer (abrir FR/RFC) antes de construirse.
+> Origen: FR-041 (`docs/requests/FR-041-field-fieldgroup.md`) — surgido al portar el ejemplo
+> shadcn "Payout Threshold" (Card + Field group). Field NO está implementado; es una propuesta
+> de diseño y, como componente nuevo, requiere aprobación del maintainer antes de construirse.
 
 ## CSS de referencia (base new-york-v4; Lyra puede recalibrar densidades)
 
