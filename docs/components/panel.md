@@ -38,7 +38,8 @@ panel.frame          (Frame, strata=MEDIUM, level=BACKGROUND -1)
 ├── panel._ring      (Frame, 1px outward)        ring perimetral 1px (ADR-0011)
 ├── panel._header    (Frame, opcional)           zona superior
 │   ├── panel._title   (FontString)             título principal
-│   └── panel._desc    (FontString, opcional)   descripción secundaria
+│   ├── panel._desc    (FontString, opcional)   descripción secundaria
+│   └── panel._action  (Frame, opcional)         slot CardAction, esquina sup-derecha (FR-039)
 ├── panel._content   (Frame)                    área editable por el dev
 └── panel._footer    (Frame, opcional)           zona inferior de acciones
     └── panel._footerBorder (Frame, 1px alto)   línea separadora top (ADR-0011)
@@ -95,12 +96,21 @@ panel._bg:SetPoint("BOTTOMRIGHT", panel.frame, "BOTTOMRIGHT", -1,  1)
 | Con footer | `_content` termina sobre el footer; `_footer` tiene borde-top 1px |
 | Completo | Header + content + footer |
 
-### Diferencias conocidas vs shadcn (fuera de MVP)
+### CardAction — slot de acción en el header (FR-039)
 
 shadcn Card ofrece el slot **`CardAction`** — un área en la esquina superior derecha
-del header para acciones/badges/iconos complementarios. Craft.Panel **no** lo
-implementa (omisión de alcance MVP, no bug — ver `docs/design-reference.md` §9.1).
-Si se decide añadir, requiere aprobación del maintainer (cambio de API).
+del header para acciones/badges/iconos complementarios (típicamente un ✕ de cerrar).
+Craft.Panel lo implementa vía `config.action` / `SetHeaderAction()` (FR-039).
+
+Cuando hay una acción, el header se maqueta como una rejilla `[1fr auto]` con
+**`Craft.Grid`** (en vez del layout de ancla única): la columna `1fr` apila
+título + descripción, y la columna `auto` lleva la acción anclada arriba-derecha
+(`justify-self:end`, `self-start`, `row-span` completo) — el mapeo directo de
+`CardAction = col-start-2 row-span-2 self-start justify-self-end` del `card.tsx`.
+El título pasa a una sola línea (`SetWordWrap(false)`, `truncate`) porque su ancho
+queda acotado a la columna `1fr`. Sin acción, el header conserva el layout histórico
+sin cambios. El caller instancia su propio widget (p. ej. `Craft.Button` variant
+`ghost` size `icon` con el icono `x`), igual que con el footer.
 
 ## Estados
 
@@ -134,6 +144,7 @@ Si se decide añadir, requiere aprobación del maintainer (cambio de API).
 | `title` | string | nil | Texto del título en el header; omitir oculta el header |
 | `description` | string | nil | Texto de descripción bajo el título |
 | `footer` | Frame | nil | Frame a insertar en la zona footer; omitir oculta el footer |
+| `action` | Frame | nil | Widget de acción del header (CardAction, FR-039); reparentado y anclado arriba-derecha. Fuerza el layout de header con `Craft.Grid` `[1fr auto]` |
 | `padding` | number | 16 | Override del padding **horizontal** de content (`px-4`); el vertical siempre usa `lg` |
 
 ## API pública
@@ -146,6 +157,8 @@ Si se decide añadir, requiere aprobación del maintainer (cambio de API).
 | `GetContent()` | Frame | Retorna `panel._content` — aquí se agregan frames hijos |
 | `GetHeader()` | Frame \| nil | Retorna `panel._header` o nil si no existe |
 | `GetFooter()` | Frame \| nil | Retorna `panel._footer` o nil si no existe |
+| `GetHeaderAction()` | Frame \| nil | Retorna el widget de acción del header (FR-039) o nil |
+| `SetHeaderAction(frame)` | void | Setea/reemplaza la acción del header; `nil` la limpia. Re-maqueta el header como grid `[1fr auto]` |
 | `SetTitle(text)` | void | Actualiza el texto de `panel._title`; crea el header si no existía |
 | `SetDescription(text)` | void | Actualiza `panel._desc`; expande el header si es necesario |
 
@@ -186,5 +199,19 @@ panel._ringTex:SetColorTexture(t.foreground.r, t.foreground.g, t.foreground.b, 0
 **Footer externo:** `config.footer` es un Frame ya construido que se reparenta a `panel._footer`. El dev es responsable de dimensionarlo; el footer lo inseta con `p-4` (16px en los 4 lados, `.cn-card-footer p-4`) sobre el separador `border-t`.
 
 **Header con ancla única (bug #2, CLAUDE.md):** el título usa ancla única `TOPLEFT` para que WoW auto-dimensione el string desde su contenido — nunca doble ancla horizontal (deriva el ancho del padre y deja el texto invisible hasta `/reload` si el header tiene width=0 al anclar). La descripción usa `TOPLEFT` único + `SetWidth` explícito (ancho del panel − `2·lg`) dentro de `_applyTheme` para que `SetWordWrap(true)` reparta el texto en varias líneas. El gap header→content es un único `gap-4` (16px): el alto del header NO incluye padding inferior; el espaciado lo aporta el `-lg` del ancla del content.
+
+**Header con acción — grid `[1fr auto]` (FR-039):** cuando hay `action`, el header usa
+`Craft.Grid` en lugar del layout de ancla única. Filas en **px** (`titleH`/`descH`) — no
+`auto` — para no depender del alto natural de un FontString (aún no medido cuando `Grid:Add`
+cachea `_naturalH`); replica el supuesto de descripción de una línea del path manual. La
+instancia de Grid se recrea en cada `_layoutFrames` (Grid no retiene frames y el nº de filas
+depende de si hay descripción). El alto del header es `lg + max(bloque de texto, alto de la
+acción)`: con `self-start`, una acción más alta que título+descripción deja el hueco debajo.
+
+**Re-layout en resize (`OnSizeChanged`):** el Panel engancha `OnSizeChanged` de `panel.frame`
+para recomputar el header (grid + ancho de word-wrap de la descripción) si el frame se
+dimensiona **después** de `Create()` — el `Grid:Layout()` hace `return` temprano si el header
+tiene ancho 0 (mismo guard que Flex). Es idempotente: recomputa geometría idéntica cuando el
+tamaño no cambia.
 
 **Radius = 0:** ninguna textura usa `SetTexCoord` para esquinas redondeadas. Todas las texturas son rectangulares sin modificación (`rounded-none` en Lyra).

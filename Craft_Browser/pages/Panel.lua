@@ -170,9 +170,17 @@ CraftBrowserPages["Panel"] = {
             table.insert(comps, saveButton)
         end
 
-        -- NOTE: Panel does not yet support CardAction (header button ✕).
-        -- Feature gap tracked in docs/requests/FR-039-panel-cardaction-header.md
-        -- (spec: docs/components/panel.md §"Diferencias conocidas vs shadcn").
+        -- Header action (FR-039): shadcn CardAction — a ghost icon ✕ in the top-right
+        -- corner of the header. Panel reparents it and lays the header out as [1fr auto]
+        -- so the title/description reserve its width.
+        local closeButton = Craft.Button:Create(payoutPanel:GetHeader(), {
+            variant = "ghost",
+            size    = "icon",
+            icon    = "x",
+            tooltip = "Close",
+        })
+        payoutPanel:SetHeaderAction(closeButton:GetFrame())
+        table.insert(comps, closeButton)
 
         y = y + 396
 

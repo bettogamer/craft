@@ -4,7 +4,7 @@
 **Componente:** `Craft/components/Panel.lua` (shadcn: Card / `CardAction`)
 **Tipo:** Feature (nueva API pública — requiere aprobación del maintainer)
 **Prioridad:** Baja
-**Estado:** 🕓 Propuesto
+**Estado:** ✅ Implementado (en `dev`, 2026-07-18) — pendiente verificación in-game + bump/release
 
 ---
 
@@ -51,5 +51,27 @@ comportamiento de panels existentes (sin acción → header idéntico al actual)
 
 ## Workaround actual
 
-El Form Card en `Craft_Browser/pages/Panel.lua` omite el ✕ (queda anotado en el `NOTE:` del
-render). No bloquea la demo.
+~~El Form Card en `Craft_Browser/pages/Panel.lua` omite el ✕ (queda anotado en el `NOTE:` del
+render).~~ Resuelto — la demo ya muestra el ✕.
+
+## Resolución (en `dev`)
+
+Implementado sobre `Craft.Grid` (FR-040), que era el consumidor previsto del motor `[1fr auto]`:
+
+- **API nueva** en `Craft.Panel`: `config.action` (Frame prebuilt, reparentado al header),
+  `SetHeaderAction(frame)` / `GetHeaderAction()`. Aditivo — panels sin acción conservan el
+  layout de header histórico (ancla única) sin cambios de conducta.
+- **Layout**: con acción, el header se maqueta con `Craft.Grid.new(header, {columns={"1fr","auto"}})`
+  — la columna `1fr` apila título/descripción, la `auto` lleva la acción `justify-self:end`,
+  `self-start`, `row-span` completo. El título pasa a `SetWordWrap(false)` (`truncate`). Filas en
+  px para no depender del alto natural de FontString en `Grid:Add`. Alto del header =
+  `lg + max(texto, acción)`.
+- **Robustez**: `panel.frame:HookScript("OnSizeChanged")` recomputa el header si el panel se
+  dimensiona tras `Create()` (el guard de ancho 0 de Grid haría no-op en el primer layout).
+- **Demo**: `Craft_Browser/pages/Panel.lua` — el Form Card "Payout Threshold" muestra un
+  `Craft.Button` variant `ghost` size `icon` con icono `x` como CardAction.
+- **Tests**: `tests/panel_spec.lua` NUEVO (7 tests) — path manual sin cambios + geometría del
+  grid `[1fr auto]` + crecimiento de alto + `SetHeaderAction(nil)` revierte a manual.
+- **Verificación local**: `luac -p` OK, luacheck 0/0, taintlint 0/0, suite 315 tests.
+
+Pendiente maintainer: verificación in-game, bump de build (`bump-build.sh`) + release + re-vendoreo.

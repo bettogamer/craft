@@ -57,6 +57,10 @@ function Panel:Create(parent, config)
     self._title = self._header:CreateFontString(nil, "OVERLAY")
     self._title:SetJustifyH("LEFT")
     self._title:SetJustifyV("TOP")
+    -- Single line (shadcn `.cn-card-title` truncate): when a header action reserves
+    -- the right column (FR-039) the title is width-constrained to the 1fr column and
+    -- must truncate, not wrap. No-op in the manual path (title auto-sizes, never widthed).
+    self._title:SetWordWrap(false)
 
     -- Description: font, text-xs = 12px, t.mutedForeground
     self._desc = self._header:CreateFontString(nil, "OVERLAY")
@@ -95,6 +99,16 @@ function Panel:Create(parent, config)
     self._footerBorderTex = self._footerBorder:CreateTexture(nil, "BACKGROUND")
     self._footerBorderTex:SetAllPoints(self._footerBorder)
 
+    -- ── Header action slot (optional, FR-039) ──────────────────────────────
+    -- shadcn CardAction: a widget in the top-right corner of the header (close ✕,
+    -- badge, status icon). The dev builds it; Panel reparents it and lays the header
+    -- out as a [1fr auto] grid (Craft.Grid) so title/description reserve the action's
+    -- width instead of running under it. See _layoutHeaderGrid.
+    if config.action then
+        config.action:SetParent(self._header)
+        self._action = config.action
+    end
+
     -- ── Theme registration ─────────────────────────────────────────────────
     self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
     self:_applyTheme(Craft.Theme.get())
@@ -107,7 +121,95 @@ function Panel:Create(parent, config)
         self._desc:SetText(self._cfg.description)
     end
 
+    -- Re-layout on resize: a panel sized after Create() (SetWidth on the frame) or
+    -- resized later needs the header grid + description word-wrap width recomputed.
+    -- Cheap and idempotent — recomputes identical geometry when the size is unchanged.
+    self.frame:HookScript("OnSizeChanged", function()
+        if self._t then self:_layoutFrames(self._t) end
+    end)
+
     return self
+end
+
+-- ─── Header layout: manual (no action) ──────────────────────────────────────
+-- Historic single-anchor layout: title over description. A double horizontal anchor
+-- would derive the width from the parent and leave the text invisible until /reload
+-- when the header has width=0 at anchor time (production bug #2, see CLAUDE.md).
+function Panel:_layoutHeaderManual(t, hasDesc, lg, xs)
+    local titleH = t.fontSizeLg or 14
+    self._title:Show()
+    self._title:ClearAllPoints()
+    self._title:SetPoint("TOPLEFT", self._header, "TOPLEFT", lg, -lg)
+
+    if hasDesc then
+        -- Desc below title with xs gap. Single left anchor + explicit width so
+        -- SetWordWrap can flow the text across lines within the header padding.
+        local descH = t.fontSize or 12
+        self._desc:ClearAllPoints()
+        self._desc:SetPoint("TOPLEFT", self._title, "BOTTOMLEFT", 0, -xs)
+        local availW = (self.frame:GetWidth() or 0) - 2 * lg
+        if availW > 0 then
+            self._desc:SetWidth(availW)
+        end
+        self._desc:Show()
+        -- Header height: lg + title + xs + desc (trailing gap comes from content's -lg)
+        self._header:SetHeight(lg + titleH + xs + descH)
+    else
+        self._desc:ClearAllPoints()
+        self._desc:Hide()
+        -- Header height: lg + title (trailing gap comes from content's -lg)
+        self._header:SetHeight(lg + titleH)
+    end
+end
+
+-- ─── Header layout: grid (with action, FR-039) ──────────────────────────────
+-- shadcn CardHeader with a CardAction is a grid `[1fr auto]`: the 1fr column stacks
+-- title + description, the auto column holds the action anchored top-right
+-- (justify-self:end, self-start) spanning the text rows. Realised with Craft.Grid.
+function Panel:_layoutHeaderGrid(t, hasTitle, hasDesc, lg, xs)
+    local titleH = t.fontSizeLg or 14
+    local descH  = t.fontSize or 12
+
+    -- Rows in px (title/desc are fixed-height, as in the manual path). Fixed tracks
+    -- avoid depending on a FontString's natural height cached in Grid:Add() — which is
+    -- not measured yet at Add() time — matching the manual path's single-line assumption.
+    local rows = {}
+    if hasTitle then rows[#rows + 1] = titleH end
+    if hasDesc  then rows[#rows + 1] = descH  end
+    if #rows == 0 then rows[1] = self._action:GetHeight() end  -- action-only header
+
+    if hasTitle then self._title:Show() else self._title:Hide() end
+    if hasDesc  then self._desc:Show()  else self._desc:Hide()  end
+
+    -- Fresh instance each layout: Grid holds no frames of its own and its config
+    -- (row count) depends on whether the description is present.
+    local grid = Craft.Grid.new(self._header, {
+        columns  = { "1fr", "auto" },   -- grid-cols-[1fr_auto]
+        rows     = rows,
+        colGap   = xs,
+        rowGap   = xs,                   -- gap-1 (.cn-card-header)
+        paddingH = lg,                   -- px-4
+        paddingV = lg,                   -- top pad (the gap→content comes from content's -lg)
+    })
+
+    local r = 1
+    if hasTitle then grid:Add(self._title, { col = 1, row = r }); r = r + 1 end
+    if hasDesc  then grid:Add(self._desc,  { col = 1, row = r }) end
+
+    self._action:Show()
+    grid:Add(self._action, {
+        col = 2, row = 1, rowSpan = math.max(1, #rows),
+        justifySelf = "end",             -- justify-self-end
+        alignSelf   = "start",           -- self-start (aligned with the title top)
+    })
+    grid:Layout()
+
+    -- Header height: top pad + max(text block, action). The action can be taller than
+    -- title+desc (self-start leaves the slack below it, matching the CSS grid).
+    local textInner = 0
+    if hasTitle then textInner = titleH + (hasDesc and (xs + descH) or 0) end
+    local actionH = self._action:GetHeight() or 0
+    self._header:SetHeight(lg + math.max(textInner, actionH))
 end
 
 -- ─── Layout ────────────────────────────────────────────────────────────────
@@ -125,8 +227,13 @@ function Panel:_layoutFrames(t)
     self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1, px1)
 
     -- ── Header ─────────────────────────────────────────────────────────────
-    local hasHeader = self._cfg.title ~= nil
-    local hasDesc   = self._cfg.description ~= nil and hasHeader
+    -- Header shows when there is a title OR a header action (FR-039). The vertical
+    -- stacking (title over description) is delegated to one of two paths:
+    --   • _layoutHeaderManual — no action: historic single-anchor layout (bug #2/#4).
+    --   • _layoutHeaderGrid   — with action: [1fr auto] grid via Craft.Grid.
+    local hasTitle  = self._cfg.title ~= nil
+    local hasHeader = hasTitle or self._action ~= nil
+    local hasDesc   = self._cfg.description ~= nil and hasTitle
 
     if hasHeader then
         self._header:Show()
@@ -134,32 +241,10 @@ function Panel:_layoutFrames(t)
         self._header:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
         self._header:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
 
-        -- Title: lg top-pad + t.fontSizeLg (14px). Single anchor (TOPLEFT) so WoW
-        -- auto-sizes the string from its content — a double horizontal anchor derives
-        -- the width from the parent and leaves the text invisible until /reload when the
-        -- header has width=0 at anchor time (production bug #2, see CLAUDE.md).
-        local titleH = t.fontSizeLg or 14
-        self._title:ClearAllPoints()
-        self._title:SetPoint("TOPLEFT", self._header, "TOPLEFT", lg, -lg)
-
-        if hasDesc then
-            -- Desc below title with xs gap. Single left anchor + explicit width so
-            -- SetWordWrap can flow the text across lines within the header padding.
-            local descH = t.fontSize or 12
-            self._desc:ClearAllPoints()
-            self._desc:SetPoint("TOPLEFT", self._title, "BOTTOMLEFT", 0, -xs)
-            local availW = (self.frame:GetWidth() or 0) - 2 * lg
-            if availW > 0 then
-                self._desc:SetWidth(availW)
-            end
-            self._desc:Show()
-            -- Header height: lg + title + xs + desc (trailing gap comes from content's -lg)
-            self._header:SetHeight(lg + titleH + xs + descH)
+        if self._action and Craft.Grid then
+            self:_layoutHeaderGrid(t, hasTitle, hasDesc, lg, xs)
         else
-            self._desc:ClearAllPoints()
-            self._desc:Hide()
-            -- Header height: lg + title (trailing gap comes from content's -lg)
-            self._header:SetHeight(lg + titleH)
+            self:_layoutHeaderManual(t, hasDesc, lg, xs)
         end
     else
         self._header:Hide()
@@ -250,6 +335,29 @@ function Panel:GetFooter()
         return self._footer
     end
     return nil
+end
+
+-- Returns the current header action frame (FR-039) or nil if none.
+function Panel:GetHeaderAction()
+    return self._action
+end
+
+-- Sets or replaces the header action widget (top-right of the header). Pass nil to
+-- clear it. The dev owns the frame and its size (e.g. a Craft.Button variant=ghost
+-- size=icon with the `x` icon); Panel reparents it and re-lays the header out as a
+-- [1fr auto] grid. Setting an action with no title shows an action-only header.
+function Panel:SetHeaderAction(frame)
+    if self._action and self._action ~= frame then
+        self._action:Hide()
+    end
+    self._action = frame
+    if frame then
+        frame:SetParent(self._header)
+        frame:Show()
+    end
+    if self._t then
+        self:_layoutFrames(self._t)
+    end
 end
 
 -- Sets (or clears) the panel title.
