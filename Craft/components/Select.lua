@@ -85,10 +85,14 @@ function Select:Create(parent, config)
     self._trigger = CreateFrame("Button", nil, self.frame)
     self._trigger:SetAllPoints(self.frame)
 
-    -- _triggerBorder: Frame 1px outward that shows t.input as the border
-    -- Technique: the border frame is the visible background, bg is inset 1px on top
-    self._triggerBorder = self._trigger:CreateTexture(nil, "BACKGROUND")
-    self._triggerBorder:SetAllPoints(self._trigger)
+    -- _border*: 4 textures of 1px (top/bottom/left/right) — the trigger border.
+    -- A 1px RING, not a full fill: a full-fill border under the translucent bg
+    -- double-tints the interior (border 0.15 + bg 0.045 stack → ~2× too light).
+    -- Same corner-safe technique as Input (Craft.Theme.AnchorBorder). See FR-038.
+    self._borderTop    = self._trigger:CreateTexture(nil, "BACKGROUND")
+    self._borderBottom = self._trigger:CreateTexture(nil, "BACKGROUND")
+    self._borderLeft   = self._trigger:CreateTexture(nil, "BACKGROUND")
+    self._borderRight  = self._trigger:CreateTexture(nil, "BACKGROUND")
 
     -- _triggerBg: Texture inset 1px — the actual trigger background
     self._triggerBg = self._trigger:CreateTexture(nil, "BACKGROUND")
@@ -389,6 +393,17 @@ function Select:_refreshItemStates()
     end
 end
 
+-- ─── _paintTriggerBorder ──────────────────────────────────────────────────────
+-- Colors the 4 border textures at once (idle = t.input, open = t.ring). Split out
+-- so _applyTheme and Open/Close share one painter instead of repainting a single
+-- full-fill texture (FR-038).
+function Select:_paintTriggerBorder(r, g, b, a)
+    self._borderTop:SetColorTexture(r, g, b, a)
+    self._borderBottom:SetColorTexture(r, g, b, a)
+    self._borderLeft:SetColorTexture(r, g, b, a)
+    self._borderRight:SetColorTexture(r, g, b, a)
+end
+
 -- ─── _applyTheme ──────────────────────────────────────────────────────────────
 function Select:_applyTheme(t)
     self._t = t
@@ -408,8 +423,10 @@ function Select:_applyTheme(t)
     -- Chevron: color = mutedForeground
     self._chevron:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)
 
-    -- Trigger border: t.input — fills the entire frame (bg is inset on top)
-    self._triggerBorder:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a or 0.15)
+    -- Trigger border: 1px ring, t.input (idle). Open() swaps it to t.ring.
+    Craft.Theme.AnchorBorder(self._trigger, self._borderTop, self._borderBottom,
+                             self._borderLeft, self._borderRight)
+    self:_paintTriggerBorder(t.input.r, t.input.g, t.input.b, t.input.a or 0.15)
 
     -- _triggerBg inset 1px — input/30
     self._triggerBg:SetPoint("TOPLEFT",     self._trigger, "TOPLEFT",     px1,  -px1)
@@ -516,7 +533,7 @@ function Select:Open()
     -- Trigger border: t.ring while the panel is open
     local t = self._t
     if t then
-        self._triggerBorder:SetColorTexture(t.ring.r, t.ring.g, t.ring.b, t.ring.a)
+        self:_paintTriggerBorder(t.ring.r, t.ring.g, t.ring.b, t.ring.a)
     end
 
     -- Re-arm item hit-testing (Close() drops it during the fade-out so the
@@ -549,7 +566,7 @@ function Select:Close()
     -- Trigger border: restore to t.input
     local t = self._t
     if t then
-        self._triggerBorder:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a or 0.15)
+        self:_paintTriggerBorder(t.input.r, t.input.g, t.input.b, t.input.a or 0.15)
     end
 end
 

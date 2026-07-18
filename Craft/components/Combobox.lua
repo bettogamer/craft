@@ -88,8 +88,13 @@ function Combobox:Create(parent, config)
     self._trigger = CreateFrame("Button", nil, self.frame)
     self._trigger:SetAllPoints(self.frame)
 
-    self._triggerBorder = self._trigger:CreateTexture(nil, "BACKGROUND")
-    self._triggerBorder:SetAllPoints(self._trigger)
+    -- Border = 1px RING (4 textures), not a full fill: a full-fill border under the
+    -- translucent bg double-tints the interior (0.15 + 0.045 stack → ~2× too light).
+    -- Same technique as Input/Select (Craft.Theme.AnchorBorder). See FR-038.
+    self._borderTop    = self._trigger:CreateTexture(nil, "BACKGROUND")
+    self._borderBottom = self._trigger:CreateTexture(nil, "BACKGROUND")
+    self._borderLeft   = self._trigger:CreateTexture(nil, "BACKGROUND")
+    self._borderRight  = self._trigger:CreateTexture(nil, "BACKGROUND")
     self._triggerBg = self._trigger:CreateTexture(nil, "BACKGROUND")
 
     self._selectedText = self._trigger:CreateFontString(nil, "OVERLAY")
@@ -455,6 +460,15 @@ function Combobox:_pick(opt)
     self:Close()
 end
 
+-- Colors the 4 trigger-border textures at once (idle = t.input, open = t.ring).
+-- Shared by _applyTheme / Open / _onPanelClosed (FR-038).
+function Combobox:_paintTriggerBorder(r, g, b, a)
+    self._borderTop:SetColorTexture(r, g, b, a)
+    self._borderBottom:SetColorTexture(r, g, b, a)
+    self._borderLeft:SetColorTexture(r, g, b, a)
+    self._borderRight:SetColorTexture(r, g, b, a)
+end
+
 -- ─── _applyTheme ────────────────────────────────────────────────────────────
 function Combobox:_applyTheme(t)
     self._t = t
@@ -468,7 +482,9 @@ function Combobox:_applyTheme(t)
     self:_updateTriggerText()
 
     self._chevron:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)
-    self._triggerBorder:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a or 0.15)
+    Craft.Theme.AnchorBorder(self._trigger, self._borderTop, self._borderBottom,
+                             self._borderLeft, self._borderRight)
+    self:_paintTriggerBorder(t.input.r, t.input.g, t.input.b, t.input.a or 0.15)
     self._triggerBg:SetPoint("TOPLEFT",     self._trigger, "TOPLEFT",     px1,  -px1)
     self._triggerBg:SetPoint("BOTTOMRIGHT", self._trigger, "BOTTOMRIGHT", -px1,  px1)
     self._triggerBg:SetColorTexture(t.input.r, t.input.g, t.input.b, self._bgAlpha)
@@ -536,7 +552,7 @@ function Combobox:Open()
 
     Craft.Icons.Apply(self._chevron, "chevron-up", 16)
     local t = self._t
-    if t then self._triggerBorder:SetColorTexture(t.ring.r, t.ring.g, t.ring.b, t.ring.a) end
+    if t then self:_paintTriggerBorder(t.ring.r, t.ring.g, t.ring.b, t.ring.a) end
 
     self._edit:SetFocus()
 end
@@ -550,7 +566,7 @@ function Combobox:_onPanelClosed()
     self._edit:ClearFocus()
     Craft.Icons.Apply(self._chevron, "chevron-down", 16)
     local t = self._t
-    if t then self._triggerBorder:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a or 0.15) end
+    if t then self:_paintTriggerBorder(t.input.r, t.input.g, t.input.b, t.input.a or 0.15) end
 end
 
 function Combobox:IsOpen()
