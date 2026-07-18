@@ -6,8 +6,9 @@
 **Tipo:** Bug + hardening de arquitectura (jerarquía de capas de librería)
 **Prioridad:** Media-Alta — un modal abierto desde una `Craft.Window` queda inutilizable
 (no se ve, no se puede cerrar, sus botones quedan tapados)
-**Estado:** ✅ Resuelto (implementado en `dev` 2026-07-18; pendiente release+bump por el owner
-y re-vendoreo en Coffer)
+**Estado:** ✅ Resuelto y **verificado in-game** (Craft_Browser, 12.0.7, 2026-07-18): modal sobre
+la Window, backdrop oscurece, arrastre + botones + ✕ funcionan. Pendiente release+bump por el
+owner y re-vendoreo en Coffer (donde se puede borrar el workaround `liftDialog`).
 
 ---
 
