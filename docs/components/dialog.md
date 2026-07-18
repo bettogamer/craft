@@ -35,8 +35,8 @@ Show/Hide/Toggle animan con `Weave.tween` (ADR-0013 §4.6): **fade** por alpha (
 ## Jerarquía de frames WoW
 
 ```
-dialog._overlay        (Frame, strata=HIGH, UIParent)  backdrop modal black/10, bloquea clics
-dialog.frame           (Frame, strata=DIALOG)          raíz draggable (sobre el overlay)
+dialog._overlay        (Frame, strata=modal, UIParent) backdrop modal black/10, bloquea clics
+dialog.frame           (Frame, strata=modal)           raíz draggable (frame-level > overlay)
 ├── dialog._bg         (Texture, BACKGROUND)          fondo del dialog
 ├── dialog._header     (Frame, opcional)              zona de título — drag handle
 │   ├── dialog._title  (FontString)                   texto del título (text-sm)
@@ -49,11 +49,22 @@ dialog.frame           (Frame, strata=DIALOG)          raíz draggable (sobre el
     └── dialog._footerBorder (Frame, 1px alto)        línea separadora top (ADR-0011)
 ```
 
-**Overlay modal (`.cn-dialog-overlay`):** un Frame full-screen en UIParent, strata HIGH
-(el dialog está en DIALOG, por encima), con fondo negro `a=0.10` (`bg-black/10`) y
-`EnableMouse(true)` para bloquear clics a la UI de abajo → el dialog es modal. WoW no tiene
-`backdrop-blur`, así que es solo el relleno plano (sutil). Su visibilidad se sincroniza con
-el dialog vía hooks `OnShow`/`OnHide` (cubre cierre por X, Escape, `Hide()` y `Toggle()`).
+**Overlay modal (`.cn-dialog-overlay`):** un Frame full-screen en UIParent, en la **misma
+strata `modal`** que el dialog (`Craft.Strata.modal` = `FULLSCREEN` por defecto), con fondo
+negro `a=0.10` (`bg-black/10`) y `EnableMouse(true)` para bloquear clics a la UI de abajo →
+el dialog es modal. El frame del dialog se eleva **un frame-level por encima** del overlay
+(misma strata) para pintar sobre su propio backdrop. WoW no tiene `backdrop-blur`, así que es
+solo el relleno plano (sutil). Su visibilidad se sincroniza con el dialog vía los mismos
+reactivos `alpha`/`shown` (cubre cierre por X, Escape, `Hide()` y `Toggle()`).
+
+**Capa `modal` y FR-033:** antes el dialog vivía en `DIALOG` y el overlay en `HIGH`. Como
+`Craft.Window` también usa `DIALOG` + `SetToplevel` + raise-on-click, un modal abierto DESDE
+una ventana nacía en su misma strata (quedaba **detrás**) y el backdrop en `HIGH` (por
+**debajo** de la ventana, no la oscurecía). La escala centralizada `Craft.Strata` fija la
+invariante `page (Window, DIALOG) < modal (Dialog, FULLSCREEN) < popover (TOOLTIP)`: el modal
+siempre flota sobre cualquier Window y su backdrop la cubre. El catcher de click-outside de
+los popovers está en `FULLSCREEN_DIALOG` (entre `modal` y `popover`), así que un dropdown
+abierto DENTRO de un modal sigue cerrándose al clicar fuera y su panel queda por encima.
 
 **Notas de estructura:** en Lyra el Dialog no tiene un title bar de altura fija separado. El layout es `p-4 gap-4`: padding de 16px en todos los lados y 16px de gap entre secciones (header → content → footer). El header es simplemente un contenedor con `gap-1` entre título y descripción; no existe una barra fija de 40px. El drag se habilita en el header area.
 
@@ -121,7 +132,7 @@ y no ofrece un `Close` componible. Diferencia de alcance, no bug — ver
 
 | Elemento | Estado | Visual |
 |---|---|---|
-| Dialog | Default | Visible, strata HIGH, fondo `t.popover`, ring `t.border` 1px |
+| Dialog | Default | Visible, capa `modal` (FULLSCREEN), fondo `t.popover`, ring `t.border` 1px |
 | Dialog | Oculto | `Hide()` — no consume input |
 | CloseBtn | Default | Fondo transparente, "×" en `t.mutedForeground` |
 | CloseBtn | Hover | Fondo `t.accent`, "×" en `t.foreground` |
@@ -157,6 +168,7 @@ y no ofrece un `Close` componible. Diferencia de alcance, no bug — ver
 | `size` | string | `"default"` | Uno de: `"sm"` (320px), `"default"` (384px), `"lg"` (512px), `"xl"` (640px) |
 | `onClose` | function | nil | Callback invocado al cerrar (botón × o Escape) |
 | `closeOnEscape` | boolean | true | Si true, registrar el frame en `UISpecialFrames` |
+| `strata` | string | `Craft.Strata.modal` (`"FULLSCREEN"`) | Strata del frame **y** del overlay. Default = capa `modal` (sobre cualquier `Craft.Window`). Solo cambiarlo para casos avanzados; el frame siempre se eleva 1 nivel sobre su overlay. |
 
 ## API pública
 
@@ -172,15 +184,20 @@ y no ofrece un `Close` componible. Diferencia de alcance, no bug — ver
 
 ## Notas de implementación
 
-**Strata y clamp:**
+**Strata y clamp (FR-033):**
 ```lua
-dialog.frame:SetFrameStrata("DIALOG")  -- por encima del overlay (HIGH)
+-- frame y overlay comparten la capa `modal`; el frame se eleva 1 nivel sobre el overlay
+dialog.frame:SetFrameStrata(Craft.Strata.modal)      -- "FULLSCREEN" por defecto
+dialog._overlay:SetFrameStrata(Craft.Strata.modal)   -- misma strata → cubre Windows (DIALOG)
+dialog.frame:SetFrameLevel(dialog._overlay:GetFrameLevel() + 10)
 dialog.frame:SetMovable(true)
 dialog.frame:SetClampedToScreen(true)
 dialog.frame:RegisterForDrag("LeftButton")
 ```
 `SetClampedToScreen(true)` impide que el usuario arrastre el dialog fuera del viewport.
-El `_overlay` (HIGH) queda por debajo del dialog (DIALOG) y por encima de la UI normal.
+El `_overlay` y el frame comparten la capa `modal`; el frame va 1 frame-level por encima
+del overlay. Ambos por encima de `Craft.Window` (capa `page` = DIALOG), así que el modal
+flota sobre la ventana y el backdrop la oscurece. Ver `Craft.Strata` (Craft.lua).
 
 **Drag desde el header:**
 ```lua

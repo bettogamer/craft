@@ -38,6 +38,32 @@ function Craft.register(name, impl, build)
     return impl
 end
 
+-- ─── Layering scale (FR-033) ────────────────────────────────────────────────
+-- Semantic z-order for the WHOLE library, mapped onto WoW's fixed frame stratas.
+-- WoW strata order (low → high):
+--   BACKGROUND < LOW < MEDIUM < HIGH < DIALOG < FULLSCREEN < FULLSCREEN_DIALOG < TOOLTIP
+-- Components pick a LAYER, not a raw strata, so the invariant
+--     page (Window) < modal (Dialog) < popover (Select/Combobox/Menu/Tooltip)
+-- holds no matter how a consumer nests them. In particular a modal opened FROM a
+-- Craft.Window must float ABOVE it and its backdrop must dim it — the bug FR-033
+-- fixes (before, both Window and Dialog sat at DIALOG and the backdrop at HIGH,
+-- BELOW the window, so the modal was buried and the backdrop never covered it).
+--
+-- The one implicit rung is the popover click-outside CATCHER: it lives at
+-- FULLSCREEN_DIALOG — between `modal` and `popover` — so a dropdown opened inside
+-- a modal still dismisses on outside-click while its panel (TOOLTIP) stays on top.
+--   BACKGROUND/LOW/MEDIUM  content
+--   DIALOG                 page      (Craft.Window)
+--   FULLSCREEN             modal     (Craft.Dialog frame + backdrop; frame level > backdrop)
+--   FULLSCREEN_DIALOG      (popover catchers — implicit, between modal and popover)
+--   TOOLTIP                popover   (Select/Combobox/Menu/Popover/Tooltip panels)
+Craft.Strata = {
+    content = "MEDIUM",     -- default in-page content (Panels inherit their parent)
+    page    = "DIALOG",     -- Craft.Window — the addon's main frame / "page"
+    modal   = "FULLSCREEN", -- Craft.Dialog frame + backdrop (always above any Window)
+    popover = "TOOLTIP",    -- Select/Combobox/Menu/Popover/Tooltip panels (topmost)
+}
+
 -- mediaPath: absolute WoW path to Craft/media/. Changes when Craft is embedded in another addon.
 -- Standalone:  Interface\AddOns\Craft\media\
 -- Embedded:    Interface\AddOns\<hostAddon>\libs\Craft\media\  (per .pkgmeta convention)
