@@ -227,8 +227,8 @@ el contexto WoW (sin CSS box model):
 
 | Estado | Cómo implementar en WoW | Token base |
 |--------|------------------------|------------|
-| Button hover | Aumentar alpha: `primary` con `a=0.85` | `t.primary` |
-| Ghost button hover | Usar `accent` como fondo | `t.accent` |
+| Button hover | Aumentar alpha: `primary` con `a=0.80` (Lyra `hover:bg-primary/80`) | `t.primary` |
+| Ghost button hover | `muted` como fondo con `a=0.50` (Lyra `dark:hover:bg-muted/50`) | `t.muted` |
 | Input focus ring | Frame separado, 2px outward, color `ring` | `t.ring` |
 | Disabled (texto) | `mutedForeground` + suprimir eventos | `t.mutedForeground` |
 | Disabled (fondo) | `muted` semitransparente: `a=0.5` | `t.muted` |

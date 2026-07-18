@@ -103,7 +103,7 @@ El trigger NO tiene ring propio — el estado "open" se expresa solo con cambio 
 | Trigger bg hover  | `t.input` a=0.50 ({r=1,g=1,b=1,a=0.075}) | —                                     | —                     |
 | Trigger border    | `t.input` (`border-input`)              | `t.ring`                                | `t.input`             |
 | selectedLabel     | `t.foreground`                          | `t.foreground`                          | `t.mutedForeground`   |
-| Chevron           | Normal (0°), `t.mutedForeground`        | Rotado 180°, `t.foreground`             | `t.mutedForeground`   |
+| Chevron           | Normal (0°), `t.mutedForeground`        | `chevron-up`, `t.mutedForeground` (swap de ícono, sin rotación — ver §Notas)             | `t.mutedForeground`   |
 
 Los fondos del trigger dark mode corresponden a `dark:bg-input/30` (default) y `dark:hover:bg-input/50` (hover), donde `input = {r=1,g=1,b=1,a=0.15}`:
 - `/30` → a=0.15×0.30 = 0.045
