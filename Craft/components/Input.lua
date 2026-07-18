@@ -309,12 +309,16 @@ function Input:_updateBorderEndpoints()
     if not t then return end
 
     if self._cfg.error then
-        self._borderIdle = { r = t.destructive.r, g = t.destructive.g, b = t.destructive.b, a = 1 }
+        -- FR-037: aria-invalid keeps border-destructive even when focused
+        -- (in shadcn `aria-invalid:border-destructive` wins over
+        -- `focus-visible:border-ring`), so BOTH endpoints are destructive.
+        self._borderIdle  = { r = t.destructive.r, g = t.destructive.g, b = t.destructive.b, a = 1 }
+        self._borderFocus = { r = t.destructive.r, g = t.destructive.g, b = t.destructive.b, a = 1 }
     else
         -- border-input (not --border): white @ 0.15, same token as Checkbox / Button outline
-        self._borderIdle = { r = t.input.r, g = t.input.g, b = t.input.b, a = t.input.a }
+        self._borderIdle  = { r = t.input.r, g = t.input.g, b = t.input.b, a = t.input.a }
+        self._borderFocus = { r = t.ring.r, g = t.ring.g, b = t.ring.b, a = t.ring.a or 0.5 }
     end
-    self._borderFocus = { r = t.ring.r, g = t.ring.g, b = t.ring.b, a = t.ring.a or 0.5 }
 
     self:_paintBorder(self._prog and self._prog() or 0)
 end

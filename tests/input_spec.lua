@@ -131,3 +131,37 @@ describe("Craft.Input onTrailingClick", function()
         i:Destroy()
     end)
 end)
+
+-- ─── error border keeps destructive on focus (FR-037) ─────────────────────────
+
+describe("Craft.Input error border (FR-037)", function()
+
+    it("an error field is destructive at BOTH endpoints (stays red when focused)", function()
+        local t = Craft.Theme.get()
+        local i = Craft.Input:Create(UIParent, { error = true })
+        assert.equals(t.destructive.r, i._borderIdle.r)
+        assert.equals(t.destructive.r, i._borderFocus.r)   -- focus endpoint no longer t.ring
+        assert.equals(t.destructive.g, i._borderFocus.g)
+        assert.equals(t.destructive.b, i._borderFocus.b)
+        i:Destroy()
+    end)
+
+    it("a valid field focuses to the ring colour", function()
+        local t = Craft.Theme.get()
+        local i = Craft.Input:Create(UIParent, {})
+        assert.equals(t.input.r, i._borderIdle.r)
+        assert.equals(t.ring.r,  i._borderFocus.r)
+        i:Destroy()
+    end)
+
+    it("SetError toggles the focus endpoint at runtime", function()
+        local t = Craft.Theme.get()
+        local i = Craft.Input:Create(UIParent, {})
+        assert.equals(t.ring.r, i._borderFocus.r)
+        i:SetError(true)
+        assert.equals(t.destructive.r, i._borderFocus.r)
+        i:SetError(false)
+        assert.equals(t.ring.r, i._borderFocus.r)
+        i:Destroy()
+    end)
+end)

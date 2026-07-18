@@ -229,10 +229,12 @@ function Textarea:_applyTheme(t)
     self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1, px1)
 
     -- Cache the animated border endpoints. Idle = border-input (white@0.15), or
-    -- destructive on error; focus = t.ring. AGENTS §9: recompute AND re-apply at
-    -- the vigente tween progress so a theme change repaints the current state.
+    -- destructive on error; focus = t.ring, or destructive on error (FR-037:
+    -- `aria-invalid:border-destructive` wins over `focus-visible:border-ring`,
+    -- so an invalid field stays red while focused). AGENTS §9: recompute AND
+    -- re-apply at the vigente tween progress so a theme change repaints the state.
     self._borderIdle  = self._cfg.error and t.destructive or t.input
-    self._borderFocus = t.ring
+    self._borderFocus = self._cfg.error and t.destructive or t.ring
     if self._prog then self:_paintBorder(self._prog()) end
 end
 
@@ -249,11 +251,13 @@ end
 
 function Textarea:SetError(hasError)
     self._cfg.error = hasError
-    -- Recompute the idle endpoint (input ↔ destructive) and repaint at the vigente
-    -- progress; while focused prog=1 keeps t.ring, so error only shifts the idle end.
+    -- FR-037: recompute BOTH endpoints (input ↔ destructive AND ring ↔ destructive)
+    -- and repaint at the vigente progress, so an invalid field stays red even while
+    -- focused (prog=1) instead of animating back to the ring colour.
     local t = self._t
     if t then
-        self._borderIdle = self._cfg.error and t.destructive or t.input
+        self._borderIdle  = self._cfg.error and t.destructive or t.input
+        self._borderFocus = self._cfg.error and t.destructive or t.ring
         if self._prog then self:_paintBorder(self._prog()) end
     end
 end
