@@ -14,7 +14,7 @@ necesita compilador C) — usar exactamente estas invocaciones (lección Weave, 
 ```bash
 luac -p <archivo>                                            # sintaxis, tras cada edición
 luacheck Craft/*.lua Craft/components/*.lua Craft/theme/*.lua Craft/layout/*.lua Craft/icons/*.lua --config .luacheckrc
-lua tests/run.lua tests/button_spec.lua tests/sidebar_spec.lua tests/reactive_spec.lua tests/theme_spec.lua tests/label_spec.lua tests/menu_spec.lua tests/input_spec.lua tests/toggle_spec.lua tests/togglegroup_spec.lua tests/popover_spec.lua tests/combobox_spec.lua tests/badge_spec.lua tests/icons_spec.lua   # suite completa (mini-runner local)
+lua tests/run.lua tests/button_spec.lua tests/sidebar_spec.lua tests/reactive_spec.lua tests/theme_spec.lua tests/label_spec.lua tests/menu_spec.lua tests/input_spec.lua tests/textarea_spec.lua tests/toggle_spec.lua tests/togglegroup_spec.lua tests/popover_spec.lua tests/combobox_spec.lua tests/badge_spec.lua tests/icons_spec.lua tests/flex_spec.lua tests/grid_spec.lua tests/panel_spec.lua   # suite completa (mini-runner local)
 bash scripts/bump-build.sh <X.Y.Z>                           # bump CRAFT_BUILD + Craft.VERSION antes de release (FR-029: sin arg aborta si VERSION == último tag)
 
 # taintlint (secret values 12.0+) — node está en "C:\Program Files\nodejs" (si el shell no lo ve, ruta completa):
@@ -28,6 +28,22 @@ compatibles con ambos runners, no usar features de busted fuera de `describe`/`i
 /check-traceability      # gaps en BRD→MRD→PRD→FSD
 /update-design-tokens    # actualizar tokens desde CSS shadcn + revisar layouts
 ```
+
+## Agentes (`.claude/agents/`)
+
+Pipeline para portar ejemplos de shadcn (Lyra) a Craft y auditar componentes: **shadcn-mapper**
+(sonnet, R/O — analiza HTML pegado, decide implementado/falta, receta + señala bugs) → según la
+rama: **browser-demo-writer** (haiku — demo en Craft_Browser: `pages/*.lua` + `.toc` +
+`Browser.lua`) o **doc-writer** (haiku — spec en `docs/components/` o FR en `docs/requests/`). Para
+cazar bugs en lo existente: **shadcn-auditor** (sonnet, R/O — `.lua`+spec vs `.tsx`/Lyra; modo
+**batch** = un solo auditor para varios componentes, carga refs compartidos 1×). Economía: separar
+criterio caro (sonnet) de mecánica barata (haiku); el CSS Lyra NO es fetcheable (usar
+`docs/design-reference.md`); foco solo en EditBox (ADR-0011, no portar focus-ring a mouse-only).
+
+- **⚠️ Registro de agentes nuevos:** el harness NO toma un agente `.md` recién creado a mitad de
+  sesión — se activa en la SIGUIENTE. Si vas a crear agentes y usarlos, créalos al inicio; como
+  fallback inmediato, invócalos vía `general-purpose` diciéndole que lea `.claude/agents/<x>.md` y
+  actúe según ese contrato.
 
 ## Git — reglas del estándar (obligatorias)
 

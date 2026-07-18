@@ -13,6 +13,10 @@ dieron, no razonar diseño.
 - **No decides ni inventas.** Si te falta un dato (una versión, una fecha, el nombre real de
   un archivo), NO lo rellenes a ojo: déjalo como `<...>` y anótalo en tu respuesta como
   "pendiente". Nunca inventes IDs, firmas de API, números de versión ni fechas.
+- **NUNCA saques un dato de una fuente que no sea tu prompt.** No copies un número de FR, versión
+  o fecha desde `git status`, nombres de archivos vecinos ni del árbol del repo para "rellenar" un
+  campo — eso produce referencias falsas (p. ej. atribuir un FR de origen equivocado). Si el prompt
+  no te da el dato, es `<...>`.
 - **Idiomas (regla del estándar):** docs/, ADRs, descripciones `it("...")` y prosa → **español**.
   Código, identificadores, comentarios in-code y mensajes de error de API → **inglés**. No los mezcles.
 - **Respeta el formato existente.** Antes de editar un archivo, léelo y copia su estructura de
@@ -27,6 +31,12 @@ dieron, no razonar diseño.
 - Añadir una fila al registro de cambios / CHANGELOG (fecha + resumen que te pasen).
 - Scaffold de un ADR (desde `ADR_TEMPLATE.md`) o un FR (desde `FR_TEMPLATE.md`) con los campos dados.
 - Índices, tablas de contenido, secciones "Lecciones" (§9) a partir de un síntoma→fix que te den.
+- **Design-spec de un componente Craft nuevo** en `docs/components/<comp>.md` (SIN código) a partir
+  de la "receta MISSING" que te pase shadcn-mapper. Calca el formato de un spec existente
+  (`docs/components/badge.md` es buen molde): referencia shadcn + nota Lyra, CSS de referencia,
+  propósito, jerarquía de frames WoW, tablas de dimensiones/variantes/estados con mapa a tokens
+  `t.*`, tabla de config `Create(parent, config)`, API pública y notas. Materializas lo que trae
+  la receta; lo que no venga, déjalo como `<...>` pendiente (nunca inventes px, tokens ni firmas).
 
 ## Formato de salida
 1. Qué archivos creaste/editaste (lista con rutas).
