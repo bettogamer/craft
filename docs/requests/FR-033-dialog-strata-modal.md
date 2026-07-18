@@ -120,13 +120,29 @@ panel (TOOLTIP) queda por encima.
 `FULLSCREEN_DIALOG` (modal) queda siempre sobre `DIALOG` (Window) sin importar toplevel/raise
 — el raise-on-click solo reordena DENTRO de una strata, nunca cruza a otra. Determinista.
 
-> ⚠️ **Post-mortem (regresión y corrección durante la implementación):** el primer intento
-> puso frame + overlay en la MISMA strata (`FULLSCREEN`) separados por `SetFrameLevel`. In-game
-> eso rompió TODOS los clics del dialog (botones y ✕ no respondían; solo cerraba con Escape,
-> que va por `UISpecialFrames` y no depende del z-order del mouse): el overlay full-screen con
-> `EnableMouse` se comía los clics pese al frame-level. **Lección:** para "backdrop modal que
-> bloquea la UI de abajo pero deja clicable el contenido de arriba", el contenido debe ir en
-> una strata **estrictamente superior** al backdrop, nunca en la misma separada por nivel.
+- El frame del modal (y su overlay) se **parentan a `UIParent`**, no al `parent` del caller.
+  Un modal es de nivel de pantalla; si el frame cuelga de la jerarquía del caller, su strata
+  alta no se honra de forma fiable frente al overlay (hermano de UIParent). Ver post-mortem.
+
+> ⚠️ **Post-mortem (dos regresiones y su corrección durante la implementación):**
+>
+> **(1) Misma strata + frame-level.** El primer intento puso frame + overlay en la MISMA strata
+> (`FULLSCREEN`) separados por `SetFrameLevel`. In-game rompió TODOS los clics (solo Escape):
+> el overlay full-screen con `EnableMouse` se comía los clics pese al frame-level. → Se pasó a
+> stratas DISTINTAS (frame estrictamente sobre el overlay).
+>
+> **(2) Frame parentado al caller.** Con stratas distintas, el backdrop oscurecía pero el frame
+> SEGUÍA sin recibir mouse (no se podía arrastrar ni clicar botones). Causa: el frame se creaba
+> como hijo de `parent` (el contenido del Craft_Browser, dentro de un `ScrollFrame` en `HIGH`).
+> **Una strata alta pedida por un frame enterrado en la jerarquía del caller NO se honra de
+> forma fiable frente a un hermano de UIParent** (el overlay), así que el `FULLSCREEN_DIALOG`
+> del frame no superaba al `FULLSCREEN` del backdrop y este se comía el mouse. → Se parenta el
+> frame a `UIParent` (como el overlay y los paneles de popover, que sí flotan bien).
+>
+> **Lecciones:** (a) para "backdrop modal que bloquea abajo pero deja clicable arriba", el
+> contenido va en una strata **estrictamente superior** al backdrop, nunca misma-strata +
+> frame-level; (b) un frame que debe flotar sobre toda la UI se parenta a **`UIParent`**, no al
+> frame del caller — la strata no basta si el frame está sepultado en otra jerarquía.
 
 ### 3. Window (Window.lua)
 

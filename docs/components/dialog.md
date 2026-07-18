@@ -36,7 +36,7 @@ Show/Hide/Toggle animan con `Weave.tween` (ADR-0013 §4.6): **fade** por alpha (
 
 ```
 dialog._overlay        (Frame, strata=modalOverlay, UIParent) backdrop black/10, bloquea clics
-dialog.frame           (Frame, strata=modal)                  raíz draggable (1 strata sobre el overlay)
+dialog.frame           (Frame, strata=modal, UIParent)        raíz draggable (1 strata sobre el overlay)
 ├── dialog._bg         (Texture, BACKGROUND)          fondo del dialog
 ├── dialog._header     (Frame, opcional)              zona de título — drag handle
 │   ├── dialog._title  (FontString)                   texto del título (text-sm)
@@ -61,9 +61,18 @@ Escape, `Hide()` y `Toggle()`).
 frame se tragaría también los botones y la ✕ del propio dialog (solo cerraría con Escape, que
 va por `UISpecialFrames` y no depende del z-order del mouse). Poniendo el frame en una strata
 **estrictamente superior** (`modal` = FULLSCREEN_DIALOG) al overlay (`modalOverlay` =
-FULLSCREEN), los hijos del frame ganan el mouse — la misma relación que tenía el setup original
-`DIALOG` sobre `HIGH`. **No** separar frame y overlay por frame-level dentro de una strata
-compartida (ese fue el bug: rompía todos los clics del dialog).
+FULLSCREEN), los hijos del frame ganan el mouse. **No** separar frame y overlay por frame-level
+dentro de una strata compartida (rompía todos los clics del dialog).
+
+**⚠️⚠️ El frame y el overlay se parentan a `UIParent`, NO al `parent` del caller.** Un modal es
+un objeto de nivel de pantalla (centrado en UIParent, flota sobre toda la UI). Si el frame es
+hijo del frame del caller, **la strata alta NO se honra de forma fiable** frente a un hermano de
+UIParent como el overlay: enterrado en la jerarquía del caller (p. ej. dentro de un `ScrollFrame`
+en `HIGH`, como la página del Craft_Browser), el `FULLSCREEN_DIALOG` del frame **no supera de
+verdad** al backdrop en `FULLSCREEN`, así que el backdrop (con `EnableMouse`) se comía todos los
+clics y el drag (solo funcionaba Escape). Parentar el frame a `UIParent` — igual que el backdrop
+y todos los paneles de popover — hace que la comparación de strata sea global y correcta. El
+parámetro `parent` de `Create` se acepta por compat pero **no** se usa para el frame raíz.
 
 **Capa `modal` y FR-033:** antes el dialog vivía en `DIALOG` y el overlay en `HIGH`. Como
 `Craft.Window` también usa `DIALOG` + `SetToplevel` + raise-on-click, un modal abierto DESDE

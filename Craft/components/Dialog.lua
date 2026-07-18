@@ -50,9 +50,19 @@ function Dialog:Create(parent, config)
     -- Strata `modal` (FULLSCREEN_DIALOG by default, see Craft.Strata): a modal must
     -- float above any Craft.Window (`page` = DIALOG) it was opened from, and above
     -- its own backdrop (`modalOverlay` = FULLSCREEN, one rung below) — FR-033.
+    --
+    -- Parent = UIParent, NOT the caller's `parent`. A modal is a screen-level
+    -- object (centered on UIParent, floats above the whole UI). If it were a child
+    -- of the caller's frame, a high strata request is NOT honoured reliably against
+    -- a UIParent-level sibling like the backdrop: buried in the caller's frame
+    -- hierarchy (e.g. inside a ScrollFrame at HIGH), the frame's FULLSCREEN_DIALOG
+    -- did not actually clear the FULLSCREEN backdrop, so the backdrop's EnableMouse
+    -- swallowed every click and drag (only Esc worked). Parenting to UIParent — like
+    -- the backdrop and every popover panel — makes the strata comparison global and
+    -- correct. FR-033.
     -- Named frame required for UISpecialFrames (closeOnEscape).
     local frameName = "CraftDialog_" .. self._instanceId
-    self.frame = CreateFrame("Frame", frameName, parent or UIParent)
+    self.frame = CreateFrame("Frame", frameName, UIParent)
     self.frame:SetFrameStrata(self._cfg.strata)
     self.frame:SetWidth(WIDTHS[self._cfg.size] or WIDTHS.default)
     -- Height is initially set to a sensible minimum; it grows via _layoutFrames.
@@ -411,6 +421,9 @@ end
 -- content/footer size the dev set after Create() (grow-to-fit).
 function Dialog:Show()
     if self._t then self:_layoutFrames(self._t) end
+    -- Raise to the top of its strata each open, so re-opening (or opening after
+    -- another modal) lands above siblings without depending on creation order.
+    if self.frame.Raise then self.frame:Raise() end
     self._open:set(true)
 end
 
