@@ -190,6 +190,12 @@ function Dialog:Create(parent, config)
     self._closeBtn = CreateFrame("Frame", nil, self.frame)
     self._closeBtn:SetSize(24, 24)
     self._closeBtn:EnableMouse(true)
+    -- The header (drag handle, EnableMouse + StartMoving) spans the full top width
+    -- and overlaps the close button. Both are children of self.frame, so without an
+    -- explicit level they tie and the header can win the mouse — clicking ✕ starts a
+    -- drag instead of closing. Lift the close button above the header so it always
+    -- receives the click. (FR-033.)
+    self._closeBtn:SetFrameLevel(self._header:GetFrameLevel() + 10)
 
     -- Background texture (transparent default, tinted on hover/press)
     self._closeBg = self._closeBtn:CreateTexture(nil, "BACKGROUND")

@@ -236,7 +236,14 @@ table.insert(UISpecialFrames, dialog.frame:GetName())
 `UISpecialFrames` es el mecanismo nativo de WoW para que Escape cierre frames.
 
 **Botón de cierre:**
-El `_closeBtn` es un Frame con `EnableMouse(true)`, posicionado a 8px (`t.spacingSm`) del borde top-right. Los scripts `OnEnter`/`OnLeave` cambian el color de `_closeBg`. En `OnMouseDown` invoca `onClose` si fue provisto y luego `Hide()`.
+El `_closeBtn` es un Frame con `EnableMouse(true)`, posicionado a 8px (`t.spacingSm`) del borde top-right. Los scripts `OnEnter`/`OnLeave` cambian el color de `_closeBg`. En `OnMouseUp` invoca `onClose` si fue provisto y luego `Hide()`.
+
+> **⚠️ Frame-level sobre el header (FR-033):** el header es el área de drag (`EnableMouse` +
+> `StartMoving`) y cubre todo el ancho superior, solapando el botón ✕. Ambos son hijos de
+> `dialog.frame`, así que sin nivel explícito **empatan** y el header puede ganar el mouse →
+> clicar la ✕ inicia un drag en vez de cerrar. Se sube el frame-level del `_closeBtn` por encima
+> del header (`_closeBtn:SetFrameLevel(_header:GetFrameLevel() + 10)`) para que siempre reciba
+> el clic.
 
 **Footer borde-top (ADR-0011):**
 ```lua
