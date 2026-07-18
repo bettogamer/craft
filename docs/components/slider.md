@@ -82,6 +82,10 @@ El `trackFrame` es **full-width** del root frame (sin inset horizontal). La fór
 
 ### Altura total del root frame
 
+> **Nota:** `valueLabel`/`minLabel`/`maxLabel` son **extensiones Craft**, no parte de shadcn.
+> El Slider de shadcn/Lyra (`.cn-slider-track/range/thumb`) NO incluye display de valor ni
+> min/max; en su demo eso es markup externo de la app. Craft los ofrece integrados.
+
 Layout simétrico: todos los labels se anclan al `trackFrame`. El gap se deriva de shadcn:
 shadcn usa `gap-2` (8px) entre el label component y el slider, donde el slider comienza en el thumb.
 El thumb se extiende `THUMB_SZ/2 − TRACK_H/2 = 4px` sobre el track → `LABEL_PAD = 8 + 4 = 12px`.
@@ -111,9 +115,9 @@ Esto replica el `gap-2` de shadcn en ambos lados: label/value arriba, min/max ab
 | Label        | Anchor                                                              | Font size         | Color               | Origen |
 |--------------|---------------------------------------------------------------------|-------------------|---------------------|--------|
 | `label`      | `BOTTOMLEFT` de `trackFrame.TOPLEFT` + `(0, LABEL_PAD_TOP)` — L-align | `fontSizeSm` 11px | `t.foreground`      | **Craft extension** |
-| `valueLabel` | `BOTTOMRIGHT` de `trackFrame.TOPRIGHT` + `(0, LABEL_PAD_TOP)` — R-align | `fontSizeSm` 11px | `t.mutedForeground` | shadcn |
-| `minLabel`   | `TOPLEFT` de `trackFrame.BOTTOMLEFT` + `(0, -LABEL_PAD_BOT)`      | `fontSizeSm` 11px | `t.mutedForeground` | shadcn |
-| `maxLabel`   | `TOPRIGHT` de `trackFrame.BOTTOMRIGHT` + `(0, -LABEL_PAD_BOT)`    | `fontSizeSm` 11px | `t.mutedForeground` | shadcn |
+| `valueLabel` | `BOTTOMRIGHT` de `trackFrame.TOPRIGHT` + `(0, LABEL_PAD_TOP)` — R-align | `fontSizeSm` 11px | `t.mutedForeground` | **Craft extension** |
+| `minLabel`   | `TOPLEFT` de `trackFrame.BOTTOMLEFT` + `(0, -LABEL_PAD_BOT)`      | `fontSizeSm` 11px | `t.mutedForeground` | **Craft extension** |
+| `maxLabel`   | `TOPRIGHT` de `trackFrame.BOTTOMRIGHT` + `(0, -LABEL_PAD_BOT)`    | `fontSizeSm` 11px | `t.mutedForeground` | **Craft extension** |
 
 Cuando `label` y `showValue` están presentes simultáneamente, forman un row justify-between justo encima del track, replicando el demo oficial de shadcn.
 
@@ -164,8 +168,13 @@ En estado disabled (shadcn `disabled:opacity-50`): `frame:SetAlpha(0.5)` + `fram
 | `width`      | `number`   | `nil`     | Ancho fijo en px. Si es nil, ocupa 100% del parent                           |
 | `height`     | `number`   | `nil`     | Altura del frame root en px. Si es nil usa el valor por defecto (ver tabla de alturas). **Corrección post-testing en WoW:** necesario para embeber el slider en containers con altura variable (e.g. footer del Browser). |
 | `label`      | `string`   | `nil`     | **Craft extension** — texto descriptivo sobre el track. Agrega 20px al `topPad` (LABEL_H=12 + LABEL_PAD_TOP=8). No está en shadcn Lyra; shadcn usa `<Label>` externo. |
+| `format`     | `function` | `tostring`| **Craft extension** (FR-034) — formatea value/min/max al pintarlos. Firma `format(v, context) → string`; `context` es `"value"`, `"min"` o `"max"` (los callers que no lo necesiten ignoran el 2º arg). Ej: moneda `function(v) return ("$%.2f"):format(v) end`, porcentaje `function(v) return v.."%" end`. |
 
 No hay parámetro `size` — el slider tiene un único tamaño de thumb (12×12px).
+
+> **Snap relativo a `min` (FR-034):** el step snapea sobre una rejilla anclada en `min`
+> (`min + round((v-min)/step)*step`), no en múltiplos absolutos de 0. Así `min` siempre es
+> alcanzable aunque no sea múltiplo de `step` (ej. `min=20, step=15` → 20, 35, 50, 65, 80).
 
 ## API pública
 
@@ -176,6 +185,7 @@ No hay parámetro `size` — el slider tiene un único tamaño de thumb (12×12p
 | `SetEnabled(bool)`      | Habilita/deshabilita. `SetAlpha(0.5)` en el frame + corta el mouse (no recolorea) |
 | `SetRange(min, max)`    | Actualiza `self._min`/`_max`, reclampa el valor y reposiciona el thumb (`_updateVisuals`) |
 | `SetLabel(text)`        | **Craft extension** — actualiza el texto del label en runtime. Solo funciona si `config.label` fue provisto en `Create`. |
+| `SetFormat(fn)`         | **Craft extension** (FR-034) — cambia el formateador en runtime y re-pinta value/min/max. `fn=nil` vuelve a `tostring`. |
 | `GetFrame()`            | Retorna el frame root del componente                                          |
 
 ## Notas de implementación

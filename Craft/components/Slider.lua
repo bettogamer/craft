@@ -56,6 +56,7 @@ function Slider:Create(parent, config)
     self._value    = config.value    or self._min
     self._disabled = config.disabled or false
     self._onChange = config.onChange
+    self._format   = config.format   or tostring
     self._dragging = false
 
     -- Reactive props (ADR-0013): a callable prop binds through the public
@@ -193,7 +194,7 @@ function Slider:Create(parent, config)
     self.frame:SetScript("OnMouseWheel", function(_, delta)
         if self._disabled then return end
         local v = self._value + delta * self._step
-        v = math.floor(v / self._step + 0.5) * self._step
+        v = self._min + math.floor((v - self._min) / self._step + 0.5) * self._step
         v = math.max(self._min, math.min(self._max, v))
         if v ~= self._value then
             self._value = v
@@ -249,7 +250,7 @@ function Slider:_updateFromCursor()
     local cx    = GetCursorPosition() / UIParent:GetEffectiveScale()
     local ratio = math.max(0, math.min(1, (cx - trackLeft) / (trackRight - trackLeft)))
     local v = self._min + ratio * (self._max - self._min)
-    v = math.floor(v / self._step + 0.5) * self._step
+    v = self._min + math.floor((v - self._min) / self._step + 0.5) * self._step
     v = math.max(self._min, math.min(self._max, v))
     if v ~= self._value then
         self._value = v
@@ -257,6 +258,14 @@ function Slider:_updateFromCursor()
         if self._valueSignal then self._valueSignal:set(v) end
         if self._onChange then self._onChange(v) end
     end
+end
+
+-- ─── _fmt ──────────────────────────────────────────────────────────────────
+-- Format a numeric value for display. config.format receives (value, context)
+-- where context is "value" | "min" | "max"; callers that don't care about the
+-- context just ignore the second arg. Default is tostring.
+function Slider:_fmt(v, context)
+    return self._format(v, context)
 end
 
 -- ─── _updateVisuals ────────────────────────────────────────────────────────
@@ -294,7 +303,7 @@ function Slider:_updateVisuals()
         self._label:SetText(self._cfg.label or "")
     end
     if self._valueLabel then
-        self._valueLabel:SetText(tostring(self._value))
+        self._valueLabel:SetText(self:_fmt(self._value, "value"))
     end
 
     if self._cfg.showMinMax then
@@ -302,8 +311,8 @@ function Slider:_updateVisuals()
         self._maxLabel:ClearAllPoints()
         self._minLabel:SetPoint("TOPLEFT",  self._trackFrame, "BOTTOMLEFT",  0, -LABEL_PAD_BOT)
         self._maxLabel:SetPoint("TOPRIGHT", self._trackFrame, "BOTTOMRIGHT", 0, -LABEL_PAD_BOT)
-        self._minLabel:SetText(tostring(self._min))
-        self._maxLabel:SetText(tostring(self._max))
+        self._minLabel:SetText(self:_fmt(self._min, "min"))
+        self._maxLabel:SetText(self:_fmt(self._max, "max"))
         self._minLabel:Show()
         self._maxLabel:Show()
     end
@@ -368,7 +377,7 @@ function Slider:_applyTheme(t)
     if self._valueLabel then
         Craft.Theme.applyFont(self._valueLabel, t.font, t.fontSizeSm)
         self._valueLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
-        self._valueLabel:SetText(tostring(self._value))
+        self._valueLabel:SetText(self:_fmt(self._value, "value"))
     end
     if self._minLabel then
         Craft.Theme.applyFont(self._minLabel, t.font, t.fontSizeSm)
@@ -397,7 +406,7 @@ end
 -- ─── Public API ────────────────────────────────────────────────────────────
 function Slider:SetValue(v)
     v = math.max(self._min, math.min(self._max, v))
-    v = math.floor(v / self._step + 0.5) * self._step
+    v = self._min + math.floor((v - self._min) / self._step + 0.5) * self._step
     v = math.max(self._min, math.min(self._max, v))
     self._value = v
     self:_updateVisuals()
@@ -426,6 +435,11 @@ function Slider:SetLabel(text)
         self._cfg.label = text or ""
         self._label:SetText(self._cfg.label)
     end
+end
+
+function Slider:SetFormat(fn)
+    self._format = fn or tostring
+    self:_updateVisuals()
 end
 
 function Slider:GetFrame()
