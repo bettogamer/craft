@@ -41,7 +41,7 @@ tabs.frame              (Frame)                        raíz del componente
 
 Los content frames son los frames que el dev pasa en `config.tabs[i].content_frame`; se reparentan a `tabs._content` y se muestran u ocultan según la tab activa.
 
-**Sin indicador de línea activa**: Lyra tabs NO tienen el indicador de 2px bajo la tab activa (ese patrón corresponde a new-york/default variant, no a Lyra). El estado activo se expresa mediante fondo diferente de la tab activa vs inactiva.
+**Sin indicador de línea activa (solo `variant="default"`)**: en la variante **default**, Lyra tabs NO tienen el indicador de 2px bajo la tab activa; el estado activo se expresa mediante fondo diferente de la tab activa vs inactiva. La variante **`line`** (FR-042) **sí** dibuja el subrayado de 2px — ver [Variante `line`](#variante-line-fr-042).
 
 ## Dimensiones
 
@@ -65,19 +65,40 @@ Los content frames son los frames que el dev pasa en `config.tabs[i].content_fra
 
 Solo hay un tamaño de TabList: `h-8` = 32px. No existe variante `sm` separada en Lyra tabs.
 
+### Variante `line` (FR-042)
+
+`Create(parent, { variant = "line" })` (`data-[variant=line]`). Barra **transparente**
+con la línea inferior completa (`border-b`, la misma `_listBorder` que la default) y la
+tab activa marcada con un **subrayado de 2px** en `t.foreground` en vez de fondo. El
+modelo de layout, wrap, show/hide de content, icon slots y la API pública **no cambian**.
+
+| Aspecto | `default` | `line` |
+|---|---|---|
+| Fondo de la barra (`_listBg`) | `t.muted` | transparente (a=0) |
+| Línea inferior (`_listBorder`) | 1px `t.border` | 1px `t.border` (se conserva) |
+| Padding interno de la barra | `p-[3px]` | sin padding (triggers pegados al borde) |
+| Separación entre triggers | 0 (wrap Flex) | `gap-1` = 4px |
+| Estado activo | fondo diferenciado | **subrayado 2px** `t.foreground`, sin fondo |
+| Estado inactivo | texto `t.mutedForeground` | texto `t.mutedForeground`, subrayado oculto |
+| Hover | fondo `t.accent` | texto → `t.foreground` (sin fondo) |
+
+El subrayado es una textura `_underline` por trigger, de 2px pixel-perfect
+(`Craft.Theme.SetPixelHeight(_, 2)`, ADR-0011), anclada al borde inferior del trigger
+(`BOTTOMLEFT`+`BOTTOMRIGHT`) para que coincida con `_listBorder` y siga al trigger activo
+incluso si los triggers hacen wrap a otra fila. Visible solo bajo la tab activa.
+
 ### Diferencias conocidas vs shadcn (fuera de MVP)
 
-shadcn ofrece estas features que Craft **aún no** implementa (omisiones de alcance,
-no bugs — ver `docs/design-reference.md` §9.1):
-- **Variante `line`** (`data-[variant=line]`): triggers con indicador de línea en vez
-  de fondo.
+shadcn ofrece esta feature que Craft **aún no** implementa (omisión de alcance,
+no bug — ver `docs/design-reference.md` §9.1):
 - **Orientación vertical** (`group-data-vertical/tabs`): TabList en columna a un lado
   del contenido.
 
-Si se decide implementar alguna, requiere aprobación del maintainer (cambio de API).
+Si se decide implementar, requiere aprobación del maintainer (cambio de API).
 
 **Implementado:** icon slots (`has-data-[icon=inline-start]`) — ícono Lucide antes
-del label vía `AddTab(id, label, { icon = "<name>" })` o `tabs[i].icon`.
+del label vía `AddTab(id, label, { icon = "<name>" })` o `tabs[i].icon`. Variante
+`line` (FR-042, ver arriba).
 
 ## Estados
 
@@ -119,6 +140,7 @@ del label vía `AddTab(id, label, { icon = "<name>" })` o `tabs[i].icon`.
 | `tabs[i].icon` | string | nil | Nombre de ícono Lucide opcional, mostrado antes del label |
 | `defaultTab` | string | primer id | Id de la tab activa al crear el componente |
 | `onTabChange` | function | nil | Callback `function(newId, oldId)` invocado al cambiar de tab |
+| `variant` | string | `"default"` | `"default"` (barra `bg-muted`) o `"line"` (barra transparente + subrayado activo, FR-042) |
 
 No hay parámetro `size` — el TabList tiene un único tamaño (32px `h-8`).
 
@@ -165,7 +187,7 @@ padding incluido) y aplicarlo con `_list:SetHeight()`. Re-ejecutar en `OnShow` y
 `OnSizeChanged` del `_list` (un cambio de ancho puede añadir/quitar filas). Usar
 un guard de reentrancia porque `SetHeight` re-dispara `OnSizeChanged`.
 
-**Sin indicador activo**: no crear `_indicator` texture. El estado activo se expresa solo con color de texto (`t.foreground` vs `t.mutedForeground`) y fondo diferenciado de la tab activa.
+**Sin indicador activo (variante `default`)**: no crear `_indicator` texture. El estado activo se expresa solo con color de texto (`t.foreground` vs `t.mutedForeground`) y fondo diferenciado de la tab activa. La variante `line` **sí** crea un `_underline` de 2px por trigger (ver [Variante `line`](#variante-line-fr-042)).
 
 **Show/Hide de content frames:**
 Los content frames se reparentan a `tabs._content` al ser registrados. Al cambiar de tab activa:

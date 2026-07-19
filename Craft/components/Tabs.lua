@@ -9,7 +9,12 @@
 -- Active: bg=t.secondary, text=t.foreground
 -- Inactive: text=t.mutedForeground
 -- List bg: t.muted
--- No underline indicator (Lyra uses data-active bg change only)
+-- No underline indicator in the DEFAULT variant (Lyra uses data-active bg change only)
+--
+-- variant="line" (FR-042, data-variant="line"): transparent bar + full-width
+-- border-b; the active trigger is marked by a 2px underline in t.foreground (no
+-- bg fill). No internal padding (triggers hug the border), gap-1 between triggers,
+-- hover:text-foreground. Layout engine, wrap, show/hide and public API are shared.
 --
 -- Sizing model: each trigger is content-width (text + horizontal padding), laid
 -- out left-aligned via Craft.Flex (grow=0, shrink=0). When the triggers no longer
@@ -34,11 +39,20 @@ local TRIGGER_H    = LIST_H - LIST_PAD * 2  -- 26px inner trigger height
 local ICON_SIZE    = 16  -- size-4 — Lucide 16px atlas
 local ICON_GAP     = 6   -- gap-1.5 between icon and label
 
+-- variant="line" (FR-042): transparent bar, no internal padding (triggers hug the
+-- bottom border-b), gap-1 between triggers, active tab marked by a 2px underline.
+local LINE_GAP     = 4   -- gap-1 between triggers in the line variant
+local UNDERLINE_H  = 2   -- after:h-0.5 = 2px active indicator
+
 -- ─── Create ────────────────────────────────────────────────────────────────
 function Tabs:Create(parent, config)
     local self = setmetatable({}, Tabs)
 
     config = config or {}
+
+    -- Variant (FR-042): "default" (bg-muted bar) or "line" (transparent bar +
+    -- underline indicator). Set before the flex/textures below branch on it.
+    self._variant    = (config.variant == "line") and "line" or "default"
 
     self._tabs       = {}      -- array of {id, label}
     self._frames     = {}      -- id → content Frame
@@ -65,15 +79,18 @@ function Tabs:Create(parent, config)
     self._list:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
 
     -- Flex layout: row, content-width triggers, left-aligned, wrap to new rows on
-    -- overflow. align=stretch fits each trigger to its line height.
+    -- overflow. align=stretch fits each trigger to its line height. The line variant
+    -- drops the p-[3px] (triggers hug the bottom border) and uses gap-1 between them.
+    local listPad = (self._variant == "line") and 0 or LIST_PAD
+    local triggerGap = (self._variant == "line") and LINE_GAP or 0
     self._flex = Craft.Flex.new(self._list, {
         direction = "row",
         wrap      = "wrap",
         justify   = "flex-start",
         align     = "stretch",
-        paddingH  = LIST_PAD,
-        paddingV  = LIST_PAD,
-        gap       = 0,
+        paddingH  = listPad,
+        paddingV  = listPad,
+        gap       = triggerGap,
     })
 
     self._listBg = self._list:CreateTexture(nil, "BACKGROUND")
@@ -184,6 +201,18 @@ function Tabs:AddTab(id, label, opts)
     local borderLeft   = btn:CreateTexture(nil, "BORDER")
     local borderRight  = btn:CreateTexture(nil, "BORDER")
 
+    -- Active-tab underline (line variant only): 2px, full trigger width, anchored to
+    -- the bottom edge so it sits on the bar's border-b. Follows the trigger across
+    -- wrapped rows for free. Hidden until the tab is active (after:opacity-0 default).
+    local underline
+    if self._variant == "line" then
+        underline = btn:CreateTexture(nil, "OVERLAY")
+        Craft.Theme.SetPixelHeight(underline, UNDERLINE_H)
+        underline:SetPoint("BOTTOMLEFT",  btn, "BOTTOMLEFT",  0, 0)
+        underline:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, 0)
+        underline:Hide()
+    end
+
     -- Store references on button for refresh
     btn._text        = btnText
     btn._icon        = icon
@@ -191,6 +220,7 @@ function Tabs:AddTab(id, label, opts)
     btn._borderBottom = borderBottom
     btn._borderLeft  = borderLeft
     btn._borderRight = borderRight
+    btn._underline   = underline
     btn._id          = id
 
     -- Click: activate this tab
@@ -242,6 +272,25 @@ function Tabs:_styleButton(btn, isActive)
     -- Font (.cn-tabs-trigger font-medium)
     Craft.Theme.applyFont(btn._text, t.fontMedium or t.font, FONT_SIZE)
 
+    -- Line variant: no bg fill, no border box; active = 2px underline in t.foreground.
+    if self._variant == "line" then
+        if btn._bg then btn._bg:SetColorTexture(0, 0, 0, 0) end
+        btn._borderTop:SetColorTexture(0, 0, 0, 0)
+        btn._borderBottom:SetColorTexture(0, 0, 0, 0)
+        btn._borderLeft:SetColorTexture(0, 0, 0, 0)
+        btn._borderRight:SetColorTexture(0, 0, 0, 0)
+
+        local c = isActive and t.foreground or t.mutedForeground
+        btn._text:SetTextColor(c.r, c.g, c.b)
+        if btn._icon then btn._icon:SetVertexColor(c.r, c.g, c.b, 1) end
+
+        if btn._underline then
+            btn._underline:SetColorTexture(t.foreground.r, t.foreground.g, t.foreground.b, 1)
+            btn._underline:SetShown(isActive)
+        end
+        return
+    end
+
     -- Pixel-perfect 4-texture border (corner-safe)
     Craft.Theme.AnchorBorder(btn, btn._borderTop, btn._borderBottom,
                              btn._borderLeft, btn._borderRight)
@@ -284,6 +333,12 @@ function Tabs:_onTriggerEnter(btn)
     if btn._id == self._activeId then return end
     if not self._t then return end
     local t = self._t
+    -- Line variant: hover:text-foreground, no bg (no accent fill).
+    if self._variant == "line" then
+        btn._text:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
+        if btn._icon then btn._icon:SetVertexColor(t.foreground.r, t.foreground.g, t.foreground.b, 1) end
+        return
+    end
     if not btn._bg then
         btn._bg = btn:CreateTexture(nil, "BACKGROUND")
         btn._bg:SetAllPoints(btn)
@@ -293,6 +348,16 @@ end
 
 function Tabs:_onTriggerLeave(btn)
     if btn._id == self._activeId then return end
+    -- Line variant: restore muted text (no bg was set on enter).
+    if self._variant == "line" then
+        local t = self._t
+        if t then
+            local mf = t.mutedForeground
+            btn._text:SetTextColor(mf.r, mf.g, mf.b)
+            if btn._icon then btn._icon:SetVertexColor(mf.r, mf.g, mf.b, 1) end
+        end
+        return
+    end
     if btn._bg then
         btn._bg:SetColorTexture(0, 0, 0, 0)
     end
@@ -302,8 +367,13 @@ end
 function Tabs:_applyTheme(t)
     self._t = t
 
-    -- List background
-    self._listBg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 1)
+    -- List background: muted in default, transparent in the line variant (the
+    -- bar is bg-transparent; only the border-b below remains).
+    if self._variant == "line" then
+        self._listBg:SetColorTexture(0, 0, 0, 0)
+    else
+        self._listBg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 1)
+    end
 
     -- 1px separator border below tab list
     if self._listBorder then
