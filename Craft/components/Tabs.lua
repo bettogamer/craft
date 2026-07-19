@@ -6,8 +6,8 @@
 --
 -- List: h=32px (single row), padding=3px
 -- Trigger: px=6px, py=2px, text-xs=12px, border-transparent default
--- Active: bg=t.secondary, text=t.foreground
--- Inactive: text=t.mutedForeground
+-- Active: bg=input/30 (white@15% × 0.30 ≈ 0.045, very subtle) + border=input (white@15%),
+--         text=t.foreground. Inactive: text=t.mutedForeground. Hover: text→foreground, no bg.
 -- List bg: t.muted
 -- No underline indicator in the DEFAULT variant (Lyra uses data-active bg change only)
 --
@@ -320,14 +320,18 @@ function Tabs:_styleButton(btn, isActive)
 
     if isActive then
         -- Active (dark mode): dark:data-active:bg-input/30 + dark:data-active:border-input
-        -- bg-input/30 = white at 30% opacity — lighter than t.muted, creates a "raised" effect
+        -- Lyra compiles bg-input/30 to color-mix(in oklab, var(--input) 30%, transparent).
+        -- --input is white@15% alpha, so the result is white @ (0.15 * 0.30) ≈ 0.045 — a
+        -- VERY subtle raised fill; the segment is delineated mainly by border-input (the
+        -- 1px white@15% highlight below) plus a drop shadow (WoW textures can't do shadows).
+        -- (bg-input/30 is NOT "white at 30%" — that was Tailwind v3 semantics; v4 multiplies.)
         -- border-input = t.input = white at 15% opacity — subtle 1px highlight border
         btn:SetNormalTexture("")
         if not btn._bg then
             btn._bg = btn:CreateTexture(nil, "BACKGROUND")
             btn._bg:SetAllPoints(btn)
         end
-        btn._bg:SetColorTexture(1, 1, 1, 0.30)
+        btn._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, (t.input.a or 0.15) * 0.30)
         btn._bg:Show()
 
         btn._text:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
@@ -356,33 +360,20 @@ function Tabs:_onTriggerEnter(btn)
     if btn._id == self._activeId then return end
     if not self._t then return end
     local t = self._t
-    -- Line variant: hover:text-foreground, no bg (no accent fill).
-    if self._variant == "line" then
-        btn._text:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
-        if btn._icon then btn._icon:SetVertexColor(t.foreground.r, t.foreground.g, t.foreground.b, 1) end
-        return
-    end
-    if not btn._bg then
-        btn._bg = btn:CreateTexture(nil, "BACKGROUND")
-        btn._bg:SetAllPoints(btn)
-    end
-    btn._bg:SetColorTexture(t.accent.r, t.accent.g, t.accent.b, 0.5)
+    -- Both variants: the shadcn trigger only has hover:text-foreground — no hover bg
+    -- fill. (Painting an accent bg here read louder than the subtle active fill.)
+    btn._text:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
+    if btn._icon then btn._icon:SetVertexColor(t.foreground.r, t.foreground.g, t.foreground.b, 1) end
 end
 
 function Tabs:_onTriggerLeave(btn)
     if btn._id == self._activeId then return end
-    -- Line variant: restore muted text (no bg was set on enter).
-    if self._variant == "line" then
-        local t = self._t
-        if t then
-            local mf = t.mutedForeground
-            btn._text:SetTextColor(mf.r, mf.g, mf.b)
-            if btn._icon then btn._icon:SetVertexColor(mf.r, mf.g, mf.b, 1) end
-        end
-        return
-    end
-    if btn._bg then
-        btn._bg:SetColorTexture(0, 0, 0, 0)
+    -- Restore muted text (no hover bg was set on enter, in either variant).
+    local t = self._t
+    if t then
+        local mf = t.mutedForeground
+        btn._text:SetTextColor(mf.r, mf.g, mf.b)
+        if btn._icon then btn._icon:SetVertexColor(mf.r, mf.g, mf.b, 1) end
     end
 end
 
