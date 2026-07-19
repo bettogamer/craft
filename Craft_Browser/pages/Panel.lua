@@ -452,6 +452,177 @@ CraftBrowserPages["Panel"] = {
 
         y = y + (32 + cloneLocalH + 32) + 16
 
+        -- FAQ card (shadcn "FAQ" example — Tabs + Accordion pattern with single-open)
+        y = addLabel("FAQ card — Tabs with Accordion (single-open)", y)
+
+        local FAQ_W     = 340
+        local FAQ_INNER = FAQ_W - 32     -- content width (px-4 left+right)
+        local FAQ_BAR   = 32             -- tab-list bar height
+        local FAQ_FOOTER = 76            -- footer (2 stacked full-width buttons)
+        local FAQ_PY     = 32            -- card py-4 (top+bottom)
+        -- Provisional accordion-area height; recomputed from the measured content + the
+        -- Section headers (auto-sizing since FR-044) once the sections exist — see below.
+        local FAQ_ACC_H = 200
+        local FAQ_H     = FAQ_BAR + FAQ_ACC_H + FAQ_FOOTER + FAQ_PY
+        local faqPanel = Craft.Panel:Create(parent, {
+            width  = FAQ_W,
+            height = FAQ_H,
+        })
+        faqPanel:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, faqPanel)
+
+        local faqContent = faqPanel:GetContent()
+
+        -- Outer Tabs (fill=true): General | Billing | Goals
+        local faqTabs = Craft.Tabs:Create(faqContent, {
+            tabs = {
+                { id = "general", label = "General" },
+                { id = "billing", label = "Billing" },
+                { id = "goals",   label = "Goals" },
+            },
+            defaultTab = "general",
+            fill = true,
+        })
+        faqTabs:GetFrame():SetPoint("TOPLEFT", faqContent, "TOPLEFT", 0, 0)
+        faqTabs:GetFrame():SetWidth(FAQ_INNER)
+        -- REQUIRED: the Tabs content area derives its height from the frame height
+        -- (content = frame - bar). Without this the frame is 0px tall and the whole
+        -- accordion collapses to nothing (only the footer shows). Same as Clone demo.
+        -- Provisional here (FAQ_ACC_H is still the placeholder); re-set from the measured
+        -- content once the sections exist (see the Section loop below).
+        faqTabs:GetFrame():SetHeight(FAQ_BAR + FAQ_ACC_H)
+        table.insert(comps, faqTabs)
+
+        -- ── General tab: Accordion (3 Sections, single-open behavior) ────
+        do
+            local generalFrame = faqTabs:GetContentFrame("general")
+            local sections = {}
+
+            -- Single-anchor FontString + explicit width (bug #2 safe: a two-anchor
+            -- FontString over a 0-width frame renders invisible). Auto-measures its
+            -- wrapped height (GetStringHeight) — no hardcoded `h`. Same pattern as the
+            -- working makeContent in pages/Section.lua. Returns (frame, measuredHeight).
+            local function makeContent(text)
+                local f = CreateFrame("Frame", nil, generalFrame)
+                local fs = f:CreateFontString(nil, "OVERLAY")
+                fs:SetFont(t.font, 12, "")
+                fs:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+                fs:SetWidth(FAQ_INNER)
+                fs:SetWordWrap(true)
+                fs:SetJustifyH("LEFT")
+                fs:SetJustifyV("TOP")
+                fs:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
+                fs:SetText(text)
+                local h = fs:GetStringHeight()
+                if h < 1 then h = 1 end
+                f:SetSize(FAQ_INNER, h)
+                return f, h
+            end
+
+            local faqItems = {
+                {
+                    title = "How secure is my financial data with Ledger?",
+                    expanded = true,
+                    text  = "We use bank-level AES-256 encryption, SOC 2 Type II certified "
+                         .. "infrastructure, and never store your credentials. All connections use "
+                         .. "read-only access tokens. We are a SEC registered investment advisor.",
+                },
+                {
+                    title = "How do I connect my bank or investment accounts?",
+                    expanded = false,
+                    text  = "Securely link accounts through our encrypted integration partner. "
+                         .. "Just search for your institution, authenticate with your existing "
+                         .. "credentials, and select which accounts to sync. Setup takes about two "
+                         .. "minutes per institution.",
+                },
+                {
+                    title = "Can I export my data for tax purposes?",
+                    expanded = false,
+                    text  = "Yes. Export a full transaction history and realized gains report as "
+                         .. "CSV or PDF at any time from Settings, formatted for easy import into "
+                         .. "TurboTax and other major tax software.",
+                },
+            }
+
+            -- Reflow: re-anchor AND width each section top-down using current heights.
+            -- SetWidth is REQUIRED — Section frames have no intrinsic width, and a 0-width
+            -- section collapses its header/content (bug #2). Mirrors pages/Section.lua.
+            local function reflowAccordion()
+                local acc_y = 0
+                for _, sec in ipairs(sections) do
+                    local f = sec:GetFrame()
+                    f:ClearAllPoints()
+                    f:SetWidth(FAQ_INNER)
+                    f:SetPoint("TOPLEFT", generalFrame, "TOPLEFT", 0, -acc_y)
+                    acc_y = acc_y + (f:GetHeight() or 34)
+                end
+            end
+
+            -- Create accordion items (Sections), tracking the tallest body.
+            local maxBody = 0
+            for i, item in ipairs(faqItems) do
+                local content, contentH = makeContent(item.text)
+                maxBody = math.max(maxBody, contentH)
+                local section = Craft.Section:Create(generalFrame, {
+                    title     = item.title,
+                    collapsed = not item.expanded,  -- collapsed defaults to true
+                    divider   = (i < #faqItems),    -- no divider on last item
+                    onToggle  = function(expanded)
+                        -- Single-open: close other sections when one opens
+                        if expanded then
+                            for j, sec in ipairs(sections) do
+                                if j ~= i then sec:Collapse() end
+                            end
+                        end
+                        -- Reflow: reposition sections after height animation changes
+                        reflowAccordion()
+                    end,
+                })
+                section:SetContent(content)
+                table.insert(comps, section)
+                sections[i] = section
+            end
+
+            -- Initial reflow to position sections
+            reflowAccordion()
+
+            -- Size the Tabs content area (and the card) to the tallest single-open state:
+            -- all headers collapsed + the tallest measured body + its pb-2.5. Section
+            -- headers auto-size (FR-044); we use the single-line floor as the estimate —
+            -- if a title wraps to 2 lines in-game the header grows and this can be nudged.
+            local SECTION_HEADER = 36   -- Craft.Section HEADER_MIN (single-line floor)
+            local SECTION_PB     = 10   -- pb-2.5
+            FAQ_ACC_H = #faqItems * SECTION_HEADER + maxBody + SECTION_PB
+            FAQ_H     = FAQ_BAR + FAQ_ACC_H + FAQ_FOOTER + FAQ_PY
+            faqTabs:GetFrame():SetHeight(FAQ_BAR + FAQ_ACC_H)
+            faqPanel:GetFrame():SetHeight(FAQ_H)
+        end
+
+        -- Footer: 2 buttons, full-width, stacked vertically (gap-2 = 8px)
+        faqPanel:ShowFooter(76)
+        local faqFooter = faqPanel:GetFooter()
+        if faqFooter then
+            -- Button 1: "Contact Support" (outline)
+            local contactBtn = Craft.Button:Create(faqFooter, {
+                text    = "Contact Support",
+                variant = "outline",
+            })
+            contactBtn:GetFrame():SetPoint("TOPLEFT",  faqFooter, "TOPLEFT",  16, -10)
+            contactBtn:GetFrame():SetPoint("TOPRIGHT", faqFooter, "TOPRIGHT", -16, -10)
+            table.insert(comps, contactBtn)
+
+            -- Button 2: "Learn More" (link) — gap-2 = 8px below button 1
+            local learnBtn = Craft.Button:Create(faqFooter, {
+                text    = "Learn More",
+                variant = "link",
+            })
+            learnBtn:GetFrame():SetPoint("TOPLEFT",  faqFooter, "TOPLEFT",  16, -42)
+            learnBtn:GetFrame():SetPoint("TOPRIGHT", faqFooter, "TOPRIGHT", -16, -42)
+            table.insert(comps, learnBtn)
+        end
+
+        y = y + FAQ_H + 16
+
         return {
             height  = y + 24,
             cleanup = function()
