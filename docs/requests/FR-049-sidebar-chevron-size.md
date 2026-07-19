@@ -4,7 +4,8 @@
 **Componente:** `Craft/components/Sidebar.lua` (extensión propia FR-008 — árbol colapsable)
 **Tipo:** Consistencia interna (tamaño de icono)
 **Prioridad:** Baja (cosmético)
-**Estado:** 🅿️ Propuesto (2026-07-19). No implementado.
+**Estado:** ✅ Implementado (2026-07-19) — homologado: `CHEV_SIZE = 16` (= `ICON_SIZE`, Lyra
+`[&_svg]:size-4`). El spec no fijaba el tamaño del chevron, sin cambios de doc ni tests.
 
 ---
 

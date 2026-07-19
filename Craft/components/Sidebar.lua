@@ -40,7 +40,7 @@ local ITEM_PAD       = 8    -- p-2 (todos los lados)
 local ITEM_GAP       = 8    -- gap-2 (between icon and text)
 local ITEM_FONT      = 12   -- text-xs
 local ICON_SIZE      = 16
-local CHEV_SIZE      = 14   -- collapse chevron (tree branches, trailing)
+local CHEV_SIZE      = 16   -- collapse chevron (tree branches, trailing) = ICON_SIZE (FR-049, Lyra [&_svg]:size-4)
 local INDENT         = 20   -- horizontal indent per tree depth (shadcn mx-3.5 + px-2.5 ≈ 24, tightened)
 local SUB_H          = 28   -- nested item height (h-7) vs top-level ITEM_SIZES (h-8)
 local GUIDE_INSET    = 10   -- vertical guide line (border-l) offset within each indent column
