@@ -187,3 +187,77 @@ describe("Craft.Tabs — variant 'line' (FR-042)", function()
     end)
 
 end)
+
+describe("Craft.Tabs — fill (FR-043)", function()
+
+    -- Devuelve el item de Flex asociado a un button (para leer grow/shrink/basis).
+    local function flexItem(tabs, id)
+        local btn = tabs._buttons[id]
+        for _, item in ipairs(tabs._flex._items) do
+            if item.frame == btn then return item end
+        end
+    end
+
+    it("fill por defecto = false: triggers content-width (grow=0, basis=auto)", function()
+        local p = newContainer()
+        local tabs = Craft.Tabs:Create(p, {
+            tabs = { {id="a", label="A"}, {id="b", label="B"} },
+        })
+        assert.is_false(tabs._fill)
+        local ia = flexItem(tabs, "a")
+        assert.equals(0, ia.grow)
+        assert.equals(0, ia.shrink)
+        assert.equals("auto", ia.basis)
+    end)
+
+    it("fill=true: cada trigger es flex-1 (grow=1, shrink=1, basis=0)", function()
+        local p = newContainer()
+        local tabs = Craft.Tabs:Create(p, {
+            fill = true,
+            tabs = { {id="a", label="A"}, {id="b", label="B"} },
+        })
+        assert.is_true(tabs._fill)
+        for _, id in ipairs({ "a", "b" }) do
+            local item = flexItem(tabs, id)
+            assert.equals(1, item.grow)
+            assert.equals(1, item.shrink)
+            assert.equals(0, item.basis)
+        end
+    end)
+
+    it("fill=true con 2 tabs: anchos ~iguales que suman el ancho útil de la lista", function()
+        local p = newContainer()
+        local tabs = Craft.Tabs:Create(p, {
+            fill = true,
+            tabs = { {id="a", label="A"}, {id="bb", label="Muchísimo más largo"} },
+        })
+        -- El mock no deriva el ancho del _list desde las anclas: lo fijamos y
+        -- corremos Layout() directo (el reparto es lo que verifica el FR).
+        tabs._list:SetWidth(200)
+        tabs._flex:Layout()
+        local wa = tabs._buttons["a"]:GetWidth()
+        local wb = tabs._buttons["bb"]:GetWidth()
+        assert.near(wa, wb, 1)                       -- columnas iguales pese al texto dispar
+        -- default variant: p-[3px] cada lado (paddingH=3), gap=0 → útil = 200 - 6 = 194.
+        assert.near(194, wa + wb, 1)
+    end)
+
+    it("fill compone con variant='line' (reparto igual + barra transparente)", function()
+        local p = newContainer()
+        local t = Craft.Theme.get()
+        local tabs = Craft.Tabs:Create(p, {
+            fill = true, variant = "line",
+            tabs = { {id="a", label="A"}, {id="b", label="B"} },
+        })
+        assert.equals("line", tabs._variant)
+        assert.is_true(tabs._fill)
+        assert.is_true(isTransparent(tabs._listBg))          -- line sigue transparente
+        assert.equals(1, flexItem(tabs, "a").grow)           -- pero los triggers reparten
+        assert.is_not_nil(tabs._buttons["a"]._underline)     -- underline intacto
+        -- line: paddingH=0, gap-1=4 → útil = 200 - 0 - 4 = 196 → 98 c/u.
+        tabs._list:SetWidth(200)
+        tabs._flex:Layout()
+        assert.near(98, tabs._buttons["a"]:GetWidth(), 1)
+    end)
+
+end)

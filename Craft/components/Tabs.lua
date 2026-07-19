@@ -21,6 +21,12 @@
 -- fit on one line they wrap to additional rows (flex wrap="wrap") and the list bar
 -- grows in height to fit them. Faithful to shadcn (triggers size to content) and
 -- degrades gracefully with few or many tabs. See docs/components/tabs.md.
+--
+-- fill (FR-043, config.fill=true): the shadcn `TabsList w-full` + trigger `flex-1`
+-- pattern — triggers stop being content-width and split the list into EQUAL columns
+-- (segmented control). Only the Flex item params change (grow=1, shrink=1, basis=0)
+-- and the label centers in its cell; the border-b, underline, theming and API are
+-- untouched, so it composes with variant="line". Default false (no regression).
 
 local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
@@ -53,6 +59,10 @@ function Tabs:Create(parent, config)
     -- Variant (FR-042): "default" (bg-muted bar) or "line" (transparent bar +
     -- underline indicator). Set before the flex/textures below branch on it.
     self._variant    = (config.variant == "line") and "line" or "default"
+
+    -- fill (FR-043): full-width bar with equal-width triggers (flex-1). Read before
+    -- AddTab so the flex item params and label anchoring below branch on it.
+    self._fill       = config.fill == true
 
     self._tabs       = {}      -- array of {id, label}
     self._frames     = {}      -- id → content Frame
@@ -187,8 +197,15 @@ function Tabs:AddTab(id, label, opts)
     -- hugs the content + TRIGGER_PX on each side, it ends up horizontally centered.
     local textW = math.max(btnText:GetStringWidth(), 1)
     if icon then
-        icon:SetPoint("LEFT", btn, "LEFT", TRIGGER_PX, 0)
-        btnText:SetPoint("LEFT", icon, "RIGHT", ICON_GAP, 0)
+        if self._fill then
+            -- Equal-width cell: center the icon+label pair. Text sits at center
+            -- shifted right by half the icon slot so the pair straddles the middle.
+            btnText:SetPoint("CENTER", btn, "CENTER", math.floor((ICON_SIZE + ICON_GAP) / 2), 0)
+            icon:SetPoint("RIGHT", btnText, "LEFT", -ICON_GAP, 0)
+        else
+            icon:SetPoint("LEFT", btn, "LEFT", TRIGGER_PX, 0)
+            btnText:SetPoint("LEFT", icon, "RIGHT", ICON_GAP, 0)
+        end
         btn:SetWidth(ICON_SIZE + ICON_GAP + textW + TRIGGER_PX * 2)
     else
         btnText:SetPoint("CENTER", btn, "CENTER")
@@ -235,8 +252,14 @@ function Tabs:AddTab(id, label, opts)
     self._buttons[id] = btn
     table.insert(self._tabs, { id = id, label = label or id })
 
-    -- Register with Flex (content width: no grow, no shrink → wraps on overflow)
-    self._flex:Add(btn, { grow = 0, shrink = 0, basis = "auto" })
+    -- Register with Flex. Default: content width (no grow/shrink → wraps on
+    -- overflow). fill (FR-043): flex-1 (grow=1, shrink=1, basis=0) so the triggers
+    -- split the list into equal columns. basis=0 is truthy in Lua, so Flex keeps it.
+    if self._fill then
+        self._flex:Add(btn, { grow = 1, shrink = 1, basis = 0 })
+    else
+        self._flex:Add(btn, { grow = 0, shrink = 0, basis = "auto" })
+    end
     self:_relayout()
 
     -- Apply theme to the new button

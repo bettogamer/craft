@@ -54,7 +54,7 @@ Los content frames son los frames que el dev pasa en `config.tabs[i].content_fra
 | Tab padding vertical | 2px (`py-0.5`) |
 | Tab padding H con ícono | 4px (`pr-1` o `pl-1` según lado) |
 | Tab gap con ícono | 6px (`gap-1.5`) |
-| Tab width | automático según texto + padding horizontal (no se estira) |
+| Tab width | automático según texto + padding horizontal (no se estira). Con `fill=true`: igual ancho, reparto del ancho útil de la lista (FR-043) |
 | Tab height | igual a inner height del TabList (26px efectivo) |
 | ListBorder height | 1px — usar `Craft.Theme.SetPixelHeight(border, 1)` |
 | ListBorder posición | BOTTOM de `_list`, cubre todo el ancho |
@@ -86,6 +86,30 @@ El subrayado es una textura `_underline` por trigger, de 2px pixel-perfect
 (`Craft.Theme.SetPixelHeight(_, 2)`, ADR-0011), anclada al borde inferior del trigger
 (`BOTTOMLEFT`+`BOTTOMRIGHT`) para que coincida con `_listBorder` y siga al trigger activo
 incluso si los triggers hacen wrap a otra fila. Visible solo bajo la tab activa.
+
+### `fill` — barra full-width, triggers de igual ancho (FR-043)
+
+`Create(parent, { fill = true })` reproduce el patrón shadcn `TabsList w-full` +
+trigger `flex-1`: la barra ocupa el ancho del frame (ya lo hace: `_list` ancla
+`TOPLEFT`/`TOPRIGHT`) y los triggers **dejan de ser ancho-contenido** para
+repartirse el ancho en **columnas iguales** (segmented control). El label se
+**centra** en su celda.
+
+| Aspecto | `fill=false` (default) | `fill=true` |
+|---|---|---|
+| Flex del trigger | `grow=0, shrink=0, basis="auto"` | `grow=1, shrink=1, basis=0` (`flex-1`) |
+| Ancho de cada trigger | contenido (texto + padding) | `(ancho útil de la lista) / n` iguales |
+| Alineación del label | centrado en su celda de contenido | centrado en su celda (igual ancho) |
+| Overflow | wrap a filas nuevas | 1 fila (con pocos tabs siempre caben) |
+
+Solo cambia el reparto horizontal del Flex; **el resto del motor no cambia**
+(show/hide, icon slots, subrayado de `line`, theming, API). Compone con `variant`:
+en `line` + `fill` los triggers reparten igual pero la barra sigue transparente
+con `border-b` y el subrayado sigue al trigger activo (ancho real de la celda).
+
+> **`basis=0` en Lua:** `0` es *truthy*, así que `Craft.Flex.Add` lo respeta
+> (`itemConfig.basis or "auto"` no lo pisa). Con `basis=0 + grow=1` el motor reparte
+> el `freeSpace` en partes iguales (`freeSpace/n`).
 
 ### Diferencias conocidas vs shadcn (fuera de MVP)
 
@@ -141,6 +165,7 @@ del label vía `AddTab(id, label, { icon = "<name>" })` o `tabs[i].icon`. Varian
 | `defaultTab` | string | primer id | Id de la tab activa al crear el componente |
 | `onTabChange` | function | nil | Callback `function(newId, oldId)` invocado al cambiar de tab |
 | `variant` | string | `"default"` | `"default"` (barra `bg-muted`) o `"line"` (barra transparente + subrayado activo, FR-042) |
+| `fill` | bool | `false` | `true` = barra full-width con triggers de **igual ancho** (`flex-1`, segmented control, FR-043). `false` (default) = triggers ancho-contenido con wrap |
 
 No hay parámetro `size` — el TabList tiene un único tamaño (32px `h-8`).
 
@@ -172,7 +197,9 @@ items con `grow=0, shrink=0, basis="auto"`). Cuando los triggers ya no caben en
 una fila, **hacen wrap a filas adicionales** y la barra crece en alto. Es fiel a
 shadcn (los triggers se dimensionan al contenido) y degrada bien con pocos o
 muchos tabs. Se evaluaron scroll horizontal y fill con piso de ancho; se eligió
-wrap por simplicidad (Flex ya lo soporta) y consistencia visual.
+wrap **por defecto** por simplicidad (Flex ya lo soporta) y consistencia visual.
+El **fill a ancho igual** existe como opt-in explícito (`fill=true`, FR-043) para
+el caso segmented-control con pocos tabs — ver [`fill`](#fill--barra-full-width-triggers-de-igual-ancho-fr-043).
 
 **Auto-width de cada tab:**
 ```lua
