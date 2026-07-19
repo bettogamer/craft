@@ -5,7 +5,8 @@ demo "Card + Sidebar — Financial dashboard nav"
 **Componente:** `Craft/components/Sidebar.lua` (shadcn: `sidebar` — `.cn-sidebar-menu-sub-button`)
 **Tipo:** Fidelidad (font-weight incorrecto en un estado de un componente existente)
 **Prioridad:** Media (visible en cualquier árbol colapsable con item anidado activo)
-**Estado:** 🅿️ Propuesto (2026-07-19). No implementado.
+**Estado:** ✅ Implementado (2026-07-19). `_colorItem` condiciona `fontMedium` a `entry.depth == 0`;
+3 tests en `tests/sidebar_spec.lua` (suite 370).
 
 ---
 

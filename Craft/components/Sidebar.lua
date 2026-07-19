@@ -377,7 +377,10 @@ function Sidebar:_colorItem(entry, isActive)
     if isActive then
         -- data-active: bg-sidebar-accent text-sidebar-accent-foreground font-medium
         entry.bg:SetColorTexture(t.sidebarAccent.r, t.sidebarAccent.g, t.sidebarAccent.b, 1)
-        Craft.Theme.applyFont(entry.labelFs, t.fontMedium or t.font, ITEM_FONT)  -- data-active:font-medium
+        -- Lyra only sets data-active:font-medium on the root menu-button; the nested
+        -- menu-sub-button keeps regular weight (FR-047)
+        local activeFont = (entry.depth or 0) == 0 and (t.fontMedium or t.font) or t.font
+        Craft.Theme.applyFont(entry.labelFs, activeFont, ITEM_FONT)
         entry.labelFs:SetTextColor(
             t.sidebarAccentForeground.r,
             t.sidebarAccentForeground.g,

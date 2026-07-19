@@ -166,4 +166,32 @@ describe("Craft.Sidebar — expansion state (FR-010)", function()
             assert.is_false(sb:IsExpanded("pack3"))  -- new → defaultOpen = false
         end)
     end)
+
+    -- ── Active item font weight (FR-047) ──────────────────────────────────
+    describe("active item font weight (FR-047)", function()
+        it("root item activo usa fontMedium", function()
+            local t = Craft.Theme.get()
+            local sb = newSidebar()
+            sb:SetActiveItem("pack1")            -- depth 0
+            local path = sb._itemFrames["pack1"].labelFs:GetFont()
+            assert.equals(t.fontMedium or t.font, path)
+        end)
+
+        it("sub-item activo (depth>0) mantiene peso regular", function()
+            local t = Craft.Theme.get()
+            local sb = newSidebar()
+            sb:SetActiveItem("aura1")            -- depth 1
+            local path = sb._itemFrames["aura1"].labelFs:GetFont()
+            assert.equals(t.font, path)
+        end)
+
+        it("sub-item vuelve a regular al desactivarse", function()
+            local t = Craft.Theme.get()
+            local sb = newSidebar()
+            sb:SetActiveItem("aura1")
+            sb:SetActiveItem("pack1")            -- desactiva aura1
+            local path = sb._itemFrames["aura1"].labelFs:GetFont()
+            assert.equals(t.font, path)
+        end)
+    end)
 end)
