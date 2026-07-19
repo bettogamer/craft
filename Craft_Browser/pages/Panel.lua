@@ -303,6 +303,145 @@ CraftBrowserPages["Panel"] = {
 
         y = y + 612
 
+        -- Clone repository (shadcn "Repo" page). In the real page this example lives
+        -- in a Card (data-slot="card"), NOT a Popover: card-content → outer Tabs
+        -- (Codespaces|Local, fill=true = TabsList w-full + flex-1) → inner Tabs
+        -- (HTTPS|SSH|GitHub CLI, variant="line") → Field (url input + description) →
+        -- Separator → ghost actions. The card has NO header (no title in the markup).
+        -- Ported from shadcn-pages/Repo - shadcn_ui.mhtml.
+        y = addLabel("Clone repository — Card (nested Tabs fill/line, Field, ghost actions)", y)
+
+        -- Register a raw (non-component) frame for teardown: hidden + reparented.
+        local function trackFrame(f)
+            table.insert(comps, { Destroy = function() f:Hide(); f:SetParent(nil) end })
+            return f
+        end
+
+        local CLONE_W     = 320                       -- w-80 card
+        local CLONE_INNER = CLONE_W - 2 * 16          -- px-4 each side = 288
+        local cloneLocalH = 212                       -- height of the "Local" tab content
+        -- Card height = outer tab bar (32) + local content + py-4 (16 top + 16 bottom).
+        local clonePanel = Craft.Panel:Create(parent, {
+            width  = CLONE_W,
+            height = 32 + cloneLocalH + 32,
+        })
+        clonePanel:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, clonePanel)
+        do
+            local c = clonePanel:GetContent()
+
+            -- ── Outer Tabs (default + fill): Codespaces | Local ──────────────
+            local outerTabs = Craft.Tabs:Create(c, {
+                tabs = { { id = "codespaces", label = "Codespaces" }, { id = "local", label = "Local" } },
+                defaultTab = "local",
+                fill       = true,
+            })
+            outerTabs:GetFrame():SetPoint("TOPLEFT", c, "TOPLEFT", 0, 0)
+            outerTabs:GetFrame():SetWidth(CLONE_INNER)
+            outerTabs:GetFrame():SetHeight(32 + cloneLocalH)
+            table.insert(comps, outerTabs)
+
+            -- Codespaces tab: placeholder copy (the demo focuses on the Local tab).
+            do
+                local cs  = outerTabs:GetContentFrame("codespaces")
+                local lbl = Craft.Label:Create(cs, {
+                    text  = "Use a GitHub Codespace to develop entirely in the cloud.",
+                    color = { r=t.mutedForeground.r, g=t.mutedForeground.g, b=t.mutedForeground.b, a=1 },
+                })
+                lbl:GetFrame():SetPoint("TOPLEFT", cs, "TOPLEFT", 0, -12)
+                lbl:GetFrame():SetWidth(CLONE_INNER)
+                table.insert(comps, lbl)
+            end
+
+            -- ── Local tab content (stacked top→bottom) ───────────────────────
+            -- NB: the real markup also has a terminal-icon "Clone" item row here, but
+            -- it ships `hidden p-0` — intentionally NOT rendered. We omit it to match.
+            local lc = outerTabs:GetContentFrame("local")
+            local yl = 8
+
+            -- 1. Inner Tabs (variant="line"): HTTPS | SSH | GitHub CLI.
+            local BOX_PAD = 8   -- p-2 on the muted box
+            local httpsH  = 84
+            local innerTabs = Craft.Tabs:Create(lc, {
+                tabs = {
+                    { id = "https", label = "HTTPS"      },
+                    { id = "ssh",   label = "SSH"        },
+                    { id = "cli",   label = "GitHub CLI" },
+                },
+                defaultTab = "https",
+                variant    = "line",
+            })
+            innerTabs:GetFrame():SetPoint("TOPLEFT", lc, "TOPLEFT", 0, -yl)
+            innerTabs:GetFrame():SetWidth(CLONE_INNER)
+            innerTabs:GetFrame():SetHeight(32 + httpsH)
+            table.insert(comps, innerTabs)
+
+            -- HTTPS content: a `rounded-md border bg-muted/30 p-2` box wrapping a Field
+            -- (URL input + description). shadcn fuses the copy button via an input-group
+            -- with the input borderless; Craft has no InputGroup yet, so we approximate
+            -- with Input.iconTrailing="copy" (the input keeps its own border).
+            do
+                local hc  = innerTabs:GetContentFrame("https")
+                local box = trackFrame(CreateFrame("Frame", nil, hc))
+                box:SetPoint("TOPLEFT", hc, "TOPLEFT", 0, -8)
+                box:SetWidth(CLONE_INNER)
+                -- 1px border ring (t.border) + bg-muted/30 inset 1px (Panel ring pattern).
+                local boxRing = box:CreateTexture(nil, "BACKGROUND", nil, -2)
+                boxRing:SetAllPoints(box)
+                boxRing:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a or 1)
+                local px1   = Craft.Theme.px(1, box)
+                local boxBg = box:CreateTexture(nil, "BACKGROUND", nil, -1)
+                boxBg:SetPoint("TOPLEFT",     box, "TOPLEFT",      px1, -px1)
+                boxBg:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -px1,  px1)
+                boxBg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 0.30)  -- bg-muted/30
+
+                -- Explicit width so the EditBox/value render before the async width
+                -- resolves (CLAUDE.md bug #2: width-0-at-create hides text).
+                local fieldW = CLONE_INNER - BOX_PAD * 2
+                local urlInput = Craft.Input:Create(hc, {
+                    value           = "https://github.com/shadcn-ui/ui.git",
+                    iconTrailing    = "copy",
+                    onTrailingClick = function() end,
+                    width           = fieldW,
+                })
+                table.insert(comps, urlInput)
+                local field = Craft.Field:Create(box, {
+                    control     = urlInput,
+                    description = "Clone using the web URL.",   -- label omitted (sr-only)
+                    width       = fieldW,
+                })
+                field:GetFrame():SetPoint("TOPLEFT", box, "TOPLEFT", BOX_PAD, -BOX_PAD)
+                field:Relayout()
+                table.insert(comps, field)
+                box:SetHeight((field:GetFrame():GetHeight() or 58) + BOX_PAD * 2)
+            end
+            yl = yl + (32 + httpsH) + 12
+
+            -- 2. Separator.
+            local sep = Craft.Separator:Create(lc, { orientation = "horizontal" })
+            sep:GetFrame():SetPoint("TOPLEFT",  lc, "TOPLEFT",  0, -yl)
+            sep:GetFrame():SetPoint("TOPRIGHT", lc, "TOPRIGHT", 0, -yl)
+            table.insert(comps, sep)
+            yl = yl + 12
+
+            -- 3. Ghost actions, stacked, left-aligned.
+            local ghost1 = Craft.Button:Create(lc, {
+                variant = "ghost", size = "sm", icon = "monitor", iconPosition = "left",
+                text = "Open with GitHub Desktop",
+            })
+            ghost1:GetFrame():SetPoint("TOPLEFT", lc, "TOPLEFT", 0, -yl)
+            table.insert(comps, ghost1)
+            yl = yl + 28 + 4
+            local ghost2 = Craft.Button:Create(lc, {
+                variant = "ghost", size = "sm", icon = "download", iconPosition = "left",
+                text = "Download ZIP",
+            })
+            ghost2:GetFrame():SetPoint("TOPLEFT", lc, "TOPLEFT", 0, -yl)
+            table.insert(comps, ghost2)
+        end
+
+        y = y + (32 + cloneLocalH + 32) + 16
+
         return {
             height  = y + 24,
             cleanup = function()

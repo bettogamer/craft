@@ -6,8 +6,11 @@
 **Prioridad:** Media (bloquea fidelidad del demo Clone; hay fallback: usar variante default degradada)
 **Estado:** ✅ Implementado (2026-07-18). `variant="line"` en `Craft/components/Tabs.lua`;
 tests en `tests/tabs_spec.lua` (11 casos); spec `docs/components/tabs.md` y `design-reference.md
-§9.1` actualizados. Pendiente: materializar el demo "Clone repository" (Anexo A) y verificación
-in-game + bump/release/re-vendoreo por el owner.
+§9.1` actualizados. Demo "Clone repository" (Anexo A) materializado en
+`Craft_Browser/pages/Panel.lua` como **Card** (`Craft.Panel` sin título — el contenedor real del
+ejemplo es `data-slot="card"`, no Popover; movido desde Popover.lua el 2026-07-18): Card → Tabs
+default+`fill` anidado + Tabs `line` + Field + acciones ghost. Pendiente: verificación in-game +
+bump/release/re-vendoreo por el owner.
 
 ---
 
@@ -90,8 +93,8 @@ defecto y `data-active:after:opacity-100`. Traducción a WoW:
 
 ## Fallback mientras tanto
 
-El demo Clone (fila en `Craft_Browser/pages/Popover.lua`) puede materializarse **antes** de este
-FR usando `Craft.Tabs` default para el selector HTTPS/SSH/CLI, con un comentario marcando la
+El demo Clone (fila en `Craft_Browser/pages/Panel.lua`, como Card) puede materializarse **antes** de
+este FR usando `Craft.Tabs` default para el selector HTTPS/SSH/CLI, con un comentario marcando la
 degradación. Al cerrar este FR, cambiar ese Tabs a `variant="line"` para lograr fidelidad total.
 
 ## Referencias
@@ -105,8 +108,9 @@ degradación. Al cerrar este FR, cambiar ese Tabs a `variant="line"` para lograr
 ## Anexo A — Receta completa del demo "Clone repository" (para materializar tras cerrar este FR)
 
 > Persistido aquí para no depender del HTML original ni de re-mapear. Destino: **fila nueva en
-> `Craft_Browser/pages/Popover.lua`** (el "Clone repository" real de shadcn es contenido de un
-> Popover). Lo materializa **browser-demo-writer** cuando el variant `line` exista.
+> `Craft_Browser/pages/Panel.lua`** (el "Clone repository" real de shadcn es contenido de un **Card**,
+> `data-slot="card"` — ver esqueleto abajo con `Craft.Panel`, NO Popover). Lo materializa
+> **browser-demo-writer** cuando el variant `line` exista.
 
 ### Estructura visual (de arriba a abajo)
 
