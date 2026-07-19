@@ -361,7 +361,7 @@ CraftBrowserPages["Panel"] = {
 
             -- 1. Inner Tabs (variant="line"): HTTPS | SSH | GitHub CLI.
             local BOX_PAD = 8   -- p-2 on the muted box
-            local httpsH  = 84
+            local BOX_TOP = 8   -- gap under the line-tab underline before the box
             local innerTabs = Craft.Tabs:Create(lc, {
                 tabs = {
                     { id = "https", label = "HTTPS"      },
@@ -373,8 +373,8 @@ CraftBrowserPages["Panel"] = {
             })
             innerTabs:GetFrame():SetPoint("TOPLEFT", lc, "TOPLEFT", 0, -yl)
             innerTabs:GetFrame():SetWidth(CLONE_INNER)
-            innerTabs:GetFrame():SetHeight(32 + httpsH)
             table.insert(comps, innerTabs)
+            local boxH   -- measured below; drives the tab-content height + layout advance
 
             -- HTTPS content: a `rounded-md border bg-muted/30 p-2` box wrapping a Field
             -- (URL input + description). shadcn fuses the copy button via an input-group
@@ -383,17 +383,22 @@ CraftBrowserPages["Panel"] = {
             do
                 local hc  = innerTabs:GetContentFrame("https")
                 local box = trackFrame(CreateFrame("Frame", nil, hc))
-                box:SetPoint("TOPLEFT", hc, "TOPLEFT", 0, -8)
+                box:SetPoint("TOPLEFT", hc, "TOPLEFT", 0, -BOX_TOP)
                 box:SetWidth(CLONE_INNER)
-                -- 1px border ring (t.border) + bg-muted/30 inset 1px (Panel ring pattern).
-                local boxRing = box:CreateTexture(nil, "BACKGROUND", nil, -2)
-                boxRing:SetAllPoints(box)
-                boxRing:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a or 1)
-                local px1   = Craft.Theme.px(1, box)
-                local boxBg = box:CreateTexture(nil, "BACKGROUND", nil, -1)
-                boxBg:SetPoint("TOPLEFT",     box, "TOPLEFT",      px1, -px1)
-                boxBg:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -px1,  px1)
+                -- bg-muted/30 as a FULL fill (sits directly on the card) + a hollow 1px
+                -- border ring ON TOP. A full-fill border texture UNDER a translucent bg
+                -- bleeds its white across the whole interior and washes the box lighter
+                -- than the web (FR-038 double-tint) — so the bg covers everything and the
+                -- border is a 4-strip AnchorBorder ring above it.
+                local boxBg = box:CreateTexture(nil, "BACKGROUND", nil, -2)
+                boxBg:SetAllPoints(box)
                 boxBg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 0.30)  -- bg-muted/30
+                local function edge() return box:CreateTexture(nil, "BACKGROUND", nil, -1) end
+                local bTop, bBot, bLef, bRig = edge(), edge(), edge(), edge()
+                for _, tex in ipairs({ bTop, bBot, bLef, bRig }) do
+                    tex:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a or 1)
+                end
+                Craft.Theme.AnchorBorder(box, bTop, bBot, bLef, bRig)
 
                 -- Explicit width so the EditBox/value render before the async width
                 -- resolves (CLAUDE.md bug #2: width-0-at-create hides text).
@@ -413,9 +418,14 @@ CraftBrowserPages["Panel"] = {
                 field:GetFrame():SetPoint("TOPLEFT", box, "TOPLEFT", BOX_PAD, -BOX_PAD)
                 field:Relayout()
                 table.insert(comps, field)
-                box:SetHeight((field:GetFrame():GetHeight() or 58) + BOX_PAD * 2)
+                boxH = (field:GetFrame():GetHeight() or 58) + BOX_PAD * 2
+                box:SetHeight(boxH)
             end
-            yl = yl + (32 + httpsH) + 12
+            -- Size the inner tabs to its REAL content (32 tab bar + top gap + box) so the
+            -- separator sits right under the box — no dead space from a guessed height.
+            local innerH = 32 + BOX_TOP + boxH
+            innerTabs:GetFrame():SetHeight(innerH)
+            yl = yl + innerH + 12
 
             -- 2. Separator.
             local sep = Craft.Separator:Create(lc, { orientation = "horizontal" })
