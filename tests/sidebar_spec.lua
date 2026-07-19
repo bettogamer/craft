@@ -194,4 +194,62 @@ describe("Craft.Sidebar — expansion state (FR-010)", function()
             assert.equals(t.font, path)
         end)
     end)
+
+    -- ── Disabled item (FR-048) ────────────────────────────────────────────
+    describe("disabled item (FR-048)", function()
+        local function disabledTree()
+            return {
+                { id = "on",  label = "Enabled" },
+                { id = "off", label = "Disabled", icon = "star", disabled = true },
+                { id = "offBranch", label = "Branch off", disabled = true, collapsible = true,
+                  children = { { id = "kid", label = "Kid" } } },
+            }
+        end
+
+        it("apaga el mouse y no registra scripts de interacción", function()
+            local sb = newSidebar(disabledTree())
+            local e = sb._itemFrames["off"]
+            assert.is_false(e.frame:IsMouseEnabled())
+            assert.is_nil(e.frame:GetScript("OnClick"))
+            assert.is_nil(e.frame:GetScript("OnEnter"))
+            assert.is_nil(e.frame:GetScript("OnLeave"))
+        end)
+
+        it("un item normal sí conserva sus scripts", function()
+            local sb = newSidebar(disabledTree())
+            local e = sb._itemFrames["on"]
+            assert.is_not_nil(e.frame:GetScript("OnClick"))
+            assert.is_not_nil(e.frame:GetScript("OnEnter"))
+        end)
+
+        it("usa t.mutedForeground con a=0.5 en label e ícono", function()
+            local t = Craft.Theme.get()
+            local sb = newSidebar(disabledTree())
+            local e = sb._itemFrames["off"]
+            local r, g, b, a = e.labelFs:GetTextColor()
+            assert.equals(t.mutedForeground.r, r)
+            assert.equals(t.mutedForeground.g, g)
+            assert.equals(t.mutedForeground.b, b)
+            assert.equals(0.5, a)
+            local vr, _, _, va = e.iconTex:GetVertexColor()
+            assert.equals(t.mutedForeground.r, vr)
+            assert.equals(0.5, va)
+        end)
+
+        it("en una rama disabled también se apaga el Button del chevron", function()
+            local sb = newSidebar(disabledTree())
+            local e = sb._itemFrames["offBranch"]
+            assert.is_false(e.chevBtn:IsMouseEnabled())
+        end)
+
+        it("disabled tiene precedencia visual sobre activo", function()
+            local t = Craft.Theme.get()
+            local sb = newSidebar(disabledTree())
+            sb:SetActiveItem("off")              -- programático: no cambia el visual
+            local e = sb._itemFrames["off"]
+            local r, _, _, a = e.labelFs:GetTextColor()
+            assert.equals(t.mutedForeground.r, r)
+            assert.equals(0.5, a)
+        end)
+    end)
 end)

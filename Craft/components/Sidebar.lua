@@ -4,6 +4,7 @@
 --   .cn-sidebar-inner           { bg-sidebar }
 --   .cn-sidebar-menu-button     { hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
 --                                 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground
+--                                 disabled:pointer-events-none disabled:opacity-50
 --                                 gap-2 rounded-none p-2 text-xs }
 --   .cn-sidebar-menu-button-size-default { h-8 text-xs }
 --   .cn-sidebar-menu-button-size-sm      { h-7 text-xs }
@@ -47,6 +48,7 @@ local GROUP_H        = 32   -- h-8
 local GROUP_PX       = 8    -- px-2
 local GROUP_FONT     = 12   -- text-xs (fontSizeSm)
 local GROUP_ALPHA    = 0.7  -- sidebarForeground/70
+local DISABLED_ALPHA = 0.5  -- disabled:opacity-50 (FR-048)
 
 local SBAR_W         = 4    -- scrollbar track width (px)
 local SBAR_THUMB_MIN = 20   -- minimum thumb height (px)
@@ -374,6 +376,22 @@ function Sidebar:_colorItem(entry, isActive)
     local t = self._t
     if not t or not entry.frame then return end
 
+    if entry.disabled then
+        -- FR-048: disabled:opacity-50 — muted foreground at 50% alpha, no highlight.
+        -- Takes precedence over active/hover (pointer-events-none in Lyra).
+        local m = t.mutedForeground
+        entry.bg:SetColorTexture(0, 0, 0, 0)
+        Craft.Theme.applyFont(entry.labelFs, t.font, ITEM_FONT)
+        entry.labelFs:SetTextColor(m.r, m.g, m.b, DISABLED_ALPHA)
+        if entry.iconTex then
+            entry.iconTex:SetVertexColor(m.r, m.g, m.b, DISABLED_ALPHA)
+        end
+        if entry.chevTex then
+            entry.chevTex:SetVertexColor(m.r, m.g, m.b, DISABLED_ALPHA)
+        end
+        return
+    end
+
     if isActive then
         -- data-active: bg-sidebar-accent text-sidebar-accent-foreground font-medium
         entry.bg:SetColorTexture(t.sidebarAccent.r, t.sidebarAccent.g, t.sidebarAccent.b, 1)
@@ -529,7 +547,7 @@ end
 
 -- ─── AddItem ──────────────────────────────────────────────────────────────────
 -- Adds a menu item. itemConfig: {id, label, icon, section, onClick, collapsible,
--- defaultOpen, children}. `depth`/`parentEntry` are internal (tree recursion).
+-- defaultOpen, children, disabled}. `depth`/`parentEntry` are internal (tree recursion).
 -- Returns the item entry. Content x-positions are set in _positionRow (layout time).
 function Sidebar:AddItem(itemConfig, depth, parentEntry)
     local t  = self._t
@@ -541,6 +559,7 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
     local label       = itemConfig.label or ""
     local iconName    = itemConfig.icon
     local onClick     = itemConfig.onClick
+    local disabled    = itemConfig.disabled and true or false
     local collapsible = itemConfig.collapsible
         or (itemConfig.children ~= nil and #itemConfig.children > 0)
 
@@ -588,6 +607,7 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
         hasIcon     = hasIcon,
         depth       = depth,
         parent      = parentEntry,
+        disabled    = disabled,
         collapsible = collapsible,
         _open       = itemConfig.defaultOpen ~= false,  -- default open
     }
@@ -621,27 +641,34 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
     if t then self:_colorItem(entry, (id ~= nil) and (id == self._cfg.activeItem)) end
     if id then self._itemFrames[id] = entry end
 
-    -- Hover (skip the active item — it keeps the accent permanently)
-    itemFrame:SetScript("OnEnter", function()
-        if id == self._cfg.activeItem then return end
-        local tt = self._t
-        if not tt then return end
-        bg:SetColorTexture(tt.sidebarAccent.r, tt.sidebarAccent.g, tt.sidebarAccent.b, 1)
-        local r, g, b = tt.sidebarAccentForeground.r, tt.sidebarAccentForeground.g, tt.sidebarAccentForeground.b
-        labelFs:SetTextColor(r, g, b)
-        if hasIcon then iconTex:SetVertexColor(r, g, b, 1) end
-        if entry.chevTex then entry.chevTex:SetVertexColor(r, g, b, 1) end
-    end)
-    itemFrame:SetScript("OnLeave", function()
-        if id ~= self._cfg.activeItem and self._t then self:_colorItem(entry, false) end
-    end)
+    if disabled then
+        -- FR-048: disabled:pointer-events-none — no hover/click at all (the chevron
+        -- Button included). No scripts registered; visuals come from _colorItem.
+        itemFrame:EnableMouse(false)
+        if entry.chevBtn then entry.chevBtn:EnableMouse(false) end
+    else
+        -- Hover (skip the active item — it keeps the accent permanently)
+        itemFrame:SetScript("OnEnter", function()
+            if id == self._cfg.activeItem then return end
+            local tt = self._t
+            if not tt then return end
+            bg:SetColorTexture(tt.sidebarAccent.r, tt.sidebarAccent.g, tt.sidebarAccent.b, 1)
+            local r, g, b = tt.sidebarAccentForeground.r, tt.sidebarAccentForeground.g, tt.sidebarAccentForeground.b
+            labelFs:SetTextColor(r, g, b)
+            if hasIcon then iconTex:SetVertexColor(r, g, b, 1) end
+            if entry.chevTex then entry.chevTex:SetVertexColor(r, g, b, 1) end
+        end)
+        itemFrame:SetScript("OnLeave", function()
+            if id ~= self._cfg.activeItem and self._t then self:_colorItem(entry, false) end
+        end)
 
-    -- Click on the row body = select (chevron Button intercepts clicks on the chevron).
-    itemFrame:SetScript("OnClick", function()
-        if id then self:SetActiveItem(id) end
-        if onClick then onClick(id, itemConfig) end
-        if self._cfg.onSelect then self._cfg.onSelect(id) end
-    end)
+        -- Click on the row body = select (chevron Button intercepts clicks on the chevron).
+        itemFrame:SetScript("OnClick", function()
+            if id then self:SetActiveItem(id) end
+            if onClick then onClick(id, itemConfig) end
+            if self._cfg.onSelect then self._cfg.onSelect(id) end
+        end)
+    end
 
     table.insert(self._sections, entry)
     if not self._building then self:_rebuildLayout() end
@@ -696,9 +723,14 @@ function Sidebar:_updateChevron(entry)
     entry.chevTex:SetSize(CHEV_SIZE, CHEV_SIZE)
     local t = self._t
     if t then
-        local active = entry.itemId ~= nil and entry.itemId == self._cfg.activeItem
-        local c = active and t.sidebarAccentForeground or t.sidebarForeground
-        entry.chevTex:SetVertexColor(c.r, c.g, c.b, 1)
+        if entry.disabled then
+            local m = t.mutedForeground
+            entry.chevTex:SetVertexColor(m.r, m.g, m.b, DISABLED_ALPHA)  -- FR-048
+        else
+            local active = entry.itemId ~= nil and entry.itemId == self._cfg.activeItem
+            local c = active and t.sidebarAccentForeground or t.sidebarForeground
+            entry.chevTex:SetVertexColor(c.r, c.g, c.b, 1)
+        end
     end
 end
 

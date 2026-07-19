@@ -174,7 +174,7 @@ items = {
 | Item | Default | `_bg` transparente, texto `t.sidebarForeground` | — |
 | Item | Hover | `_bg` color `t.sidebarAccent`, texto `t.sidebarAccentForeground` | `hover:bg-sidebar-accent` |
 | Item | Active | `_bg` `t.sidebarAccent`, texto `t.sidebarAccentForeground`, **fuente `t.fontMedium`** | `data-active:bg-sidebar-accent data-active:font-medium` |
-| Item | Disabled | Texto `t.mutedForeground` con a=0.5, `EnableMouse(false)` | — |
+| Item | Disabled | Texto e ícono `t.mutedForeground` con a=0.5, `EnableMouse(false)` (sin hover/click) | `disabled:pointer-events-none disabled:opacity-50` |
 | Sub-button | Default | Texto `t.sidebarForeground` | — |
 | Sub-button | Hover | `_bg` color `t.sidebarAccent`, texto `t.sidebarAccentForeground` | `hover:bg-sidebar-accent` |
 | Sub-button | Active | `_bg` color `t.sidebarAccent`, texto `t.sidebarAccentForeground` | `data-active:bg-sidebar-accent` |
@@ -217,6 +217,7 @@ items = {
 | `items[i].children` | array | nil | (árbol) Sub-items anidados — hace al item una rama colapsable |
 | `items[i].collapsible` | boolean | auto | true si tiene `children`; fuerza rama colapsable |
 | `items[i].defaultOpen` | boolean | true | Estado inicial expandido de la rama |
+| `items[i].disabled` | boolean | false | (FR-048) Item deshabilitado: sin hover/click (`EnableMouse(false)`, chevron incluido), texto e ícono `t.mutedForeground` con a=0.5 |
 | `activeItem` | string | nil | Id del item activo al crear el componente |
 | `onSelect` | function | nil | Callback `fn(id)` al seleccionar cualquier item |
 
@@ -303,6 +304,8 @@ sectionLabel:SetTextColor(t.sidebarForeground.r, t.sidebarForeground.g, t.sideba
 **Group padding (`p-2`):** `_rebuildLayout` insetea **todos** los elementos 8px a izquierda y derecha (`SetPoint` TOPLEFT +8 / TOPRIGHT −8), de modo que el contenido cae a 16px (8 group + 8 padding interno) y los resaltados hover/activo quedan inset. Verticalmente: 8px arriba del primer bloque, 16px entre secciones consecutivas (cierre + apertura de grupo), 8px abajo del último. No se usa un Frame contenedor de grupo — el inset se aplica por elemento.
 
 **Item activo en negrita:** `data-active:font-medium` → el label del item activo (solo nivel raíz) usa `t.fontMedium`; los inactivos usan `t.font` (regular). Los sub-items (`data-active` en `sidebar-menu-sub-button`) NO llevan `font-medium` en Lyra — mantienen `t.font` incluso activos (ver [FR-047](../requests/FR-047-sidebar-subitem-no-bold.md)).
+
+**Item disabled (FR-048):** `disabled:pointer-events-none disabled:opacity-50` → `itemFrame:EnableMouse(false)` (sin OnEnter/OnLeave/OnClick registrados; en ramas también se apaga el Button del chevron) y foreground `t.mutedForeground` con a=0.5 en label, ícono y chevron. El estado disabled tiene precedencia visual sobre activo/hover en `_colorItem`.
 
 **Radius = 0:** los fondos de hover y activo son Textures rectangulares sin redondeo (`rounded-none` en Lyra), pintadas con `SetColorTexture`.
 

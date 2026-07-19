@@ -5,7 +5,10 @@
 `disabled:pointer-events-none disabled:opacity-50`)
 **Tipo:** Divergencia doc↔código (estado documentado sin implementación) — decisión de alcance
 **Prioridad:** Media (contrato roto: el spec promete algo que el código no hace)
-**Estado:** 🅿️ Propuesto (2026-07-19). No implementado.
+**Estado:** ✅ Implementado (2026-07-19, Opción A) — `items[i].disabled` en `AddItem` +
+`_colorItem`/`_updateChevron` (muted a=0.5, precedencia sobre activo), `EnableMouse(false)`
+(chevron incluido), spec actualizado (Estados, Config API, nota de implementación) y 5 tests
+en `tests/sidebar_spec.lua` (suite 375).
 
 ---
 
