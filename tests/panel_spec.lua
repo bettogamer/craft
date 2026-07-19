@@ -37,6 +37,13 @@ local function pos(frame)
     return p[4], -p[5]
 end
 
+-- Find a stored SetPoint by its anchor name (frames set several points, e.g. content
+-- sets LEFT/RIGHT/TOP/BOTTOM). Returns (x, y) offsets, and the relative frame/relPoint.
+local function point(frame, anchor)
+    local p = frame._pointsByAnchor and frame._pointsByAnchor[anchor]
+    if p then return p[4], p[5], p[2], p[3] end
+end
+
 local t   = Craft.Theme.get()
 local LG  = t.spacingLg          -- 16 (px-4 / py-4)
 local XS  = t.spacingXs          -- 4  (gap-1)
@@ -71,6 +78,57 @@ describe("Craft.Panel header — manual path (no action)", function()
     it("no title, no action: header hidden", function()
         local p = Craft.Panel:Create(UIParent, { width = 300, height = 80 })
         assert.is_false(p._header:IsShown())
+        p:Destroy()
+    end)
+
+end)
+
+describe("Craft.Panel content padding (FR-046 full-bleed)", function()
+
+    it("default (no header/footer): content TOP/BOTTOM inset by lg, LEFT/RIGHT by 16", function()
+        local p = Craft.Panel:Create(UIParent, { width = 300, height = 120 })
+        local _, topY = point(p._content, "TOP")
+        local _, botY = point(p._content, "BOTTOM")
+        local lx = point(p._content, "LEFT")
+        local rx = point(p._content, "RIGHT")
+        assert.equals(-LG, topY)   -- TOP anchored -lg from panel top
+        assert.equals(LG,  botY)   -- BOTTOM anchored +lg from panel bottom
+        assert.equals(16,  lx)
+        assert.equals(-16, rx)
+        p:Destroy()
+    end)
+
+    it("paddingY = 0: vertical content flush (top/bottom offset 0), horizontal unchanged", function()
+        local p = Craft.Panel:Create(UIParent, { width = 300, height = 120, paddingY = 0 })
+        local _, topY = point(p._content, "TOP")
+        local _, botY = point(p._content, "BOTTOM")
+        assert.equals(0, topY)
+        assert.equals(0, botY)
+        -- horizontal padding still the default 16
+        assert.equals(16,  point(p._content, "LEFT"))
+        assert.equals(-16, point(p._content, "RIGHT"))
+        p:Destroy()
+    end)
+
+    it("flush = true: zeroes both axes (full-bleed on all four sides)", function()
+        local p = Craft.Panel:Create(UIParent, { width = 300, height = 120, flush = true })
+        local _, topY = point(p._content, "TOP")
+        local _, botY = point(p._content, "BOTTOM")
+        assert.equals(0, topY)
+        assert.equals(0, botY)
+        assert.equals(0, point(p._content, "LEFT"))
+        assert.equals(0, point(p._content, "RIGHT"))
+        p:Destroy()
+    end)
+
+    it("paddingY does NOT override the header gap (content still anchors below header)", function()
+        -- With a header the content TOP anchors to header:BOTTOM (gap-4), not the panel
+        -- top — paddingY must not touch that branch (FR-046 scope: bare branch only).
+        local p = Craft.Panel:Create(UIParent, {
+            width = 300, height = 160, title = "Panel", paddingY = 0,
+        })
+        local _, _, rel = point(p._content, "TOP")
+        assert.equals(p._header, rel)  -- content TOP anchors to the header, not the panel
         p:Destroy()
     end)
 

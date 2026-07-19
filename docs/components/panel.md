@@ -82,7 +82,8 @@ panel._bg:SetPoint("BOTTOMRIGHT", panel.frame, "BOTTOMRIGHT", -1,  1)
 | Title font size | 14px (`t.fontSizeLg`) | `text-sm` |
 | Description font size | 12px (`t.fontSize`) | `text-xs` |
 | Description line-height | `leading-relaxed` 1.625 → `SetSpacing ≈ size*0.625` (8px @12px) | `text-xs/relaxed` |
-| Content padding horizontal | 16px (`t.spacingLg`) | `px-4` |
+| Content padding horizontal | 16px (`t.spacingLg`), override `padding` | `px-4` |
+| Content padding vertical | 16px (`t.spacingLg`), override `paddingY`/`flush` (FR-046) | `py-4` |
 | Footer padding (todos los lados) | 16px (`t.spacingLg`) | `p-4` |
 | Footer borde-top | 1px | `border-t` (ADR-0011) |
 
@@ -146,7 +147,9 @@ sin cambios. El caller instancia su propio widget (p. ej. `Craft.Button` variant
 | `description` | string | nil | Texto de descripción bajo el título |
 | `footer` | Frame | nil | Frame a insertar en la zona footer; omitir oculta el footer |
 | `action` | Frame | nil | Widget de acción del header (CardAction, FR-039); reparentado y anclado arriba-derecha. Fuerza el layout de header con `Craft.Grid` `[1fr auto]` |
-| `padding` | number | 16 | Override del padding **horizontal** de content (`px-4`); el vertical siempre usa `lg` |
+| `padding` | number | 16 | Override del padding **horizontal** de content (`px-4`) |
+| `paddingY` | number | nil (=`lg`, 16) | Override del padding **vertical** de content (`py-4`). **Solo** aplica a la rama sin header y sin footer (con header el gap es `header:BOTTOM − lg`, con footer `footer:TOP + lg`; no se tocan). `paddingY=0` → content pegado arriba/abajo (FR-046) |
+| `flush` | boolean | false | Full-bleed: azúcar que fuerza `padding=0` **y** `paddingY=0` — el hijo cuelga del ring por los 4 lados (Card como marco: sidebar, imagen, tabla, mapa). FR-046 |
 
 ## API pública
 

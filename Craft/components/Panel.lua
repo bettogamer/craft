@@ -20,12 +20,20 @@ function Panel:Create(parent, config)
     local self = setmetatable({}, Panel)
 
     config = config or {}
+    -- FR-046: full-bleed content. `flush = true` is sugar for zeroing BOTH axes
+    -- (horizontal `padding` + vertical `paddingY`) so a child hangs flush off the
+    -- ring on all four sides (Card-as-frame: sidebar, image, table, map). `paddingY`
+    -- alone zeroes only the vertical; both compose with the horizontal `padding`.
+    local flush = config.flush == true
     self._cfg = {
         width       = config.width,
         height      = config.height,
         title       = config.title,
         description = config.description,
-        padding     = config.padding ~= nil and config.padding or 16,
+        padding     = flush and 0 or (config.padding ~= nil and config.padding or 16),
+        -- Vertical content padding. nil → resolve to spacingLg (16px) at layout time,
+        -- so the default tracks the theme like the hardcoded value it replaces.
+        paddingY    = flush and 0 or config.paddingY,
         footer      = config.footer,
     }
 
@@ -216,9 +224,14 @@ end
 -- Positions _header, _content and _footer based on what is visible.
 -- Called after any structural change (title set/cleared, footer shown/hidden).
 function Panel:_layoutFrames(t)
-    local pad = self._cfg.padding  -- content padding (default 16)
+    local pad = self._cfg.padding  -- horizontal content padding (default 16)
     local lg  = t.spacingLg        -- 16px — py-4, gap-4, px-4
     local xs  = t.spacingXs        -- 4px  — gap-1 inside header
+    -- Vertical content padding (FR-046). nil = default (spacingLg). Only overrides the
+    -- bare TOP/BOTTOM anchors below (no-header / no-footer branch); with a header the gap
+    -- is header:BOTTOM - lg (gap-4) and with a footer footer:TOP + lg, both untouched.
+    local padV = self._cfg.paddingY
+    if padV == nil then padV = lg end
 
     -- ── Anchor _bg inset 1px (ring pattern) ────────────────────────────────
     local px1 = Craft.Theme.px(1, self.frame)
@@ -269,16 +282,16 @@ function Panel:_layoutFrames(t)
         -- Content top = header bottom + gap-4
         self._content:SetPoint("TOP", self._header, "BOTTOM", 0, -lg)
     else
-        -- No header: py-4 from panel top
-        self._content:SetPoint("TOP", self.frame, "TOP", 0, -lg)
+        -- No header: paddingY from panel top (default py-4; 0 when flush/paddingY=0)
+        self._content:SetPoint("TOP", self.frame, "TOP", 0, -padV)
     end
 
     if hasFooter then
         -- Content bottom = footer top - gap-4
         self._content:SetPoint("BOTTOM", self._footer, "TOP", 0, lg)
     else
-        -- No footer: py-4 from panel bottom
-        self._content:SetPoint("BOTTOM", self.frame, "BOTTOM", 0, lg)
+        -- No footer: paddingY from panel bottom (default py-4; 0 when flush/paddingY=0)
+        self._content:SetPoint("BOTTOM", self.frame, "BOTTOM", 0, padV)
     end
 end
 

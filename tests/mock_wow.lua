@@ -69,10 +69,18 @@ local function makeFrame(frameType, name, parent)
     }
 
     -- Positioning
-    function f:SetPoint(...)     self._points[1] = {...} end
-    function f:ClearAllPoints()  self._points = {} end
+    -- _points[1] keeps the LAST SetPoint (GetPoint/pos() rely on it). _pointsByAnchor
+    -- also indexes every live point by its anchor name so a frame set with several
+    -- points (e.g. content LEFT/RIGHT/TOP/BOTTOM) can be inspected per-anchor in tests.
+    function f:SetPoint(...)
+        local args = {...}
+        self._points[1] = args
+        self._pointsByAnchor = self._pointsByAnchor or {}
+        self._pointsByAnchor[args[1]] = args
+    end
+    function f:ClearAllPoints()  self._points = {}; self._pointsByAnchor = {} end
     function f:GetPoint()        return unpack(self._points[1] or {}) end
-    function f:SetAllPoints(rel) self._points = {{"ALL", rel}} end
+    function f:SetAllPoints(rel) self._points = {{"ALL", rel}}; self._pointsByAnchor = nil end
 
     -- Dimensions
     function f:SetSize(w, h)   self._width = w or 0; self._height = h or 0 end
