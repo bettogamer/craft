@@ -84,7 +84,115 @@ CraftBrowserPages["Tabs"] = {
         })
         y = y + 152
 
-        -- ── 3. Wrap: many tabs in a narrow bar wrap to extra rows ────────────
+        -- ── 3. Line variant: active tab marked by a 2px underline ────────────
+        y = addLabel('variant="line" — transparent bar + 2px underline indicator', y)
+        local c3l = newContainer(400, 140, y)
+        local tabs3l = Craft.Tabs:Create(c3l, {
+            variant = "line",
+            tabs = {
+                { id="lo", label="Overview" },
+                { id="la", label="Analytics" },
+                { id="lr", label="Reports"  },
+                { id="ls", label="Settings" },
+            },
+            defaultTab = "lo",
+        })
+        tabs3l:GetFrame():SetAllPoints(c3l)
+        table.insert(comps, tabs3l)
+        fillContent(tabs3l, {
+            { id="lo", text="Overview content"  },
+            { id="la", text="Analytics content" },
+            { id="lr", text="Reports content"   },
+            { id="ls", text="Settings content"  },
+        })
+        y = y + 152
+
+        -- ── 4. Line variant with icons ───────────────────────────────────────
+        y = addLabel('variant="line" with icons', y)
+        local c4l = newContainer(400, 140, y)
+        local tabs4l = Craft.Tabs:Create(c4l, {
+            variant = "line",
+            tabs = {
+                { id="lig", label="General", icon="settings" },
+                { id="liu", label="Account", icon="user"     },
+                { id="lif", label="Search",  icon="search"   },
+            },
+            defaultTab = "lig",
+        })
+        tabs4l:GetFrame():SetAllPoints(c4l)
+        table.insert(comps, tabs4l)
+        fillContent(tabs4l, {
+            { id="lig", text="General settings" },
+            { id="liu", text="Account details"  },
+            { id="lif", text="Search options"   },
+        })
+        y = y + 152
+
+        -- ── 5. Fill: equal-width triggers (segmented control) ────────────────
+        y = addLabel("fill = true — full-width bar, equal-width triggers", y)
+        local c5f = newContainer(400, 140, y)
+        local tabs5f = Craft.Tabs:Create(c5f, {
+            fill = true,
+            tabs = {
+                { id="fa", label="Account"  },
+                { id="fp", label="Password" },
+                { id="ft", label="Team"     },
+            },
+            defaultTab = "fa",
+        })
+        tabs5f:GetFrame():SetAllPoints(c5f)
+        table.insert(comps, tabs5f)
+        fillContent(tabs5f, {
+            { id="fa", text="Account content"  },
+            { id="fp", text="Password content" },
+            { id="ft", text="Team content"     },
+        })
+        y = y + 152
+
+        -- ── 6. Fill + line: equal-width underlined triggers ──────────────────
+        y = addLabel("fill = true + variant=\"line\" — equal-width underlined", y)
+        local c6fl = newContainer(400, 140, y)
+        local tabs6fl = Craft.Tabs:Create(c6fl, {
+            fill    = true,
+            variant = "line",
+            tabs = {
+                { id="fla", label="All"      },
+                { id="flm", label="Mine"     },
+                { id="flr", label="Reviewed" },
+            },
+            defaultTab = "fla",
+        })
+        tabs6fl:GetFrame():SetAllPoints(c6fl)
+        table.insert(comps, tabs6fl)
+        fillContent(tabs6fl, {
+            { id="fla", text="All items"      },
+            { id="flm", text="My items"       },
+            { id="flr", text="Reviewed items" },
+        })
+        y = y + 152
+
+        -- ── 7. Fill + icons: equal-width triggers with icons ─────────────────
+        y = addLabel("fill = true with icons — centered icon+label per cell", y)
+        local c7fi = newContainer(400, 140, y)
+        local tabs7fi = Craft.Tabs:Create(c7fi, {
+            fill = true,
+            tabs = {
+                { id="fig", label="Settings", icon="settings" },
+                { id="fiu", label="Profile",  icon="user"     },
+                { id="fib", label="Alerts",   icon="bell"     },
+            },
+            defaultTab = "fig",
+        })
+        tabs7fi:GetFrame():SetAllPoints(c7fi)
+        table.insert(comps, tabs7fi)
+        fillContent(tabs7fi, {
+            { id="fig", text="Settings panel" },
+            { id="fiu", text="Profile panel"  },
+            { id="fib", text="Alerts panel"   },
+        })
+        y = y + 152
+
+        -- ── 8. Wrap: many tabs in a narrow bar wrap to extra rows ────────────
         y = addLabel("Many tabs in a narrow bar → wrap to multiple rows", y)
         local c3 = newContainer(260, 150, y)
         local tabs3 = Craft.Tabs:Create(c3, {
@@ -104,7 +212,7 @@ CraftBrowserPages["Tabs"] = {
         fillContent(tabs3, {})
         y = y + 162
 
-        -- ── 4. RemoveTab ────────────────────────────────────────────────────
+        -- ── 9. RemoveTab ────────────────────────────────────────────────────
         y = addLabel("RemoveTab — button removes the active tab", y)
         local c4 = newContainer(400, 140, y)
         local tabs4 = Craft.Tabs:Create(c4, {
