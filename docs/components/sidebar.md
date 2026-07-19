@@ -173,7 +173,7 @@ items = {
 |---|---|---|---|
 | Item | Default | `_bg` transparente, texto `t.sidebarForeground` | — |
 | Item | Hover | `_bg` color `t.sidebarAccent`, texto `t.sidebarAccentForeground` | `hover:bg-sidebar-accent` |
-| Item | Active | `_bg` `t.sidebarAccent`, texto `t.sidebarAccentForeground`, **fuente `t.fontBold`** | `data-active:bg-sidebar-accent data-active:font-medium` |
+| Item | Active | `_bg` `t.sidebarAccent`, texto `t.sidebarAccentForeground`, **fuente `t.fontMedium`** | `data-active:bg-sidebar-accent data-active:font-medium` |
 | Item | Disabled | Texto `t.mutedForeground` con a=0.5, `EnableMouse(false)` | — |
 | Sub-button | Default | Texto `t.sidebarForeground` | — |
 | Sub-button | Hover | `_bg` color `t.sidebarAccent`, texto `t.sidebarAccentForeground` | `hover:bg-sidebar-accent` |
@@ -191,7 +191,7 @@ items = {
 | Borde derecho | `t.sidebarBorder` | {r=1, g=1, b=1, a=0.10} |
 | Texto de item (default) | `t.sidebarForeground` | {r=0.980, g=0.980, b=0.980} |
 | Fondo de item en hover | `t.sidebarAccent` | {r=0.149, g=0.149, b=0.149} |
-| Fondo de item activo | `t.sidebarAccent` (+ fuente `t.fontBold`) | {r=0.149, g=0.149, b=0.149} |
+| Fondo de item activo | `t.sidebarAccent` (+ fuente `t.fontMedium`) | {r=0.149, g=0.149, b=0.149} |
 | Texto de item hover/activo | `t.sidebarAccentForeground` | — |
 | Texto de item disabled | `t.mutedForeground` (a=0.5) | {r=0.630, g=0.630, b=0.630} |
 | Texto de section label | `t.sidebarForeground` (a=0.7) | {r=0.980, g=0.980, b=0.980, a=0.70} |
@@ -302,7 +302,7 @@ sectionLabel:SetTextColor(t.sidebarForeground.r, t.sidebarForeground.g, t.sideba
 
 **Group padding (`p-2`):** `_rebuildLayout` insetea **todos** los elementos 8px a izquierda y derecha (`SetPoint` TOPLEFT +8 / TOPRIGHT −8), de modo que el contenido cae a 16px (8 group + 8 padding interno) y los resaltados hover/activo quedan inset. Verticalmente: 8px arriba del primer bloque, 16px entre secciones consecutivas (cierre + apertura de grupo), 8px abajo del último. No se usa un Frame contenedor de grupo — el inset se aplica por elemento.
 
-**Item activo en negrita:** `data-active:font-medium` → el label del item activo usa `t.fontBold` (aprox. de medium); los inactivos usan `t.font` (regular).
+**Item activo en negrita:** `data-active:font-medium` → el label del item activo (solo nivel raíz) usa `t.fontMedium`; los inactivos usan `t.font` (regular). Los sub-items (`data-active` en `sidebar-menu-sub-button`) NO llevan `font-medium` en Lyra — mantienen `t.font` incluso activos (ver [FR-047](../requests/FR-047-sidebar-subitem-no-bold.md)).
 
 **Radius = 0:** los fondos de hover y activo son Textures rectangulares sin redondeo (`rounded-none` en Lyra), pintadas con `SetColorTexture`.
 
