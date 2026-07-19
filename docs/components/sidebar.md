@@ -301,7 +301,7 @@ sectionLabel:SetTextColor(t.sidebarForeground.r, t.sidebarForeground.g, t.sideba
 
 **Section label tal cual (sin uppercase):** shadcn Lyra muestra el label del grupo sin transformar. Asignar el texto directamente (no aplicar `string.upper`).
 
-**Group padding (`p-2`):** `_rebuildLayout` insetea **todos** los elementos 8px a izquierda y derecha (`SetPoint` TOPLEFT +8 / TOPRIGHT −8), de modo que el contenido cae a 16px (8 group + 8 padding interno) y los resaltados hover/activo quedan inset. Verticalmente: 8px arriba del primer bloque, 16px entre secciones consecutivas (cierre + apertura de grupo), 8px abajo del último. No se usa un Frame contenedor de grupo — el inset se aplica por elemento.
+**Group padding (`p-2`):** `_rebuildLayout` insetea **todos** los elementos 8px a izquierda y derecha (`SetPoint` TOPLEFT +8 / TOPRIGHT −8), de modo que el contenido cae a 16px (8 group + 8 padding interno) y los resaltados hover/activo quedan inset. Verticalmente: 8px arriba del primer bloque, 16px entre secciones consecutivas (cierre + apertura de grupo), 8px abajo del último. Un **separador** (`AddSeparator`) cierra el grupo anterior: 8px arriba y 8px abajo del separador — el bloque siguiente abre con un solo padding de 8px, no 16 (FR-050, como Lyra: grupo `p-2` + separador + grupo `p-2`). No se usa un Frame contenedor de grupo — el inset se aplica por elemento.
 
 **Item activo en negrita:** `data-active:font-medium` → el label del item activo (solo nivel raíz) usa `t.fontMedium`; los inactivos usan `t.font` (regular). Los sub-items (`data-active` en `sidebar-menu-sub-button`) NO llevan `font-medium` en Lyra — mantienen `t.font` incluso activos (ver [FR-047](../requests/FR-047-sidebar-subitem-no-bold.md)).
 

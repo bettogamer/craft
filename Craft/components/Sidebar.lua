@@ -314,9 +314,12 @@ function Sidebar:_updateSbar()
     local trackH  = self._sbarFrame:GetHeight() or 0
 
     if childH <= viewH or trackH <= 0 then
-        self._sbarThumb:Hide()
+        -- FR-051: no overflow → hide the WHOLE scrollbar (track included), like
+        -- overflow-auto in shadcn's SidebarContent. The spec always said so.
+        self._sbarFrame:Hide()
         return
     end
+    self._sbarFrame:Show()
     self._sbarThumb:Show()
 
     local thumbH  = math.max(SBAR_THUMB_MIN, math.floor(trackH * (viewH / childH)))
@@ -461,10 +464,15 @@ function Sidebar:_rebuildLayout()
                 f:Show()
 
                 -- Group vertical padding: open the first block; separate consecutive
-                -- sections by 2*pad (close previous group + open the next one).
+                -- sections by 2*pad (close previous group + open the next one). A
+                -- separator closes the previous group with a single pad (FR-050) and
+                -- resets `started` below, so the next block re-opens with pad — the
+                -- shadcn layout: group p-2 bottom, separator, group p-2 top (8/8).
                 if entry.type == "section" then
                     cursorY = cursorY + (started and pad * 2 or pad)
                     started = true
+                elseif entry.type == "separator" then
+                    if started then cursorY = cursorY + pad end
                 elseif not started then
                     cursorY = cursorY + pad
                     started = true
@@ -488,6 +496,7 @@ function Sidebar:_rebuildLayout()
                 elseif entry.type == "separator" then
                     Craft.Theme.SetPixelHeight(f, 1)
                     cursorY = cursorY + 1
+                    started = false  -- FR-050: next block opens its own group padding
                 end
 
                 -- A collapsed branch hides everything deeper than its own depth.

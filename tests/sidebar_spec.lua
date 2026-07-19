@@ -252,4 +252,57 @@ describe("Craft.Sidebar — expansion state (FR-010)", function()
             assert.equals(0.5, a)
         end)
     end)
+
+    -- ── Separator spacing (FR-050) ────────────────────────────────────────
+    describe("separator spacing (FR-050)", function()
+        -- Layout: item ─ 8px ─ separador(1px) ─ 8px ─ header (grupo p-2 + sep + grupo p-2)
+        local function groupedSidebar()
+            local sb = Craft.Sidebar:Create(UIParent, { items = {} })
+            sb:AddSection("Overview")
+            sb:AddItem({ id = "a", label = "A" })
+            sb:AddSeparator()
+            sb:AddSection("Planning")
+            sb:AddItem({ id = "b", label = "B" })
+            return sb
+        end
+
+        -- Los entries se posicionan con SetPoint("TOPLEFT", _child, "TOPLEFT", pad, -y)
+        local function topY(entry)
+            return -entry.frame._pointsByAnchor["TOPLEFT"][5]
+        end
+
+        it("deja 8px entre el último item del grupo y el separador", function()
+            local sb = groupedSidebar()
+            local item, sep = sb._sections[2], sb._sections[3]
+            local itemBottom = topY(item) + item.frame:GetHeight()
+            assert.equals(8, topY(sep) - itemBottom)
+        end)
+
+        it("deja 8px entre el separador y el header del grupo siguiente", function()
+            local sb = groupedSidebar()
+            local sep, header = sb._sections[3], sb._sections[4]
+            local sepBottom = topY(sep) + sep.frame:GetHeight()
+            assert.equals(8, topY(header) - sepBottom)
+        end)
+    end)
+
+    -- ── Scrollbar visibility (FR-051) ─────────────────────────────────────
+    describe("scrollbar visibility (FR-051)", function()
+        it("sin overflow oculta el scrollbar entero (track incluido)", function()
+            local sb = newSidebar()
+            sb._scroll:SetHeight(1000)      -- viewport sobrado
+            sb._sbarFrame:SetHeight(1000)
+            sb:_updateSbar()
+            assert.is_false(sb._sbarFrame:IsShown())
+        end)
+
+        it("con overflow muestra track y thumb", function()
+            local sb = newSidebar()
+            sb._scroll:SetHeight(50)        -- viewport menor que el contenido
+            sb._sbarFrame:SetHeight(50)
+            sb:_updateSbar()
+            assert.is_true(sb._sbarFrame:IsShown())
+            assert.is_true(sb._sbarThumb:IsShown())
+        end)
+    end)
 end)
