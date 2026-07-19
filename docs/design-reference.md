@@ -201,10 +201,13 @@ el contexto WoW (sin CSS box model):
 | Token | Valor (px WoW) | Uso |
 |-------|---------------|-----|
 | `spacingXs` | 4 | Gap mínimo entre elementos en Flex |
+| `spacingXs2` | 6 | `gap-1.5` base `.tsx` del `Craft.Field` content horizontal. **RESERVADO** — Lyra recalibra `.cn-field-content` a `gap-0.5`=2px (hardcode, sin token); sin uso actual. **FR-041**. |
 | `spacingSm` | 8 | Padding interno de badges, separators |
 | `spacingMd` | 12 | Padding de Button, Input |
 | `spacingLg` | 16 | Padding de Panel, Dialog content |
+| `spacingLg2` | 20 | Gap top-level de `Craft.FieldGroup` (`gap-5`). **FR-041** — Lyra devtools (`.cn-field-group { gap: calc(var(--spacing)*5) }`); Lyra baja el `gap-7` del `.tsx` base. |
 | `spacingXl` | 24 | Padding de Dialog header/footer |
+| `spacing2Xl` | 28 | `gap-7` base `.tsx`. **RESERVADO** — Lyra recalibra el FieldGroup a `gap-5`=`spacingLg2`; sin uso actual. |
 | `borderWidth` | 1 | Grosor de bordes en todos los componentes |
 | `focusRingWidth` | 2 | **RESERVADO** — WoW es mouse-only, no usado en MVP. Disponible para addons con navegación propia. |
 | `iconSizeSm` | 16 | Íconos Lucide pequeños (atlas supersampleado `media/lucide.tga`) |
@@ -212,6 +215,26 @@ el contexto WoW (sin CSS box model):
 | `fontSize` | 12 | `text-xs` de Lyra — tamaño base de todos los componentes |
 | `fontSizeSm` | 11 | **CRAFT ADAPTATION** — no existe en Lyra CSS (mínimo Lyra = `text-xs` = 12px). Añadido para texto compacto en WoW (helper text, captions). |
 | `fontSizeLg` | 14 | `text-sm` de Lyra — títulos de Card y Dialog |
+
+**`Craft.Field` — tipografía CONFIRMADA (Lyra devtools/auditoría CSS, FR-041):**
+- **FieldGroup gap** = 20px (`gap-5` = `spacingLg2`).
+- **Field gap interno** (vertical + label↔content horizontal) = 8px (`gap-2` = `spacingSm`;
+  Lyra baja el `gap-3` base).
+- **FieldContent gap horizontal** (control↔desc) = 2px (`gap-0.5`, hardcode sin token;
+  Lyra baja el `gap-1.5` base → `spacingXs2`=6 queda RESERVADO).
+- **FieldDescription** = 12px (`text-xs`), `t.mutedForeground`, **line-height `leading-normal` = 1.5**
+  (multilínea) → en WoW se implementa con `SetSpacing ≈ size×0.5` (6px @12px, px extra entre líneas).
+- **FieldError** = 12px (`text-xs`), `t.destructive`, mismo `leading-normal` 1.5 que description.
+- **FieldLabel** = 12px (`text-xs`), **line-height `leading-snug` = 1.375**
+  (`.cn-field-label { line-height: var(--leading-snug,1.375) }`, auditoría CSS). Visualmente
+  IRRELEVANTE para labels de 1 línea (`Craft.Label` no envuelve), por eso NO se aplica
+  `SetSpacing` al label — es solo exactitud de doc.
+
+**`Craft.Panel` — tipografía de Card (CSS Lyra confirmado):**
+- **card-title** = 14px (`text-sm`), `font-medium`, single-line (sin `SetSpacing`).
+- **card-description** = 12px (`text-xs`), `t.mutedForeground`, **line-height `leading-relaxed` = 1.625**
+  (`.cn-card-description { text-xs/relaxed }`, `--leading-relaxed:1.625`). Multilínea → en WoW se
+  implementa con `SetSpacing ≈ size×0.625` (8px @12px, px extra entre líneas; AFINAR in-game).
 
 ---
 

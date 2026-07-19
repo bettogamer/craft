@@ -81,6 +81,7 @@ panel._bg:SetPoint("BOTTOMRIGHT", panel.frame, "BOTTOMRIGHT", -1,  1)
 | Gap título → descripción | 4px (`t.spacingXs`) | `gap-1` |
 | Title font size | 14px (`t.fontSizeLg`) | `text-sm` |
 | Description font size | 12px (`t.fontSize`) | `text-xs` |
+| Description line-height | `leading-relaxed` 1.625 → `SetSpacing ≈ size*0.625` (8px @12px) | `text-xs/relaxed` |
 | Content padding horizontal | 16px (`t.spacingLg`) | `px-4` |
 | Footer padding (todos los lados) | 16px (`t.spacingLg`) | `p-4` |
 | Footer borde-top | 1px | `border-t` (ADR-0011) |
@@ -132,7 +133,7 @@ sin cambios. El caller instancia su propio widget (p. ej. `Craft.Button` variant
 | Texto del título | `t.cardForeground` | {r=0.980, g=0.980, b=0.980} |
 | Fuente del título | `t.fontHeading or t.fontMedium`, `t.fontSizeLg` (14px) — Lyra NO usa bold/semibold (`text-sm font-medium`) | — |
 | Texto de descripción | `t.mutedForeground` | {r=0.630, g=0.630, b=0.630} |
-| Fuente de descripción | `t.font`, `t.fontSize` (12px) | — |
+| Fuente de descripción | `t.font`, `t.fontSize` (12px); line-height `leading-relaxed` 1.625 (`SetSpacing ≈ size*0.625` = 8px @12px, `text-xs/relaxed`) | — |
 | Padding content / header / footer | `t.spacingLg` (16px) | — |
 
 ## Config — `Create(parent, config)`

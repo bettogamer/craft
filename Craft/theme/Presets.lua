@@ -37,10 +37,13 @@ CraftThemeAxes.style = {
         fontSizeSm              = 11,   -- CRAFT ADAPTATION (no existe en Lyra CSS; texto compacto)
         fontSizeLg              = 14,   -- text-sm (Lyra — títulos Card/Dialog)
         spacingXs               = 4,
+        spacingXs2              = 6,    -- gap-1.5 (Field content horizontal) — NUEVO FR-041 (base .tsx; Lyra pend.)
         spacingSm               = 8,
         spacingMd               = 12,
         spacingLg               = 16,
+        spacingLg2              = 20,   -- gap-5 (FieldGroup gap — Lyra devtools; corrige el placeholder spacing2Xl)
         spacingXl               = 24,
+        spacing2Xl              = 28,   -- gap-7 (base .tsx; Lyra usa gap-5=spacingLg2 para FieldGroup — token reservado)
         borderWidth             = 1,
         focusRingWidth          = 2,    -- RESERVADO: WoW es mouse-only
         iconSizeSm              = 16,

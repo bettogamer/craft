@@ -9,30 +9,36 @@
 > contra el CSS Lyra real (`.cn-field*` dio 404 al fetchear).
 > WoW frame base: `Frame` (sin interacción propia — la interacción vive en `control`).
 > Origen: FR-041 (`docs/requests/FR-041-field-fieldgroup.md`) — surgido al portar el ejemplo
-> shadcn "Payout Threshold" (Card + Field group). Field NO está implementado; es una propuesta
-> de diseño y, como componente nuevo, requiere aprobación del maintainer antes de construirse.
+> shadcn "Payout Threshold" (Card + Field group). **IMPLEMENTADO** en `Craft/components/Field.lua`
+> (Field + FieldGroup) con tests en `tests/field_spec.lua`. El apilado se hace con **layout
+> manual de ancla única** (patrón `Panel:_layoutHeaderManual`), NO con `Craft.Flex`: Flex no
+> dimensiona el contenedor a su contenido y congela el basis (alto) en `Add()`, así que no puede
+> medir el alto envuelto de una descripción multilínea (que exige fijar el ancho FINAL antes de
+> medir — CLAUDE.md bug #2). El re-layout dev-triggered (`OnSizeChanged` + `Field:Relayout()`)
+> resuelve el ancho async padre→hijo.
 
 ## CSS de referencia (base new-york-v4; Lyra puede recalibrar densidades)
 
 ```css
 .cn-field-group { @apply group/field-group @container/field-group flex w-full flex-col
                   gap-7 data-[slot=checkbox-group]:gap-3 [&>[data-slot=field-group]]:gap-4; }
-.cn-field { @apply flex w-full gap-3 data-[invalid=true]:text-destructive; }
+.cn-field { @apply flex w-full gap-3 data-[invalid=true]:text-destructive; }  /* Lyra: gap-2 = 8px */
 .cn-field-orientation-vertical { @apply flex-col [&>*]:w-full; }
 .cn-field-orientation-horizontal { @apply flex-row items-center [&>[data-slot=field-label]]:flex-auto
                                     has-[>[data-slot=field-content]]:items-start; }
 .cn-field-orientation-responsive { @apply flex-col @md/field-group:flex-row @md/field-group:items-center
                                     [&>*]:w-full @md/field-group:[&>*]:w-auto; /* @md = 448px */ }
 .cn-field-label { @apply flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50; }
-.cn-field-content { @apply flex flex-1 flex-col gap-1.5 leading-snug; }
+.cn-field-content { @apply flex flex-1 flex-col gap-1.5 leading-snug; }  /* Lyra: gap-0.5 = 2px */
 .cn-field-description { @apply text-sm leading-normal font-normal text-muted-foreground; }
 .cn-field-error { @apply text-sm font-normal text-destructive; }
 ```
 
 (La tipografía de `.cn-field-label` es idéntica a `Craft.Label`: `text-xs` sin `font-medium`.
 `responsive` usa el container query `@md/field-group` de Tailwind v4; en WoW se emula con hook
-`OnSizeChanged`. `description`/`error` son `text-sm` (14px) en base — Lyra PODRÍA bajarlas a 12px
-como hizo con Card `text-sm→text-xs`; confirmar antes de fijar el token.)
+`OnSizeChanged`. `description`/`error` son `text-sm` (14px) en base — **Lyra las baja a `text-xs`
+(12px)**, confirmado contra devtools (igual que hizo con Card `text-sm→text-xs`, ver `Panel.lua:8`).
+Craft las renderiza a `t.fontSize` (12px), compartiendo tamaño con el label.)
 
 ## Propósito
 
@@ -46,22 +52,22 @@ formularios (sin fondo/ring — puro layout, no chrome visual). Reutilizable en 
 
 ```
 Field (vertical):
-  field.frame        (Frame — Craft.Flex column, align=stretch, gap=12)
+  field.frame        (Frame — manual stacking column, align=stretch, gap=8 = t.spacingSm)
   ├── field._label   (Craft.Label instance, opcional — text=config.label, weight regular)
   ├── field._controlHost (Frame) — reparenta config.control:GetFrame() (o Frame crudo)
   ├── field._description (FontString OVERLAY, opcional, word-wrap)
   └── field._error       (FontString OVERLAY, opcional, color t.destructive)
 
 Field (horizontal/responsive-horizontal):
-  field.frame        (Frame — Craft.Flex row, align=flex-start si hay description/error, center si no, gap=12)
+  field.frame        (Frame — manual stacking row, align=flex-start si hay description/error, center si no, gap=8 = t.spacingSm)
   ├── field._label   (Craft.Label instance, opcional, ancho natural o config.labelWidth)
-  └── field._content (Frame — Craft.Flex column, gap=6, grow=1)
+  └── field._content (Frame — manual stacking column, gap=2 hardcode, grow=1)
       ├── field._controlHost
       ├── field._description (opcional)
       └── field._error       (opcional)
 
 FieldGroup:
-  fieldgroup.frame   (Frame — Craft.Flex column, gap=28, align=stretch)
+  fieldgroup.frame   (Frame — Craft.Flex column, gap=20 = t.spacingLg2, align=stretch)
   └── children añadidos vía AddChild() — típicamente field:GetFrame(); acepta cualquier Frame
       (nesting: FieldGroup anidado con gap override 16)
 ```
@@ -72,15 +78,17 @@ Confirmado = base `.tsx` verificado; **Lyra pend.** = falta confirmar si Lyra re
 
 | Propiedad | Valor base | Fuente | Estado |
 |-----------|-----------|--------|--------|
-| FieldGroup gap top-level | 28px → t.spacing2Xl (NUEVO token propuesto) | `gap-7` | Base ✓ · Lyra pend. |
+| FieldGroup gap top-level | **20px = `t.spacingLg2`** (`gap-5`); base `.tsx` era `gap-7`=28, Lyra lo baja a `gap-5` | `gap-5` | Lyra ✓ (devtools) |
 | FieldGroup gap nested | 16px = t.spacingLg | `gap-4` descendant | Base ✓ · Lyra pend. |
 | FieldGroup gap checkbox-group | 12px = t.spacingMd | `gap-3` | Base ✓ · Lyra pend. |
-| Field gap vertical | 12px = t.spacingMd | `gap-3` | Base ✓ · Lyra pend. |
-| Field/FieldContent gap horizontal | 6px → t.spacingXs2 (NUEVO token propuesto) | `gap-1.5` | Base ✓ · Lyra pend. |
+| Field gap vertical (label↔control↔desc↔error) | **8px = `t.spacingSm`** (`gap-2`); base `.tsx` era `gap-3`=12, Lyra lo baja a `gap-2` | `gap-2` | Lyra ✓ (auditoría CSS) |
+| FieldContent gap horizontal (control↔desc) | **2px (hardcode, sin token)** (`gap-0.5`, half-step); base `.tsx` era `gap-1.5`=6, Lyra lo baja a `gap-0.5` → `t.spacingXs2`=6 queda RESERVADO/huérfano | `gap-0.5` | Lyra ✓ (auditoría CSS) |
 | FieldLabel gap interno (icono↔texto) | 8px = t.spacingSm | `gap-2` | Base ✓ |
 | FieldLabel font | 12px, sin font-medium = igual que Craft.Label | — | Base ✓ |
-| FieldDescription font | 14px base (`text-sm`); Lyra podría bajar a 12px (precedente Card) | `text-sm` | Base ✓ · Lyra pend. |
-| FieldError font | 14px base (`text-sm`); mismo caso que description | `text-sm` | Base ✓ · Lyra pend. |
+| FieldDescription font | **12px = `t.fontSize` (`text-xs`)** — Lyra baja `text-sm`→`text-xs` (precedente Card, `Panel.lua:8`); comparte tamaño con el label | `text-sm`→`text-xs` | Lyra ✓ (devtools) |
+| FieldError font | **12px = `t.fontSize` (`text-xs`)** — mismo caso que description | `text-sm`→`text-xs` | Lyra ✓ (devtools) |
+| FieldDescription/FieldError line-height | **leading-normal 1.5** — implementado con `SetSpacing ≈ size×0.5` (`floor(size*0.5+0.5)` = 6px @12px, px extra entre líneas); a AFINAR in-game | `leading-normal` | Lyra ✓ (devtools) |
+| FieldLabel line-height | **leading-snug 1.375** (`.cn-field-label { line-height: var(--leading-snug,1.375) }`) — visualmente IRRELEVANTE para labels de 1 línea (`Craft.Label` no envuelve), por eso NO se aplica `SetSpacing` al label; solo exactitud de doc | `leading-snug` | Lyra ✓ (auditoría CSS) |
 | Border radius (todo el family) | 0 | — | Base ✓ |
 | Responsive breakpoint container | 448px (`@md/field-group` = 28rem) | `@container` | Base ✓ |
 
@@ -93,7 +101,7 @@ Confirmado = base `.tsx` verificado; **Lyra pend.** = falta confirmar si Lyra re
 | FieldDescription | Texto | `t.mutedForeground` |
 | FieldError | Texto | `t.destructive` |
 | Fuente (todas) | Body regular | `t.font`, tamaño `t.fontSize` (12px) para label |
-| Fuente (description/error) | Body regular | `t.font`, tamaño `t.fontSizeLg` (14px, `text-sm`); revisar si Lyra usa 12px |
+| Fuente (description/error) | Body regular | `t.font`, tamaño `t.fontSize` (12px, `text-xs` en Lyra) — igual que el label |
 
 ## Config — `Craft.Field:Create(parent, config)`
 
@@ -106,13 +114,13 @@ Confirmado = base `.tsx` verificado; **Lyra pend.** = falta confirmar si Lyra re
 | `control` | Craft component \| Frame | requerido | Instancia ya creada (duck-type: si expone `:GetFrame()` se usa eso; si es Frame crudo, directo). |
 | `labelWidth` | number | `nil` | Solo `horizontal` — ancho fijo de columna del label (alinear varios Fields). `nil` = ancho natural. |
 | `width` | number | `nil` | Ancho del Field. Recomendado explícito si hay `description` (para medir wrap antes del alto). |
-| `gap` | number | `12` | Override del gap interno. |
+| `gap` | number | `8` (`t.spacingSm`, `gap-2`) | Override del gap interno (apilado vertical y label↔content horizontal). |
 
 ## Config — `Craft.FieldGroup:Create(parent, config)`
 
 | Clave | Tipo | Default | Descripción |
 |-------|------|---------|-------------|
-| `gap` | number | `28` | Gap vertical entre children; override a `16` al anidar FieldGroup (CSS usa descendant selector; WoW no tiene equivalente → el caller lo pasa explícito). |
+| `gap` | number | `20` (`t.spacingLg2`, `gap-5`) | Gap vertical entre children; override a `16` al anidar FieldGroup (CSS usa descendant selector; WoW no tiene equivalente → el caller lo pasa explícito). |
 | `width` | number | `nil` | Ancho del grupo. |
 
 ## API pública
@@ -164,9 +172,12 @@ Confirmado = base `.tsx` verificado; **Lyra pend.** = falta confirmar si Lyra re
   label, pero no tiene forma genérica de decirle a un control arbitrario que muestre su
   borde de error (`:SetError()` no es API uniforme). Responsabilidad del caller.
 
-- **Nuevos tokens de spacing a proponer** (`spacing2Xl=28`, `spacingXs2=6`) — agregar a
-  design-reference.md §6 tras confirmar que Lyra no recalibra esos gaps; el px base ya está
-  fijado desde el `.tsx`, la duda restante es solo la densidad Lyra.
+- **Tokens de spacing** — `spacingLg2=20` (`gap-5`, gap del FieldGroup, Lyra devtools) ya en
+  `Presets.lua` y design-reference.md §6. El gap interno del Field es `spacingSm=8` (`gap-2`,
+  Lyra recalibra el `gap-3` base). El gap horizontal de `_content` (control↔desc) es **2px
+  hardcode** (`gap-0.5`, half-step sin token). `spacingXs2=6` (`gap-1.5`, base `.tsx`) queda
+  RESERVADO/huérfano: Lyra recalibra `.cn-field-content` a `gap-0.5`=2px. `spacing2Xl=28`
+  (`gap-7`, base `.tsx`) queda RESERVADO: Lyra recalibra el FieldGroup a `gap-5`.
 
 - **Gap override anidado**: en WoW, cuando se anida FieldGroup dentro de FieldGroup, el
   gap cambia de 28px a 16px según el CSS descendant selector. Sin selector nativo,

@@ -58,6 +58,7 @@ libs\Craft\components\DragList.lua
 libs\Craft\components\Input.lua
 libs\Craft\components\RadioGroup.lua
 libs\Craft\components\Label.lua
+libs\Craft\components\Field.lua
 libs\Craft\components\Panel.lua
 libs\Craft\components\Scroll.lua
 libs\Craft\components\Select.lua
@@ -93,6 +94,7 @@ pages\Label.lua
 pages\Panel.lua
 pages\Scroll.lua
 pages\Section.lua
+pages\Field.lua
 pages\Toggle.lua
 pages\ToggleGroup.lua
 pages\Select.lua

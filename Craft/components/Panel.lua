@@ -297,8 +297,13 @@ function Panel:_applyTheme(t)
     self._title:SetTextColor(t.cardForeground.r, t.cardForeground.g, t.cardForeground.b)
 
     -- Description: font, fontSize (12px), mutedForeground
-    Craft.Theme.applyFont(self._desc, t.font, t.fontSize or 12)
+    local descSz = t.fontSize or 12
+    Craft.Theme.applyFont(self._desc, t.font, descSz)
     self._desc:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+    -- line-height: leading-relaxed = 1.625 (.cn-card-description { text-xs/relaxed }). WoW
+    -- SetSpacing es el px EXTRA entre líneas; sobre leading 1.0 el extra ≈ size*0.625 (=8px @12).
+    -- Emula el interlineado holgado de la descripción multilínea (WoW SetSpacing ≠ CSS: AFINAR in-game).
+    self._desc:SetSpacing(math.floor(descSz * 0.625 + 0.5))
 
     -- Footer separator: t.border
     self._footerBorderTex:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)

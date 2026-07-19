@@ -221,6 +221,88 @@ CraftBrowserPages["Panel"] = {
 
         y = y + 396
 
+        -- Form Card (shadcn "Profile" example — Field/FieldGroup pattern).
+        -- Copy verbatim from the shadcn example; the descriptions are long ON PURPOSE
+        -- so the multi-line wrap is exercised (FieldDescription word-wraps at 12px and
+        -- the field grows with GetStringHeight — the group width 328 sets the wrap).
+        y = addLabel("Form Card: Profile (Field/FieldGroup, multi-line desc)", y)
+        -- Height fits header + 3 fields (label+control+multi-line description) + two
+        -- gap-7 + footer. A too-short panel clips (SetClipsChildren) and the bottom-
+        -- anchored footer lands on top of the last field — tune in-game like Payout.
+        local profilePanel = Craft.Panel:Create(parent, {
+            width       = 360,
+            height      = 600,
+            title       = "Profile",
+            description = "Manage your profile information.",
+        })
+        profilePanel:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, profilePanel)
+
+        local contentFrame2 = profilePanel:GetContent()
+
+        -- FieldGroup to manage the field stack
+        local group = Craft.FieldGroup:Create(contentFrame2, { width = 328 })
+        group:GetFrame():SetPoint("TOPLEFT", contentFrame2, "TOPLEFT", 0, 0)
+        table.insert(comps, group)
+
+        -- Field 1: Name (Input) — description wraps to ~3 lines at 328px.
+        local nameInput = Craft.Input:Create(contentFrame2, { placeholder = "shadcn" })
+        table.insert(comps, nameInput)
+        local nameField = Craft.Field:Create(contentFrame2, {
+            label       = "Name",
+            description = "Your name may appear around GitHub where you contribute or "
+                       .. "are mentioned. You can remove it at any time.",
+            control     = nameInput,
+            width       = 328,
+        })
+        table.insert(comps, nameField)
+        group:AddChild(nameField)
+
+        -- Field 2: Public Email (Select)
+        local emailSelect = Craft.Select:Create(contentFrame2, {
+            options = {
+                { value = "m@shadcn.com", label = "m@shadcn.com" },
+                { value = "m@gmail.com",  label = "m@gmail.com"  },
+            },
+            value = "m@shadcn.com",
+        })
+        table.insert(comps, emailSelect)
+        local emailField = Craft.Field:Create(contentFrame2, {
+            label       = "Public Email",
+            description = "You can manage verified email addresses in your email settings.",
+            control     = emailSelect,
+            width       = 328,
+        })
+        table.insert(comps, emailField)
+        group:AddChild(emailField)
+
+        -- Field 3: Bio (Textarea)
+        local bioTextarea = Craft.Textarea:Create(contentFrame2, {
+            placeholder = "Tell us a little bit about yourself",
+            height      = 80,
+        })
+        table.insert(comps, bioTextarea)
+        local bioField = Craft.Field:Create(contentFrame2, {
+            label       = "Bio",
+            description = "You can @mention other users and organizations to link to them.",
+            control     = bioTextarea,
+            width       = 328,
+        })
+        table.insert(comps, bioField)
+        group:AddChild(bioField)
+
+        -- Footer with Save button
+        profilePanel:ShowFooter(52)
+        local profileFooter = profilePanel:GetFooter()
+        if profileFooter then
+            local saveBtn = Craft.Button:Create(profileFooter, { text = "Save Profile", variant = "default" })
+            saveBtn:GetFrame():SetPoint("LEFT",  profileFooter, "LEFT",  16, 0)
+            saveBtn:GetFrame():SetPoint("RIGHT", profileFooter, "RIGHT", -16, 0)
+            table.insert(comps, saveBtn)
+        end
+
+        y = y + 612
+
         return {
             height  = y + 24,
             cleanup = function()

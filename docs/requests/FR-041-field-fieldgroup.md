@@ -4,8 +4,10 @@
 **Componente:** nuevos `Craft/components/Field.lua` (shadcn: `field` — `Field`, `FieldGroup`)
 **Tipo:** Feature (nueva API pública — requiere aprobación del maintainer)
 **Prioridad:** Media-baja (hay workaround: componer Label + control + Flex a mano)
-**Estado:** 🟡 Propuesto — spec de diseño en `docs/components/field.md`. NO implementado; a la
-espera de aprobación del maintainer.
+**Estado:** 🟢 Implementado en `dev` (sin release). `Craft/components/Field.lua` (Field +
+FieldGroup), tests `tests/field_spec.lua` (14), spec en `docs/components/field.md`, demo en
+`Craft_Browser/pages/Field.lua` (grupo Layout del sidebar). Aprobado por el maintainer.
+Pendiente: bump/release + re-vendoreo (owner) + verificación in-game.
 
 ---
 

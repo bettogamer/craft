@@ -53,6 +53,7 @@ components\Input.lua
 components\RadioGroup.lua
 components\Textarea.lua
 components\Label.lua
+components\Field.lua
 components\Panel.lua
 components\Dialog.lua
 components\DragList.lua

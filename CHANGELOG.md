@@ -4,6 +4,31 @@ Todos los cambios notables de Craft se documentan aquí.
 Formato: [Keep a Changelog](https://keepachangelog.com/es/1.0.0/)
 Versioning: [SemVer](https://semver.org/lang/es/)
 
+## [Unreleased]
+
+### Added
+- **`Craft.Field` + `Craft.FieldGroup`** (FR-041): unidad de formulario que agrupa
+  label + control + descripción/error en 3 orientaciones (`vertical`, `horizontal`,
+  `responsive`). `FieldGroup` apila varios Field a un gap consistente (20px top-level =
+  `spacingLg2`/`gap-5`, 16px anidado; gap interno del field 8px, `gap-2`). El `error`
+  colorea el label a `t.destructive` (`data-[invalid=true]`) y pinta el texto de error;
+  `description`/`error` en `text-xs` (12px, `leading-normal` 1.5 vía `SetSpacing`). El control se **reparenta**
+  (no se crea — patrón `Panel.footer`), el caller sigue siendo su dueño y sincroniza el
+  borde de error del control (FR-037). API: `SetLabel`/`SetDescription`/`SetError`/
+  `SetOrientation`/`Relayout`/`GetControl`/`GetFrame`/`Destroy` (Field) y `AddChild`/
+  `RemoveChild`/`GetFrame`/`Destroy` (FieldGroup). Layout manual de ancla única (no Flex)
+  para medir el word-wrap de la descripción con el ancho final; `responsive` emula el
+  container query `@md`=448px vía `OnSizeChanged`. Demos en `Craft_Browser` (Field
+  standalone + Profile card sobre `Panel`). Tests: `tests/field_spec.lua` (16).
+- **Token de spacing** `spacingLg2` (20px, `gap-5`) para el gap del `FieldGroup`,
+  confirmado contra el CSS real de Lyra (mhtml). `spacingXs2` (6px) y `spacing2Xl` (28px)
+  quedan RESERVADOS: Lyra recalibra a 2px (field-content) y 20px (field-group).
+
+### Fixed
+- **`Craft.Panel`**: la card-description ahora respeta `leading-relaxed` (1.625) en texto
+  multilínea (`.cn-card-description { text-xs/relaxed }`) vía `SetSpacing ≈ size*0.625`
+  (8px @12px); antes usaba el interlineado nativo de WoW (más apretado).
+
 ## [2.9.0] - 2026-07-16
 
 > **Release v2.9.0 — atlas Lucide COMPLETO (ADR-0016, cierra FR-031).**

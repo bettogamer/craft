@@ -63,6 +63,8 @@ describe("Craft.Panel header — manual path (no action)", function()
         -- desc word-wrap width = panel width - 2*lg
         assert.equals(300 - 2 * LG, p._desc:GetWidth())
         assert.equals(LG + TH + XS + DH, p._header:GetHeight())
+        -- card-description line-height = leading-relaxed 1.625 → SetSpacing ≈ size*0.625 (8px @12px)
+        assert.equals(math.floor(DH * 0.625 + 0.5), p._desc:GetSpacing())
         p:Destroy()
     end)
 

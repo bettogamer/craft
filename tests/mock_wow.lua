@@ -184,6 +184,8 @@ local function makeFrame(frameType, name, parent)
     function f:SetTextColor(r,g,b,a)      self._color = {r=r,g=g,b=b,a=a or 1} end
     function f:GetTextColor()             return self._color.r,self._color.g,self._color.b,self._color.a end
     function f:SetWordWrap(v)             end
+    function f:SetSpacing(v)              self._spacing = v or 0 end
+    function f:GetSpacing()               return self._spacing or 0 end
     function f:SetNonSpaceWrap(v)         end
     function f:SetJustifyH(v)             end
     function f:SetJustifyV(v)             end
