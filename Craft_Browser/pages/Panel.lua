@@ -623,6 +623,46 @@ CraftBrowserPages["Panel"] = {
 
         y = y + FAQ_H + 16
 
+        -- Card + Sidebar — Financial dashboard nav (full-bleed card with sidebar)
+        y = addLabel("Card + Sidebar — Financial dashboard nav", y)
+        local dashboardPanel = Craft.Panel:Create(parent, {
+            width  = 256,
+            height = 440,
+            flush  = true,  -- FR-046: full-bleed — no padding on any side, sidebar hangs off the ring
+        })
+        dashboardPanel:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, dashboardPanel)
+
+        local dashboardContent = dashboardPanel:GetContent()
+        local dashboardSidebar = Craft.Sidebar:Create(dashboardContent, {
+            width      = 256,
+            activeItem = "dashboard",
+        })
+        dashboardSidebar:GetFrame():SetAllPoints(dashboardContent)
+
+        -- Section: Overview
+        dashboardSidebar:AddSection("Overview")
+        dashboardSidebar:AddItem({ id="dashboard",    label="Dashboard",    icon="layout-dashboard"     })
+        dashboardSidebar:AddItem({ id="transactions", label="Transactions", icon="arrow-left-right"     })
+        dashboardSidebar:AddItem({ id="investments",  label="Investments",  icon="trending-up"          })
+        dashboardSidebar:AddItem({ id="accounts",     label="Accounts",     icon="building-2"           })
+        dashboardSidebar:AddItem({ id="spending",     label="Spending",     icon="chart-pie"            })
+
+        -- Separator
+        dashboardSidebar:AddSeparator()
+
+        -- Section: Planning
+        dashboardSidebar:AddSection("Planning")
+        dashboardSidebar:AddItem({ id="goals",     label="Goals",     icon="target"                         })
+        dashboardSidebar:AddItem({ id="budget",    label="Budget",    icon="wallet"                        })
+        dashboardSidebar:AddItem({ id="reports",   label="Reports",   icon="file-chart-column-increasing"  })
+        dashboardSidebar:AddItem({ id="documents", label="Documents", icon="file-text"                     })
+
+        dashboardSidebar:RefreshLayout()
+        table.insert(comps, dashboardSidebar)
+
+        y = y + 452
+
         return {
             height  = y + 24,
             cleanup = function()
