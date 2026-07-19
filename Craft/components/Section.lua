@@ -12,7 +12,8 @@
 --   FLOOR — never 0, WoW won't repaint a frame that collapsed to 0 then regrew) and
 --   header + body. A faster `alpha` tween (m.motionFast) fades the content; `shown`
 --   stays true through the fade-out so the body isn't cut before it finishes fading.
---   Height is derived as HEADER_H + prog*bodyH, so a content resize (SetContent/Refresh)
+--   Height is derived as _headerH + prog*bodyH (FR-044: _headerH is reactive and grows
+--   when a long title wraps), so a content resize (SetContent/Refresh) or a title wrap
 --   snaps the open height without re-animating — only toggling animates.
 
 local Craft = LibStub("Craft-2.0")
@@ -22,12 +23,13 @@ local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (
 local Section = {}
 Section.__index = Section
 
-local PAD_V      = 10   -- py-2.5 (trigger vertical padding)
-local PAD_BOTTOM = 10   -- pb-2.5 (content bottom padding)
-local LINE_H     = 14   -- text-xs line
-local HEADER_H   = PAD_V * 2 + LINE_H   -- 34
-local CHEVRON_SZ = 16   -- size-4
-local FONT_SIZE  = 12   -- text-xs
+local PAD_V       = 10   -- py-2.5 (trigger vertical padding)
+local PAD_BOTTOM  = 10   -- pb-2.5 (content bottom padding)
+local LINE_H      = 16   -- text-xs line-height (1.33333 unitless × 12px = 16 — Lyra devtools 2026-07-19)
+local HEADER_MIN  = PAD_V * 2 + LINE_H   -- 36 (single-line floor; header grows for wrapped titles)
+local CHEVRON_SZ  = 16   -- size-4
+local CHEVRON_GAP = 8    -- breathing room reserved between a wrapped title and the chevron
+local FONT_SIZE   = 12   -- text-xs
 
 -- ─── Create ───────────────────────────────────────────────────────────────────
 function Section:Create(parent, config)
@@ -44,18 +46,28 @@ function Section:Create(parent, config)
     self.frame = CreateFrame("Frame", nil, parent)
 
     -- ── Header (trigger) ──────────────────────────────────────────────────────
+    -- Height is dynamic (FR-044): HEADER_MIN is the single-line floor; a long title
+    -- wraps and the header grows to fit it (measured in _remeasureHeader). shadcn's
+    -- trigger is `items-start` height-auto, so title + chevron are top-aligned.
     self._header = CreateFrame("Button", nil, self.frame)
-    self._header:SetHeight(HEADER_H)
+    self._header:SetHeight(HEADER_MIN)
     self._header:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
     self._header:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
 
     self._title = self._header:CreateFontString(nil, "OVERLAY")
-    self._title:SetPoint("LEFT", self._header, "LEFT", 0, 0)
+    self._title:SetPoint("TOPLEFT", self._header, "TOPLEFT", 0, -PAD_V)
     self._title:SetJustifyH("LEFT")
+    self._title:SetJustifyV("TOP")
+    self._title:SetWordWrap(true)   -- FR-044: long titles wrap instead of drawing over the chevron
 
     self._chevron = self._header:CreateTexture(nil, "ARTWORK")
     self._chevron:SetSize(CHEVRON_SZ, CHEVRON_SZ)
-    self._chevron:SetPoint("RIGHT", self._header, "RIGHT", 0, 0)
+    self._chevron:SetPoint("TOPRIGHT", self._header, "TOPRIGHT", 0, -PAD_V)
+
+    -- Re-measure the title (and the header height it drives) whenever the header's width
+    -- changes — the consumer sets the section frame width AFTER Create, so the reserved
+    -- title width is only knowable here (FR-044 / CLAUDE.md bug #4 font-late pattern).
+    self._header:SetScript("OnSizeChanged", function() self:_remeasureHeader() end)
 
     -- ── Content area (holds the child frame) ──────────────────────────────────
     self._content = CreateFrame("Frame", nil, self.frame)
@@ -74,8 +86,9 @@ function Section:Create(parent, config)
     -- expandable region height (content + pb-2.5) so a content resize re-derives the
     -- open height without re-animating (only a toggle moves `prog`).
     local m = Craft.Theme.get()
-    self._open  = Weave.signal(self._expanded)
-    self._bodyH = Weave.signal(0)
+    self._open    = Weave.signal(self._expanded)
+    self._bodyH   = Weave.signal(0)
+    self._headerH = Weave.signal(HEADER_MIN)   -- FR-044: drives the collapsed floor; grows with wrapped titles
 
     -- prog: 0 (collapsed) → 1 (expanded), eased over motionBase (larger transition).
     local prog = Weave.tween(
@@ -86,7 +99,7 @@ function Section:Create(parent, config)
     -- ADR-0013 §4.6) and header + body. Snaps on content resize (bodyH changes) while
     -- open; animates only when prog moves (a toggle).
     local height = Weave.computed(function()
-        return HEADER_H + prog() * self._bodyH()
+        return self._headerH() + prog() * self._bodyH()
     end)
 
     -- Content fades with its own faster curve; kept shown through the fade-out so the
@@ -148,6 +161,33 @@ end
 
 function Section:GetContent()
     return self._content
+end
+
+-- ─── Header measure (FR-044: title wrap → dynamic header height) ───────────────
+-- Reserve `headerW - chevron - gap` for the title, turn on word wrap, and derive the
+-- header height from the wrapped title height (floored at HEADER_MIN = single line).
+-- Publishing `_headerH` re-derives the frame height reactively (collapsed floor grows).
+-- No-ops until the consumer has given the frame a width; re-runs on resize + theme/font
+-- change (a late-loading font, CLAUDE.md bug #4, re-measures once the glyphs arrive).
+function Section:_remeasureHeader()
+    if not self._header then return end
+    local headerW = self._header:GetWidth() or 0
+    if headerW <= 0 then return end                       -- width not assigned yet
+
+    local titleW = headerW - CHEVRON_SZ - CHEVRON_GAP
+    if titleW < 1 then titleW = 1 end
+    self._title:SetWidth(titleW)
+
+    local titleH  = self._title:GetStringHeight() or 0
+    local headerH = PAD_V * 2 + titleH
+    if headerH < HEADER_MIN then headerH = HEADER_MIN end
+
+    -- Guard the SetHeight (this runs inside the header's own OnSizeChanged) so an
+    -- unchanged value doesn't churn the handler.
+    if math.abs((self._header:GetHeight() or 0) - headerH) > 0.5 then
+        self._header:SetHeight(headerH)
+    end
+    if self._headerH then self._headerH:set(headerH) end
 end
 
 -- ─── Layout ───────────────────────────────────────────────────────────────────
@@ -218,6 +258,7 @@ function Section:_applyTheme(t)
     self._border:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
 
     self:_refreshChevron()
+    self:_remeasureHeader()   -- FR-044: re-measure header after (re)applying font/text
     self:_relayout()
 end
 
@@ -225,6 +266,7 @@ end
 function Section:SetTitle(text)
     self._cfg.title = text or ""
     self._title:SetText(self._cfg.title)
+    self:_remeasureHeader()   -- FR-044: title changed → re-derive header height
 end
 
 function Section:Refresh()   -- re-read child height (call if content resized)

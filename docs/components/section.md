@@ -43,9 +43,9 @@ altura; mantén ese handler barato e idempotente (el showcase solo llama `reflow
 
 ```
 section.frame            (Frame — alto = header + (content si expandido) )
-├── _header              (Button — trigger, alto 34 = py-2.5·2 + line)
-│   ├── _title           (FontString — text-xs font-medium, izquierda)
-│   └── _chevron         (Texture 16px — chevron-down (base) que rota 0°→180° al expandir, muted-fg)
+├── _header              (Button — trigger, alto DINÁMICO: mín 36 = py-2.5·2 + 16 line; crece si el título envuelve, FR-044)
+│   ├── _title           (FontString — text-xs font-medium, TOPLEFT, word-wrap; ancho = header − chevron − 8)
+│   └── _chevron         (Texture 16px — chevron-down (base) que rota 0°→180° al expandir, muted-fg; TOPRIGHT items-start)
 ├── _content             (Frame — bajo el header; alto = childH + pb-2.5; oculto si colapsado)
 │   └── [child]          (frame del consumidor vía SetContent)
 └── _border              (Texture 1px — not-last:border-b, t.border; opcional vía `divider`)
@@ -56,7 +56,9 @@ section.frame            (Frame — alto = header + (content si expandido) )
 | Elemento | Valor / Token |
 |---|---|
 | Trigger padding V | 10px (`py-2.5`) |
-| Header alto | 34px (10·2 + 14 line) |
+| Line-height título | 16px (`text-xs` line-height `1.33333` unitless × 12px — Lyra devtools 2026-07-19) |
+| Header alto | **dinámico** (FR-044): mín 36px (10·2 + 16 line, título de 1 línea); crece con el título envuelto |
+| Reserva ancho chevron | 8px de gap entre el título envuelto y el chevron (`headerW − 16 − 8`) |
 | Content padding bottom | 10px (`pb-2.5`), top 0 (`pt-0`) |
 | Chevron | 16px (`size-4`), rotación 0°→180° (duración `motionBase`, 200ms) |
 | Título | `t.fontBold` (font-medium), 12px (`text-xs`), `t.foreground` |
@@ -89,6 +91,13 @@ section.frame            (Frame — alto = header + (content si expandido) )
 
 - **Altura dinámica**: la Section dimensiona su `frame` a `header + content`. Como cambia al
   togglear, el consumidor que apila varias debe re-anclarlas en `onToggle` (ver showcase).
+- **Título envuelve (FR-044)**: el trigger de shadcn es `items-start` altura-auto; el título es
+  `flex` y envuelve cuando no cabe. En Craft el `_title` es FontString **ancla única `TOPLEFT`**
+  (bug #2) con `SetWordWrap(true)` y ancho reservado = `headerW − chevron(16) − gap(8)`. La altura
+  del header se **deriva** del alto del título envuelto (`_remeasureHeader`, piso `HEADER_MIN=36`)
+  y se publica en el signal reactivo `_headerH`, así el alto del frame (colapsado y expandido) se
+  re-deriva sin re-animar. Se re-mide en `OnSizeChanged` del header (el consumidor fija el ancho del
+  frame **después** de `Create`) y en `_applyTheme` (cubre la carga tardía de fuente, bug #4).
 - **Chevron**: una ÚNICA textura de `chevron-down` (base) que rota continuamente 0°→180°
   durante la animación de expand/collapse, reflejando el comportamiento de shadcn v4
   (`rotate-180 + transition-transform`). La rotación es manejada por `SetRotation()`, sincronizada

@@ -90,3 +90,16 @@
 | `--sidebar-accent-foreground` | `oklch(0.987 0.002 197.1)` | 0.977, 0.985, 0.985, 1.000 |
 | `--sidebar-border` | `oklch(1 0 0 / 10%)` | 1.000, 1.000, 1.000, 0.100 |
 | `--sidebar-ring` | `oklch(0.56 0.021 213.5)` | 0.404, 0.470, 0.486, 1.000 |
+
+## Tipografía — line-height por escala
+
+> Los `line-height` de Tailwind v4 son **unitless** (multiplican el `font-size`). Confirmado por
+> devtools del owner sobre `.style-lyra` (2026-07-19). Craft debe usar el **px resultante**, no el
+> `font-size`, al reservar altura de una línea de texto.
+
+| Escala | `font-size` | `line-height` (unitless) | Alto de línea px | Visto en |
+|---|---|---|---|---|
+| `text-xs` | 12px (`.75rem`) | `calc(1 / .75)` = **1.33333** | **16px** | `.cn-accordion-trigger` / `.cn-accordion-content` (FR-044) |
+
+_Regla:_ para reservar el alto de UNA línea en Craft, usar el **px** de la columna "Alto de línea",
+no `font-size`. Ej.: `text-xs` = 16px de line-box, no 12 (esto corrigió `Section.LINE_H` 14→16).

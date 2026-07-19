@@ -162,6 +162,8 @@ local function makeFrame(frameType, name, parent)
     function f:GetVertexColor()     local c=self._vertexColor; return c.r,c.g,c.b,c.a end
     function f:SetBlendMode(...)    end
     function f:SetDrawLayer(...)    end
+    function f:SetRotation(r)       self._rotation = r end
+    function f:GetRotation()        return self._rotation or 0 end
 
     -- FontString methods
     function f:SetFont(path, size, flags) self._font = path; self._fontSize = size; self._fontFlags = flags end
@@ -183,7 +185,7 @@ local function makeFrame(frameType, name, parent)
     function f:GetText()                  return self._text end
     function f:SetTextColor(r,g,b,a)      self._color = {r=r,g=g,b=b,a=a or 1} end
     function f:GetTextColor()             return self._color.r,self._color.g,self._color.b,self._color.a end
-    function f:SetWordWrap(v)             end
+    function f:SetWordWrap(v)             self._wordWrap = v end
     function f:SetSpacing(v)              self._spacing = v or 0 end
     function f:GetSpacing()               return self._spacing or 0 end
     function f:SetNonSpaceWrap(v)         end
