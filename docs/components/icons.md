@@ -226,6 +226,14 @@ casi nunca se muestra a 16 píxeles físicos. Un atlas pixel-exacto se magnifica
 y los trazos finos de Lucide (stroke 2 en viewBox 24) se ven delgados a 16px. Renderizar a
 alta resolución y dejar que WoW reduzca mantiene el ícono nítido a cualquier escala.
 
+**Peso del trazo (`ICON_STROKE_WIDTH`)**: Lucide es `stroke-width="2"` en el viewBox 24.
+El atlas se hornea un pelín más grueso (**2.25**) para compensar el adelgazamiento que el
+filtrado con mipmaps (`TRILINEAR`, ver arriba) aplica al line-art fino al minificar → así un
+ícono a 24px lee como un 2px sólido. Es una **decisión deliberada de legibilidad** (owner),
+una pequeña desviación de la fidelidad shadcn 1:1; ajustar contra el display de 24px, o poner
+`2` para Lucide pixel-exacto. Se aplica en `prepare_svg` reemplazando solo `stroke-width="2"`
+(los glifos locales como `disc`, con `stroke-width="0"`, quedan intactos).
+
 **SetTexCoord — orden WoW**: `SetTexCoord(left, right, top, bottom)`. No el orden CSS.
 
 **Colorización**: `SetVertexColor(r, g, b, a)` después de `Apply()`. El módulo no aplica color.

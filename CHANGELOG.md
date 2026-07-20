@@ -67,6 +67,12 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   iconos vía el punto central `Apply`. **Verificación in-game (owner)**: spot-check de iconos
   a 16/24px en varios componentes (Sidebar, Select, Button…) — no debe verse ghosting de
   iconos vecinos.
+- **Peso del trazo de iconos horneado a 2.25** (`scripts/export-icons.py`,
+  `ICON_STROKE_WIDTH`): compensa el adelgazamiento que el filtrado con mipmaps aplica al
+  line-art fino, para que un ícono a 24px lea como un 2px sólido (Lucide nativo = 2). Decisión
+  deliberada de legibilidad — pequeña desviación consciente de la fidelidad shadcn 1:1.
+  `prepare_svg` reemplaza solo `stroke-width="2"` (glifos locales como `disc` con `"0"` intactos);
+  atlas regenerado sin cambios de coordenadas (`Atlas.lua` igual). Verificado in-game a 24px.
 
 ### Fixed
 - **Bug #4 (anchos erróneos en el primer arranque) CERRADO — verificado in-game.** La sonda

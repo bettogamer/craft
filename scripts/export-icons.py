@@ -77,6 +77,13 @@ except (ImportError, OSError):
 LUCIDE_TAG  = "1.24.0"
 TARBALL_URL = f"https://github.com/lucide-icons/lucide/archive/refs/tags/{LUCIDE_TAG}.tar.gz"
 
+# Stroke weight. Lucide ships stroke-width="2" on the 24×24 viewBox. We bake it a hair
+# heavier to counter the thinning that mipmap/TRILINEAR minification applies to thin
+# line-art at small display sizes (see Icons.lua) — the goal is that a 24px icon reads as
+# a solid ~2px. Deliberate legibility choice by the owner, a small deviation from exact
+# shadcn fidelity. Tune against the 24px display; set to 2 for pixel-exact Lucide.
+ICON_STROKE_WIDTH = 2.25
+
 SYSTEM_ICONS = [
     # System — required by Craft components
     "check",          # col=0  Checkbox checked
@@ -209,6 +216,11 @@ def prepare_svg(svg: str) -> str:
     """
     svg = re.sub(r'stroke="currentColor"', 'stroke="white"', svg)
     svg = re.sub(r'fill="currentColor"',   'fill="white"',   svg)
+    # Bump the stroke weight (ICON_STROKE_WIDTH). Target exactly "2" so Craft-local
+    # glyphs that set their own width (LOCAL_SVGS `disc` uses stroke-width="0") stay
+    # untouched. Lucide is uniform stroke-width="2" on the root, so this is a clean swap.
+    if ICON_STROKE_WIDTH != 2:
+        svg = re.sub(r'stroke-width="2"', f'stroke-width="{ICON_STROKE_WIDTH}"', svg)
     # Ensure transparent background
     svg = re.sub(r'<svg([^>]*?)>', r'<svg\1>', svg)
     return svg
