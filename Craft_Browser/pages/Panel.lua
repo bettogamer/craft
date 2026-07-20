@@ -663,6 +663,86 @@ CraftBrowserPages["Panel"] = {
 
         y = y + 452
 
+        -- Preferences card (multi-field demo: FieldGroup + Select + Switch FR-052)
+        y = addLabel("Preferences — Card with header action, FieldGroup + Select + Switch (FR-052)", y)
+        local prefsPanel = Craft.Panel:Create(parent, {
+            width = 360, height = 400,   -- height estimate pending in-game check (was 340 pre-FR-052)
+            title = "Preferences", description = "Manage your account settings and notifications.",
+        })
+        prefsPanel:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, prefsPanel)
+
+        -- Header action (ghost icon-sm ✕); mirrors "Payout Threshold" close button pattern.
+        local prefsClose = Craft.Button:Create(prefsPanel:GetHeader(), {
+            variant = "ghost", size = "icon-sm", icon = "x",
+        })
+        prefsPanel:SetHeaderAction(prefsClose:GetFrame())
+        table.insert(comps, prefsClose)
+
+        local prefsContent = prefsPanel:GetContent()
+        local prefsGroup = Craft.FieldGroup:Create(prefsContent, { width = 328 })
+        prefsGroup:GetFrame():SetPoint("TOPLEFT", prefsContent, "TOPLEFT", 0, 0)
+        table.insert(comps, prefsGroup)
+
+        -- Field 1 (vertical): Default Currency — Select
+        local currencySelect = Craft.Select:Create(prefsContent, {
+            options = {
+                { value = "usd", label = "USD — United States Dollar" },
+                { value = "eur", label = "EUR — Euro" },
+            },
+            value = "usd", width = 328,
+        })
+        table.insert(comps, currencySelect)
+        local currencyField = Craft.Field:Create(prefsContent, {
+            label = "Default Currency", control = currencySelect, orientation = "vertical", width = 328,
+        })
+        table.insert(comps, currencyField)
+        prefsGroup:AddChild(currencyField)
+
+        -- Separator (Craft has no FieldSeparator in MVP; divergence from shadcn assumed).
+        local prefsSep1 = Craft.Separator:Create(prefsContent, { orientation = "horizontal" })
+        table.insert(comps, prefsSep1)
+        prefsGroup:AddChild(prefsSep1)
+
+        -- Switch rows (FR-052). Field horizontal stretches the control frame to the
+        -- content column, so the Switch pill goes inside a host Frame anchored RIGHT
+        -- (label left / pill right, the shadcn Preferences look). Descriptions omitted:
+        -- shadcn puts them under the LABEL (FieldContent left), outside the Field MVP.
+        local function addSwitchRow(label, checked)
+            local host = CreateFrame("Frame", nil, prefsContent)
+            host:SetHeight(18)
+            local sw = Craft.Switch:Create(host, { checked = checked })
+            sw:GetFrame():SetPoint("RIGHT", host, "RIGHT", 0, 0)
+            table.insert(comps, sw)
+            local field = Craft.Field:Create(prefsContent, {
+                label = label, control = host, orientation = "horizontal", width = 328,
+            })
+            table.insert(comps, field)
+            prefsGroup:AddChild(field)
+        end
+
+        addSwitchRow("Public Statistics", true)
+
+        local prefsSep2 = Craft.Separator:Create(prefsContent, { orientation = "horizontal" })
+        table.insert(comps, prefsSep2)
+        prefsGroup:AddChild(prefsSep2)
+
+        addSwitchRow("Email Notifications", false)
+
+        -- Footer: Reset (outline, left) + Save Preferences (default, right)
+        prefsPanel:ShowFooter(52)
+        local prefsFooter = prefsPanel:GetFooter()
+        if prefsFooter then
+            local prefsReset = Craft.Button:Create(prefsFooter, { text = "Reset", variant = "outline" })
+            prefsReset:GetFrame():SetPoint("LEFT", prefsFooter, "LEFT", 16, 0)
+            table.insert(comps, prefsReset)
+            local prefsSave = Craft.Button:Create(prefsFooter, { text = "Save Preferences", variant = "default" })
+            prefsSave:GetFrame():SetPoint("RIGHT", prefsFooter, "RIGHT", -16, 0)
+            table.insert(comps, prefsSave)
+        end
+
+        y = y + 400 + 24
+
         return {
             height  = y + 24,
             cleanup = function()

@@ -36,6 +36,9 @@ Reactive.lua
 theme\Presets.lua
 theme\Theme.lua
 
+# Shapes — prefab rounded-shape UV descriptor (ADR-0018; consumed by Switch)
+theme\Shapes.lua
+
 # Icons
 icons\Atlas.lua
 icons\Icons.lua
@@ -64,6 +67,7 @@ components\Combobox.lua
 components\Separator.lua
 components\Sidebar.lua
 components\Slider.lua
+components\Switch.lua
 components\Scroll.lua
 components\Section.lua
 components\Toggle.lua

@@ -7,6 +7,38 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 ## [Unreleased]
 
 ### Added
+- **`Craft.Switch`** (FR-052): control booleano pill track + thumb deslizante (shadcn
+  `switch`). Dos tamaños Lyra reales (devtools mhtml): `default` 32×18 (Lyra 18.4,
+  redondeado a px enteros) con thumb 16, `sm` 24×14 con thumb 12; recorrido
+  `calc(100% − 2px)` con inset 1px por lado. Colores dark: track `input/80` → `primary`,
+  thumb `foreground` → `primaryForeground`. Toggle animado con `Weave.tween`
+  (`motionFast`/`motionEasing`, patrón Checkbox) interpolando X del thumb + ambos
+  colores. Props reactivas ADR-0013 (`checked` two-way, `disabled`). API:
+  `SetChecked`/`GetChecked`/`SetEnabled`/`GetFrame`/`Destroy`. Demos en el Browser:
+  página **Switch** dedicada (cobertura completa: estados, tamaños, onChange, disabled,
+  SetEnabled, SetChecked programático, señales two-way/disabled ADR-0013 y composición
+  con Field) + card Preferences completada (2 filas `Field` horizontal con el pill
+  anclado RIGHT en un host Frame — Field estira el control). Track y thumb renderizan
+  como **pill/círculo reales** vía shapes prefabricados (ver entrada ADR-0018 abajo).
+  Spec: `docs/components/switch.md`. Tests: `tests/switch_spec.lua` (22).
+- **Formas redondeadas con texturas prefabricadas** (FR-053 / ADR-0018): primera técnica
+  de esquinas redondeadas en Craft, piloto en el `Craft.Switch`. Nuevos assets **un
+  archivo por forma** `Craft/media/shape_pill_32x18.tga`, `shape_pill_24x14.tga`,
+  `shape_circle.tga` (blancos anti-aliased, POT 128×64/64×64, caps del pill pre-distorsionados
+  a elipse para salir circulares tras el estirado; borde nítido vía **mipmaps** — POT +
+  filtrado `TRILINEAR` en `SetTexture` — más gutter transparente) generados por
+  `scripts/export-shapes.py`; descriptor forma→archivo auto-generado `Craft/theme/Shapes.lua`
+  (`Craft.Shapes.Get(name)`, guard versionado de bug #1). El Switch aplica el pill/círculo
+  por **máscara** (`AddMaskTexture`, hipótesis A — el `_paint` de color/animación no
+  cambia; el círculo mask se ancla al thumb para deslizarse) con **fallback horneado**
+  automático (`SetTexture` + `SetVertexColor`, hipótesis B) si el cliente no soporta masks;
+  alternable in-game con la constante `RENDER_MODE`. Sólo aplica a formas que Lyra declara
+  `rounded-full` — el guardrail Radius=0 de ADR-0002 sigue vigente para las cajas.
+  **Lección (in-game)**: una `MaskTexture` **ignora `SetTexCoord` en 12.0.7** → un atlas
+  compartido se mapea entero sobre cada rect (basura); de ahí un archivo dedicado por forma
+  sin texcoord. CI (package/release) y `deploy-local.ps1` generan y verifican los TGAs.
+  Doc: `docs/pixel-perfect.md` §11. **Validación in-game pendiente (owner)**: mask vs baked
+  + AA a escalas 50–150% + reinicio completo del cliente por TGA nuevo.
 - **`Craft.Field` + `Craft.FieldGroup`** (FR-041): unidad de formulario que agrupa
   label + control + descripción/error en 3 orientaciones (`vertical`, `horizontal`,
   `responsive`). `FieldGroup` apila varios Field a un gap consistente (20px top-level =
@@ -23,6 +55,18 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 - **Token de spacing** `spacingLg2` (20px, `gap-5`) para el gap del `FieldGroup`,
   confirmado contra el CSS real de Lyra (mhtml). `spacingXs2` (6px) y `spacing2Xl` (28px)
   quedan RESERVADOS: Lyra recalibra a 2px (field-content) y 20px (field-group).
+
+### Changed
+- **Iconos Lucide con filtrado `TRILINEAR` (mipmaps)** (`Craft/icons/Icons.lua`, `I.Apply`):
+  el downscale del atlas ahora muestrea el mip chain (POT → WoW lo auto-genera) en vez de
+  bilineal plano → borde más liso y sin shimmer al minificar, a cualquier `UIScale`. Misma
+  técnica que las shapes del Switch (ADR-0018 §5 / CLAUDE.md bug #5). Seguro sobre el atlas
+  porque en el rango de display (14–24px = mip 0–2) el gutter de 4px mantiene ≥1px transparente
+  entre celdas (sin bleed; solo aparecería <~10px, que no ocurre). Sin cambio de asset (el TGA
+  no cambia — el filtrado es un parámetro de `SetTexture`); afecta a los 17 consumidores de
+  iconos vía el punto central `Apply`. **Verificación in-game (owner)**: spot-check de iconos
+  a 16/24px en varios componentes (Sidebar, Select, Button…) — no debe verse ghosting de
+  iconos vecinos.
 
 ### Fixed
 - **Bug #4 (anchos erróneos en el primer arranque) CERRADO — verificado in-game.** La sonda

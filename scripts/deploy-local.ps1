@@ -105,6 +105,24 @@ if (-not (Test-Path $Atlas)) {
     }
 }
 
+# Generate rounded-shape masks if not present (ADR-0018; needs only Pillow)
+$Shapes = Join-Path $MediaDir "shape_circle.tga"
+if (-not (Test-Path $Shapes)) {
+    if ($DryRun) {
+        Write-Host "[dry-run] Would generate rounded-shape masks"
+    } else {
+        Write-Host "Generating rounded-shape masks..."
+        $env:PYTHONIOENCODING = "utf-8"
+        $result = python (Join-Path $PSScriptRoot "export-shapes.py") 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Generated rounded-shape atlas -> $MediaDir"
+        } else {
+            Write-Warning "Shape atlas generation failed. Run: pip install Pillow"
+            Write-Warning ($result | Select-Object -Last 3)
+        }
+    }
+}
+
 # Fetch LibStub from GitHub if not present locally (CI gets it via .pkgmeta externals)
 $LibStubLocal = Join-Path $CraftSrc "libs\LibStub\LibStub.lua"
 if (-not (Test-Path $LibStubLocal)) {

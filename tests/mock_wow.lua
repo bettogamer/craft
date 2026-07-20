@@ -168,6 +168,10 @@ local function makeFrame(frameType, name, parent)
     function f:SetTexCoord(...)     self._texCoords = {...} end
     function f:SetVertexColor(r,g,b,a) self._vertexColor = {r=r,g=g,b=b,a=a or 1} end
     function f:GetVertexColor()     local c=self._vertexColor; return c.r,c.g,c.b,c.a end
+    -- MaskTexture wiring (ADR-0018 rounded shapes): record so specs can assert it.
+    function f:AddMaskTexture(m)    self._masks = self._masks or {}; self._masks[#self._masks+1] = m end
+    function f:RemoveMaskTexture(m) end
+    function f:GetNumMaskTextures() return self._masks and #self._masks or 0 end
     function f:SetBlendMode(...)    end
     function f:SetDrawLayer(...)    end
     function f:SetRotation(r)       self._rotation = r end
@@ -249,6 +253,11 @@ local function makeFrame(frameType, name, parent)
         local fs = makeFrame("FontString", name, f)
         f._fontStrings[#f._fontStrings + 1] = fs
         return fs
+    end
+    function f:CreateMaskTexture(name, layer)
+        local t = makeFrame("MaskTexture", name, f)
+        f._textures[#f._textures + 1] = t
+        return t
     end
 
     -- UIParent:GetHeight() stub

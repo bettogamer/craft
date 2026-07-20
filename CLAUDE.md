@@ -14,7 +14,7 @@ necesita compilador C) — usar exactamente estas invocaciones (lección Weave, 
 ```bash
 luac -p <archivo>                                            # sintaxis, tras cada edición
 luacheck Craft/*.lua Craft/components/*.lua Craft/theme/*.lua Craft/layout/*.lua Craft/icons/*.lua --config .luacheckrc
-lua tests/run.lua tests/button_spec.lua tests/sidebar_spec.lua tests/reactive_spec.lua tests/theme_spec.lua tests/label_spec.lua tests/menu_spec.lua tests/input_spec.lua tests/textarea_spec.lua tests/toggle_spec.lua tests/togglegroup_spec.lua tests/popover_spec.lua tests/combobox_spec.lua tests/badge_spec.lua tests/icons_spec.lua tests/flex_spec.lua tests/grid_spec.lua tests/panel_spec.lua tests/slider_spec.lua tests/field_spec.lua tests/tabs_spec.lua tests/section_spec.lua   # suite completa (mini-runner local)
+lua tests/run.lua tests/button_spec.lua tests/sidebar_spec.lua tests/reactive_spec.lua tests/theme_spec.lua tests/label_spec.lua tests/menu_spec.lua tests/input_spec.lua tests/textarea_spec.lua tests/toggle_spec.lua tests/togglegroup_spec.lua tests/popover_spec.lua tests/combobox_spec.lua tests/badge_spec.lua tests/icons_spec.lua tests/flex_spec.lua tests/grid_spec.lua tests/panel_spec.lua tests/slider_spec.lua tests/field_spec.lua tests/tabs_spec.lua tests/section_spec.lua tests/switch_spec.lua   # suite completa (mini-runner local)
 bash scripts/bump-build.sh <X.Y.Z>                           # bump CRAFT_BUILD + Craft.VERSION antes de release (FR-029: sin arg aborta si VERSION == último tag)
 
 # taintlint (secret values 12.0+) — node está en "C:\Program Files\nodejs" (si el shell no lo ve, ruta completa):
@@ -122,3 +122,37 @@ no se reproduce — solo falla el primerísimo boot.
   `Craft.Theme.onFontsReady(fn)` one-shot (compat). Diagnóstico: `/craft fontprobe` en el
   Browser. Regla: en componentes con auto-ancho, la re-medición vive DENTRO de `_applyTheme`
   (lección AGENTS.md §9).
+
+### 5. `MaskTexture` ignora `SetTexCoord` en 12.0.7 — un archivo por forma
+
+Para redondear formas intrínsecas (pill del Switch, ADR-0018) Craft usa `AddMaskTexture`.
+El primer intento fue un atlas único (`shapes.tga`, varias formas apiladas) + `SetTexCoord`
+en la máscara para elegir la sub-región. In-game salió **basura**: "garabatos" en el borde
+del pill y thumb roto.
+
+- **Síntoma:** el pill/thumb con `MaskTexture` renderiza ruido en vez de la forma; el color
+  y la posición son correctos pero la silueta es basura.
+- **Causa raíz (in-game 12.0.7):** una `MaskTexture` **no respeta `SetTexCoord`** — mapea la
+  textura ENTERA sobre el rectángulo destino, así que un atlas compartido vuelca todas las
+  formas superpuestas.
+- **Fix (patrón estándar de addons para masks redondeadas):** **un archivo dedicado por
+  forma**, muestreado completo, SIN `SetTexCoord` (`shape_pill_32x18.tga`, `shape_circle.tga`,
+  …). Archivos **power-of-two** (cargan seguro); si el destino no es cuadrado, **pre-distorsionar
+  los caps a elipse** en el asset para que salgan correctos tras el estirado POT→tamaño real.
+  Generados por `scripts/export-shapes.py`; descriptor forma→archivo en `Craft/theme/Shapes.lua`.
+  Aplica también al futuro eje Style/Mira (RFC-002, chokepoint `applyFill`).
+- **Sub-lección (nitidez del borde) — usar mipmaps (`TRILINEAR`):** el shape se muestra
+  MUCHO más chico que su tamaño nativo → *minification aliasing* ("pixelado"). El fix
+  correcto son **mipmaps**: WoW los auto-genera para texturas **power-of-two**, y hay que
+  pedir filtrado **`TRILINEAR`** en `SetTexture(file, wrapH, wrapV, "TRILINEAR")` para que el
+  minificado los muestree (con `LINEAR`/bilineal seguía aliaseando). Ésta es otra razón para
+  que los archivos sean POT (además de "cargan seguro"). Complementos: base de resolución
+  moderada renderizada con oversample alto (base+mip chain limpios) + **gutter transparente**
+  (espacio para el degradado). _Progresión real del spike: 8× LINEAR (pixelado) → 4× LINEAR
+  (mejor) → 4× TRILINEAR/mipmaps (liso)._
+- **Extendido al atlas de iconos Lucide** (`Craft/icons/Icons.lua`, `I.Apply`): mismo
+  `SetTexture(path, "CLAMP", "CLAMP", "TRILINEAR")`. **Atlas + mipmaps normalmente NO se
+  mezclan** (los mips encogen el gutter → celdas vecinas sangran), PERO aquí es seguro
+  porque el rango real de display (14-24px = mip 0-2) deja el gutter de 4px en ≥1px
+  transparente; el bleed solo aparecería <~10px, que no ocurre. Regla general: trilinear en
+  un atlas SOLO si el gutter aguanta los mips que de verdad se usan.

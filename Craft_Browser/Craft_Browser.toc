@@ -45,6 +45,7 @@ libs\Craft\Craft.lua
 libs\Craft\Reactive.lua
 libs\Craft\theme\Presets.lua
 libs\Craft\theme\Theme.lua
+libs\Craft\theme\Shapes.lua
 libs\Craft\icons\Atlas.lua
 libs\Craft\icons\Icons.lua
 libs\Craft\layout\Flex.lua
@@ -71,6 +72,7 @@ libs\Craft\components\Toggle.lua
 libs\Craft\components\ToggleGroup.lua
 libs\Craft\components\Sidebar.lua
 libs\Craft\components\Slider.lua
+libs\Craft\components\Switch.lua
 libs\Craft\components\Textarea.lua
 libs\Craft\components\Tabs.lua
 libs\Craft\components\Tooltip.lua
@@ -103,6 +105,7 @@ pages\Popover.lua
 pages\Separator.lua
 pages\Sidebar.lua
 pages\Slider.lua
+pages\Switch.lua
 pages\Textarea.lua
 pages\Tabs.lua
 pages\Theme.lua

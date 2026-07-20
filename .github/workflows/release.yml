@@ -49,6 +49,9 @@ jobs:
       - name: Generate Lucide icon atlas
         run: python3 scripts/export-icons.py
 
+      - name: Generate rounded-shape atlas (ADR-0018)
+        run: python3 scripts/export-shapes.py
+
       - name: Cache Inter font
         id: cache-inter
         uses: actions/cache@v4
@@ -97,6 +100,9 @@ jobs:
       - name: Verify assets
         run: |
           [ -f "Craft/media/lucide.tga"        ] || (echo "❌ lucide.tga"        && exit 1)
+          [ -f "Craft/media/shape_pill_32x18.tga" ] || (echo "❌ shape_pill_32x18.tga" && exit 1)
+          [ -f "Craft/media/shape_pill_24x14.tga" ] || (echo "❌ shape_pill_24x14.tga" && exit 1)
+          [ -f "Craft/media/shape_circle.tga"     ] || (echo "❌ shape_circle.tga"     && exit 1)
           [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf" && exit 1)
           [ -f "Craft/media/Inter-Medium.ttf"  ] || (echo "❌ Inter-Medium.ttf"  && exit 1)
           [ -f "Craft/media/Inter-Bold.ttf"    ] || (echo "❌ Inter-Bold.ttf"    && exit 1)
