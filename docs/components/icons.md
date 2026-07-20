@@ -53,6 +53,14 @@ resolución se ve nítida a cualquier escala — donde los atlas pixel-exactos d
 veían borrosos/pixelados. El gutter + un inset de medio texel en `Get()` evitan que el
 filtrado bilineal "sangre" celdas vecinas al reducir.
 
+**Filtrado `TRILINEAR` (mipmaps)**: `Apply()` pasa `SetTexture(path, "CLAMP", "CLAMP",
+"TRILINEAR")`. El atlas es power-of-two → WoW auto-genera el mip chain y el trilinear lo
+muestrea en la minificación (el ícono se ve ≤24px desde una celda de 56px) → downscale
+liso y sin shimmer, la misma técnica que las shapes del Switch (ADR-0018 §5, CLAUDE.md
+bug #5). Es seguro sobre un atlas porque en el rango de display (mip 0-2) el gutter de 4px
+aún deja ≥1px transparente entre celdas; el bleed solo aparecería por debajo de ~10px
+(mips profundos), que no ocurre.
+
 ### Formato del descriptor retornado por `Get()`
 
 ```lua
@@ -178,7 +186,7 @@ iconTex:SetVertexColor(t.foreground.r, t.foreground.g, t.foreground.b, 1)
 ```lua
 local icon = Craft.Icons.Get("circle-check")
 if icon then
-    tex:SetTexture(icon.path)
+    tex:SetTexture(icon.path, "CLAMP", "CLAMP", "TRILINEAR")  -- mipmapped downscale
     tex:SetTexCoord(icon.left, icon.right, icon.top, icon.bottom)
     tex:SetSize(icon.size, icon.size)
 end
@@ -193,7 +201,7 @@ function Craft.Icons.Apply(texture, name, size)
     if not name then return end
     local desc = Craft.Icons.Get(name, size or 16)
     if not desc then return end
-    texture:SetTexture(desc.path)
+    texture:SetTexture(desc.path, "CLAMP", "CLAMP", "TRILINEAR")  -- mipmapped downscale
     texture:SetTexCoord(desc.left, desc.right, desc.top, desc.bottom)
     texture:SetSize(desc.size, desc.size)
 end

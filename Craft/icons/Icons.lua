@@ -22,6 +22,13 @@ local PATH = Craft.mediaPath .. "lucide.tga"
 -- A half-texel inset keeps bilinear filtering from sampling the cell boundary (the 4px
 -- transparent gutter already separates neighbours). UV divisors and insets are per-axis
 -- because the atlas is taller than it is wide.
+--
+-- Filtering: TRILINEAR (Apply below). The atlas is power-of-two, so WoW auto-generates a
+-- mipmap chain; trilinear samples it on minification (icons render ≤24px from a 56px inner
+-- cell) → a smooth, shimmer-free downscale, same win as the Switch shapes (ADR-0018 §5).
+-- Safe on an atlas here: at the display range (mip 0-2) the 4px gutter still leaves ≥1px
+-- of transparent margin between cells, so mips don't bleed neighbours; bleed would only
+-- appear below ~10px display (deeper mips), which never happens.
 local DIVX   = I._div  or 8
 local DIVY   = I._rows or DIVX
 local INSETX = 0.5 / (DIVX * 64)  -- 64 = cell size in px → DIV*64 = texture size
@@ -69,7 +76,8 @@ function I.Apply(texture, name, size)
     if not name then return end
     local desc = I.Get(name, size or 16)
     if not desc then return end
-    texture:SetTexture(desc.path)
+    -- TRILINEAR (CLAMP wrap): mipmapped minification for a smooth downscale (see header).
+    texture:SetTexture(desc.path, "CLAMP", "CLAMP", "TRILINEAR")
     texture:SetTexCoord(desc.left, desc.right, desc.top, desc.bottom)
     texture:SetSize(desc.size, desc.size)
 end
