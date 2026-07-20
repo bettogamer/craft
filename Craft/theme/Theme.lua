@@ -74,6 +74,10 @@ function T.use(preset)
     for _, entry in ipairs(T._listeners) do
         entry.fn(t)
     end
+
+    -- Fonts never rendered this session (e.g. first switch to Geist) load
+    -- async like the first boot: probe any new TTF (no-op if all known).
+    if T._armFontProbes then T._armFontProbes(t) end
 end
 
 -- ─── register() / unregister() ─────────────────────────────────────────────
@@ -325,72 +329,150 @@ end
 -- not-yet-loaded font, so every auto-width component (Button, Checkbox,
 -- ToggleGroup, RadioGroup, ColorSwatch, Tabs) comes out too narrow — only on
 -- the very FIRST boot; after /reload the file is in the process cache and
--- loads sync. Two-part mitigation:
---   1. warm-up: hidden FontStrings created at load start the TTF loads as
+-- loads sync. Each weight is a SEPARATE TTF that loads on its own schedule:
+-- an earlier probe watched only the Regular file and fired ONCE, so when
+-- Medium (Button labels) settled after Regular the re-notify had already
+-- been spent and widths stayed frozen wrong. Three-part mitigation:
+--   1. warm-up: hidden FontStrings created at load start every TTF load as
 --      early as possible (normally done before any UI is built);
---   2. probe: re-measure a fixed string for up to ~20s; if its width changes
---      (the font finished loading late), re-notify all theme listeners so
---      components re-run _applyTheme → re-measure their text. The window must
---      outlast a cold first-ever TTF read: a 3s window let slow boots miss the
---      load, leaving buttons collapsed to a square until a page change recreated
---      them (the re-notify never fired). ~20s covers a cold disk read.
--- T.onFontsReady(fn) lets container UIs (e.g. Craft_Browser) re-layout
--- positions that were derived from pre-load widths; fn(metricsChanged) runs
--- once — immediately if the fonts already settled.
+--   2. probe PER FILE: each distinct TTF is re-measured; EVERY time one of
+--      them settles (its width changes) all theme listeners are re-notified
+--      so components re-run _applyTheme → re-measure, and the persistent
+--      onFontMetricsChanged callbacks fire (container re-layout);
+--   3. watchdog: after the fast window (~20s @ 100ms) polling drops to 1s for
+--      ~5 more minutes — a cold-disk load that lands late still triggers the
+--      re-notify instead of being mistaken for a cached font and lost.
+-- T.onFontsReady(fn) is ONE-SHOT: fires when every probed file settled or the
+-- fast window elapsed — fn(metricsChanged); immediate if already fired.
+-- T.onFontMetricsChanged(fn) is PERSISTENT: fires every time a font settles,
+-- including during the watchdog and for fonts first rendered by a theme
+-- switch (use() re-arms the probe for new TTFs, e.g. Inter → Geist).
 
 T._fontsReady = false
-local fontsReadyCbs = {}
+local fontsReadyCbs   = {}
+local fontsChangedCbs = {}
 
 function T.onFontsReady(fn)
     if T._fontsReady then fn(false); return end
     fontsReadyCbs[#fontsReadyCbs + 1] = fn
 end
 
-local function fireFontsReady(metricsChanged)
-    if T._fontsReady then return end
-    T._fontsReady = true
-    if metricsChanged then
+function T.onFontMetricsChanged(fn)
+    fontsChangedCbs[#fontsChangedCbs + 1] = fn
+end
+
+do
+    local warm            -- hidden frame holding the warm-up strings (lazy)
+    local probes     = {} -- array of { fs = FontString, w0 = width, settled = bool }
+    local probed     = {} -- set of TTF paths already being probed
+    local anyChanged = false
+    local polling    = false
+    local tries      = 0
+    local FAST_TRIES = 200 -- 200 × 0.1s ≈ 20s (outlasts a cold first-ever TTF read)
+    local SLOW_TRIES = 300 -- + 300 × 1s ≈ 5 min watchdog for very late loads
+
+    T._fontProbes = probes -- test hook (specs stub a probe's GetStringWidth)
+
+    local function fireFontsReady(metricsChanged)
+        if T._fontsReady then return end
+        T._fontsReady = true
+        for i = 1, #fontsReadyCbs do fontsReadyCbs[i](metricsChanged) end
+        for i = #fontsReadyCbs, 1, -1 do fontsReadyCbs[i] = nil end
+    end
+
+    local function notifyMetricsChanged()
         -- Same notification use() performs: components re-run _applyTheme
         local t = T.get()
         for _, entry in ipairs(T._listeners) do
             entry.fn(t)
         end
+        for i = 1, #fontsChangedCbs do fontsChangedCbs[i]() end
     end
-    for i = 1, #fontsReadyCbs do fontsReadyCbs[i](metricsChanged) end
-    for i = #fontsReadyCbs, 1, -1 do fontsReadyCbs[i] = nil end
-end
 
-do
-    local tokens = T.get()
-    local warm = CreateFrame("Frame")
-    warm:Hide()
-    local probe -- regular-weight string tracked for metric changes
-    for _, path in ipairs({ tokens.font, tokens.fontMedium, tokens.fontBold }) do
-        if path then
-            local fs = warm:CreateFontString(nil, "ARTWORK")
-            fs:SetFont(path, 12, "")
-            fs:SetText("Craft warmup 0123456789")
-            probe = probe or fs
-        end
-    end
-    if probe and C_Timer and C_Timer.After then
-        local w0 = probe:GetStringWidth()
-        local tries = 0
-        local MAX_TRIES = 200  -- 200 × 0.1s ≈ 20s (outlasts a cold first-ever TTF read)
-        local function check()
-            local w = probe:GetStringWidth()
-            if w ~= w0 and w > 0 then
-                fireFontsReady(true)  -- font loaded late: widths were wrong
-            elseif tries >= MAX_TRIES then
-                fireFontsReady(false) -- stable from the start (cached font)
-            else
-                tries = tries + 1
-                C_Timer.After(0.1, check)
+    local function check()
+        local changed, pending = false, false
+        for _, p in ipairs(probes) do
+            if not p.settled then
+                local w = p.fs:GetStringWidth()
+                if w ~= p.w0 and w > 0 then
+                    p.settled = true
+                    changed   = true
+                else
+                    pending = true
+                end
             end
         end
-        C_Timer.After(0.05, check)
-    else
-        T._fontsReady = true -- no timer available: nothing to wait for
+        if changed then
+            anyChanged = true
+            notifyMetricsChanged()
+        end
+        if not pending then
+            polling = false
+            fireFontsReady(anyChanged) -- every probed file settled
+            return
+        end
+        tries = tries + 1
+        if tries == FAST_TRIES then
+            -- Fast window over: unchanged widths are *probably* cached fonts.
+            -- Unblock onFontsReady waiters, but keep watching (watchdog): a
+            -- stable width is indistinguishable from a load that hasn't hit
+            -- the renderer yet.
+            fireFontsReady(anyChanged)
+        end
+        if tries < FAST_TRIES then
+            C_Timer.After(0.1, check)
+        elseif tries < FAST_TRIES + SLOW_TRIES then
+            C_Timer.After(1, check)
+        else
+            polling = false -- give up silently; /reload heals a >5min straggler
+        end
+    end
+
+    -- Adds a hidden warm-up string per NEW ttf path and (re)starts polling.
+    -- Called at load and from use(): a theme switch to a family never rendered
+    -- this session (e.g. Geist) loads async too and needs its own probe.
+    function T._armFontProbes(tokens)
+        local added = false
+        for _, path in ipairs({ tokens.font, tokens.fontMedium, tokens.fontBold }) do
+            if path and not probed[path] then
+                probed[path] = true
+                if not warm then
+                    -- The warm-up strings must actually RENDER: a FontString on
+                    -- a Hide()n frame can leave the TTF unrasterized, so the
+                    -- probes never see their width settle while the visible UI
+                    -- loads the font on its own (with no re-notify — the bug
+                    -- survived the per-file probe). 1×1 px, BACKGROUND strata,
+                    -- glyphs at 2% alpha in the screen corner: imperceptible
+                    -- to the player but rendered by the client.
+                    warm = CreateFrame("Frame", nil, UIParent)
+                    warm:SetSize(1, 1)
+                    warm:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 0, 0)
+                    warm:SetFrameStrata("BACKGROUND")
+                end
+                local fs = warm:CreateFontString(nil, "ARTWORK")
+                fs:SetFont(path, 12, "")
+                fs:SetText("Craft warmup 0123456789")
+                fs:SetPoint("BOTTOMLEFT", warm, "BOTTOMLEFT", 0, 0)
+                fs:SetAlpha(0.02)
+                probes[#probes + 1] = { fs = fs, w0 = fs:GetStringWidth(), settled = false, path = path }
+                added = true
+            end
+        end
+        if not added then return end
+        if not (C_Timer and C_Timer.After) then
+            T._fontsReady = true -- no timer available: nothing to wait for
+            return
+        end
+        tries = 0 -- fresh fast window for the new file(s)
+        if not polling then
+            polling = true
+            C_Timer.After(0.05, check)
+        end
+    end
+
+    T._armFontProbes(T.get())
+    if #probes == 0 then
+        T._fontsReady = true -- theme has no font paths: nothing to wait for
     end
 end
 
