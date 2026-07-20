@@ -172,7 +172,7 @@ function DragList:_onDragUpdate()
     if not top then return end
 
     local _, cy = GetCursorPosition()
-    cy = cy / UIParent:GetEffectiveScale()
+    cy = cy / self.frame:GetEffectiveScale()   -- same space as GetTop() above (ADR-0011)
     local relY = top - cy                 -- distance from list top, downward positive
     local s = step()
     local n = #self._order

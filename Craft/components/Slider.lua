@@ -181,7 +181,7 @@ function Slider:Create(parent, config)
         if self._disabled or button ~= "LeftButton" then return end
         if hasHeader then
             local frameTop = self.frame:GetTop()
-            local scale    = UIParent:GetEffectiveScale()
+            local scale    = self.frame:GetEffectiveScale()
             local _, cy    = GetCursorPosition()
             -- Ignore clicks in the label row (above the track area)
             if frameTop and (cy / scale) > frameTop - self._trackTopFromFrameTop then return end
@@ -247,7 +247,12 @@ function Slider:_updateFromCursor()
     local trackLeft  = self._trackFrame:GetLeft()
     local trackRight = self._trackFrame:GetRight()
     if not trackLeft or not trackRight or trackRight <= trackLeft then return end
-    local cx    = GetCursorPosition() / UIParent:GetEffectiveScale()
+    -- GetLeft/GetRight are in the TRACK's own coordinate space (already divided by
+    -- its effective scale), so the cursor must be converted with the SAME scale — not
+    -- UIParent's. They only match when the slider's effective scale == UIParent's;
+    -- under any ancestor SetScale (e.g. Craft_Browser's zoom control) the ratio was
+    -- off by that factor and the slider read as dead (ADR-0011).
+    local cx    = GetCursorPosition() / self._trackFrame:GetEffectiveScale()
     local ratio = math.max(0, math.min(1, (cx - trackLeft) / (trackRight - trackLeft)))
     local v = self._min + ratio * (self._max - self._min)
     v = self._min + math.floor((v - self._min) / self._step + 0.5) * self._step

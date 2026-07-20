@@ -75,6 +75,18 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   atlas regenerado sin cambios de coordenadas (`Atlas.lua` igual). Verificado in-game a 24px.
 
 ### Fixed
+- **`Craft.Slider` y `Craft.DragList` inoperantes bajo un `SetScale` de un ancestro —
+  verificado in-game.** Ambos convertían la posición del cursor con
+  `UIParent:GetEffectiveScale()` mientras la comparaban contra `GetLeft()`/`GetRight()`/
+  `GetTop()`, que vienen en el espacio de coordenadas del **propio frame** (ya divididas por
+  SU escala efectiva). Las dos escalas solo coinciden cuando la del componente es la de
+  UIParent, así que el bug quedaba oculto en el caso normal; con un ancestro escalado (p. ej.
+  el control de zoom del Browser, `_demoFrame:SetScale(v/100)`) el cursor caía desplazado por
+  ese factor: el `ratio` del Slider se saturaba fuera de `[0,1]` (arrastre y click-to-jump
+  muertos por encima del 100%) y el guard de la fila de labels descartaba clicks válidos del
+  track; el drag de DragList se desincronizaba del mismo modo. Ahora ambos dividen por la
+  escala efectiva del frame que se está midiendo, como manda ADR-0011 (AGENTS.md §"MUST").
+  Scroll, Sidebar y Menu ya eran correctos.
 - **Bug #4 (anchos erróneos en el primer arranque) CERRADO — verificado in-game.** La sonda
   de fuentes de `theme/Theme.lua` tenía dos fallas: vigilaba SOLO `Inter-Regular` y disparaba
   una única vez (cada peso es un TTF separado que carga independiente — cuando `Inter-Medium`,
