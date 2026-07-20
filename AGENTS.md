@@ -351,13 +351,21 @@ La primerísima vez que una sesión del cliente usa un TTF bundled (Inter), el a
 async: `GetStringWidth()` medido justo tras `SetFont`/`SetText` devuelve métricas de la fuente
 aún no cargada, y todo componente de auto-ancho sale demasiado estrecho (los glifos luego se ven
 bien — solo los anchos quedaron congelados). Tras `/reload` el TTF ya está en la caché del
-proceso (carga síncrona) y no se reproduce. Mitigación en `theme/Theme.lua` (warm-up + sonda):
-FontStrings ocultos al cargar disparan la carga temprano, y una sonda re-mide un string fijo
-durante los primeros segundos — si su ancho cambia, re-notifica a los listeners de tema (los
-componentes re-ejecutan `_applyTheme`, que DEBE re-medir: `_recalcWidth`/`_layout`/
-`_recalcTriggerWidths`). Los layouts de contenedor que acumulan posiciones desde anchos medidos
-usan `Craft.Theme.onFontsReady(fn)` para re-renderizar (ver Craft_Browser). REGLA para
-componentes nuevos con auto-ancho: la re-medición debe vivir DENTRO de `_applyTheme`.
+proceso (carga síncrona) y no se reproduce. Dos trampas confirmadas in-game (12.0.7):
+**cada peso es un TTF separado que carga en su propio momento** (Regular puede asentar antes que
+Medium, el de los labels de Button — una sonda de un solo archivo que dispara una vez pierde a
+los demás), y **un FontString en un frame `Hide()`n puede no disparar la rasterización del TTF**
+(la sonda oculta nunca ve cambiar su ancho aunque la UI visible cargue la fuente por su cuenta).
+Mitigación en `theme/Theme.lua`: warm-up VISIBLE-imperceptible (frame 1×1 px en BOTTOMLEFT de
+UIParent, strata BACKGROUND, glifos alpha 0.02) + sonda POR ARCHIVO TTF que re-notifica a los
+listeners de tema en CADA asentamiento (los componentes re-ejecutan `_applyTheme`, que DEBE
+re-medir: `_recalcWidth`/`_layout`/`_recalcTriggerWidths`) + watchdog a 1s (~5 min) tras la
+ventana rápida de ~20s; `use()` re-arma sondas para TTFs nuevos (primer switch a Geist). Los
+layouts de contenedor que acumulan posiciones desde anchos medidos usan
+`Craft.Theme.onFontMetricsChanged(fn)` (persistente, dispara por cada asentamiento; ver
+Craft_Browser, que además tiene el diagnóstico `/craft fontprobe`); `onFontsReady(fn)` sigue
+existiendo como one-shot. REGLA para componentes nuevos con auto-ancho: la re-medición debe
+vivir DENTRO de `_applyTheme`.
 
 **Centrar texto verticalmente: ANCLA ÚNICA (LEFT/CENTER), nunca TOP+BOTTOM + `SetJustifyV`**
 Un FontString anclado TOP+BOTTOM con `SetJustifyV("MIDDLE")` renderiza Inter ópticamente

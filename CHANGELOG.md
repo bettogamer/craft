@@ -25,6 +25,20 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   quedan RESERVADOS: Lyra recalibra a 2px (field-content) y 20px (field-group).
 
 ### Fixed
+- **Bug #4 (anchos erróneos en el primer arranque) CERRADO — verificado in-game.** La sonda
+  de fuentes de `theme/Theme.lua` tenía dos fallas: vigilaba SOLO `Inter-Regular` y disparaba
+  una única vez (cada peso es un TTF separado que carga independiente — cuando `Inter-Medium`,
+  el de los labels de Button, asentaba después de Regular, el re-notify ya estaba gastado), y
+  el warm-up vivía en un frame `Hide()`n que puede no rasterizar el TTF (la sonda oculta nunca
+  veía cambiar su ancho). Ahora: warm-up VISIBLE-imperceptible (1×1 px, BOTTOMLEFT de UIParent,
+  strata BACKGROUND, glifos alpha 0.02), **sonda por archivo TTF** que re-notifica a los
+  listeners de tema en CADA asentamiento, **watchdog** a 1s (~5 min) tras la ventana rápida de
+  ~20s, y re-arme de sondas en `Theme.use()` (el primer switch de la sesión a otra familia —
+  p. ej. Geist — sufre la misma carga async). API nueva: `Craft.Theme.onFontMetricsChanged(fn)`
+  persistente (dispara por cada asentamiento; `onFontsReady` sigue one-shot para compat).
+  Craft_Browser re-renderiza la página visible en cada asentamiento y gana el diagnóstico
+  `/craft fontprobe` (estado de cada sonda + qué copia ganó el registro). Tests: +3 en
+  `reactive_spec` (suite 382).
 - **`Craft.Panel`**: la card-description ahora respeta `leading-relaxed` (1.625) en texto
   multilínea (`.cn-card-description { text-xs/relaxed }`) vía `SetSpacing ≈ size*0.625`
   (8px @12px); antes usaba el interlineado nativo de WoW (más apretado).

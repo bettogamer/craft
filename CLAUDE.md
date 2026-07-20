@@ -106,11 +106,19 @@ no se reproduce — solo falla el primerísimo boot.
 
 - **Síntoma:** botones estrechos/solapados solo en el primer arranque del juego; los glifos se
   ven bien (la fuente terminó cargando) pero los anchos quedaron congelados.
-- **Fix aplicado:** warm-up + sonda en `theme/Theme.lua`: FontStrings ocultos al cargar la lib
-  disparan la carga del TTF temprano; una sonda re-mide un string fijo (~20 s) y si el ancho
-  cambia re-notifica a los listeners de tema (todos los `_applyTheme` re-miden). La ventana
-  es larga a propósito: con 3 s un arranque en frío (disco frío) podía cargar el TTF *después*
-  de que la sonda se rindiera → botones cuadrados hasta cambiar de página. API
-  `Craft.Theme.onFontsReady(fn)` para contenedores que congelan posiciones (Craft_Browser
-  re-renderiza la página activa). Regla: en componentes con auto-ancho, la re-medición vive
-  DENTRO de `_applyTheme` (lección AGENTS.md §9).
+- **Causa raíz (2 iteraciones, cerrada 2026-07-19):** el fix original (sonda única ~20 s +
+  disparo one-shot) falló semanas por DOS razones: (1) **cada peso es un TTF separado** que
+  carga independiente — la sonda vigilaba solo `Inter-Regular` y disparaba UNA vez, así que
+  cuando `Inter-Medium` (labels de Button) asentaba después, el re-notify ya estaba gastado;
+  (2) **un FontString en frame `Hide()`n puede no rasterizar el TTF** — la sonda oculta nunca
+  veía cambiar su ancho aunque la UI visible cargara la fuente por su cuenta.
+- **Fix aplicado (verificado in-game):** en `theme/Theme.lua`: warm-up VISIBLE-imperceptible
+  (frame 1×1 px en BOTTOMLEFT de UIParent, strata BACKGROUND, glifos alpha 0.02) + sonda POR
+  ARCHIVO TTF que re-notifica a los listeners de tema en CADA asentamiento (todos los
+  `_applyTheme` re-miden) + watchdog a 1 s durante ~5 min tras la ventana rápida de ~20 s
+  (ancho estable ≠ fuente cacheada); `use()` re-arma sondas para TTFs nuevos (primer switch a
+  Geist en la sesión). API: `Craft.Theme.onFontMetricsChanged(fn)` persistente (dispara por
+  asentamiento; la usa Craft_Browser para re-renderizar la página activa) y
+  `Craft.Theme.onFontsReady(fn)` one-shot (compat). Diagnóstico: `/craft fontprobe` en el
+  Browser. Regla: en componentes con auto-ancho, la re-medición vive DENTRO de `_applyTheme`
+  (lección AGENTS.md §9).
