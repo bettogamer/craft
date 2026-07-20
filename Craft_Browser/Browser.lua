@@ -438,15 +438,22 @@ end
 
 -- ─── First-boot font fix ───────────────────────────────────────────────────
 -- Page layouts freeze positions computed from pre-font-load text widths (see
--- Theme.lua font warm-up). If the font settles late, re-render the visible
--- page so rows re-measure with the real metrics; hidden pages render fresh
--- on Show and need nothing.
-if Craft.Theme.onFontsReady then
+-- Theme.lua font warm-up). Each TTF (Regular/Medium/Bold) settles on its own
+-- schedule, so re-render the visible page EVERY time one settles — a single
+-- re-render on the first settle left Medium (Button labels) frozen wrong.
+-- Hidden pages render fresh on Show and need nothing.
+local function rerenderVisiblePage()
+    if _mainFrame and _mainFrame:IsShown()
+        and CraftBrowserDB and CraftBrowserDB.page then
+        CB.Navigate(CraftBrowserDB.page)
+    end
+end
+if Craft.Theme.onFontMetricsChanged then
+    Craft.Theme.onFontMetricsChanged(rerenderVisiblePage)
+elseif Craft.Theme.onFontsReady then
+    -- Older embedded Craft won the LibStub registration: one-shot fallback
     Craft.Theme.onFontsReady(function(metricsChanged)
-        if metricsChanged and _mainFrame and _mainFrame:IsShown()
-            and CraftBrowserDB and CraftBrowserDB.page then
-            CB.Navigate(CraftBrowserDB.page)
-        end
+        if metricsChanged then rerenderVisiblePage() end
     end)
 end
 
@@ -457,6 +464,24 @@ SlashCmdList["CRAFT"] = function(msg)
     msg = msg and msg:match("^%s*(.-)%s*$") or ""  -- trim
     if msg == "" then
         CB.Toggle()
+    elseif msg:lower() == "fontprobe" then
+        -- Diagnóstico del bug de anchos del primer boot (Theme.lua font warm-up):
+        -- imprime qué copia de Craft ganó el registro y el estado de cada sonda.
+        local T   = Craft.Theme
+        local out = DEFAULT_CHAT_FRAME
+        out:AddMessage(("|cff8bd5caCraft fontprobe|r v%s — onFontMetricsChanged=%s fontsReady=%s"):format(
+            tostring(Craft.VERSION),
+            tostring(T.onFontMetricsChanged ~= nil),
+            tostring(T._fontsReady)))
+        if not T._fontProbes then
+            out:AddMessage("  sin _fontProbes: una copia VIEJA de Craft ganó el registro LibStub")
+            return
+        end
+        for i, p in ipairs(T._fontProbes) do
+            local file = p.path and p.path:match("[^\\/]+$") or "?"
+            out:AddMessage(("  %d. %s  w0=%.1f  w=%.1f  settled=%s"):format(
+                i, file, p.w0 or -1, p.fs:GetStringWidth() or -1, tostring(p.settled)))
+        end
     else
         -- Capitalize first letter to match the page ID
         local pageId = msg:sub(1,1):upper() .. msg:sub(2):lower()
