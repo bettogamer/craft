@@ -56,8 +56,47 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 - **Token de spacing** `spacingLg2` (20px, `gap-5`) para el gap del `FieldGroup`,
   confirmado contra el CSS real de Lyra (mhtml). `spacingXs2` (6px) y `spacing2Xl` (28px)
   quedan RESERVADOS: Lyra recalibra a 2px (field-content) y 20px (field-group).
+- **Label clickable en `Craft.Field`** (FR-056): paridad con `<label for="id">` — clicar el
+  texto del label acciona el control asociado, ampliando el área interactiva práctica del
+  Field (complemento de la hit-area del Checkbox, FR-055). Reenvío **duck-typed**:
+  `control:Toggle()` si existe → `control:SetChecked(not control:GetChecked())` → **no-op
+  silencioso** (Frame crudo o control sin API de toggle, p. ej. un Input de texto: no es un
+  error). Un control deshabilitado no se acciona — el estado se detecta genéricamente con
+  `controlFrame:IsMouseEnabled()` (los `SetEnabled` de Craft apagan el mouse del frame), sin
+  tocar privados. El cableado es `EnableMouse` + `OnMouseDown` a mano sobre el frame del
+  label, **no** `Craft.Label` `config.onClick`: ese modo tiñe el texto de `primary` en hover
+  (afordancia de link que un label de formulario no tiene en Lyra) y chocaría con el color de
+  `data-[invalid=true]`. `SetLabel()` cablea también un label creado a posteriori.
+  Tests: 5 en `tests/field_spec.lua`.
+- **Página **Checkbox** del Browser ampliada a cobertura completa** (antes solo estados, label y
+  disabled): hit-area FR-055 con el target 40×32 **tintado** para poder clicar fuera del box y
+  ver que togglea, `onChange`, `SetEnabled`, `SetChecked`/`GetChecked`/`Toggle` con botones,
+  `SetLabel`, `SetError` (recordatorio: `error` NO es clave de `Create()`), el patrón real del
+  tri-estado (**"select all"** con padre en indeterminate y guard `syncing` — `SetChecked` dispara
+  `onChange`, así que padre→hijo→padre haría loop), props reactivas ADR-0013 (`checked` two-way,
+  `disabled` y `label` por signal) y la composición con `Field` de label clickable (FR-056).
+  Los checkboxes sueltos pasan a espaciarse **≥48px** en horizontal: con el hit rect de ±12px, los
+  32px anteriores hacían que dos hit-areas contiguas se solaparan 8px y el clic cerca de la costura
+  fuese al frame que quedara encima.
+- **`Toggle()` público en `Craft.Checkbox` y `Craft.Switch`**: invierte el estado como un clic
+  del usuario — dispara `onChange` **y** escribe el signal two-way (`config.checked`
+  writable), cosa que `SetChecked` no hace; no-op si está `disabled`. Existe porque el label
+  clickable de FR-056 necesitaba accionar el control sin romper los binds reactivos
+  ADR-0013: el fallback `SetChecked(not GetChecked())` habría dejado el signal desincronizado.
 
 ### Changed
+- **Hit-area del `Craft.Checkbox` expandida a 40×32px** (FR-055), con el box visual intacto en
+  16×16. Lyra agranda el target con un pseudo-elemento `::after` de inset negativo
+  (`after:-inset-x-3 after:-inset-y-2` = 12px horiz / 8px vert por lado); el equivalente WoW es
+  **`SetHitRectInsets` con valores negativos**, que expanden el rect de mouse del frame. Elegido
+  sobre el frame hitbox hijo que proponía el FR porque, igual que el pseudo-elemento, queda
+  **fuera del flujo de layout**: no altera `GetWidth`/`GetHeight`, así que `Field`, `Flex` y
+  `Grid` siguen midiendo el box real y ningún apilado existente se mueve. Una línea en
+  `Create()`, sin recálculo (con label el frame ya abarca box+gap+texto, y el margen se añade
+  también tras el texto). El margen vertical (16px totales) es menor que el gap del `FieldGroup`
+  (20px) → dos checkboxes apilados nunca solapan sus hit-areas. Spec `docs/components/checkbox.md`
+  §Hit-area; nuevo `tests/checkbox_spec.lua` (8), mock ampliado con `Get/SetHitRectInsets`.
+  **Verificado in-game**: el clic fuera del box visual togglea.
 - **Iconos Lucide con filtrado `TRILINEAR` (mipmaps)** (`Craft/icons/Icons.lua`, `I.Apply`):
   el downscale del atlas ahora muestrea el mip chain (POT → WoW lo auto-genera) en vez de
   bilineal plano → borde más liso y sin shimmer al minificar, a cualquier `UIScale`. Misma
@@ -98,6 +137,37 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   todo cuelga de `GetContent()`, no del frame raíz. Diff neto 0 líneas (67+/67−).
 
 ### Fixed
+- **`Craft.Checkbox` indeterminate se rellenaba de accent** (corrección de FR-054). El glyph SÍ es
+  un check (eso era correcto), pero al compartir glyph se asumió de más que indeterminate era
+  *visualmente idéntico* a checked, y `_paint` lo trataba con los endpoints de checked (fondo y
+  borde `primary`, glyph `primaryForeground`). En Lyra la regla de relleno está **scopeada a
+  `[data-state="checked"]`** (`.style-lyra .cn-checkbox:where([data-state=checked])`), así que
+  indeterminate no la matchea y cae al `.cn-checkbox` base: borde `input`, fondo `input/30` — el
+  card visible a través — y el check heredando `foreground`. Corroborado por el computed del
+  indicator en indeterminate (`color` = `oklch(0.987 0.002 197.1)` = `--foreground`, NO
+  `--primary-foreground`). Los tres estados no caben en un eje, así que el único `prog` se parte en
+  **dos tweens**: `_fill` (0 = unchecked+indeterminate, 1 = checked) para fondo/borde/tinte del
+  glyph, y `_iconA` (0 = unchecked, 1 = checked+indeterminate) para el alpha del check. 7 tests
+  nuevos en `tests/checkbox_spec.lua`. Spec `docs/components/checkbox.md` corregida (las tablas de
+  estados afirmaban lo contrario).
+- **`SetError` no repintaba hasta el siguiente toggle** (`Craft.Checkbox`): el effect solo se
+  re-dispara cuando se mueve un tween, y `SetError` conserva el state code (la equality-cut del
+  signal descarta el `set`), así que el borde `destructive` no llegaba a pintarse. `_refreshVisual`
+  pasa a repintar al progreso vivo — chokepoint único, cubre todas las rutas de cambio de estado.
+- **Todos los iconos se dibujaban un 12.5% más pequeños que el `size` pedido** (FR-057).
+  El atlas rasteriza cada glyph a 56px centrado en una celda de 64px con 4px de gutter
+  transparente por lado, pero el UV de `Craft.Icons.Get` abarcaba la celda **entera**: al
+  pedir `size` px, WoW metía los 64px de celda en ese `size`, así que el glyph (56 de esos
+  64) se dibujaba a `size × 0.875`. Sistémico — afectaba a todos los call sites (Badge,
+  Button, Checkbox, Combobox, Dialog, DragList, Input, Menu, RadioGroup…), y el contrato
+  documentado de `size` ("tamaño de display en px") no se cumplía. Lo destapó el check del
+  Checkbox: pedía el token Lyra 14 (`size-3.5`) y salía a 12.25px. Ahora el inset por lado
+  es `(GUTTER + 0.5) / (DIV * CELL)` — recorta el gutter **además** del medio texel
+  bilineal de siempre — así que el UV cubre el glyph y el viewBox mapea al `size` completo.
+  El footprint de la textura no cambia (`SetSize` sigue usando `size`): ningún ancla ni gap
+  de ningún componente se mueve, y el gutter sigue en el TGA separando vecinos del
+  filtrado, solo deja de mostrarse (más margen para los mips, no menos). Test de regresión
+  en `tests/icons_spec.lua` (405).
 - **El grip de resize de `Craft.Window` y el scrollbar de `Craft.Scroll` se dibujaban
   encima en la esquina abajo-derecha — verificado in-game.** El grip flota sobre el área de contenido con
   `FrameLevel +10`, y un Scroll a ras de esa esquina corría su riel justo por debajo: los
