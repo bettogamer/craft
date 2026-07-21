@@ -255,8 +255,26 @@ end
 -- Spacing/sizing values (8px, 12px, etc.) do NOT need these helpers.
 
 function T.px(n, frame)
-    local scale = (frame or UIParent):GetEffectiveScale()
-    return math.max(n / scale, 0.5)  -- 0.5 is the minimum visible WoW unit
+    frame = frame or UIParent
+    local scale = frame:GetEffectiveScale()
+    -- Delegar en el MISMO grid físico que usa SetPixelHeight/Width (PixelUtil). Antes esto
+    -- devolvía n/scale, que asume 1 UI unit == 1 px físico — falso salvo a uiscale default:
+    -- en un cliente pixel-perfect (eff == 768/altura), n/scale SOBREESTIMA el "1px" ×(1/pp)
+    -- (p. ej. 1.406× a 1080p), así que el inset de 1px del bg no casaba con el grosor de 1px
+    -- del borde (que sí snapea a la rejilla física) → borde tapado/hueco/parcial. Delegar
+    -- garantiza inset == grosor por construcción, en cualquier escala (FR-058).
+    if PixelUtil and PixelUtil.GetNearestPixelSize then
+        return PixelUtil.GetNearestPixelSize(n, scale, n ~= 0 and 1 or 0)
+    end
+    -- Fallback (Classic / sin PixelUtil): el tamaño real de 1px depende de la pantalla física
+    -- (pp = 768/altura), no solo de la escala del frame. A uiscale default pp≈1 y equivale al
+    -- comportamiento antiguo; en pixel-perfect corrige el factor.
+    local pp = 1
+    if GetPhysicalScreenSize then
+        local _, ph = GetPhysicalScreenSize()
+        if ph and ph > 0 then pp = 768 / ph end
+    end
+    return math.max(n * pp / scale, 0.5)  -- 0.5 is the minimum visible WoW unit
 end
 
 function T.SetPixelHeight(frame, n)

@@ -303,11 +303,36 @@ function wipe(t)                 for k in pairs(t) do t[k] = nil end; return t e
 function tinsert(t, v)           table.insert(t, v) end
 function tremove(t, i)           return table.remove(t, i) end
 
--- PixelUtil (Retail — simple stub for tests)
+-- Physical screen (configurable per-test). Default 1366×768 → pp = 768/768 = 1.0, i.e. uiscale
+-- default where 1 UI unit == 1px and the old px() formula happened to be correct. A test that
+-- reproduces a pixel-perfect 1080p client calls MockSetPhysicalScreenHeight(1080) + SetScale.
+local _physHeight = 768
+function GetPhysicalScreenSize()
+    return math.floor(_physHeight * 1366 / 768 + 0.5), _physHeight
+end
+function MockSetPhysicalScreenHeight(h) _physHeight = h or 768 end
+
+-- Device-pixel grid model, matching WoW PixelUtil: snaps a UI size to a whole number of
+-- physical pixels (min `minPixels`). pp = 768/altura is the pixel→UI factor; 1 device px in
+-- UI units = pp/scale. This is what makes SetPixelHeight and (now) T.px agree by construction.
+local function _nearestPixel(size, scale, minPixels)
+    if size == 0 then return 0 end
+    scale = scale or 1
+    local pp = 768 / _physHeight
+    local n  = math.max(math.floor(math.abs(size) * scale / pp + 0.5), minPixels or 0)
+    local v  = n * pp / scale
+    return size < 0 and -v or v
+end
+
+-- PixelUtil (Retail model)
 PixelUtil = {
-    SetHeight  = function(frame, h, min) frame:SetHeight(h) end,
-    SetWidth   = function(frame, w, min) frame:SetWidth(w) end,
-    SetSize    = function(frame, w, h, mw, mh) frame:SetSize(w, h) end,
+    GetNearestPixelSize = _nearestPixel,
+    SetHeight  = function(frame, h, min)  frame:SetHeight(_nearestPixel(h, frame:GetEffectiveScale(), min or 1)) end,
+    SetWidth   = function(frame, w, min)  frame:SetWidth(_nearestPixel(w, frame:GetEffectiveScale(), min or 1)) end,
+    SetSize    = function(frame, w, h, mw, mh)
+        frame:SetSize(_nearestPixel(w, frame:GetEffectiveScale(), mw or 1),
+                      _nearestPixel(h, frame:GetEffectiveScale(), mh or 1))
+    end,
 }
 
 -- UISpecialFrames
