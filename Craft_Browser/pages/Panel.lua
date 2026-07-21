@@ -20,6 +20,13 @@ CraftBrowserPages["Panel"] = {
             return yOff + 20
         end
 
+        -- Helper to track raw frames for teardown: hide and reparent them
+        -- (used in Clone repo demo and Notifications demo below)
+        local function trackFrame(f)
+            table.insert(comps, { Destroy = function() f:Hide(); f:SetParent(nil) end })
+            return f
+        end
+
         -- Basic panel (background + ring only)
         y = addLabel("Basic panel (300×120)", y)
         local p1 = Craft.Panel:Create(parent, { width=300, height=120 })
@@ -311,12 +318,6 @@ CraftBrowserPages["Panel"] = {
         -- Ported from shadcn-pages/Repo - shadcn_ui.mhtml.
         y = addLabel("Clone repository — Card (nested Tabs fill/line, Field, ghost actions)", y)
 
-        -- Register a raw (non-component) frame for teardown: hidden + reparented.
-        local function trackFrame(f)
-            table.insert(comps, { Destroy = function() f:Hide(); f:SetParent(nil) end })
-            return f
-        end
-
         local CLONE_W     = 320                       -- w-80 card
         local CLONE_INNER = CLONE_W - 2 * 16          -- px-4 each side = 288
         local cloneLocalH = 212                       -- height of the "Local" tab content
@@ -464,6 +465,7 @@ CraftBrowserPages["Panel"] = {
         -- Section headers (auto-sizing since FR-044) once the sections exist — see below.
         local FAQ_ACC_H = 200
         local FAQ_H     = FAQ_BAR + FAQ_ACC_H + FAQ_FOOTER + FAQ_PY
+
         local faqPanel = Craft.Panel:Create(parent, {
             width  = FAQ_W,
             height = FAQ_H,
@@ -685,16 +687,16 @@ CraftBrowserPages["Panel"] = {
         table.insert(comps, prefsGroup)
 
         -- Field 1 (vertical): Default Currency — Select
-        local currencySelect = Craft.Select:Create(prefsContent, {
+        local prefsCurrencySelect = Craft.Select:Create(prefsContent, {
             options = {
                 { value = "usd", label = "USD — United States Dollar" },
                 { value = "eur", label = "EUR — Euro" },
             },
             value = "usd", width = 328,
         })
-        table.insert(comps, currencySelect)
+        table.insert(comps, prefsCurrencySelect)
         local currencyField = Craft.Field:Create(prefsContent, {
-            label = "Default Currency", control = currencySelect, orientation = "vertical", width = 328,
+            label = "Default Currency", control = prefsCurrencySelect, orientation = "vertical", width = 328,
         })
         table.insert(comps, currencyField)
         prefsGroup:AddChild(currencyField)
@@ -742,6 +744,101 @@ CraftBrowserPages["Panel"] = {
         end
 
         y = y + 400 + 24
+
+        -- Notifications card (shadcn "Notifications" example — checkbox-group with custom layout)
+        y = addLabel("Notifications — Card with checkbox-group (custom layout)", y)
+        local notifPanel = Craft.Panel:Create(parent, {
+            width       = 360,
+            height      = 380,
+            title       = "Notifications",
+            description = "Choose what you want to be notified about.",
+        })
+        notifPanel:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, notifPanel)
+
+        local notifContent = notifPanel:GetContent()
+        local notifGroup = Craft.FieldGroup:Create(notifContent, { width=328, gap=12 })
+        notifGroup:GetFrame():SetPoint("TOPLEFT", notifContent, "TOPLEFT", 0, 0)
+        table.insert(comps, notifGroup)
+
+        -- Fila 1: Checkbox "Select all" (indeterminate)
+        local selectAllCheckbox = Craft.Checkbox:Create(notifContent, {
+            checked = "indeterminate",
+            label   = "Select all",
+        })
+        table.insert(comps, selectAllCheckbox)
+        notifGroup:AddChild(selectAllCheckbox:GetFrame())
+
+        -- Helper to add checkbox rows without a label, with description to the right
+        -- Layout: checkbox (16) + gap (8) + content (label + gap + description)
+        local function addCheckboxDescRow(labelText, descText, checked)
+            local host = trackFrame(CreateFrame("Frame", nil, notifContent))
+            local contentW = 328 - 16 - 8  -- group width - checkbox - gap
+
+            -- Checkbox on the left
+            local checkbox = Craft.Checkbox:Create(host, { checked = checked })
+            checkbox:GetFrame():SetPoint("LEFT", host, "LEFT", 0, 0)
+            table.insert(comps, checkbox)
+
+            -- Label on the right of the checkbox (top-aligned)
+            local labelLbl = Craft.Label:Create(host, { text = labelText })
+            labelLbl:GetFrame():SetPoint("TOPLEFT", checkbox:GetFrame(), "TOPRIGHT", 8, 0)
+            table.insert(comps, labelLbl)
+
+            -- Description below the label (with 2px gap)
+            local descLbl = Craft.Label:Create(host, {
+                text  = descText,
+                color = { r=t.mutedForeground.r, g=t.mutedForeground.g, b=t.mutedForeground.b, a=1 },
+            })
+            descLbl:GetFrame():SetPoint("TOPLEFT", labelLbl:GetFrame(), "BOTTOMLEFT", 0, -2)
+            descLbl:GetFrame():SetWidth(contentW)
+            descLbl:GetFrame():SetHeight(14)  -- text-xs = 12px, but measure for wordwrap
+            table.insert(comps, descLbl)
+
+            -- Host frame height = max(checkbox 16, label + 2 + desc)
+            local labelH = labelLbl:GetFrame():GetHeight() or 14
+            local descH  = descLbl:GetFrame():GetStringHeight() or 14
+            local hostH  = math.max(16, labelH + 2 + descH)
+            host:SetHeight(hostH)
+
+            notifGroup:AddChild(host)
+        end
+
+        addCheckboxDescRow(
+            "Transaction alerts",
+            "Deposits, withdrawals, and transfers.",
+            true
+        )
+        addCheckboxDescRow(
+            "Security alerts",
+            "Login attempts and account changes.",
+            true
+        )
+        addCheckboxDescRow(
+            "Goal milestones",
+            "Updates at 25%, 50%, 75%, and 100%.",
+            false
+        )
+        addCheckboxDescRow(
+            "Market updates",
+            "Daily portfolio summary and price alerts.",
+            false
+        )
+
+        -- Footer: "Save Preferences" button (full-width)
+        notifPanel:ShowFooter(52)
+        local notifFooter = notifPanel:GetFooter()
+        if notifFooter then
+            local saveBtn = Craft.Button:Create(notifFooter, {
+                text    = "Save Preferences",
+                variant = "default",
+            })
+            saveBtn:GetFrame():SetPoint("LEFT",  notifFooter, "LEFT",  16, 0)
+            saveBtn:GetFrame():SetPoint("RIGHT", notifFooter, "RIGHT", -16, 0)
+            table.insert(comps, saveBtn)
+        end
+
+        y = y + 380 + 24
 
         return {
             height  = y + 24,
