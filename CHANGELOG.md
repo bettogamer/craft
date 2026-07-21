@@ -74,7 +74,60 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   `prepare_svg` reemplaza solo `stroke-width="2"` (glifos locales como `disc` con `"0"` intactos);
   atlas regenerado sin cambios de coordenadas (`Atlas.lua` igual). Verificado in-game a 24px.
 
+### Changed
+- **El main frame de Craft_Browser ahora ES un `Craft.Window` headless.** El Browser es
+  anterior a `Craft.Window`, así que su ventana principal era un `CreateFrame` a mano con
+  fondo propio, cableado propio de movable/resizable/clamp y **su propio grip de resize** —
+  y esa divergencia fue exactamente la que dejó el grip con `grip-vertical` y pisando el
+  scrollbar del demo: el showcase de la librería no se comía su propia comida. Pasa a
+  `Craft.Window:Create(UIParent, { header = false, … })` (**headless**, FR-019) porque el
+  chrome es propio: el header del Sidebar lleva título y ✕, el demoHeader lleva
+  título/descripción de la página; ambos se registran con `_win:EnableDragFrom(region)`,
+  que ya dispara `onMoved` (ahí se persiste x/y). El Browser deja de mantener: fondo,
+  handle de resize, bounds, clamp y persistencia de tamaño (`onResized`), y **gana** gratis
+  anillo de 1px, Escape-to-close, `SetToplevel` (raise-on-click), el fade+zoom de
+  apertura/cierre y la esquina reservada que mantiene el rail del Scroll fuera del grip.
+  `strata` explícito `"HIGH"` para conservar el nivel histórico; `CraftBrowserFrame` se
+  conserva como alias global (la Window nombra los suyos `CraftWindow_N` y es ése el que
+  registra en `UISpecialFrames`). Cuidados documentados en `docs/craft-browser.md` §4:
+  `CB.Show/Hide` van por el Window (nunca `frame:Show()`, que pelearía con el binding de
+  Weave); la posición guardada se restaura DESPUÉS de `Create` (el tween de zoom re-ancla a
+  CENTER desde el offset que captura en cada flip, así que el `TOPLEFT` se conserva); y
+  todo cuelga de `GetContent()`, no del frame raíz. Diff neto 0 líneas (67+/67−).
+
 ### Fixed
+- **El grip de resize de `Craft.Window` y el scrollbar de `Craft.Scroll` se dibujaban
+  encima en la esquina abajo-derecha.** El grip flota sobre el área de contenido con
+  `FrameLevel +10`, y un Scroll a ras de esa esquina corría su riel justo por debajo: los
+  ~18px finales mostraban el thumb y el icono superpuestos. Ahora la Window **anuncia** la
+  esquina reservada estampando `_content._craftCornerInset = 18` (`Window.CORNER_MARK`;
+  string literal compartido en vez de `Craft.Window.X`, para sobrevivir al registro
+  versionado de bug #1) y el Scroll sube por la cadena de padres buscando esa marca. La
+  aplica sólo si su propia esquina abajo-derecha coincide con la del ancestro (tolerancia
+  4px), así que un Scroll que no llega a la esquina conserva el riel entero. **Cero
+  configuración** para el dev y el mecanismo queda abierto a cualquier componente que
+  dibuje en esa esquina. Sólo se acorta el **riel**: el viewport mantiene su altura, no se
+  pierde contenido. Detalles finos: el re-anclaje va guardado por igualdad
+  (`_cornerInsetApplied`) porque redimensionar el riel dispara su propio `OnSizeChanged` →
+  `_updateScrollbar`, un lazo que sin guard no termina; y `_trackHeight()` deriva la altura
+  del root menos la reserva en lugar de leer `_scrollbar:GetHeight()`, stale en el mismo
+  tick del re-anclaje. Specs: `docs/components/scroll.md`, `docs/components/window.md`.
+  Tests: `tests/scroll_spec.lua` (10, nuevo — primer spec de Scroll y de Window). Demo:
+  la página **Window** del Browser abre con un `Craft.Scroll` de 40 filas llenando el
+  content area, que es el caso que ejercita la esquina reservada.
+- **El grip de resize usaba el icono equivocado.** Era `grip-vertical`, que en Lucide son
+  los 3 puntos verticales de *arrastrar para reordenar* (el que usa `Craft.DragList`) —
+  semántica errónea para una esquina de redimensionado. Lucide no trae un glifo de
+  corner-grip (`move-diagonal*` son flechas ↖↘, que se leen como "expandir/pantalla
+  completa"), así que se añade **`resize-corner`** como glifo Craft-local vía el hook
+  `LOCAL_SVGS` de `scripts/export-icons.py` (precedente: `disc`): tres trazos de longitud
+  decreciente paralelos a la esquina, perpendiculares al eje NW-SE que el handle
+  redimensiona — la convención universal de escritorio. Dibujado en el viewBox 24×24 de
+  Lucide con `stroke-width="2"` para que `prepare_svg` lo suba a `ICON_STROKE_WIDTH` como
+  cualquier otro icono. El atlas pasa de 1747 a **1748** iconos; al entrar alfabéticamente
+  antes de `rewind` desplaza una celda a los 490 posteriores (`Craft/icons/Atlas.lua`
+  regenerado). **`Craft/media/lucide.tga` es gitignored** — se regenera con
+  `python scripts/export-icons.py`.
 - **`Craft.Slider` y `Craft.DragList` inoperantes bajo un `SetScale` de un ancestro —
   verificado in-game.** Ambos convertían la posición del cursor con
   `UIParent:GetEffectiveScale()` mientras la comparaban contra `GetLeft()`/`GetRight()`/
