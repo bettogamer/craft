@@ -6,7 +6,62 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-07-21
+
+> **Release v2.10.0 — dos componentes nuevos, un motor de layout y una ola de fidelidad pixel-perfect.**
+> Añade **`Craft.Grid`** (motor de layout 2D hermano de Flex, FR-040), **`Craft.Switch`** (FR-052) y
+> **`Craft.Field`/`Craft.FieldGroup`** (FR-041); las variantes **line/fill** de `Craft.Tabs` (FR-042/043);
+> el slot **CardAction** en `Craft.Panel` (FR-039); la primera técnica de **esquinas redondeadas** por
+> texturas prefabricadas (ADR-0018/FR-053) piloteada en el Switch; y la jerarquía de z-order
+> **`Craft.Strata`** (FR-033). Cierra además un lote grande de fidelidad: el 1px de los bordes
+> (FR-058), el bug #4 de anchos en el primer arranque, el 12.5% de sub-tamaño de todos los iconos
+> (FR-057), el layering del modal sobre `Craft.Window` (FR-033) y refinamientos de Sidebar, Section
+> y Panel. MINOR, retrocompatible (key `Craft-2.0`). `CRAFT_BUILD` 10→11. Suite: **439 tests**
+> (luacheck 0/0, taintlint 0/0). Verificado in-game (owner) a lo largo del ciclo.
+
 ### Added
+- **`Craft.Grid`** (FR-040 / ADR-0017): motor de layout 2D hermano de `Craft.Flex` (mismo contrato de
+  instancia — no crea frames, calcula y aplica `SetPoint`/`SetSize`). MVP con el subconjunto que usa
+  shadcn: tracks por columna/fila (`"<n>fr"` | `"auto"` | px), `col`/`row` 1-indexado + `colSpan`/`rowSpan`,
+  `justifySelf`/`alignSelf` (`start|center|end|stretch`, default `stretch`), `gap` uniforme + `rowGap`/`colGap`,
+  `paddingH`/`paddingV`, y `GetContentWidth`/`GetContentHeight` para auto-dimensionar el contenedor. Reutiliza
+  las lecciones de Flex (`math.floor` en offsets por ADR-0011, `ClearAllPoints` antes de `SetPoint`, cache
+  `_naturalW/_naturalH` estable en resize, guarda de ancho 0) y se registra con `Craft.register`
+  (build-versioned, bug #1). Spec `docs/components/grid.md`; demo `Craft_Browser/pages/Grid.lua` (8 ejemplos).
+  Tests: `tests/grid_spec.lua` (7). Desbloquea FR-039.
+- **Slot `CardAction` en `Craft.Panel`** (FR-039): acción en la esquina superior derecha del header
+  (mapeo directo del `CardAction` de `card.tsx`), primer consumidor de `Craft.Grid`. API aditiva:
+  `config.action` + `SetHeaderAction`/`GetHeaderAction`. Con acción, el header se maqueta con Grid
+  `[1fr auto]` (columna `1fr` apila título/descripción, columna `auto` lleva la acción `justify-self:end`,
+  `self-start`, row-span completo; título pasa a `SetWordWrap(false)`/truncate). Sin acción conserva el
+  layout de ancla única histórico. Demo: Form Card "Payout Threshold" con un `Button` ghost/icon. Tests:
+  `tests/panel_spec.lua` NUEVO (7).
+- **`Craft.Tabs` `variant="line"`** (FR-042): barra transparente con `border-b`, triggers content-width con
+  `gap-1` y **subrayado de 2px** en `t.foreground` bajo la tab activa (en vez de fondo). Textura `_underline`
+  por trigger (`SetPixelHeight` 2, ADR-0011) anclada al `border-b` y que sigue al trigger en wrap. Reutiliza el
+  motor (Flex wrap, auto-width, icon slots); API pública sin cambios, default sin regresión. Tests: +11 en
+  `tests/tabs_spec.lua`.
+- **`Craft.Tabs` `config.fill`** (FR-043): reproduce el patrón shadcn `TabsList w-full` + `trigger flex-1` —
+  los triggers reparten la lista en columnas iguales (`grow=1`, `shrink=1`, `basis=0`) con el label centrado.
+  Compone con `variant="line"` sin tocar el motor ni el subrayado. Tests: +4 en `tests/tabs_spec.lua`.
+- **`Craft.Strata`** (FR-033): fuente de verdad única del z-order de la librería, con la invariante
+  `page (Window) < modalOverlay < modal (Dialog) < popover (Tooltip/dropdowns)` mapeada a stratas WoW. Sustituye
+  la elección suelta de strata por componente. `Craft.Dialog` gana `config.strata` opcional (default
+  `Craft.Strata.modal`). Ver el fix de layering del modal abajo (FR-033).
+- **`config.paddingY` y `config.flush` en `Craft.Panel`** (FR-046): `paddingY` (default `spacingLg`) controla el
+  padding vertical del content en la rama sin header/footer; `flush = true` es azúcar full-bleed (padding 0 +
+  `paddingY` 0) para usar la Card como marco (sidebar, imagen, tabla, mapa). Tests: +4 en `tests/panel_spec.lua`.
+- **`config.width` en `Craft.Select`** (FR-036): fija el ancho del trigger (`nil` = fill parent); estaba
+  documentado pero nunca capturado ni aplicado. El `itemText` pasa de doble ancla horizontal (invisible en boot
+  frío, bug #2) a ancla única `LEFT` + `SetWidth`, reaplicado en `_buildItems` para sobrevivir a la re-medición
+  de fuentes. Demo "Fixed width" en el Browser. Verificado in-game.
+- **`config.format` + `SetFormat()` en `Craft.Slider`** (FR-034): hook `format(v, context)` (context =
+  `value|min|max`, default `tostring`) aplicado a los labels de valor/min/max, con cambio en runtime. Tests:
+  `tests/slider_spec.lua` (11).
+- **Estado `disabled` de item en `Craft.Sidebar`** (FR-048, Opción A): `items[i].disabled` apaga el mouse del
+  item (chevron incluido) sin scripts de interacción y tiñe label/ícono/chevron a `t.mutedForeground` con
+  `a=0.5` (`disabled:pointer-events-none disabled:opacity-50`), con precedencia visual sobre activo/hover.
+  Tests: +5 en `tests/sidebar_spec.lua`.
 - **`Craft.Switch`** (FR-052): control booleano pill track + thumb deslizante (shadcn
   `switch`). Dos tamaños Lyra reales (devtools mhtml): `default` 32×18 (Lyra 18.4,
   redondeado a px enteros) con thumb 16, `sm` 24×14 con thumb 12; recorrido
@@ -114,7 +169,22 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   `prepare_svg` reemplaza solo `stroke-width="2"` (glifos locales como `disc` con `"0"` intactos);
   atlas regenerado sin cambios de coordenadas (`Atlas.lua` igual). Verificado in-game a 24px.
 
-### Changed
+- **`Craft.Section`: el título del trigger envuelve y `line-height` a 16** (FR-044). Un título largo en una
+  card angosta se dibujaba ENCIMA del chevron (FontString ancla `LEFT` sin `SetWidth`/`SetWordWrap` y
+  `HEADER_H` constante). Ahora: `LINE_H` 14→16 (text-xs `line-height` 1.333 × 12px, devtools Lyra), header
+  **dinámico** (`HEADER_MIN=36` como piso de una línea + signal reactivo `_headerH`), `_title` con ancla única
+  `TOPLEFT` (bug #2) + `SetWordWrap` y ancho reservado (`headerW − chevron16 − gap8`), chevron `TOPRIGHT`
+  (`items-start`), y `_remeasureHeader()` en `OnSizeChanged` y en `_applyTheme` (cubre la carga tardía de Inter,
+  bug #4). Tests: +6 en `tests/section_spec.lua`. Verificado in-game.
+- **`Craft.Sidebar`: el sub-item activo conserva peso regular** (FR-047). Lyra solo aplica `font-medium` al
+  `data-active` del `menu-button` raíz; el `menu-sub-button` anidado queda en peso regular. `_colorItem`
+  condiciona `fontMedium` a `entry.depth == 0`. Tests: +3 en `tests/sidebar_spec.lua`.
+- **`Craft.Sidebar`: chevron del árbol homologado a 16px** (FR-049). `CHEV_SIZE` 14→16 = `ICON_SIZE`
+  (convención Lyra `[&_svg]:size-4` para todos los iconos de la fila).
+- **`Craft.Sidebar`: separador con padding de grupo** (FR-050). El separador cierra el grupo anterior (+8px) y
+  reabre el siguiente con un solo pad → `item ─ 8 ─ sep(1px) ─ 8 ─ header` (grupo `p-2` + separator + grupo `p-2`
+  en Lyra); antes quedaba pegado al item (0px arriba / 16px abajo). Reportado por el owner in-game. Tests: +
+  posiciones del separador en `tests/sidebar_spec.lua`.
 - **El main frame de Craft_Browser ahora ES un `Craft.Window` headless — verificado
   in-game.** El Browser es
   anterior a `Craft.Window`, así que su ventana principal era un `CreateFrame` a mano con
@@ -137,6 +207,43 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   todo cuelga de `GetContent()`, no del frame raíz. Diff neto 0 líneas (67+/67−).
 
 ### Fixed
+- **`Craft.Dialog` abierto desde una `Craft.Window` quedaba detrás e inutilizable** (FR-033). Ambos en strata
+  `DIALOG` con el backdrop en `HIGH` (por debajo de la Window): el modal no se veía ni se cerraba y sus botones
+  quedaban tapados. Se resuelve introduciendo `Craft.Strata` (arriba) y, tras varias iteraciones in-game, con
+  tres lecciones de z-order documentadas en `docs/components/dialog.md`: (1) un backdrop modal que bloquea la UI
+  de abajo pero deja clicable el contenido de arriba exige que el contenido vaya en una strata **estrictamente
+  superior** al backdrop, nunca en la misma separada por `SetFrameLevel` (un overlay full-screen con
+  `EnableMouse` se come los clics pese al frame-level); (2) un frame que debe **flotar sobre toda la UI se
+  parenta a `UIParent`**, no al frame del caller — una strata alta pedida por un frame sepultado en otra
+  jerarquía no se honra de forma fiable; (3) la ✕, hermana del header de drag, necesita `frame-level` explícito
+  para ganar el clic (si no, iniciar drag en vez de cerrar). Verificado in-game.
+- **`Craft.Flex`: `order` no era estable** (FR-032). `table.sort` de Lua es quicksort (no estable): devolver
+  `false` para iguales evitaba el error de la order-function pero no preservaba la inserción, así que al crecer
+  la lista el layout de consumidores sin `order` explícito se revolvía (regresión Coffer). Se decora cada hijo
+  con `_seq` y se desempata por él, recuperando la semántica de `order` de flexbox. Cubierto por
+  `tests/flex_spec.lua`.
+- **`Craft.Panel`: header de doble ancla, footer a ras y gap duplicado** (FR-035). El título pasa a ancla única
+  `TOPLEFT` (evita el bug invisible-hasta-`/reload` cuando el header tiene `width=0` al anclar); la descripción
+  usa ancla izquierda + `SetWidth` explícito para que `SetWordWrap` fluya el texto; el `config.footer` se
+  **insetea `p-4`** (16px) sobre el separador `border-t` en vez de `SetAllPoints`; y el header deja de incluir
+  16px finales — el único `gap-4` al content viene del ancla del content (antes se duplicaba a 32px).
+- **`Craft.Select` y `Craft.Combobox`: doble tinte del fondo por el borde full-fill** (FR-038). El `_triggerBorder`
+  era una textura full-fill bajo el `_triggerBg` translúcido, así que el interior quedaba teñido 2× (border 0.15 +
+  bg 0.045 apilados → ~2× más claro que shadcn). Se reemplaza por un **anillo de 1px** (4 texturas vía
+  `Craft.Theme.AnchorBorder`, misma técnica que `Input`) con painter compartido para idle/open/close. Verificado
+  in-game.
+- **`Craft.Input`/`Craft.Textarea`: el borde `destructive` no persistía en foco** (FR-037). `aria-invalid:border-destructive`
+  gana sobre `focus-visible:border-ring` en shadcn, así que un campo con error mantiene el borde rojo aunque esté
+  enfocado. Ambos endpoints (idle y focus) pasan a `t.destructive`; `SetError` recomputa los dos y repinta al
+  progreso vigente.
+- **`Craft.Tabs`: el fondo de la tab activa asumía semántica Tailwind v3** (`bg-input/30` = blanco al 30%). En v4
+  `bg-x/NN` compila a `color-mix(... NN%, transparent)` que **multiplica** el alpha del token (`--input` es
+  blanco@15% → resultado real ≈ blanco@0.045, un relleno mucho más sutil, delineado sobre todo por `border-input`).
+  Ajustado a `t.input` con alpha `(t.input.a or 0.15) * 0.30`; además se quita el relleno accent del hover (el
+  trigger shadcn solo tiene `hover:text-foreground`, sin fondo), unificando el hover de ambas variantes.
+- **`Craft.Sidebar`: el scrollbar seguía visible sin overflow** (FR-051). `_updateSbar` oculta/muestra el
+  `_sbarFrame` completo (track + thumb) según `childH > viewH`; antes solo se ocultaba el thumb y el track de 4px
+  quedaba siempre visible. Reportado por el owner in-game. Tests: + visibilidad del scrollbar en `tests/sidebar_spec.lua`.
 - **`Craft.Theme.px()` sobreestimaba el "1px" → el inset del bg no casaba con el grosor del
   borde** (FR-058). `px(n) = max(n/scale, 0.5)` asumía 1 UI unit == 1 píxel físico, cierto solo a
   `uiscale` default; en un cliente **pixel-perfect** (`eff == 768/altura`, p. ej. 0.7111 a 1080p, 1

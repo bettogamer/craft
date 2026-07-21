@@ -43,7 +43,7 @@ CraftThemeAxes.style = {
         spacingLg               = 16,
         spacingLg2              = 20,   -- gap-5 (FieldGroup gap — Lyra devtools; corrige el placeholder spacing2Xl)
         spacingXl               = 24,
-        spacing2Xl              = 28,   -- gap-7 (base .tsx; Lyra usa gap-5=spacingLg2 para FieldGroup — token reservado)
+        spacing2Xl              = 28,   -- gap-7 (base .tsx; Lyra usa gap-5=spacingLg2 en FieldGroup — reservado)
         borderWidth             = 1,
         focusRingWidth          = 2,    -- RESERVADO: WoW es mouse-only
         iconSizeSm              = 16,
