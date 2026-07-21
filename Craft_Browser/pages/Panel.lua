@@ -776,8 +776,9 @@ CraftBrowserPages["Panel"] = {
             local contentW = 328 - 16 - 8  -- group width - checkbox - gap
 
             -- Checkbox on the left
+            -- items-start (no items-center): con description, Lyra alinea el control arriba.
             local checkbox = Craft.Checkbox:Create(host, { checked = checked })
-            checkbox:GetFrame():SetPoint("LEFT", host, "LEFT", 0, 0)
+            checkbox:GetFrame():SetPoint("TOPLEFT", host, "TOPLEFT", 0, 0)
             table.insert(comps, checkbox)
 
             -- Label on the right of the checkbox (top-aligned)
@@ -785,20 +786,22 @@ CraftBrowserPages["Panel"] = {
             labelLbl:GetFrame():SetPoint("TOPLEFT", checkbox:GetFrame(), "TOPRIGHT", 8, 0)
             table.insert(comps, labelLbl)
 
-            -- Description below the label (with 2px gap)
-            local descLbl = Craft.Label:Create(host, {
-                text  = descText,
-                color = { r=t.mutedForeground.r, g=t.mutedForeground.g, b=t.mutedForeground.b, a=1 },
-            })
-            descLbl:GetFrame():SetPoint("TOPLEFT", labelLbl:GetFrame(), "BOTTOMLEFT", 0, -2)
-            descLbl:GetFrame():SetWidth(contentW)
-            descLbl:GetFrame():SetHeight(14)  -- text-xs = 12px, but measure for wordwrap
-            table.insert(comps, descLbl)
+            -- Description below the label (gap-0.5 = 2px). FontString directo, igual que
+            -- Field.lua:109-118 — necesitamos GetStringHeight() para medir el wrap, y el
+            -- GetFrame() de un Craft.Label es un Frame (no lo expone).
+            local desc = host:CreateFontString(nil, "OVERLAY")
+            desc:SetJustifyH("LEFT")
+            desc:SetJustifyV("TOP")
+            Craft.Theme.applyFont(desc, t.font, t.fontSize)
+            desc:SetSpacing(math.floor(t.fontSize * 0.5))  -- leading-normal 1.5 (multilínea)
+            desc:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+            desc:SetWidth(contentW)
+            desc:SetText(descText)
+            desc:SetPoint("TOPLEFT", labelLbl:GetFrame(), "BOTTOMLEFT", 0, -2)
 
             -- Host frame height = max(checkbox 16, label + 2 + desc)
             local labelH = labelLbl:GetFrame():GetHeight() or 14
-            local descH  = descLbl:GetFrame():GetStringHeight() or 14
-            local hostH  = math.max(16, labelH + 2 + descH)
+            local hostH  = math.max(16, labelH + 2 + desc:GetStringHeight())
             host:SetHeight(hostH)
 
             notifGroup:AddChild(host)
