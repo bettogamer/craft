@@ -62,7 +62,7 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
 | Título | `t.fontBold`, `t.fontSizeLg` (14px), `t.foreground` |
 | Descripción | `t.font`, `t.fontSize` (12px), `t.mutedForeground` |
 | Close "x" | `t.mutedForeground` → `t.foreground` en hover (+ `t.accent` bg) |
-| Resize grip | ícono `grip-vertical`, `t.mutedForeground` a=0.8 |
+| Resize grip | ícono `resize-corner`, `t.mutedForeground` a=0.8 |
 | Padding title bar | `t.spacingLg` (16px) |
 
 ## Config — `Create(parent, config)`
@@ -102,6 +102,13 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
 - **Resize**: `frame:SetResizeBounds(minW, minH, maxW, maxH)` (10.0+) con fallback a
   `SetMinResize`/`SetMaxResize`. El handle hace `StartSizing("BOTTOMRIGHT")` y al soltar
   `StopMovingOrSizing()` + `onResized`. El `_content` sigue por anchors (no re-layout manual).
+- **Esquina reservada**: el grip flota sobre el `_content` con `FrameLevel +10`, así que
+  los últimos `16 + 2 = 18px` de la esquina abajo-derecha son chrome de la ventana. Con
+  `resizable`, la Window estampa ese valor en `_content._craftCornerInset` (constante
+  `Window.CORNER_MARK`, string literal compartido en vez de `Craft.Window.X` para
+  sobrevivir al registro versionado de bug #1). Los descendientes que dibujan a ras de esa
+  esquina lo leen y se apartan — hoy `Craft.Scroll` acorta su rail por abajo; antes el
+  thumb del scrollbar y el grip se pisaban. Cualquier componente puede leer la misma marca.
 - **Persistencia**: el componente NO guarda posición/tamaño; el dev lo hace en `onMoved`/
   `onResized` (p. ej. `frame:GetLeft()`/`GetTop()`, `GetWidth()`/`GetHeight()` en su DB).
 - **Escape vs onClose**: el botón "x" y `Close()` disparan `onClose`. Escape (vía

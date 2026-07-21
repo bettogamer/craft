@@ -139,8 +139,10 @@ local function makeFrame(frameType, name, parent)
     function f:SetResizable(v)      self._resizable = v end
     function f:SetMinResize(...)     end
     function f:SetMaxResize(...)     end
+    function f:SetResizeBounds(...)  end
     function f:SetClampedToScreen(v) end
     function f:SetClipsChildren(v)   end
+    function f:SetToplevel(v)       self._toplevel = v end
     function f:SetFrameStrata(s)    self._strata = s end
     function f:GetFrameStrata()     return self._strata end
     function f:SetFrameLevel(n)     end
@@ -157,6 +159,7 @@ local function makeFrame(frameType, name, parent)
     function f:GetTop()             return self._height end
     function f:GetRight()           return self._width end
     function f:GetBottom()          return 0 end
+    function f:GetCenter()          return self._width / 2, self._height / 2 end
 
     -- Texture (only for Texture-type frames)
     function f:SetColorTexture(r,g,b,a)

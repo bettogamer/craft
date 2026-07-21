@@ -43,6 +43,25 @@ Frame (root)                          — contenedor exterior, define el tamaño
 El `ScrollFrame` se ancla con `BOTTOMRIGHT` a −8px del root (deja el riel vertical de 8px
 a la derecha). No se reserva espacio inferior (no hay scroll horizontal).
 
+### Esquina reservada por el chrome del contenedor
+
+Un `Craft.Window` redimensionable flota su grip de resize sobre la esquina abajo-derecha
+de su área de contenido (`FrameLevel +10`) y estampa el tamaño reservado en
+`_content._craftCornerInset` (ver `docs/components/window.md`). En cada
+`_updateScrollbar`, el Scroll sube por la cadena de padres (máx. 12 niveles) buscando esa
+marca; si la encuentra **y** su propia esquina abajo-derecha coincide con la del ancestro
+(tolerancia 4px), acorta el riel por abajo esa cantidad. Sin marca, o si el Scroll no
+llega a la esquina, el riel va entero — cero configuración para el dev.
+
+Sólo se mueve el **riel**: el viewport conserva su altura completa, así que no se pierde
+contenido, sólo los últimos px de recorrido del thumb. El re-anclaje está guardado por
+igualdad (`_cornerInsetApplied`) porque redimensionar el riel dispara su propio
+`OnSizeChanged` → `_updateScrollbar`; sin el guard ese lazo no termina. `_trackHeight()`
+deriva la altura del root menos la reserva en vez de leer `_scrollbar:GetHeight()`, que
+puede venir stale en el mismo tick de un re-anclaje.
+
+Antes de esto el riel corría por debajo del grip y ambos se dibujaban encima.
+
 ### Diferencias conocidas vs shadcn (fuera de MVP)
 
 shadcn `scroll-area` soporta scroll **horizontal**; Craft.Scroll es **solo vertical**.

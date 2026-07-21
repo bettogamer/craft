@@ -20,6 +20,18 @@ local THUMB_W       = 6     -- thumb width (inset 1px each side in track)
 local THUMB_MIN_H   = 32    -- minimum thumb height
 local WHEEL_STEP    = 20    -- pixels per mouse wheel tick
 
+-- ─── Reserved corner (Craft.Window resize handle) ──────────────────────────
+-- A resizable Craft.Window floats a resize grip over the bottom-right corner of its
+-- content area at FrameLevel +10. A Scroll flush with that corner used to run its rail
+-- straight underneath: the grip and the scrollbar thumb drew on top of each other.
+-- The Window stamps the reserved size on its content frame under CORNER_MARK; we walk
+-- up the parent chain, and if THIS Scroll actually reaches that corner we shorten the
+-- track from the bottom by that much. Only the rail moves — the viewport keeps its full
+-- height, so no content is lost, just the last few px of thumb travel.
+local CORNER_MARK   = "_craftCornerInset"   -- shared literal with Window.lua
+local CORNER_DEPTH  = 12    -- max ancestors to walk (cheap guard against deep/cyclic trees)
+local EDGE_TOL      = 4     -- px slack when deciding "flush with the corner"
+
 -- ─── Create ────────────────────────────────────────────────────────────────
 function Scroll:Create(parent, config)
     local self = setmetatable({}, Scroll)
@@ -53,7 +65,9 @@ function Scroll:Create(parent, config)
         self:_updateScrollbar()
     end)
 
-    -- Scrollbar container: 8px on the right edge
+    -- Scrollbar container: 8px on the right edge. Its bottom is re-anchored by
+    -- _applyCornerInset when an ancestor reserves the bottom-right corner.
+    self._cornerInsetApplied = 0
     self._scrollbar = CreateFrame("Frame", nil, self.frame)
     self._scrollbar:SetPoint("TOPRIGHT",    self.frame, "TOPRIGHT",    0,  0)
     self._scrollbar:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0,  0)
@@ -92,7 +106,7 @@ function Scroll:Create(parent, config)
             if not self._thumbDragging then return end
             local curY     = select(2, GetCursorPosition()) / self._scrollbar:GetEffectiveScale()
             local deltaY   = self._thumbDragStartY - curY  -- positive = scrolled down
-            local trackH   = self._scrollbar:GetHeight() or 0
+            local trackH   = self:_trackHeight()
             local childH   = self._child:GetHeight() or 0
             local viewH    = self._scrollFrame:GetHeight() or 0
             local scrollRange = math.max(0, childH - viewH)
@@ -161,9 +175,52 @@ function Scroll:Create(parent, config)
     return self
 end
 
+-- ─── Reserved corner ───────────────────────────────────────────────────────
+-- Corner reserve (px) that applies to THIS Scroll: the nearest ancestor advertising
+-- CORNER_MARK, but only when the Scroll's own bottom-right sits on that ancestor's
+-- bottom-right — a Scroll higher up the layout is nowhere near the grip and keeps its
+-- full rail. Returns 0 when there is no such ancestor or the frames aren't laid out yet.
+function Scroll:_cornerInset()
+    local f, depth = self.frame:GetParent(), 0
+    while f and depth < CORNER_DEPTH do
+        local reserved = f[CORNER_MARK]
+        if reserved then
+            local sr, sb = self.frame:GetRight(), self.frame:GetBottom()
+            local fr, fb = f:GetRight(),          f:GetBottom()
+            if not (sr and sb and fr and fb) then return 0 end
+            if math.abs(sr - fr) <= EDGE_TOL and math.abs(sb - fb) <= EDGE_TOL then
+                return reserved
+            end
+            return 0
+        end
+        f, depth = f:GetParent(), depth + 1
+    end
+    return 0
+end
+
+-- Re-anchors the rail's bottom when the reserve changes. The equality guard is load
+-- bearing: re-anchoring resizes the scrollbar, which fires its OnSizeChanged →
+-- _updateScrollbar → here again. Bailing on "no change" terminates that loop.
+function Scroll:_applyCornerInset()
+    local inset = self:_cornerInset()
+    if inset == self._cornerInsetApplied then return end
+    self._cornerInsetApplied = inset
+    self._scrollbar:ClearAllPoints()
+    self._scrollbar:SetPoint("TOPRIGHT",    self.frame, "TOPRIGHT",    0, 0)
+    self._scrollbar:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, inset)
+    self._scrollbar:SetWidth(SCROLLBAR_W)
+end
+
+-- Track height, derived instead of read back: the rail is anchored top+bottom to the
+-- root frame, so this equals its height minus the reserve — and stays correct in the
+-- same tick as a re-anchor, where _scrollbar:GetHeight() can still be stale.
+function Scroll:_trackHeight()
+    return math.max(0, (self.frame:GetHeight() or 0) - (self._cornerInsetApplied or 0))
+end
+
 -- ─── Thumb height calculation ──────────────────────────────────────────────
 function Scroll:_calcThumbHeight()
-    local trackH  = self._scrollbar:GetHeight() or 0
+    local trackH  = self:_trackHeight()
     local childH  = self._child:GetHeight() or 0
     local viewH   = self._scrollFrame:GetHeight() or 0
     if childH <= 0 or viewH >= childH then return trackH end
@@ -173,14 +230,16 @@ end
 
 -- ─── Scrollbar sync ────────────────────────────────────────────────────────
 function Scroll:_updateScrollbar()
+    self:_applyCornerInset()
+
     local childH  = self._child:GetHeight() or 0
     local viewH   = self._scrollFrame:GetHeight() or 0
-    local trackH  = self._scrollbar:GetHeight() or 0
+    local trackH  = self:_trackHeight()
 
     -- Hide the WHOLE scrollbar (track rail + thumb) when content fits: a page shorter
     -- than the viewport must not show a rail. Hiding only the thumb (as before) left
-    -- the always-drawn track visible on short pages. A hidden frame still reports its
-    -- anchored height, so trackH stays correct for the next call when content grows.
+    -- the always-drawn track visible on short pages. trackH is derived from the root
+    -- frame, not the hidden rail, so it stays correct for the next call when content grows.
     if childH <= viewH or trackH <= 0 then
         self._scrollbar:Hide()
         return

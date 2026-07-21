@@ -16,8 +16,17 @@ local Window = {}
 Window.__index = Window
 
 local _instanceCount = 0
-local CLOSE_SIZE = 24
-local ICON_SIZE  = 16
+local CLOSE_SIZE  = 24
+local ICON_SIZE   = 16
+local RESIZE_SIZE = 16   -- resize handle hit area (square)
+local RESIZE_PAD  = 2    -- its inset from the frame's bottom-right corner
+
+-- Field stamped on the content frame to advertise that its bottom-right corner is
+-- occupied by window chrome (the resize handle). Descendants that draw flush to that
+-- corner read it and step aside — see Craft.Scroll. A plain string key shared by both
+-- files (same trick as Icons' `_buildOwner`) rather than `Craft.Window.X`, so it stays
+-- correct no matter which embedded copy won the versioned registration.
+local CORNER_MARK = "_craftCornerInset"
 
 -- ─── Create ────────────────────────────────────────────────────────────────
 function Window:Create(parent, config)
@@ -240,13 +249,21 @@ function Window:Create(parent, config)
     -- ── Resize handle (bottom-right) ────────────────────────────────────────
     if self._cfg.resizable then
         self._resize = CreateFrame("Button", nil, self.frame)
-        self._resize:SetSize(16, 16)
-        self._resize:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -2, 2)
+        self._resize:SetSize(RESIZE_SIZE, RESIZE_SIZE)
+        self._resize:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -RESIZE_PAD, RESIZE_PAD)
         self._resize:SetFrameLevel(self.frame:GetFrameLevel() + 10)
         self._resize:EnableMouse(true)
         self._resizeTex = self._resize:CreateTexture(nil, "OVERLAY")
         self._resizeTex:SetAllPoints(self._resize)
-        Craft.Icons.Apply(self._resizeTex, "grip-vertical", ICON_SIZE)
+        Craft.Icons.Apply(self._resizeTex, "resize-corner", ICON_SIZE)
+
+        -- Tell the content area that its bottom-right corner is occupied by window
+        -- chrome, so descendants that draw flush to that corner can step aside. The
+        -- handle floats ABOVE the content (FrameLevel +10), so nothing else can
+        -- claim the space — without this marker a Craft.Scroll's rail runs under it
+        -- (the grip and the scrollbar thumb overlapped in the same ~18px).
+        -- Any component that reaches the corner can opt in the same way.
+        self._content[CORNER_MARK] = RESIZE_SIZE + RESIZE_PAD
         self._resize:SetScript("OnMouseDown", function() self.frame:StartSizing("BOTTOMRIGHT") end)
         self._resize:SetScript("OnMouseUp", function()
             self.frame:StopMovingOrSizing()
@@ -415,5 +432,9 @@ function Window:Destroy()
     self.frame:Hide()
     self.frame = nil
 end
+
+-- Exposed for tests and for third-party components that want to honour the
+-- reserved corner (the authoritative value is the field on the content frame).
+Window.CORNER_MARK = CORNER_MARK
 
 Craft.register("Window", Window, _BUILD)
