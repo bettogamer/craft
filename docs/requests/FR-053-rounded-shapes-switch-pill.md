@@ -109,8 +109,8 @@ redondeadas: cada forma en su propio archivo, muestreada completa, sin `SetTexCo
 **Validación in-game (12.0.x, cliente reiniciado) — ✅ PASADA (owner, 2026-07-20)**:
 (1) pill/thumb renderiza limpio con los archivos por-forma en modo `mask` (hipótesis A gana);
 (2) borde nítido tras mipmaps/`TRILINEAR` (iter. 3); (3) tween idéntico a FR-052; (4) TGA-RLE
-legible. Modo `baked` queda como fallback documentado, no necesario. Pendiente sólo commit +
-release/re-vendoreo (owner).
+legible. Modo `baked` queda como fallback documentado, no necesario. Commiteado en `dev`
+(`64070ee`); pendiente sólo release/re-vendoreo (owner).
 
 ## Referencias
 

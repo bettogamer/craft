@@ -37,8 +37,9 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   **Lección (in-game)**: una `MaskTexture` **ignora `SetTexCoord` en 12.0.7** → un atlas
   compartido se mapea entero sobre cada rect (basura); de ahí un archivo dedicado por forma
   sin texcoord. CI (package/release) y `deploy-local.ps1` generan y verifican los TGAs.
-  Doc: `docs/pixel-perfect.md` §11. **Validación in-game pendiente (owner)**: mask vs baked
-  + AA a escalas 50–150% + reinicio completo del cliente por TGA nuevo.
+  Doc: `docs/pixel-perfect.md` §11. **Validado in-game (owner)**: gana la **hipótesis A
+  (`AddMaskTexture`)** — es el modo que queda activo; el horneado sigue como fallback para
+  clientes sin soporte de masks. AA correcto en el rango de escalas 50–150%.
 - **`Craft.Field` + `Craft.FieldGroup`** (FR-041): unidad de formulario que agrupa
   label + control + descripción/error en 3 orientaciones (`vertical`, `horizontal`,
   `responsive`). `FieldGroup` apila varios Field a un gap consistente (20px top-level =
