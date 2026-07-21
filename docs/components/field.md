@@ -183,6 +183,30 @@ Confirmado = base `.tsx` verificado; **Lyra pend.** = falta confirmar si Lyra re
   gap cambia de 28px a 16px según el CSS descendant selector. Sin selector nativo,
   el caller **debe pasar explícito** `gap=16` al FieldGroup anidado.
 
+## Label clickable (FR-056)
+
+Paridad con `<label for="id">` en HTML: **clicar el texto del label acciona el control
+asociado**, ampliando el área interactiva práctica del Field (complemento de la hit-area
+expandida del checkbox, ver [`checkbox.md`](checkbox.md), FR-055).
+
+El reenvío es **duck-typed** sobre el control reparentado, por orden de preferencia:
+
+1. `control:Toggle()` — preferido: invierte el estado escribiendo también el signal two-way
+   y respetando `disabled` (lo exponen `Craft.Checkbox` y `Craft.Switch`).
+2. `control:SetChecked(not control:GetChecked())` — fallback para controles que solo tengan
+   el par checked.
+3. **Nada** — fallback silencioso: un Frame crudo o un control sin API de toggle (p. ej.
+   `Craft.Input`, texto libre) simplemente no reacciona al clic en el label. No es un error.
+
+Un control **deshabilitado** no se acciona: el estado se detecta genéricamente vía
+`controlFrame:IsMouseEnabled()` (los `SetEnabled` de Craft apagan el mouse del frame), sin
+tocar los privados del componente.
+
+El cableado usa `EnableMouse` + `OnMouseDown` directos sobre el frame del label, **no**
+`Craft.Label` `config.onClick`: ese modo tiñe el texto de `primary` en hover — afordancia de
+link que un label de formulario no tiene en Lyra — y chocaría con el color que ya gobierna
+`data-[invalid=true]`. `SetLabel()` cablea también un label creado a posteriori.
+
 ## Diferencias conocidas vs shadcn
 
 Fuera de MVP (aprobado solo Field + FieldGroup):

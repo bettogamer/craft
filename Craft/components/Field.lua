@@ -75,6 +75,7 @@ function Field:Create(parent, config)
     -- CLAUDE.md bug #4: no reimplementar remedición). Peso regular = igual que .cn-field-label.
     if self._cfg.label then
         self._label = Craft.Label:Create(self.frame, { text = self._cfg.label })
+        self:_wireLabelToggle()
     end
 
     -- description / error: FontStrings OVERLAY con ancla única (se fija en el layout).
@@ -101,6 +102,40 @@ end
 function Field:_resolveFrame(x)
     if type(x) == "table" and type(x.GetFrame) == "function" then return x:GetFrame() end
     return x
+end
+
+-- ─── Label clickable (FR-056) ─────────────────────────────────────────────────
+-- Paridad con `<label for="id">` en HTML: clicar el texto del label acciona el control
+-- asociado. Se cablea a mano (EnableMouse + OnMouseDown) en vez de usar Craft.Label
+-- config.onClick porque ese modo tiñe el texto de `primary` en hover — afordancia de
+-- link que un label de formulario NO tiene en Lyra; además el color del label ya lo
+-- gobierna _applyLabelColor (data-[invalid=true]).
+function Field:_wireLabelToggle()
+    if self._labelWired or not self._label then return end
+    local lf = self._label:GetFrame()
+    if not lf then return end
+    self._labelWired = true
+    lf:EnableMouse(true)
+    lf:SetScript("OnMouseDown", function() self:_toggleControl() end)
+end
+
+-- Duck-type sobre el control reparentado; fallback SILENCIOSO si no es accionable
+-- (Frame crudo, Input de texto…). Prioriza :Toggle() sobre SetChecked/GetChecked porque
+-- Toggle escribe además el signal two-way y respeta el estado disabled (Checkbox, Switch).
+function Field:_toggleControl()
+    local ctrl = self._control
+    if type(ctrl) ~= "table" then return end
+
+    -- disabled: el control apaga su propio EnableMouse al deshabilitarse (Checkbox/Switch
+    -- SetEnabled), así que el frame es el proxy genérico del estado — sin tocar sus privados.
+    local cf = self._controlFrame
+    if cf and type(cf.IsMouseEnabled) == "function" and not cf:IsMouseEnabled() then return end
+
+    if type(ctrl.Toggle) == "function" then
+        ctrl:Toggle()
+    elseif type(ctrl.SetChecked) == "function" and type(ctrl.GetChecked) == "function" then
+        ctrl:SetChecked(not ctrl:GetChecked())
+    end
 end
 
 -- Crea (una vez) el FontString de descripción con fuente ya aplicada si el tema existe.
@@ -324,10 +359,12 @@ function Field:SetLabel(text)
         else
             self._label = Craft.Label:Create(self.frame, { text = text })
             if self._t then self:_applyLabelColor(self._t) end
+            self:_wireLabelToggle()
         end
     elseif self._label then
         self._label:Destroy()
         self._label = nil
+        self._labelWired = nil   -- un label nuevo debe re-cablearse (frame distinto)
     end
     self:_relayout()
 end

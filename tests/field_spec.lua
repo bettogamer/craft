@@ -192,6 +192,75 @@ describe("Craft.Field (FR-041)", function()
 
 end)
 
+-- Un control accionable de mentira: cubre las dos ramas del duck-type sin arrastrar
+-- Weave/Icons al spec (Checkbox real ya se cubre en checkbox_spec).
+local function newToggleable(opts)
+    opts = opts or {}
+    local frame = CreateFrame("Frame")
+    frame:SetSize(200, 16)
+    frame:EnableMouse(opts.disabled ~= true)
+    local ctrl = { checked = false, calls = 0, GetFrame = function() return frame end }
+    function ctrl:GetChecked() return self.checked end
+    function ctrl:SetChecked(v) self.checked = v; self.calls = self.calls + 1 end
+    if not opts.noToggle then
+        function ctrl:Toggle() self.checked = not self.checked; self.calls = self.calls + 1 end
+    end
+    return ctrl, frame
+end
+
+describe("Craft.Field — label clickable (FR-056)", function()
+
+    local function clickLabel(field)
+        field._label:GetFrame():_fire("OnMouseDown")
+    end
+
+    it("clicar el label acciona el control vía :Toggle()", function()
+        local parent = newContainer(300, 300)
+        local ctrl = newToggleable()
+        local field = Craft.Field:Create(parent, { label = "Notify", control = ctrl, width = 200 })
+        assert.is_true(field._label:GetFrame():IsMouseEnabled())
+        clickLabel(field)
+        assert.is_true(ctrl.checked)
+        clickLabel(field)
+        assert.is_false(ctrl.checked)
+    end)
+
+    it("fallback a SetChecked(not GetChecked()) si el control no expone :Toggle()", function()
+        local parent = newContainer(300, 300)
+        local ctrl = newToggleable({ noToggle = true })
+        local field = Craft.Field:Create(parent, { label = "Notify", control = ctrl, width = 200 })
+        clickLabel(field)
+        assert.is_true(ctrl.checked)
+        assert.equals(1, ctrl.calls)
+    end)
+
+    it("no acciona un control deshabilitado (frame con el mouse apagado)", function()
+        local parent = newContainer(300, 300)
+        local ctrl = newToggleable({ disabled = true })
+        local field = Craft.Field:Create(parent, { label = "Notify", control = ctrl, width = 200 })
+        clickLabel(field)
+        assert.is_false(ctrl.checked)
+        assert.equals(0, ctrl.calls)
+    end)
+
+    it("fallback silencioso con un Frame crudo (sin API de toggle)", function()
+        local parent = newContainer(300, 300)
+        local field = Craft.Field:Create(parent, { label = "Name", control = newControl(200, 36), width = 200 })
+        assert.has_no_errors(function() clickLabel(field) end)
+    end)
+
+    it("SetLabel que crea el label a posteriori también lo cablea", function()
+        local parent = newContainer(300, 300)
+        local ctrl = newToggleable()
+        local field = Craft.Field:Create(parent, { control = ctrl, width = 200 })
+        assert.is_nil(field._label)
+        field:SetLabel("Notify")
+        clickLabel(field)
+        assert.is_true(ctrl.checked)
+    end)
+
+end)
+
 describe("Craft.FieldGroup (FR-041)", function()
 
     it("apila children con gap 20 (= t.spacingLg2, gap-5) y dimensiona el grupo a la suma", function()
