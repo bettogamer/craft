@@ -88,7 +88,7 @@ aún deja ≥1px transparente entre celdas; el bleed solo aparecería por debajo
 | | |
 |---|---|
 | **Release pinneado** | **Lucide 1.24.0** — constante `LUCIDE_TAG` en `scripts/export-icons.py` |
-| Íconos canónicos | 1747 (1746 de Lucide + 1 Craft-sintetizado: `disc`) |
+| Íconos canónicos | 1748 (1746 de Lucide + 2 Craft-sintetizados: `disc`, `resize-corner`) |
 | Aliases deprecados | 249 (`filter`→`funnel`, `bar-chart-3`→`chart-column`, …) |
 | Slots libres | ~300 de 2048 (crecimiento de upstream sin cambiar el layout) |
 
@@ -123,6 +123,7 @@ cada release.
 | Nombre | Uso | Por qué no es Lucide |
 |---|---|---|
 | `disc` | Círculo relleno para controles redondos (RadioGroup) | Lucide es stroke-only, sin formas rellenas. Definido inline en `scripts/export-icons.py` (`LOCAL_SVGS`) y rasterizado por el mismo pipeline supersampleado |
+| `resize-corner` | Grip de resize abajo-derecha (`Craft.Window`) | Lucide no tiene glifo de corner-grip: su familia `grip*` es la rejilla de puntos de *arrastrar para reordenar* (`Craft.DragList`) y `move-diagonal*` son flechas ↖↘ que se leen como "expandir/pantalla completa". Tres trazos de longitud decreciente paralelos a la esquina, perpendiculares al eje NW-SE del resize (convención de escritorio). `stroke-width="2"` en el viewBox 24×24 para heredar `ICON_STROKE_WIDTH` como el resto |
 
 ### Aliases deprecados
 

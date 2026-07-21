@@ -17,6 +17,11 @@ luacheck Craft/*.lua Craft/components/*.lua Craft/theme/*.lua Craft/layout/*.lua
 lua tests/run.lua tests/button_spec.lua tests/sidebar_spec.lua tests/reactive_spec.lua tests/theme_spec.lua tests/label_spec.lua tests/menu_spec.lua tests/input_spec.lua tests/textarea_spec.lua tests/toggle_spec.lua tests/togglegroup_spec.lua tests/popover_spec.lua tests/combobox_spec.lua tests/badge_spec.lua tests/icons_spec.lua tests/flex_spec.lua tests/grid_spec.lua tests/panel_spec.lua tests/slider_spec.lua tests/field_spec.lua tests/tabs_spec.lua tests/section_spec.lua tests/switch_spec.lua   # suite completa (mini-runner local)
 bash scripts/bump-build.sh <X.Y.Z>                           # bump CRAFT_BUILD + Craft.VERSION antes de release (FR-029: sin arg aborta si VERSION == último tag)
 
+# atlas de iconos — la consola de esta máquina es cp1252 y el script imprime ✓/✅:
+# SIN PYTHONIOENCODING peta con UnicodeEncodeError a mitad (¡y deja el atlas sin regenerar!)
+PYTHONIOENCODING=utf-8 python scripts/export-icons.py        # regenera lucide.tga + Craft/icons/Atlas.lua
+# OJO: Craft/media/*.tga está gitignored — el TGA es artefacto local, el diff viaja en Atlas.lua
+
 # taintlint (secret values 12.0+) — node está en "C:\Program Files\nodejs" (si el shell no lo ve, ruta completa):
 "/c/Program Files/nodejs/node.exe" /c/Users/Usuario/Documents/Workspace/taintlint/dist/cli.js Craft --min-severity warning
 ```

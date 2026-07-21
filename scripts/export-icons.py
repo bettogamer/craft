@@ -107,6 +107,21 @@ LOCAL_SVGS = {
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="0">'
         '<circle cx="12" cy="12" r="12" fill="white"/></svg>'
     ),
+    # Bottom-right resize grip (Craft.Window). Lucide has no corner-grip glyph: its
+    # `grip*` family is the drag-to-reorder dot grid (DragList) and `move-diagonal*`
+    # are ↖↘ arrows, which read as "expand/fullscreen". This is the universal desktop
+    # affordance instead — three strokes of decreasing length parallel to the corner,
+    # perpendicular to the NW-SE axis the handle actually resizes along.
+    # Drawn on the standard 24×24 Lucide viewBox with stroke-width="2" so prepare_svg
+    # bumps it to ICON_STROKE_WIDTH like every other icon.
+    "resize-corner": (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+        'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        '<line x1="20" y1="4" x2="4" y2="20"/>'
+        '<line x1="20" y1="10" x2="10" y2="20"/>'
+        '<line x1="20" y1="16" x2="16" y2="20"/>'
+        '</svg>'
+    ),
 }
 
 # ─── Atlas configuration ──────────────────────────────────────────────────────
