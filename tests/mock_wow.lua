@@ -131,7 +131,13 @@ local function makeFrame(frameType, name, parent)
     function f:IsMouseEnabled()     return self._mouseEnabled end
     function f:EnableMouseWheel(v)  end
     function f:RegisterForDrag(...)  end
-    function f:SetHitRectInsets(...) end
+    function f:SetHitRectInsets(l, r, t, b)
+        self._hitInsets = { l or 0, r or 0, t or 0, b or 0 }
+    end
+    function f:GetHitRectInsets()
+        local h = self._hitInsets or { 0, 0, 0, 0 }
+        return h[1], h[2], h[3], h[4]
+    end
     function f:IsMouseOver()        return false end
 
     -- Movable / resizable behavior

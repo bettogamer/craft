@@ -117,6 +117,7 @@ Notas:
 |-----------------------|------------------|-------------------------------------------------------------------|
 | `SetChecked(value)`   | `boolean → void` | Actualiza el estado y anima la transición. Dispara `onChange` (paridad Checkbox). |
 | `GetChecked()`        | `→ boolean`      | Devuelve el estado actual.                                        |
+| `Toggle()`            | `→ void`         | Invierte el estado como un clic del usuario: dispara `onChange` **y** escribe el signal two-way (a diferencia de `SetChecked`). No-op si está `disabled`. Paridad con `Craft.Checkbox:Toggle()`; lo usa el label clickable de `Craft.Field` (FR-056). |
 | `SetEnabled(enabled)` | `boolean → void` | Activa o desactiva la interacción y el estilo disabled.           |
 | `GetFrame()`          | `→ Frame`        | Devuelve el frame WoW raíz para posicionamiento externo.          |
 | `Destroy()`           | `→ void`         | Limpia binds reactivos, listener de tema y frame (double-free safe). |

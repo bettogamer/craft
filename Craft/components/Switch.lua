@@ -281,6 +281,14 @@ function Switch:GetChecked()
     return self._cfg.checked
 end
 
+-- Toggle: paridad con Craft.Checkbox:Toggle() — invierte el estado como un clic del usuario
+-- (escribe el signal two-way, cosa que SetChecked no hace) y es no-op si está disabled.
+-- Lo consume el label clickable de Craft.Field (FR-056).
+function Switch:Toggle()
+    if self._cfg.disabled then return end
+    self:_toggle()
+end
+
 function Switch:SetEnabled(enabled)
     self._cfg.disabled = not enabled
     if enabled then
