@@ -115,6 +115,41 @@ Guardar en `OnDragStop` y en el callback de resize del handle.
 - Demo area: ancho restante (`grow=1` en Flex)
 - Resize handle: 16×16px en la esquina bottom-right
 
+### El main frame ES un `Craft.Window` headless
+
+El Browser es anterior a `Craft.Window`, así que durante mucho tiempo su main frame fue
+un `CreateFrame` a mano con su propio fondo, su propio cableado de movable/resizable/clamp
+y su propio grip de resize. Esa divergencia fue justo la que dejó el grip con el icono
+equivocado (`grip-vertical`) y pisando el scrollbar del demo: el showcase de la librería
+no se comía su propia comida.
+
+Ahora es `Craft.Window:Create(UIParent, { header = false, … })` — **headless** (FR-019)
+porque el chrome es propio: el header del Sidebar lleva título y ✕, y el demoHeader lleva
+título/descripción de la página activa. Ambos se registran como zonas de arrastre con
+`_win:EnableDragFrom(region)`, que ya dispara `onMoved` (ahí se persiste x/y).
+
+Lo que aporta la Window y el Browser dejó de mantener: fondo + anillo de 1px, handle de
+resize con bounds, clamp a pantalla, Escape-to-close, `SetToplevel` (raise-on-click), el
+fade+zoom de apertura/cierre y **la marca de esquina reservada** que lee el `Craft.Scroll`
+del demo. `strata` se pasa explícito como `"HIGH"` para conservar el nivel histórico.
+
+Puntos a respetar al tocar este código:
+
+- **`CB.Show/Hide` van por el Window** (`_win:Show()`), nunca `frame:Show()`: el alpha y
+  el shown del frame están bindeados a la señal interna `_open` y una llamada directa
+  pelearía con el binding (además de saltarse la animación). Las escrituras de señal
+  hacen `flush()` **síncrono** fuera de `batch`, así que el frame ya está visible cuando
+  `Navigate()` mide alturas justo después.
+- **La posición guardada se restaura DESPUÉS de `Create`**: la Window ancla a CENTER por
+  defecto y su tween de zoom re-ancla a CENTER en cada flip, a partir del offset que
+  captura en ese momento — así que el `TOPLEFT` que fija el Browser se lee correctamente
+  en el primer `Show()` y la posición en pantalla se conserva.
+- **Todo cuelga de `_win:GetContent()`**, no del frame raíz: el content va inset por el
+  anillo de 1px.
+- El nombre global `CraftBrowserFrame` se conserva como alias (`_G`), pero ya **no** es el
+  nombre real del frame — la Window nombra los suyos `CraftWindow_N` y es ése el que
+  registra en `UISpecialFrames`.
+
 **Layout del contenido (Craft.Flex):**
 ```lua
 local mainFlex = Craft.Flex.new(contentFrame, {
@@ -151,15 +186,13 @@ Frame nativo de 40px de alto, anclado arriba de la ventana.
 - El sidebar y el toolbar NO se escalan
 - El valor se guarda en `CraftBrowserDB.scale`
 
-**Drag:** el header es el drag handle de la ventana principal:
+**Drag:** el header es el drag handle de la ventana principal. Lo cablea la Window —
+`EnableDragFrom` hace StartMoving/Stop y dispara `onMoved`, donde se persiste la posición:
 ```lua
-header:SetScript("OnMouseDown", function() mainFrame:StartMoving() end)
-header:SetScript("OnMouseUp",   function()
-    mainFrame:StopMovingOrSizing()
-    -- Guardar posición
-    CraftBrowserDB.x = mainFrame:GetLeft()
-    CraftBrowserDB.y = mainFrame:GetTop() - UIParent:GetHeight()
-end)
+_win:EnableDragFrom(header)
+-- onMoved (en la config del Window) guarda:
+--   CraftBrowserDB.x = x
+--   CraftBrowserDB.y = top - UIParent:GetHeight()
 ```
 
 ---
@@ -472,31 +505,25 @@ end
 
 ## 11. Resize handle
 
-Frame de 16×16px anclado en `BOTTOMRIGHT` de la ventana.
+**Ya no lo mantiene el Browser** — lo aporta `Craft.Window` (ver §4). Es un Button de
+16×16 anclado a `BOTTOMRIGHT` con 2px de margen, con el icono `resize-corner` y
+`t.mutedForeground` a alpha 0.8. El tamaño se persiste desde el callback `onResized` de
+la config del Window:
 
 ```lua
-local resizeHandle = CreateFrame("Frame", nil, mainFrame)
-resizeHandle:SetSize(16, 16)
-resizeHandle:SetPoint("BOTTOMRIGHT", mainFrame, "BOTTOMRIGHT", 0, 0)
-resizeHandle:EnableMouse(true)
-resizeHandle:SetScript("OnMouseDown", function()
-    mainFrame:StartSizing("BOTTOMRIGHT")
-end)
-resizeHandle:SetScript("OnMouseUp", function()
-    mainFrame:StopMovingOrSizing()
-    -- Guardar tamaño
-    CraftBrowserDB.width  = mainFrame:GetWidth()
-    CraftBrowserDB.height = mainFrame:GetHeight()
-    -- Re-layout
-    CraftBrowser._relayout()
-end)
--- Textura de flecha ◢
-local tex = resizeHandle:CreateTexture(nil, "OVERLAY")
-tex:SetAllPoints(resizeHandle)
-Craft.Icons.Apply(tex, "grip-vertical", 16)
-local t = Craft.Theme.get()
-tex:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)
+_win = Craft.Window:Create(UIParent, {
+    header    = false,
+    minWidth  = MIN_W, minHeight = MIN_H,
+    onResized = function(_, w, h)
+        CraftBrowserDB.width  = w
+        CraftBrowserDB.height = h
+    end,
+})
 ```
+
+El grip flota sobre el content area (`FrameLevel +10`), así que la Window **reserva** esa
+esquina estampando `_craftCornerInset` en el content frame; el `Craft.Scroll` del demo lo
+lee y acorta su rail para no quedar por debajo. Ver `docs/components/scroll.md`.
 
 ---
 

@@ -27,7 +27,8 @@ local MIN_W,     MIN_H     = 600, 400
 local SIDEBAR_W            = 220  -- matches Craft.Sidebar WIDTHS.default
 
 -- Internal state
-local _mainFrame   = nil
+local _win         = nil   -- Craft.Window (headless) — owns chrome + show/hide lifecycle
+local _mainFrame   = nil   -- _win:GetFrame() — kept for geometry/persistence
 local _nav         = nil   -- Craft.Sidebar
 local _demoScroll  = nil   -- Craft.Scroll
 local _demoFrame   = nil   -- scalable frame (scroll child)
@@ -63,36 +64,61 @@ function CB._build()
     initDB()
     local t = Craft.Theme.get()
 
-    -- ── Main window ───────────────────────────────────────────────────────
-    _mainFrame = CreateFrame("Frame", "CraftBrowserFrame", UIParent)
-    _mainFrame:SetSize(CraftBrowserDB.width, CraftBrowserDB.height)
-    _mainFrame:SetFrameStrata("HIGH")
-    _mainFrame:SetMovable(true)
-    _mainFrame:SetResizable(true)
-    _mainFrame:SetResizeBounds(MIN_W, MIN_H)
-    _mainFrame:SetClampedToScreen(true)
-    _mainFrame:EnableMouse(true)  -- block mouse events from passing through to the game world
+    -- ── Main window — Craft.Window headless (FR-019) ──────────────────────
+    -- The Browser predates Craft.Window, so its main frame used to be hand-rolled:
+    -- its own background, movable/resizable/clamp wiring and its own resize grip.
+    -- That divergence is exactly how the grip ended up with the wrong icon and
+    -- overlapping the demo scrollbar — the showcase was not eating its own dog food.
+    -- Headless because the chrome is ours: the Sidebar header carries the title and
+    -- close button, and the demo header carries the per-page title/description.
+    -- What the Window now provides for free: background + 1px ring, resize handle and
+    -- bounds, drag wiring, screen clamp, Escape-to-close, toplevel raise-on-click, the
+    -- open/close fade+zoom, and the reserved-corner marker the demo Scroll reads.
+    _win = Craft.Window:Create(UIParent, {
+        header    = false,          -- headless: we build our own header (FR-019)
+        width     = CraftBrowserDB.width,
+        height    = CraftBrowserDB.height,
+        minWidth  = MIN_W,
+        minHeight = MIN_H,
+        strata    = "HIGH",         -- the Browser is not a modal: keep its historical strata
+        onResized = function(_, w, h)
+            CraftBrowserDB.width  = w
+            CraftBrowserDB.height = h
+        end,
+        onMoved   = function(_, x, top)
+            CraftBrowserDB.x = x
+            CraftBrowserDB.y = top - UIParent:GetHeight()
+        end,
+    })
+    _mainFrame = _win:GetFrame()
 
+    -- Keep the historical global name: it is no longer the frame's real name (Window
+    -- names its own frames CraftWindow_N and registers THAT in UISpecialFrames), but
+    -- user macros may still reference CraftBrowserFrame.
+    _G["CraftBrowserFrame"] = _mainFrame
+
+    -- Restore the saved position AFTER Create: the Window anchors CENTER by default,
+    -- and its zoom tween re-anchors to CENTER on every open/close flip from the
+    -- offset it captures at that moment — so a TOPLEFT anchor set here is read back
+    -- correctly on the first Show() and the on-screen position is preserved.
     if CraftBrowserDB.x and CraftBrowserDB.y then
+        _mainFrame:ClearAllPoints()
         _mainFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT",
             CraftBrowserDB.x, CraftBrowserDB.y)
-    else
-        _mainFrame:SetPoint("CENTER", UIParent, "CENTER")
     end
 
-    -- Main background
-    local mainBg = _mainFrame:CreateTexture(nil, "BACKGROUND")
-    mainBg:SetAllPoints(_mainFrame)
-    mainBg:SetColorTexture(t.background.r, t.background.g, t.background.b, 1)
+    -- Everything below anchors to the CONTENT area, not the root frame: the content is
+    -- inset by the Window's 1px ring, so the sidebar and demo area sit inside it.
+    local content = _win:GetContent()
 
     -- ── Craft.Sidebar ─────────────────────────────────────────────────────
-    _nav = Craft.Sidebar:Create(_mainFrame, {
+    _nav = Craft.Sidebar:Create(content, {
         size       = "default",
         activeItem = CraftBrowserDB.page,
     })
     local navFrame = _nav:GetFrame()
-    navFrame:SetPoint("TOPLEFT",    _mainFrame, "TOPLEFT",    0, 0)
-    navFrame:SetPoint("BOTTOMLEFT", _mainFrame, "BOTTOMLEFT", 0, 0)
+    navFrame:SetPoint("TOPLEFT",    content, "TOPLEFT",    0, 0)
+    navFrame:SetPoint("BOTTOMLEFT", content, "BOTTOMLEFT", 0, 0)
     navFrame:SetWidth(SIDEBAR_W)
 
     -- SidebarHeader: title + drag handle + close button
@@ -111,13 +137,10 @@ function CB._build()
     hdrSep:SetPoint("BOTTOMRIGHT", hdr, "BOTTOMRIGHT", 0, 0)
     hdrSep:SetColorTexture(t.sidebarBorder.r, t.sidebarBorder.g, t.sidebarBorder.b, t.sidebarBorder.a)
 
-    hdr:SetScript("OnMouseDown", function() _mainFrame:StartMoving() end)
-    hdr:SetScript("OnMouseUp",   function()
-        _mainFrame:StopMovingOrSizing()
-        CraftBrowserDB.x = _mainFrame:GetLeft()
-        CraftBrowserDB.y = _mainFrame:GetTop() - UIParent:GetHeight()
-    end)
-    hdr:EnableMouse(true)
+    -- Drag the window by the sidebar header. EnableDragFrom wires StartMoving/Stop and
+    -- fires onMoved on release, which is what persists x/y — the manual duplicate of
+    -- that logic is gone (FR-019: consumer-owned headers in headless mode).
+    _win:EnableDragFrom(hdr)
 
     -- Title: bold, fontSizeLg (14px) — top of the two-line block
     -- Two-line block: title(14) + gap(4) + subtitle(11) = 29px → top offset = (48-29)/2 = ~10px
@@ -263,9 +286,9 @@ function CB._build()
     _scaleSlider:GetFrame():SetPoint("BOTTOMRIGHT", ftr, "BOTTOMRIGHT", -8, 8)
 
     -- ── Demo area ────────────────────────────────────────────────────────
-    local demoContainer = CreateFrame("Frame", nil, _mainFrame)
-    demoContainer:SetPoint("TOPLEFT",     _mainFrame, "TOPLEFT",     SIDEBAR_W, 0)
-    demoContainer:SetPoint("BOTTOMRIGHT", _mainFrame, "BOTTOMRIGHT", 0,         0)
+    local demoContainer = CreateFrame("Frame", nil, content)
+    demoContainer:SetPoint("TOPLEFT",     content, "TOPLEFT",     SIDEBAR_W, 0)
+    demoContainer:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", 0,         0)
 
     -- demoHeader: 48px — same height as sidebar header, drag handle + close + title + desc
     _demoHeader = CreateFrame("Frame", nil, demoContainer)
@@ -277,14 +300,8 @@ function CB._build()
     demoHeaderBg:SetAllPoints(_demoHeader)
     demoHeaderBg:SetColorTexture(t.card.r, t.card.g, t.card.b, 1)
 
-    -- Drag handle (whole header drags the window)
-    _demoHeader:EnableMouse(true)
-    _demoHeader:SetScript("OnMouseDown", function() _mainFrame:StartMoving() end)
-    _demoHeader:SetScript("OnMouseUp",   function()
-        _mainFrame:StopMovingOrSizing()
-        CraftBrowserDB.x = _mainFrame:GetLeft()
-        CraftBrowserDB.y = _mainFrame:GetTop() - UIParent:GetHeight()
-    end)
+    -- Drag handle (whole header drags the window) — same wiring as the sidebar header
+    _win:EnableDragFrom(_demoHeader)
 
     -- Close button (top-right)
     local demoClose = CreateFrame("Button", nil, _demoHeader)
@@ -345,36 +362,15 @@ function CB._build()
     -- el contenido se pasaba del viewport (overflow) y los bordes 1px re-snapeaban
     -- (parpadeo/temblor). Dejar que el Scroll sea el único dueño del ancho.
 
-    -- Persistir tamaño en resize (el layout lo maneja Craft.Scroll)
-    _mainFrame:SetScript("OnSizeChanged", function(self, w, h)
-        CraftBrowserDB.width  = w
-        CraftBrowserDB.height = h
-    end)
-
-    -- ── Resize handle ─────────────────────────────────────────────────────
-    local resizeHandle = CreateFrame("Frame", nil, _mainFrame)
-    resizeHandle:SetSize(16, 16)
-    resizeHandle:SetPoint("BOTTOMRIGHT", _mainFrame, "BOTTOMRIGHT", 0, 0)
-    resizeHandle:EnableMouse(true)
-    resizeHandle:SetScript("OnMouseDown", function() _mainFrame:StartSizing("BOTTOMRIGHT") end)
-    resizeHandle:SetScript("OnMouseUp",   function()
-        _mainFrame:StopMovingOrSizing()
-        CraftBrowserDB.width  = _mainFrame:GetWidth()
-        CraftBrowserDB.height = _mainFrame:GetHeight()
-    end)
-    local resizeTex = resizeHandle:CreateTexture(nil, "OVERLAY")
-    resizeTex:SetAllPoints(resizeHandle)
-    Craft.Icons.Apply(resizeTex, "grip-vertical", 16)
-    resizeTex:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g,
-                              t.mutedForeground.b, 0.5)
-
-    _mainFrame:Hide()
+    -- Resize handle, size persistence (via onResized) and the reserved-corner marker
+    -- that keeps the demo scrollbar clear of the grip all come from Craft.Window now.
+    -- The Window is created hidden, so there is no Hide() to do here either.
 end
 
 -- ─── Navigate ──────────────────────────────────────────────────────────────
 
 function CB.Navigate(pageId)
-    if not _mainFrame then return end
+    if not _win then return end
 
     -- Clear previous page
     if _currentRender and _currentRender.cleanup then
@@ -419,18 +415,22 @@ end
 
 -- ─── Show / Hide / Toggle ──────────────────────────────────────────────────
 
+-- Show/Hide go through the Craft.Window, never frame:Show()/Hide(): the frame's alpha
+-- and shown state are bound to the window's internal open signal, so a direct call
+-- would fight the binding (and skip the fade/zoom). Signal writes flush synchronously
+-- outside a batch, so the frame is really visible by the time Navigate() measures.
 function CB.Show()
-    if not _mainFrame then CB._build() end
-    _mainFrame:Show()
+    if not _win then CB._build() end
+    _win:Show()
     CB.Navigate(CraftBrowserDB.page)
 end
 
 function CB.Hide()
-    if _mainFrame then _mainFrame:Hide() end
+    if _win then _win:Hide() end
 end
 
 function CB.Toggle()
-    if _mainFrame and _mainFrame:IsShown() then
+    if _win and _win:IsShown() then
         CB.Hide()
     else
         CB.Show()
@@ -444,7 +444,7 @@ end
 -- re-render on the first settle left Medium (Button labels) frozen wrong.
 -- Hidden pages render fresh on Show and need nothing.
 local function rerenderVisiblePage()
-    if _mainFrame and _mainFrame:IsShown()
+    if _win and _win:IsShown()
         and CraftBrowserDB and CraftBrowserDB.page then
         CB.Navigate(CraftBrowserDB.page)
     end
