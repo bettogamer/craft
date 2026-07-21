@@ -75,7 +75,8 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   atlas regenerado sin cambios de coordenadas (`Atlas.lua` igual). Verificado in-game a 24px.
 
 ### Changed
-- **El main frame de Craft_Browser ahora ES un `Craft.Window` headless.** El Browser es
+- **El main frame de Craft_Browser ahora ES un `Craft.Window` headless — verificado
+  in-game.** El Browser es
   anterior a `Craft.Window`, así que su ventana principal era un `CreateFrame` a mano con
   fondo propio, cableado propio de movable/resizable/clamp y **su propio grip de resize** —
   y esa divergencia fue exactamente la que dejó el grip con `grip-vertical` y pisando el
@@ -97,7 +98,7 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ### Fixed
 - **El grip de resize de `Craft.Window` y el scrollbar de `Craft.Scroll` se dibujaban
-  encima en la esquina abajo-derecha.** El grip flota sobre el área de contenido con
+  encima en la esquina abajo-derecha — verificado in-game.** El grip flota sobre el área de contenido con
   `FrameLevel +10`, y un Scroll a ras de esa esquina corría su riel justo por debajo: los
   ~18px finales mostraban el thumb y el icono superpuestos. Ahora la Window **anuncia** la
   esquina reservada estampando `_content._craftCornerInset = 18` (`Window.CORNER_MARK`;
@@ -115,7 +116,8 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   Tests: `tests/scroll_spec.lua` (10, nuevo — primer spec de Scroll y de Window). Demo:
   la página **Window** del Browser abre con un `Craft.Scroll` de 40 filas llenando el
   content area, que es el caso que ejercita la esquina reservada.
-- **El grip de resize usaba el icono equivocado.** Era `grip-vertical`, que en Lucide son
+- **El grip de resize usaba el icono equivocado — verificado in-game** (legibilidad del
+  glifo a 16px confirmada por el owner). Era `grip-vertical`, que en Lucide son
   los 3 puntos verticales de *arrastrar para reordenar* (el que usa `Craft.DragList`) —
   semántica errónea para una esquina de redimensionado. Lucide no trae un glifo de
   corner-grip (`move-diagonal*` son flechas ↖↘, que se leen como "expandir/pantalla
