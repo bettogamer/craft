@@ -483,6 +483,87 @@ SlashCmdList["CRAFT"] = function(msg)
             out:AddMessage(("  %d. %s  w0=%.1f  w=%.1f  settled=%s"):format(
                 i, file, p.w0 or -1, p.fs:GetStringWidth() or -1, tostring(p.settled)))
         end
+    elseif msg:lower() == "pixelprobe" then
+        -- Diagnóstico Fase 0.1 del plan de bordes (docs/PLAN-border-pixel-perfect.md):
+        -- ¿coincide el grosor 1px (PixelUtil, snapeado) con el inset 1px (T.px, sin snapear)?
+        -- Mide lo que el cliente APLICA de verdad (no reimplementa la fórmula) reescalando una
+        -- textura scratch a varias escalas efectivas y leyendo GetHeight() real. No toca Craft/.
+        local T   = Craft.Theme
+        local out = DEFAULT_CHAT_FRAME
+        out:AddMessage(("|cff8bd5caCraft pixelprobe|r v%s — PixelUtil=%s GetNearestPixelSize=%s"):format(
+            tostring(Craft.VERSION),
+            tostring(PixelUtil ~= nil),
+            tostring(PixelUtil ~= nil and PixelUtil.GetNearestPixelSize ~= nil)))
+
+        -- Escalas efectivas vivas relevantes (§1.4: el zoom de Window desincroniza el grosor).
+        out:AddMessage(("  eff UIParent=%.4f%s"):format(
+            UIParent:GetEffectiveScale(),
+            _mainFrame and ("  |  eff Browser=" .. ("%.4f"):format(_mainFrame:GetEffectiveScale())) or ""))
+
+        -- ¿UIParent YA está en pixel-perfect? pp = 768 / altura física de pantalla.
+        -- Si eff UIParent ≈ pp, el enfoque ElvUI (Fase 4) es un no-op: el defecto vive en px().
+        if GetPhysicalScreenSize then
+            local _, ph = GetPhysicalScreenSize()
+            local pp = ph and ph > 0 and (768 / ph) or 0
+            local eff = UIParent:GetEffectiveScale()
+            out:AddMessage(("  pantalla fisica alto=%s  pp(768/alto)=%.4f  eff/pp=%.4f  %s"):format(
+                tostring(ph), pp,
+                (pp > 0) and (eff / pp) or 0,
+                (pp > 0 and math.abs(eff - pp) < 0.01) and "|cff6ee7b7YA pixel-perfect|r" or "no-pp"))
+            -- Defecto real de px(): px(1) vs el tamaño REAL de 1px fisico (lo que da PixelUtil).
+            local scratch = CB._pxScratch
+            if not scratch then
+                scratch = UIParent:CreateTexture(nil, "BACKGROUND")
+                CB._pxScratch = scratch
+            end
+            T.SetPixelHeight(scratch, 1)              -- rejilla real del dispositivo
+            local realpx = scratch:GetHeight()         -- UI units de 1px fisico
+            local pxval  = T.px(1, UIParent)           -- lo que cree px()
+            out:AddMessage(("  1px real(UI)=%.3f  px(1)=%.3f  error px()=%.3fx  %s"):format(
+                realpx, pxval, (realpx > 0) and (pxval / realpx) or 0,
+                (math.abs(pxval - realpx) < 0.02) and "|cff6ee7b7ok|r" or "|cfff87171px() SOBREESTIMA|r"))
+        end
+
+        -- Frame scratch reescalable: fuerza una escala EFECTIVA objetivo (own = target / parentEff).
+        local probe = CB._pixelProbe
+        if not probe then
+            probe = CreateFrame("Frame", nil, UIParent)
+            probe:SetSize(200, 32)
+            probe:SetPoint("CENTER")
+            probe._tex = probe:CreateTexture(nil, "BORDER")
+            probe._tex:SetPoint("TOPLEFT")
+            probe._tex:SetPoint("TOPRIGHT")
+            CB._pixelProbe = probe
+        end
+
+        out:AddMessage("  escala   grosor(fis) inset(fis)  diff(fis)  match")
+        local parentEff = UIParent:GetEffectiveScale()
+        local function row(label, target)
+            probe:SetScale(target / parentEff)
+            local eff   = probe:GetEffectiveScale()
+            T.SetPixelHeight(probe._tex, 1)          -- ruta REAL de los bordes
+            local thick = probe._tex:GetHeight()      -- UI units aplicadas
+            local inset = T.px(1, probe)              -- UI units del inset del bg
+            local tP, iP = thick * eff, inset * eff   -- a píxeles físicos
+            out:AddMessage(("  %-7s  %7.3f   %7.3f    %+6.3f   %s"):format(
+                label, tP, iP, tP - iP,
+                (math.abs(tP - iP) < 0.02) and "|cff6ee7b7si|r" or "|cfff87171NO|r"))
+        end
+        row("actual", parentEff)
+        row("0.7111", 0.7111)
+        row("1.0",    1.0)
+        row("1.5",    1.5)
+        row("2.0",    2.0)
+        probe:SetScale(1)
+
+        -- Fase sub-pixel (§1.3, SECUNDARIO: explica nitidez, no bordes ausentes): parte
+        -- fraccionaria de la posición física del borde superior del frame scratch.
+        local _, bottom, _, height = probe:GetRect()
+        if bottom and height then
+            local topPhys = (bottom + height) * probe:GetEffectiveScale()
+            out:AddMessage(("  fase borde sup (fis) = %.3f  frac=%.3f"):format(
+                topPhys, topPhys - math.floor(topPhys)))
+        end
     else
         -- Capitalize first letter to match the page ID
         local pageId = msg:sub(1,1):upper() .. msg:sub(2):lower()
