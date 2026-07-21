@@ -137,6 +137,23 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   todo cuelga de `GetContent()`, no del frame raíz. Diff neto 0 líneas (67+/67−).
 
 ### Fixed
+- **`Craft.Theme.px()` sobreestimaba el "1px" → el inset del bg no casaba con el grosor del
+  borde** (FR-058). `px(n) = max(n/scale, 0.5)` asumía 1 UI unit == 1 píxel físico, cierto solo a
+  `uiscale` default; en un cliente **pixel-perfect** (`eff == 768/altura`, p. ej. 0.7111 a 1080p, 1
+  UI unit ya == 1px) devolvía `1/0.7111 = 1.406` px. Como el GROSOR del borde sí snapea a la
+  rejilla física (`PixelUtil`), inset (1.406px) y grosor (1px) divergían → borde tenue/parcial (a
+  ≥1.4 el bg llegaba a taparlo). Verificado in-game con `/craft pixelprobe` (`px() SOBREESTIMA
+  1.406×`, `YA pixel-perfect`), que **falsó** el diagnóstico inicial de "orden de capas" del plan de
+  bordes: a 0.7111 no hay solape. Fix en la raíz: `px()` delega en el mismo grid físico que
+  `SetPixelHeight` (`PixelUtil.GetNearestPixelSize`) con fallback Classic consciente de `pp =
+  768/altura` → **`inset == grosor` por construcción en cualquier escala**, un solo sitio, ~20
+  call-sites corregidos a la vez. **Subsume** el fix de capas del Checkbox (con paridad, el orden
+  de dibujo deja de importar) y **descarta** el track ElvUI/ADR-0019 (innecesario: el fix da bordes
+  nítidos en toda escala; el resto lo declinó ADR-0011 §3). Nuevo `tests/border_spec.lua` (4 tests,
+  el que hubiera cazado esto) + `mock_wow.lua` pasa a modelar la rejilla física con
+  `GetPhysicalScreenSize`/escala configurables (defaults preservan los specs existentes).
+  **Verificado in-game (2026-07-21): bordes correctos, sin regresiones**; el snapeo de POSICIÓN
+  residual no hizo falta (el fix de tamaño bastó). Diagnóstico: `docs/PLAN-border-pixel-perfect.md`.
 - **`Craft.Checkbox` indeterminate se rellenaba de accent** (corrección de FR-054). El glyph SÍ es
   un check (eso era correcto), pero al compartir glyph se asumió de más que indeterminate era
   *visualmente idéntico* a checked, y `_paint` lo trataba con los endpoints de checked (fondo y
