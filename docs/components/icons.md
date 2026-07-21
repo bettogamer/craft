@@ -38,7 +38,7 @@ Craft.Icons
 
 | Resolución TGA | Grid | Celda | Icono renderizado | Gutter | Fórmula UV (col/row base-0) |
 |---|---|---|---|---|---|
-| 2048×4096 px | 32×64 (2048 slots) | 64px | 56px centrado | 4px transparente | `left=col/32, right=(col+1)/32, top=row/64, bottom=(row+1)/64` |
+| 2048×4096 px | 32×64 (2048 slots) | 64px | 56px centrado | 4px transparente | celda ± inset: `left=col/32 + I`, `right=(col+1)/32 - I` (ídem row con `/64`), donde el inset `I` recorta gutter + medio texel — ver abajo |
 
 > Historia: 512×512 (MVP) → 512×1024 (FR-022, catálogo curado) → **2048×4096 (ADR-0016,
 > set Lucide completo)**. Potencia-de-2 por lado (requisito de WoW); los divisores UV por
@@ -52,6 +52,16 @@ WoW nunca muestra texturas 1:1 (la UI escala con UIScale/DPI), una sola fuente d
 resolución se ve nítida a cualquier escala — donde los atlas pixel-exactos de 16/24px se
 veían borrosos/pixelados. El gutter + un inset de medio texel en `Get()` evitan que el
 filtrado bilineal "sangre" celdas vecinas al reducir.
+
+**El UV recorta el gutter (FR-057)**: `Get()` no muestrea la celda entera sino la región
+INTERNA (el glyph de 56px). Muestrear los 64px metería la celda completa —gutter incluido—
+dentro del `size` pedido, así que el glyph se dibujaría a `size × 56/64` = **87.5% de lo
+pedido**: todos los iconos salían un 12.5% pequeños y el contrato de `size` no se cumplía.
+Recortando, el viewBox de 24 unidades mapea al `size` completo. El inset por lado queda en
+`(GUTTER + 0.5) / (DIV * CELL)` — gutter **más** el medio texel bilineal de siempre. El
+footprint de la textura no cambia (`SetSize` sigue usando `size`), así que ningún ancla ni
+gap de ningún componente se mueve; el gutter sigue existiendo físicamente en el TGA
+separando vecinos, solo deja de mostrarse.
 
 **Filtrado `TRILINEAR` (mipmaps)**: `Apply()` pasa `SetTexture(path, "CLAMP", "CLAMP",
 "TRILINEAR")`. El atlas es power-of-two → WoW auto-genera el mip chain y el trilinear lo
@@ -140,7 +150,7 @@ upstream renombra.
 
 | Función | Firma | Descripción |
 |---------|-------|-------------|
-| `Craft.Icons.Get(name, size?)` | `(string, number?) → table\|nil` | Descriptor UV o nil si no existe. `size` = tamaño de display en px (default 16); el atlas es agnóstico al tamaño. |
+| `Craft.Icons.Get(name, size?)` | `(string, number?) → table\|nil` | Descriptor UV o nil si no existe. `size` = tamaño de display en px del **glyph** (default 16) — el UV recorta el gutter para que se cumpla (FR-057); el atlas es agnóstico al tamaño. |
 | `Craft.Icons.Apply(tex, name, size?)` | `(Texture, string, number?) → void` | Aplica ícono a una Texture al tamaño de display. No-op si name=nil o no existe. |
 | `Craft.Icons.Has(name)` | `(string) → bool` | true si el nombre existe en `_atlas` o resuelve vía `_aliases`. |
 | `Craft.Icons.List()` | `() → string[]` | Array de todos los nombres canónicos (sin aliases), orden alfabético. |

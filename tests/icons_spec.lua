@@ -53,6 +53,23 @@ describe("Craft.Icons — atlas Lucide completo (ADR-0016)", function()
         end
     end)
 
+    it("el UV recorta el gutter: cubre el glyph (56px), no la celda entera (FR-057)", function()
+        -- Sin recorte el glyph se dibujaría a size × 56/64 = 87.5% de lo pedido.
+        local d = Icons.Get("check")
+        local cellW = 1 / Icons._div      -- ancho de celda en coords de textura
+        local cellH = 1 / Icons._rows
+        -- El span visible = el inner (56/64) menos medio texel por lado (protección
+        -- bilinear preexistente) = 55/64. Lo que NO puede ser es la celda entera (1.0).
+        local spanX = (d.right - d.left) / cellW
+        local spanY = (d.bottom - d.top) / cellH
+        assert.is_true(math.abs(spanX - 55 / 64) < 1e-9)
+        assert.is_true(math.abs(spanY - 55 / 64) < 1e-9)
+        -- Y debe estar centrado en la celda que le toca.
+        local cell = Icons._atlas["check"]
+        assert.is_true(math.abs((d.left + d.right) / 2 - (cell[1] + 0.5) * cellW) < 1e-9)
+        assert.is_true(math.abs((d.top + d.bottom) / 2 - (cell[2] + 0.5) * cellH) < 1e-9)
+    end)
+
     it("Get respeta el size de display pedido (el atlas es agnóstico)", function()
         assert.equals(16, Icons.Get("check").size)
         assert.equals(24, Icons.Get("check", 24).size)

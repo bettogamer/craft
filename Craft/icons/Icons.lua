@@ -19,9 +19,15 @@ local PATH = Craft.mediaPath .. "lucide.tga"
 -- holds the FULL Lucide set of a pinned release (I._lucide) — any canonical Lucide
 -- name resolves, plus deprecated aliases via I._aliases. Icons are stored at high
 -- resolution and downscaled by WoW at display time, so they stay crisp at any UIScale.
--- A half-texel inset keeps bilinear filtering from sampling the cell boundary (the 4px
--- transparent gutter already separates neighbours). UV divisors and insets are per-axis
--- because the atlas is taller than it is wide.
+-- The UV crops to the INNER region of the cell (56 of 64px), not the whole cell: the
+-- rasterizer draws the glyph at INNER and pads with a 4px transparent GUTTER per side
+-- (scripts/export-icons.py). Sampling the whole cell would fit those 64px into the
+-- requested display size, shrinking the glyph itself to size × 56/64 = 87.5% (FR-057).
+-- Cropping the gutter out makes the viewBox map to the full `size` asked for, without
+-- changing the texture footprint — the gutter stays in the TGA doing its job of
+-- separating neighbours, it just isn't shown. A half-texel inset on top keeps bilinear
+-- filtering off the boundary. UV divisors and insets are per-axis because the atlas is
+-- taller than it is wide.
 --
 -- Filtering: TRILINEAR (Apply below). The atlas is power-of-two, so WoW auto-generates a
 -- mipmap chain; trilinear samples it on minification (icons render ≤24px from a 56px inner
@@ -31,8 +37,12 @@ local PATH = Craft.mediaPath .. "lucide.tga"
 -- appear below ~10px display (deeper mips), which never happens.
 local DIVX   = I._div  or 8
 local DIVY   = I._rows or DIVX
-local INSETX = 0.5 / (DIVX * 64)  -- 64 = cell size in px → DIV*64 = texture size
-local INSETY = 0.5 / (DIVY * 64)
+local CELL   = 64                 -- cell size in px → DIV*CELL = texture size per axis
+local GUTTER = 4                  -- transparent margin per side, inside each cell
+-- Inset per side, in texture coords: the gutter (so the glyph fills the display size)
+-- plus half a texel (so bilinear never touches the cell boundary).
+local INSETX = (GUTTER + 0.5) / (DIVX * CELL)
+local INSETY = (GUTTER + 0.5) / (DIVY * CELL)
 
 -- ─── resolve ─────────────────────────────────────────────────────────────────
 -- Canonical lookup: direct hit in _atlas, or a deprecated Lucide alias
