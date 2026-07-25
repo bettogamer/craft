@@ -6,11 +6,11 @@ apuntando el cursor", 2026-07-24
 **Componente:** `Craft/components/Menu.lua` (`Menu:OpenAtCursor()` / `Menu:_doOpen()`)
 **Tipo:** Bug (posicionamiento / escala)
 **Prioridad:** Media (la ruta anclada `Open(anchor, opts)` funciona; `OpenAtCursor` es la afectada)
-**Estado:** ✅ Implementado (2026-07-24, en dev) — el cursor se convierte con la escala efectiva del
-frame al que el panel se ancla de verdad (`scaleRef`, `UIParent` por defecto), leída en el mismo
-sistema de coordenadas que `panelBaseScale`; `OpenAtCursor(scaleRef)` acepta un host con escala
-propia. Extra fuera del MVP: el `zoom-in-95` ya no multiplica el offset del ancla (ver §Solución).
-Tests `tests/menu_spec.lua` (+3). **Pendiente: verificación in-game** (owner / Coffer)
+**Estado:** ✅ Cerrado — implementado y **verificado in-game** (2026-07-24, en dev): el menú abre bajo
+el cursor. El cursor se convierte con la escala efectiva del frame al que el panel se ancla de verdad
+(`scaleRef`, `UIParent` por defecto), leída en el mismo sistema de coordenadas que `panelBaseScale`;
+`OpenAtCursor(scaleRef)` acepta un host con escala propia. Extra fuera del MVP: el `zoom-in-95` ya no
+multiplica el offset del ancla (ver §Solución). Tests `tests/menu_spec.lua` (+3)
 
 ---
 
