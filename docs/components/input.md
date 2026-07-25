@@ -140,6 +140,9 @@ Notas sobre estados:
 | `SetError(bool)`         | Activa/desactiva variante error y actualiza color del borde                  |
 | `SetPlaceholder(text)`   | Actualiza el texto del placeholder                                           |
 | `Clear()`                | Vacía el campo, dispara `onChange("")` + `onClear()`, escribe `""` en la señal ligada y devuelve el foco (FR-016) |
+| `Focus()`                | Da el foco al EditBox (cursor listo para escribir). **No-op si el campo está `disabled`** (FR-059) |
+| `ClearFocus()`           | Suelta el foco del EditBox (FR-059)                                          |
+| `HasFocus()`             | `true` si el EditBox tiene el foco (FR-059)                                  |
 | `GetFrame()`             | Retorna el frame raíz del componente                                         |
 
 ## Notas de implementación

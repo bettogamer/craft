@@ -416,6 +416,25 @@ function Input:GetValue()
     return self._edit:GetText()
 end
 
+-- ─── Programmatic focus (FR-059) ──────────────────────────────────────────────
+-- Public passthrough to the inner EditBox so callers don't reach into `_edit`.
+-- Use case: a search bar revealed by a button must be ready to type without a
+-- second click ("toggle search → type"); closing it releases the focus.
+-- `Focus()` is a no-op on a disabled field (a disabled EditBox can't be typed
+-- in, so taking the caret there would only hide the placeholder).
+function Input:Focus()
+    if self._cfg.disabled then return end
+    self._edit:SetFocus()
+end
+
+function Input:ClearFocus()
+    self._edit:ClearFocus()
+end
+
+function Input:HasFocus()
+    return self._edit:HasFocus() and true or false   -- always a boolean
+end
+
 function Input:SetEnabled(enabled)
     self._cfg.disabled = not enabled
     self.frame:SetAlpha(enabled and 1 or 0.5)  -- disabled:opacity-50 on the whole frame

@@ -6,6 +6,14 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+### Added
+- **`Craft.Input`: foco programático** (FR-059): `Focus()`, `ClearFocus()` y `HasFocus()` como
+  passthrough público al `EditBox` interno, para que los consumidores no alcancen el campo privado
+  `_edit`. Caso de uso (Coffer): una barra de búsqueda revelada por un botón queda lista para
+  escribir sin un segundo clic, y al cerrarse suelta el foco. `Focus()` es **no-op si el campo está
+  `disabled`** (un EditBox deshabilitado no acepta escritura); `HasFocus()` devuelve siempre booleano.
+  Aditivo, sin cambios de layout ni de tema. Tests: `tests/input_spec.lua` (+3).
+
 ## [2.10.0] - 2026-07-21
 
 > **Release v2.10.0 — dos componentes nuevos, un motor de layout y una ola de fidelidad pixel-perfect.**
