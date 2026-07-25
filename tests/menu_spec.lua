@@ -251,6 +251,57 @@ describe("Craft.Menu open/close", function()
     end)
 end)
 
+-- ─── OpenAtCursor positioning (FR-061) ───────────────────────────────────────
+
+describe("Craft.Menu OpenAtCursor", function()
+
+    local realCursor, realUIScale = GetCursorPosition, UIParent.GetEffectiveScale
+
+    local function withCursor(x, y, uiScale, fn)
+        GetCursorPosition = function() return x, y end
+        UIParent.GetEffectiveScale = function() return uiScale end
+        local ok, err = pcall(fn)
+        GetCursorPosition = realCursor
+        UIParent.GetEffectiveScale = realUIScale
+        if not ok then error(err, 0) end
+    end
+
+    it("converts the cursor with UIParent's scale, not the panel's stale one", function()
+        withCursor(400, 300, 1.0, function()
+            local m = Craft.Menu:Create({ items = { { type = "item", label = "A" } } })
+            m._panel:SetScale(2)          -- stale scale left by a previous anchored open
+            m:OpenAtCursor()
+            assert.equals(400, m._anchorX)
+            assert.equals(300, m._anchorY)
+            assert.equals(1, m._panelBaseScale)   -- anchored to UIParent → scale 1
+            m:Destroy()
+        end)
+    end)
+
+    it("divides by UIParent's effective scale when it is not 1", function()
+        withCursor(400, 300, 2.0, function()
+            local m = Craft.Menu:Create({ items = { { type = "item", label = "A" } } })
+            m:OpenAtCursor()
+            assert.equals(200, m._anchorX)
+            assert.equals(150, m._anchorY)
+            m:Destroy()
+        end)
+    end)
+
+    it("scaleRef makes the panel adopt that frame's scale and coordinate space", function()
+        withCursor(400, 300, 1.0, function()
+            local host = CreateFrame("Frame", nil, UIParent)
+            host:SetScale(0.75)
+            local m = Craft.Menu:Create({ items = { { type = "item", label = "A" } } })
+            m:OpenAtCursor(host)
+            assert.equals(400 / 0.75, m._anchorX)
+            assert.equals(300 / 0.75, m._anchorY)
+            assert.equals(0.75, m._panelBaseScale)
+            m:Destroy()
+        end)
+    end)
+end)
+
 -- ─── Reactive props (signals) ────────────────────────────────────────────────
 
 describe("Craft.Menu reactive props", function()

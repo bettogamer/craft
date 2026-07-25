@@ -128,10 +128,18 @@ function Menu:Create(config)
         if type(prog) ~= "number" then return end
         local m    = self._t or motion
         local base = self._panelBaseScale or 1
-        self._panel:SetScale(base * (m.motionZoomFrom + (1 - m.motionZoomFrom) * prog))
-        local dy = self._anchorY + m.motionSlide * (1 - prog) * self._panelSlideDir
+        local zoom = m.motionZoomFrom + (1 - m.motionZoomFrom) * prog
+        self._panel:SetScale(base * zoom)
+        -- SetPoint offsets are read in the PANEL's own (zooming) units, so the zoom
+        -- would also scale the anchor offset. Harmless for a 2px dropdown gap, but
+        -- OpenAtCursor's offset is a full screen coordinate: at zoom 0.95 the panel
+        -- would fly in from the bottom-left corner. Divide the zoom out so only the
+        -- panel scales and the anchor point stays put (FR-061).
+        local comp = (zoom ~= 0) and (1 / zoom) or 1
+        local dx = self._anchorX * comp
+        local dy = (self._anchorY + m.motionSlide * (1 - prog) * self._panelSlideDir) * comp
         self._panel:ClearAllPoints()
-        self._panel:SetPoint(self._anchorPoint, self._anchorFrame, self._anchorRelPoint, self._anchorX, dy)
+        self._panel:SetPoint(self._anchorPoint, self._anchorFrame, self._anchorRelPoint, dx, dy)
     end)
 
     -- ── Esc dismissal ─────────────────────────────────────────────────────────
@@ -601,16 +609,27 @@ function Menu:Open(anchor, opts)
     self:_doOpen(self._anchorFrame)
 end
 
-function Menu:OpenAtCursor()
-    local s = self._panel:GetEffectiveScale() or 1
+-- Opens under the mouse. `scaleRef` (optional) is the frame whose scale the panel
+-- should adopt — same role as `anchor` in Open(); defaults to UIParent (menu at
+-- UIParent scale, independent of the host container).
+--
+-- FR-061: GetCursorPosition() is in SCREEN pixels, so the offset must be divided by
+-- the effective scale the panel will HAVE once _doOpen applies panelBaseScale
+-- (= scaleRef's effective scale) — NOT by self._panel:GetEffectiveScale(), which at
+-- this point still holds the scale of the previous open (stale) and belongs to the
+-- wrong frame anyway (the offset is expressed against UIParent's BOTTOMLEFT).
+function Menu:OpenAtCursor(scaleRef)
+    local ref = scaleRef or UIParent
+    local eff = (ref.GetEffectiveScale and ref:GetEffectiveScale()) or 1
+    if not eff or eff == 0 then eff = 1 end
     local cx, cy = GetCursorPosition()
     self._anchorFrame    = UIParent
     self._anchorPoint    = "TOPLEFT"
     self._anchorRelPoint = "BOTTOMLEFT"
-    self._anchorX        = (cx or 0) / s
-    self._anchorY        = (cy or 0) / s
+    self._anchorX        = (cx or 0) / eff
+    self._anchorY        = (cy or 0) / eff
     self._panelSlideDir  = 1
-    self:_doOpen(UIParent)
+    self:_doOpen(ref)
 end
 
 function Menu:_doOpen(scaleRef)

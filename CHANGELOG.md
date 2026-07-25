@@ -22,6 +22,16 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   ni `Clear()` ni `onClear` se disparaban. Ahora `Create` sube el botón un nivel por encima del
   EditBox. Afectaba igual a `onTrailingClick`. Tests: `tests/input_spec.lua` (+2); el mock de tests
   modela frame levels reales (hijo = padre+1).
+- **`Craft.Menu:OpenAtCursor()` abría el panel desplazado del cursor** (FR-061). `GetCursorPosition()`
+  devuelve píxeles de pantalla y el offset se ancla a `UIParent`, pero se dividía por
+  `self._panel:GetEffectiveScale()` — el frame equivocado y, además, leído **antes** de que
+  `_doOpen` aplicase `panelBaseScale`, así que arrastraba la escala del open ANTERIOR. Ahora se
+  usa la escala efectiva del frame al que el panel se anclará de verdad. Añadido el parámetro
+  opcional **`OpenAtCursor(scaleRef)`** (mismo rol que `anchor` en `Open`; por defecto `UIParent`)
+  para hosts con escala propia. De paso, el `zoom-in-95` de la apertura ya no multiplica el offset
+  del ancla (los offsets de `SetPoint` van en unidades del panel, que está escalando): con una
+  coordenada de cursor completa el panel entraba volando desde la esquina inferior-izquierda.
+  Tests: `tests/menu_spec.lua` (+3).
 
 ## [2.10.0] - 2026-07-21
 

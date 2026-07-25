@@ -228,7 +228,7 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
 |---|---|
 | `Craft.Menu:Create(config)` | Crea una instancia de menú (panel oculto hasta `Open`) |
 | `menu:Open(anchor, opts)` | Abre anclado a `anchor`. `opts = {point, relativePoint, x, y}` (default `TOPLEFT`→`BOTTOMLEFT`). Modo dropdown |
-| `menu:OpenAtCursor()` | Abre anclado a la posición actual del cursor (usa `GetCursorPosition()/GetEffectiveScale()`, ADR-0011), con flip si se sale de pantalla. Modo context |
+| `menu:OpenAtCursor(scaleRef)` | Abre bajo el cursor (`GetCursorPosition()`, ADR-0011), con clamp si se sale de pantalla. Modo context. `scaleRef` (opcional) = frame cuya escala adopta el panel — mismo rol que `anchor` en `Open`; por defecto `UIParent` |
 | `menu:Close()` | Cierra el panel (dispara `onClose`) |
 | `menu:SetItems(items)` | Reemplaza las entradas (reutiliza filas por índice) |
 | `menu:Destroy()` | Libera frames, listeners de tema y binds |
@@ -249,9 +249,17 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
   `OnMouseDown` cierra; (2) **Esc** vía `table.insert(UISpecialFrames, panelName)` (panel con
   NOMBRE), patrón de [`Dialog.lua`](../../Craft/components/Dialog.lua)/`Window.lua`. Blizzard
   llama `panel:Hide()` directo en Esc → hookear `OnHide` para disparar `onClose` y limpiar.
-- **Posición context (cursor)**: `local s = panel:GetEffectiveScale(); local x,y =
-  GetCursorPosition(); panel:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x/s, y/s)`. Flip a
-  la izquierda/arriba si `GetRight()/GetBottom()` se salen de pantalla (o `SetClampedToScreen`).
+- **Posición context (cursor)** (FR-061): `GetCursorPosition()` devuelve **píxeles de pantalla**;
+  el offset se ancla a `UIParent` `BOTTOMLEFT`, así que hay que dividir por la escala efectiva
+  que el panel **tendrá** tras `_doOpen` — la de `scaleRef` (`UIParent` por defecto), no
+  `panel:GetEffectiveScale()`, que en ese momento aún guarda la escala del open ANTERIOR:
+  `local eff = (scaleRef or UIParent):GetEffectiveScale(); panel:SetPoint("TOPLEFT", UIParent,
+  "BOTTOMLEFT", x/eff, y/eff)` con `_doOpen(scaleRef)` (→ `panelBaseScale = eff/uiEff`, coherente).
+  Flip/clamp con `SetClampedToScreen`.
+- **El zoom de la animación no debe arrastrar el offset**: los offsets de `SetPoint` se leen en
+  las unidades del **propio panel**, que está escalando (`zoom-in-95`). Con el offset de 2px de un
+  dropdown es imperceptible, pero el de `OpenAtCursor` es una coordenada de pantalla entera y el
+  panel entraría volando desde la esquina → dividir el offset por el factor de zoom en el effect.
 - **`onDelete` sin robar el click de la fila**: el ✕ es un `Button` hijo con `frameLevel`
   mayor y su propio `OnClick`; la fila comprueba `MouseIsOver(deleteBtn)` o el ✕ hace
   `StopPropagation` (en WoW: manejar el click en el ✕ y no propagar — botones separados ya no
@@ -342,6 +350,9 @@ local MIN_W        = 128  -- min-w-32 (dropdown; context usa 144)
 - Radio: seleccionar en un `group` deselecciona los demás del mismo grupo; `onSelect(value)` dispara.
 - Checkbox: `onToggle(on)` alterna; tri-estado (`"indeterminate"`) pinta `minus`.
 - `onClick` no se dispara si se clickea el ✕ (`onDelete`).
+- `OpenAtCursor` (FR-061): con `GetCursorPosition`/`UIParent:GetEffectiveScale` mockeados,
+  `_anchorX/_anchorY == cursor/uiEff` **independiente de la escala previa del panel**; con
+  `scaleRef` propio, `cursor/refEff` y `panelBaseScale == refEff/uiEff`.
 - `disabled` (literal y señal) suprime callbacks.
 - `Open`/`Close` togglea visibilidad; `Close` corre `disposeAll` (sin ghost-updates al reabrir).
 - Señales Weave en `checked`/`label`/`disabled` se reflejan (patrón `reactive_spec`).
