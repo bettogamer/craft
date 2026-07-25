@@ -66,6 +66,8 @@ local function makeFrame(frameType, name, parent)
         _vertexColor= { r=1, g=1, b=1, a=1 },
         _texCoords  = { 0, 1, 0, 1 },
         _texture    = nil,
+        -- A child starts one level above its parent (WoW default); a root frame at 0.
+        _frameLevel = (parent and parent.GetFrameLevel and (parent:GetFrameLevel() + 1)) or 0,
     }
 
     -- Positioning
@@ -151,8 +153,10 @@ local function makeFrame(frameType, name, parent)
     function f:SetToplevel(v)       self._toplevel = v end
     function f:SetFrameStrata(s)    self._strata = s end
     function f:GetFrameStrata()     return self._strata end
-    function f:SetFrameLevel(n)     end
-    function f:GetFrameLevel()      return 0 end
+    -- Frame level: WoW gives a new child parent+1 by default; SetFrameLevel is
+    -- explicit. Modelled for real so hit-priority asserts (FR-060) are meaningful.
+    function f:SetFrameLevel(n)     self._frameLevel = n or 0 end
+    function f:GetFrameLevel()      return self._frameLevel or 0 end
     function f:SetScale(s)          self._scale = s end
     function f:GetScale()           return self._scale end
     function f:GetEffectiveScale()  return self._scale end

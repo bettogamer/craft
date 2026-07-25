@@ -157,6 +157,15 @@ function Input:Create(parent, config)
     self._edit:SetTextInsets(self:_leftPad(), self:_rightPad(), 0, 0)
     self._edit:SetText(self._cfg.value)
 
+    -- FR-060 — hit priority: the EditBox is mouse-enabled and spans the FULL inner
+    -- width (it covers the trailing slot too; SetTextInsets moves the TEXT, not the
+    -- mouse area). Both frames are children of self.frame, so they share a frame
+    -- level and WoW hands the click to the one created LAST — the EditBox, which
+    -- swallowed the ✕. Lift the trailing button above it so it owns its own hit area.
+    if self._trailBtn then
+        self._trailBtn:SetFrameLevel(self._edit:GetFrameLevel() + 1)
+    end
+
     -- ── _placeholder: FontString OVERLAY ──────────────────────────────────────
     -- Placeholder is a FontString (no internal WoW margin) so normal anchors work.
     self._placeholder = self.frame:CreateFontString(nil, "OVERLAY")

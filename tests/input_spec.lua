@@ -106,6 +106,14 @@ describe("Craft.Input clearable", function()
         assert.is_true(i._trailBtn:IsShown())
         i:Destroy()
     end)
+
+    -- FR-060: the EditBox covers the trailing slot with mouse enabled; the ✕ must sit
+    -- above it or WoW (same frame level, created later wins) eats the click.
+    it("the ✕ sits above the EditBox so it gets the click (FR-060)", function()
+        local i = Craft.Input:Create(UIParent, { clearable = true, value = "x" })
+        assert.is_true(i._trailBtn:GetFrameLevel() > i._edit:GetFrameLevel())
+        i:Destroy()
+    end)
 end)
 
 -- ─── onTrailingClick ──────────────────────────────────────────────────────────
@@ -121,6 +129,13 @@ describe("Craft.Input onTrailingClick", function()
         assert.is_false(i._iconTrailing:IsShown())         -- decorative texture yields to the button
         i._trailBtn:_fire("OnClick")
         assert.equals(1, hits)
+        i:Destroy()
+    end)
+
+    it("the trailing button sits above the EditBox too (FR-060)", function()
+        local i = Craft.Input:Create(UIParent, { iconTrailing = "eye",
+            onTrailingClick = function() end })
+        assert.is_true(i._trailBtn:GetFrameLevel() > i._edit:GetFrameLevel())
         i:Destroy()
     end)
 

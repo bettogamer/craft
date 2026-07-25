@@ -14,6 +14,15 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   `disabled`** (un EditBox deshabilitado no acepta escritura); `HasFocus()` devuelve siempre booleano.
   Aditivo, sin cambios de layout ni de tema. Tests: `tests/input_spec.lua` (+3).
 
+### Fixed
+- **`Craft.Input`: la ✕ de `clearable` no recibía el click** (FR-060). El EditBox tiene el mouse
+  habilitado y se ancla al ancho COMPLETO del frame, así que cubre también la zona del botón
+  trailing (`SetTextInsets` mueve el texto, no el área de mouse); al compartir frame level con el
+  `_trailBtn` (ambos hijos del mismo frame), WoW daba el click al creado después — el EditBox — y
+  ni `Clear()` ni `onClear` se disparaban. Ahora `Create` sube el botón un nivel por encima del
+  EditBox. Afectaba igual a `onTrailingClick`. Tests: `tests/input_spec.lua` (+2); el mock de tests
+  modela frame levels reales (hijo = padre+1).
+
 ## [2.10.0] - 2026-07-21
 
 > **Release v2.10.0 — dos componentes nuevos, un motor de layout y una ola de fidelidad pixel-perfect.**
