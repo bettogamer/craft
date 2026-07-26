@@ -6,6 +6,20 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-07-26
+
+> **Release v2.11.0 — Avatar y Empty, y el lote de fidelidad de Input y Menu.**
+> Añade **`Craft.Avatar`/`Craft.AvatarGroup`** (FR-062) y **`Craft.Empty`** (FR-063), los dos
+> componentes que faltaban para armar un panel de "lista sin resultados" completo, más el foco
+> programático de **`Craft.Input`** (FR-059). Corrige la ✕ de `clearable` que no recibía el click
+> (FR-060) y el `OpenAtCursor()` de **`Craft.Menu`**, que abría el panel desplazado del cursor
+> (FR-061). MINOR, retrocompatible (key sigue `Craft-2.0`). `CRAFT_BUILD` 11→12. Suite:
+> **536 tests** (luacheck 0/0, taintlint 0/0). Los cinco FR verificados in-game (owner) en 12.0.7.
+>
+> ⚠️ **Lección de esta tanda, relevante para cualquier consumidor** (CLAUDE.md bug #6): pasar
+> `filterMode` a `SetTexture` sobre una ruta de textura **ajena** (un BLP del cliente, p. ej.
+> `Interface\Icons\…`) **mata el cliente** con `ACCESS_VIOLATION` / #132, con máscara y sin ella.
+
 ### Added
 - **`Craft.Empty`** (FR-063): bloque canónico de **estado vacío** — media centrada + título +
   descripción + zona de acciones (lista sin resultados, filtro sin coincidencias, panel sin
@@ -83,6 +97,21 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   del ancla (los offsets de `SetPoint` van en unidades del panel, que está escalando): con una
   coordenada de cursor completa el panel entraba volando desde la esquina inferior-izquierda.
   Tests: `tests/menu_spec.lua` (+3).
+- **Suite: el spec de la sonda de fuente dependía del orden de carga** (sin cambio de producción).
+  `reactive_spec` comprobaba que un cambio de familia de fuente arma sondas nuevas *contando* las
+  sondas, pero todos los specs comparten un estado Lua y el set de sondas es acumulativo por ruta
+  de TTF: `label_spec`, que conmuta a Geist en su prueba de cambio en vivo, dejaba las sondas de
+  Geist ya armadas. Fallaba en CI y no en local porque `busted tests/` carga en orden alfabético
+  (`label` < `reactive`) mientras el mini-runner se invoca con la lista de `CLAUDE.md`, donde
+  `reactive` va antes. Ahora la prueba assertea el invariante real (las tres rutas TTF de la
+  familia activa tienen sonda), independiente del orden.
+
+### Changed
+- **README**: la tabla de componentes se había quedado en ~v2.3 y listaba **16 de 29** — omitía
+  Avatar, Badge, ColorSwatch, Combobox, DragList, Empty, Field, Menu, Popover, RadioGroup, Section,
+  Switch, Textarea, Toggle, ToggleGroup, Window y Grid, que es lo primero que ve quien descarga
+  `Craft.zip` de un release. Tabla al día contra los specs de `docs/components/`, y los sistemas
+  (`Flex`, `Grid`, `Icons`, `Theme`, `Strata`) salen a su propia tabla en vez de ir mezclados.
 
 ## [2.10.0] - 2026-07-21
 
