@@ -6,6 +6,22 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-07-26
+
+> **Release v2.12.0 — el avatar deja de necesitar una unidad en el mundo.**
+> Cierra FR-064 y FR-065, los dos verificados in-game (owner) en 12.0.7. `Craft.Avatar` gana
+> dos fuentes de imagen nuevas —**`atlas`** (arte del propio cliente, validado con
+> `C_Texture.GetAtlasInfo`) y **`texCoord`** (celdas asimétricas de los sheets, que el `crop`
+> simétrico no sabe expresar)— de modo que un **alt offline**, que no tiene unidad, ya puede
+> tener retrato. Y **`Craft.Menu`** acepta un **`avatar` en el slot leading** de una fila
+> `item`: el patrón *account/team switcher* de shadcn, donde cada fila **es una identidad** en
+> vez del mismo glifo repetido (filas de 36px solo cuando llevan avatar, avatar lazy dentro del
+> bundle de la fila pooleada). MINOR, retrocompatible (key sigue `Craft-2.0`). `CRAFT_BUILD`
+> 12→13. Suite: **558 tests** (luacheck 0/0, taintlint 0/0).
+>
+> Sin componentes nuevos: los dos FR extienden componentes existentes, así que ningún `.toc`
+> cambia y el re-vendoreo en los consumidores es una copia limpia.
+
 ### Added
 - **`Craft.Avatar` — dos fuentes de imagen nuevas: `atlas` y `texCoord`** (FR-064). Hasta ahora
   el retrato solo podía venir de una **unidad presente** (`unit`) o de una **ruta de textura**
