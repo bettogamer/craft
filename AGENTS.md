@@ -287,7 +287,13 @@ setter público (`SetOptions` / `SetItems`). Reglas:
 
 ### Requiere aprobación del maintainer:
 - Cambiar API pública de un componente.
-- Agregar componente nuevo (requiere `.toc`, tests, docs, ADR si aplica).
+- Agregar componente nuevo (requiere **los DOS `.toc`**, tests, docs, ADR si aplica).
+  ⚠️ Son dos listas y hay que tocar las dos: `Craft/Craft.toc` **y** el bloque
+  `libs\Craft\components\…` de `Craft_Browser/Craft_Browser.toc`, que enumera uno a uno los
+  archivos del Craft **embebido** (el bloque `pages\…` de ese mismo `.toc` es solo la demo).
+  Si falta la línea del embed, `deploy-local.ps1` copia el archivo pero el cliente no lo
+  carga: `Craft.<Nuevo>` sale **nil** in-game y re-desplegar no arregla nada. _Visto en
+  FR-063 (Empty)._
 - Cambiar `Craft/theme/Presets.lua` (tokens de color).
 - Cambiar `.github/workflows/`.
 - Breaking change de API (MAJOR → `"Craft-2.0"`, `BUILD=1`).
