@@ -847,10 +847,19 @@ describe("Craft.Theme font warm-up", function()
         Craft.Theme.unregister(h)
     end)
 
-    it("a theme switch to a new font family arms new probes", function()
-        local before = #Craft.Theme._fontProbes
+    it("a theme switch to a new font family arms probes for its TTFs", function()
+        -- Order-independent on purpose: all specs share one Lua state and the
+        -- probe set is cumulative per TTF path, so an earlier spec that already
+        -- switched to Geist (label_spec) makes "the count grew" false even
+        -- though the behaviour is correct. Assert the invariant instead: every
+        -- TTF of the family in use has a probe.
         Craft.Theme.use(Craft.Theme.build({ font = "geist" }))
-        assert.is_true(#Craft.Theme._fontProbes > before) -- Geist TTFs now probed
+        local t = Craft.Theme.get()
+        local probed = {}
+        for _, p in ipairs(Craft.Theme._fontProbes) do probed[p.path] = true end
+        assert.is_true(probed[t.font])       -- Geist TTFs now probed
+        assert.is_true(probed[t.fontMedium])
+        assert.is_true(probed[t.fontBold])
         Craft.Theme.use("lyra-dark") -- restore for later specs
     end)
 end)
