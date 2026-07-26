@@ -7,13 +7,13 @@
 [![WoW 11.x+](https://img.shields.io/badge/WoW-11.x%2B-orange.svg)](https://www.curseforge.com/wow/addons/craft)
 [![taintlint: secret-safe 12.0.7](https://img.shields.io/badge/taintlint-secret--safe_12.0.7-2ea44f?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI%2BPHBhdGggZD0iTTEwLjczMyA1LjA3NmExMC43NDQgMTAuNzQ0IDAgMCAxIDExLjIwNSA2LjU3NSAxIDEgMCAwIDEgMCAuNjk2IDEwLjc0NyAxMC43NDcgMCAwIDEtMS40NDQgMi40OSIgLz48cGF0aCBkPSJNMTQuMDg0IDE0LjE1OGEzIDMgMCAwIDEtNC4yNDItNC4yNDIiIC8%2BPHBhdGggZD0iTTE3LjQ3OSAxNy40OTlhMTAuNzUgMTAuNzUgMCAwIDEtMTUuNDE3LTUuMTUxIDEgMSAwIDAgMSAwLS42OTYgMTAuNzUgMTAuNzUgMCAwIDEgNC40NDYtNS4xNDMiIC8%2BPHBhdGggZD0ibTIgMiAyMCAyMCIgLz48L3N2Zz4%3D)](https://github.com/bettogamer/craft/actions/workflows/ci.yml)
 
-Craft es una librería open source de componentes UI para WoW addons escrita en Lua 5.1. Resuelve el problema de tener que construir UI desde cero en cada addon — ofrece 16 componentes listos para usar con diseño consistente basado en [shadcn Lyra](https://ui.shadcn.com/themes) (zinc + emerald, radius=0). A diferencia de AceGUI, Craft está diseñado con tokens semánticos de diseño, sistema de theming con live-switching y fuente Inter bundled — sin dependencias externas.
+Craft es una librería open source de componentes UI para WoW addons escrita en Lua 5.1. Resuelve el problema de tener que construir UI desde cero en cada addon — ofrece 29 componentes listos para usar con diseño consistente basado en [shadcn Lyra](https://ui.shadcn.com/themes) (zinc + emerald, radius=0). A diferencia de AceGUI, Craft está diseñado con tokens semánticos de diseño, sistema de theming con live-switching y fuente Inter bundled — sin dependencias externas.
 
 ---
 
 ## Ver Craft en acción
 
-Instala **[Craft Browser](https://www.curseforge.com/wow/addons/craft-browser)** desde CurseForge — un addon showcase que demuestra los 16 componentes interactivamente dentro de WoW. Usa `/craft` para abrirlo.
+Instala **[Craft Browser](https://www.curseforge.com/wow/addons/craft-browser)** desde CurseForge — un addon showcase que demuestra todos los componentes interactivamente dentro de WoW. Usa `/craft` para abrirlo.
 
 ---
 
@@ -119,22 +119,45 @@ flex:Layout()
 
 | Componente | Descripción |
 |---|---|
-| `Button` | Botón con 4 variantes de estilo |
-| `Checkbox` | Casilla con estado on/off |
+| `Avatar` / `AvatarGroup` | Retrato circular con iniciales, retrato de unidad y grupo apilado `+N` |
+| `Badge` | Chip de estado con variantes y modo removible |
+| `Button` | Botón con 4 variantes de estilo, icono y estado pressed |
+| `Checkbox` | Casilla con estados on/off/indeterminate |
+| `ColorSwatch` | Muestra de color que abre el picker nativo |
+| `Combobox` | Select con búsqueda (patrón `Command` de shadcn) |
 | `Dialog` | Modal con header y footer |
-| `Flex` | Motor de layout tipo flexbox |
-| `Icons` | Íconos Lucide desde atlas TGA |
-| `Input` | Campo de texto con placeholder |
+| `DragList` | Lista reordenable por arrastre |
+| `Empty` | Estado vacío: media + título + descripción + acciones |
+| `Field` / `FieldGroup` | Label + control + error/descripción, en 3 orientaciones |
+| `Input` | Campo de texto con placeholder, clearable y foco programático |
 | `Label` | Texto semántico con variantes |
-| `Panel` | Contenedor base con fondo |
+| `Menu` | Menú contextual anidado (`OpenAtCursor`) |
+| `Panel` | Card con header, footer y slot `CardAction` |
+| `Popover` | Panel flotante anclado a un trigger |
+| `RadioGroup` | Grupo de opciones excluyentes |
 | `Scroll` | Panel con scroll vertical |
+| `Section` | Bloque colapsable con título |
 | `Select` | Dropdown de opciones |
 | `Separator` | Línea divisoria horizontal/vertical |
-| `Sidebar` | Panel de navegación lateral |
-| `Slider` | Control deslizante de valor |
-| `Tabs` | Pestañas con contenido intercambiable |
-| `Theme` | Sistema de theming con live-switching |
+| `Sidebar` | Panel de navegación lateral en árbol |
+| `Slider` | Control deslizante de valor con formato |
+| `Switch` | Interruptor pill on/off |
+| `Tabs` | Pestañas con variantes `default`/`line` y modo `fill` |
+| `Textarea` | Campo de texto multilínea |
+| `Toggle` | Botón de dos estados |
+| `ToggleGroup` | Grupo de toggles single/multiple |
 | `Tooltip` | Globo de ayuda contextual |
+| `Window` | Marco movible/redimensionable (también headless) |
+
+Además de los componentes, la librería expone estos sistemas:
+
+| Sistema | Descripción |
+|---|---|
+| `Flex` | Motor de layout tipo flexbox |
+| `Grid` | Motor de layout 2D tipo CSS Grid |
+| `Icons` | Íconos Lucide desde atlas TGA (set completo, 1747) |
+| `Theme` | Theming multi-eje con live-switching |
+| `Strata` | Jerarquía única de z-order (page < modal < popover) |
 
 ---
 
