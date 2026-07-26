@@ -1,7 +1,8 @@
 # Component: Menu
 
 > Referencia shadcn: `dropdown-menu` + `context-menu` — WoW frame base: `Frame` (popover custom)
-> Origen: [FR-015](../requests/FR-015-context-menu.md). Estado: **implementado** en `dev`
+> Origen: [FR-015](../requests/FR-015-context-menu.md) (+ [FR-065](../requests/FR-065-menu-item-avatar.md),
+> avatar de fila). Estado: **implementado** en `dev` y verificado in-game
 > (`Craft/components/Menu.lua`, `tests/menu_spec.lua`). Pendiente de release (MINOR).
 
 `Craft.Menu` es **un solo componente** que cubre las dos primitivas de shadcn a la vez:

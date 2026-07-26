@@ -5,7 +5,8 @@
 spec [`docs/components/menu.md`](../components/menu.md)
 **Tipo:** Feature (amplía el esquema de item de `Menu`)
 **Prioridad:** Media-baja (cosmético; el menú funciona hoy con iconos lucide)
-**Estado:** **Implementado** (opción **A**) en `dev` — pendiente de verificación in-game y de release
+**Estado:** **Cerrado** — implementado (opción **A**) y **verificado in-game** (12.0.7, 2026-07-26);
+pendiente solo de release
 
 > **Resuelto como A** (`avatar` en el item), no B: Craft persigue el patrón shadcn y la opción
 > mínima perdía el retrato circular. Decisiones del maintainer sobre los puntos abiertos:

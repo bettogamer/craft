@@ -48,7 +48,7 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   - Es una **extensión Craft sin CSS Lyra de respaldo** (en shadcn ese avatar viene del markup
     del bloque, no de `dropdown-menu`), igual que `rightText` y `onDelete`.
   - Spec: `docs/components/menu.md`. Tests: `tests/menu_spec.lua` (+6, suite 558). Demo:
-    "Switch character" en la página **Menu** del Browser.
+    "Switch character" en la página **Menu** del Browser. Verificado in-game en 12.0.7.
 
 ## [2.11.0] - 2026-07-26
 
