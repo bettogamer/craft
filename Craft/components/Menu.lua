@@ -1,5 +1,6 @@
 -- Menu.lua
 -- Spec: docs/components/menu.md   ·   FR: docs/requests/FR-015-context-menu.md
+--                                        docs/requests/FR-065-menu-item-avatar.md
 -- Design: shadcn Lyra — dropdown-menu + context-menu (same anatomy, one component)
 --   .cn-dropdown-menu-content   { bg-popover ring-foreground/10 min-w-32 rounded-none ring-1 }  (+ p-1 base)
 --   .cn-dropdown-menu-item      { focus:bg-accent gap-2 px-2 py-2 text-xs  data-[variant=destructive]:... }
@@ -38,6 +39,12 @@ local CHECK_SIZE  = 14   -- size-3.5 (check/minus glyph)
 local RADIO_DOT   = 8    -- size-2 (radio dot, shown only when selected)
 local ICON_SIZE   = 16   -- size-4
 local DELETE_SIZE = 12   -- ✕ (Craft extension)
+-- Avatar in the leading slot (FR-065, Craft extension — shadcn's account-switcher
+-- avatar comes from the BLOCK markup, not from dropdown-menu's CSS: no Lyra to
+-- mirror here, same class of decision as `rightText` / `onDelete`).
+local AVATAR_SIZE  = 24                        -- Craft.Avatar size "sm"
+local AVATAR_PAD   = 6                         -- breathing room above/below
+local AVATAR_ROW_H = AVATAR_SIZE + AVATAR_PAD * 2   -- 36, ONLY on rows with an avatar
 local FONT_SIZE   = 12   -- text-xs
 local MIN_W       = 128  -- min-w-32 (dropdown floor; context uses 144 but 128 is a safe floor)
 
@@ -195,6 +202,10 @@ function Menu:_makeRow()
     local indDot = row:CreateTexture(nil, "ARTWORK")    -- radio dot, right
     indDot:SetSize(DOT_TEX, DOT_TEX)
 
+    -- NOTE: no avatar here. It is created LAZILY (_ensureAvatar) the first time a
+    -- row actually needs one: Craft.Avatar builds MaskTextures, and rule #132
+    -- (FR-062) says no masks dangling off rows that never show a portrait.
+
     local del = CreateFrame("Button", nil, row)         -- ✕ delete (own hit-area)
     del:SetSize(DELETE_SIZE + GAP, ROW_H)
     del:SetFrameLevel(row:GetFrameLevel() + 1)
@@ -223,6 +234,19 @@ function Menu:_makeRow()
     end)
 
     return item
+end
+
+-- ─── _ensureAvatar ────────────────────────────────────────────────────────────
+-- The row's avatar lives in the POOLED bundle: created once, reused across
+-- rebuilds (AttachContextMenu rebuilds on every open — one avatar per rebuild
+-- would leak frames, theme handles and MaskTextures) and hidden when the row is
+-- recycled as another type. Returns nil if Craft.Avatar isn't loaded (a consumer
+-- .toc may not embed it), in which case the row falls back to `icon`.
+function Menu:_ensureAvatar(item)
+    if item.avatar then return item.avatar end
+    if not Craft.Avatar then return nil end
+    item.avatar = Craft.Avatar:Create(item.row, { size = "sm" })
+    return item.avatar
 end
 
 -- ─── Resolve a literal-or-signal prop to its current value (no subscription) ──
@@ -291,6 +315,7 @@ function Menu:_renderRow(item, cfg)
     item.indDot:Hide(); item.del:Hide(); item.sep:Hide()
     item.bg:SetColorTexture(0, 0, 0, 0)
     item.label:Hide()
+    if item.avatar then item.avatar:GetFrame():Hide() end
     row:SetAlpha(1)
 
     -- ── separator ──────────────────────────────────────────────────────────────
@@ -307,7 +332,12 @@ function Menu:_renderRow(item, cfg)
         return SEP_ROW_H, 0
     end
 
-    row:SetHeight(ROW_H)
+    -- Row height is per-row (the separator already returned its own above): only a
+    -- plain item carrying an avatar grows to fit the 24px portrait. _buildRows
+    -- accumulates whatever _renderRow returns, so mixed heights just work.
+    local useAvatar = (typ == "item") and cfg.avatar and Craft.Avatar and true or false
+    local rowH = useAvatar and AVATAR_ROW_H or ROW_H
+    row:SetHeight(rowH)
     Craft.Theme.applyFont(item.label, (typ == "heading" and (t.fontMedium or t.font)) or t.font, FONT_SIZE)
     item.label:SetText(resolve(cfg.label) or "")
     item.label:Show()
@@ -321,7 +351,7 @@ function Menu:_renderRow(item, cfg)
         item.label:SetPoint("LEFT", row, "LEFT", ITEM_PL, 0)
         item.label:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
         item._baseColor = t.mutedForeground
-        return ROW_H, ITEM_PL + item.label:GetStringWidth() + ITEM_PR
+        return rowH, ITEM_PL + item.label:GetStringWidth() + ITEM_PR
     end
 
     -- Interactive rows share: two-way writeback signal + disabled state.
@@ -343,7 +373,30 @@ function Menu:_renderRow(item, cfg)
         end
     else -- plain item
         local x = ITEM_PL
-        if cfg.icon then
+        if useAvatar then
+            -- `avatar` WINS over `icon` (they compete for the same leading slot).
+            local av  = self:_ensureAvatar(item)
+            local spec = cfg.avatar
+            -- Crop BEFORE the source: assigning a texture re-applies the texcoords.
+            av:SetFallback(spec.fallback or "")
+            av:SetCrop(spec.crop or 0)
+            local tc = spec.texCoord
+            av:SetTexCoord(tc and tc[1], tc and tc[2], tc and tc[3], tc and tc[4])
+            if spec.unit then
+                av:SetPortraitUnit(spec.unit)
+            elseif spec.atlas then
+                av:SetAtlas(spec.atlas)
+            else
+                av:SetImage(spec.image)
+            end
+            av:SetDesaturated(spec.desaturated and true or false)
+            -- Craft.Avatar is purely presentational (no EnableMouse), so it never
+            -- steals the row's click/hover.
+            av:GetFrame():ClearAllPoints()
+            av:GetFrame():SetPoint("LEFT", row, "LEFT", ITEM_PL, 0)
+            av:GetFrame():Show()
+            x = ITEM_PL + AVATAR_SIZE + GAP
+        elseif cfg.icon then
             item.icon:ClearAllPoints()
             item.icon:SetPoint("LEFT", row, "LEFT", ITEM_PL, 0)
             Craft.Icons.Apply(item.icon, cfg.icon, ICON_SIZE)
@@ -356,6 +409,7 @@ function Menu:_renderRow(item, cfg)
 
         local rightPad = ITEM_PR
         if cfg.onDelete then
+            item.del:SetHeight(rowH)   -- hit-area follows the (possibly taller) row
             item.del:ClearAllPoints()
             item.del:SetPoint("RIGHT", row, "RIGHT", -(ITEM_PR / 2), 0)
             Craft.Icons.Apply(item.delTex, "x", DELETE_SIZE)
@@ -387,7 +441,7 @@ function Menu:_renderRow(item, cfg)
     -- Disabled (resolved literal; a signal refines it via _bindItems on open).
     self:_applyDisabled(item, cfg, resolve(cfg.disabled))
 
-    return ROW_H, contentW
+    return rowH, contentW
 end
 
 -- ─── Indicator helpers ──────────────────────────────────────────────────────
@@ -694,6 +748,12 @@ function Menu:Destroy()
     Craft.Reactive.disposeAll(self)      -- animation binds (self._effects)
     self:_disposeItemEffects()
     Craft.Theme.unregister(self._themeHandle)
+    -- Pooled avatars are components of their own (theme handle + frames): the rows
+    -- can't be destroyed, but the avatars must at least unregister and hide.
+    for i = 1, #self._items do
+        local av = self._items[i].avatar
+        if av then av:Destroy(); self._items[i].avatar = nil end
+    end
     if self._catcher then self._catcher:Hide(); self._catcher = nil end
     self._panel:Hide()
     self._panel = nil

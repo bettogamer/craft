@@ -5,7 +5,17 @@
 spec [`docs/components/menu.md`](../components/menu.md)
 **Tipo:** Feature (amplía el esquema de item de `Menu`)
 **Prioridad:** Media-baja (cosmético; el menú funciona hoy con iconos lucide)
-**Estado:** Abierto
+**Estado:** **Implementado** (opción **A**) en `dev` — pendiente de verificación in-game y de release
+
+> **Resuelto como A** (`avatar` en el item), no B: Craft persigue el patrón shadcn y la opción
+> mínima perdía el retrato circular. Decisiones del maintainer sobre los puntos abiertos:
+> **`avatar` gana a `icon`** cuando vienen los dos (nada de error de dev — degradar es más
+> amable en una librería embebida), y **sin `Craft.Avatar` embebido la fila cae a su `icon`**.
+> Implementación: [`Craft/components/Menu.lua`](../../Craft/components/Menu.lua)
+> (`_ensureAvatar` lazy + `AVATAR_ROW_H`), tests en `tests/menu_spec.lua` (+6, suite 558),
+> spec actualizada en [`docs/components/menu.md`](../components/menu.md) y demo
+> "Switch character" en la página **Menu** del Browser. La hit-area del ✕ de `onDelete` ahora
+> sigue la altura real de la fila (era el único sitio que asumía `ROW_H`).
 
 ---
 

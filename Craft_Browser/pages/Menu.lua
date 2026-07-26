@@ -74,7 +74,37 @@ CraftBrowserPages["Menu"] = {
         table.insert(comps, btn2)
         y = y + 44
 
-        -- ── Case 3 — Context menu (right-click), state rebuilt each open ────────────
+        -- ── Case 3 — Account switcher (avatar rows, FR-065) ─────────────────────────
+        -- Each row IS an identity: class-icon avatar (the source for OFFLINE alts) +
+        -- class-colored name + secondary data on the right + ✕ to forget the alt.
+        -- Rows with an avatar are 36px tall; the plain ones below stay at 28.
+        y = addLabel("Dropdown — account switcher (avatar rows, 36px; plain rows stay 28px)", y)
+
+        local switcher = Craft.Menu:Create({ items = {
+            { type="heading", label="Sanguino" },
+            { type="item", avatar={ atlas="classicon-mage",   fallback="Th" },
+              label="|cff3fc7ebThalindra|r", rightText="80 · Night Elf",
+              onClick=function() end, onDelete=function() end },
+            { type="item", avatar={ atlas="classicon-warrior", fallback="Bo" },
+              label="|cffc69b6dBorkaz|r",    rightText="74 · Orc",
+              onClick=function() end, onDelete=function() end },
+            { type="separator" },
+            { type="heading", label="Ragnaros" },
+            { type="item", avatar={ unit="player", fallback="Yo" },
+              label="This character", rightText="online",
+              onClick=function() end },
+            { type="separator" },
+            { type="item", label="Add character", icon="plus", onClick=function() end },
+        } })
+        table.insert(menus, switcher)
+
+        local btn3 = Craft.Button:Create(parent, { text="Switch character", icon="users",
+            onClick=function(b) switcher:Open(b:GetFrame(), { point="TOPLEFT", relativePoint="BOTTOMLEFT" }) end })
+        btn3:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, btn3)
+        y = y + 44
+
+        -- ── Case 4 — Context menu (right-click), state rebuilt each open ────────────
         y = addLabel("Context menu — right-click the box below", y)
 
         local box = CreateFrame("Frame", nil, parent)

@@ -92,6 +92,7 @@ Frame (panel)                       — TOOLTIP strata, parent UIParent, con NOM
             ├─ heading   → FontString (mutedForeground, font-medium)  — no interactivo
             ├─ separator → Texture 1px t.border
             └─ item      → Button   (pl-2; checkbox/radio reservan pr-8 a la derecha)
+                 ├── Craft.Avatar (24px)   ← si config.avatar (slot leading; PISA a icon, fila 36px)
                  ├── Texture (icon 16px)   ← si config.icon (izquierda, tras pl-2)
                  ├── FontString (label)
                  ├── FontString (rightText)← muted, right-aligned (Shortcut)
@@ -113,12 +114,19 @@ no hay glyph `circle` plano en el atlas).
 | `type` | Render | Callback | Parte shadcn |
 |---|---|---|---|
 | `heading` | label atenuado (`mutedForeground`, font-medium), no interactivo | — | `MenuLabel` (Group) |
-| `item` | label + (`icon` izq) + (`rightText` der) + (`onDelete`→✕); `variant="destructive"` → texto/hover destructive | `onClick` | `MenuItem` (+`Shortcut`) |
+| `item` | label + (`avatar` **o** `icon` izq) + (`rightText` der) + (`onDelete`→✕); `variant="destructive"` → texto/hover destructive | `onClick` | `MenuItem` (+`Shortcut`) |
 | `checkbox` | indicador check/minus a la izq (tri-estado) | `onToggle(on)` | `CheckboxItem` |
 | `radio` (`group`) | disco radio; exclusivo dentro de `group` | `onSelect(value)` | `RadioGroup`+`RadioItem` |
 | `separator` | línea 1px `t.border` | — | `MenuSeparator` |
 | `submenu` | **reservado / no-op en v1** (chevron-right a futuro) | — | `Sub…` |
 
+> **`avatar` (retrato en el slot leading) es una extensión de Craft** ([FR-065](../requests/FR-065-menu-item-avatar.md)),
+> igual que `rightText` y `onDelete`. En shadcn el avatar del patrón *account switcher* viene del
+> **markup del bloque**, no del CSS de `dropdown-menu` (que solo fija `[&_svg]:size-4` para
+> iconos): **no hay CSS Lyra que replicar** — misma clase de matiz que el `h-56`/`border` de
+> [FR-063](../requests/FR-063-empty-state.md). Es un `Craft.Avatar` size `sm` (24px) y **excluye
+> a `icon`** (si vienen los dos, gana `avatar`).
+>
 > **`onDelete` (✕ por fila) es una extensión de Craft**, no existe en shadcn `dropdown-menu`.
 > Es un botón trailing con su propia hit-area (frameLevel mayor que la fila) para que su click
 > dispare `onDelete` sin disparar el `onClick` de la fila. Requerido por Coffer (dropdown de
@@ -132,6 +140,8 @@ no hay glyph `circle` plano en el atlas).
 | Propiedad | Valor |
 |---|---|
 | Altura de fila `item`/`checkbox`/`radio` | **28px** (`py-2`=8 + text-xs=12 + `py-2`=8) — igual que Select |
+| Altura de fila `item` **con `avatar`** | **36px** = 24 (avatar `sm`) + 6×2 de aire — solo esa fila (extensión Craft, alturas mixtas) |
+| Avatar de fila | `Craft.Avatar` size `sm` = **24px**, en `pl-2`, `gap-2` hasta el label |
 | Altura `heading` | 28px (`px-2 py-2` + text-xs, `font-medium`) |
 | Padding interno del panel | `p-1` = 4px (del base .tsx; Lyra no lo overridea) |
 | Padding H de `item` plano | `px-2` = 8px ambos lados |
@@ -203,7 +213,8 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
 |---|---|---|
 | `type` | todos | `"heading"` \| `"item"` \| `"checkbox"` \| `"radio"` \| `"separator"` \| `"submenu"`(no-op) |
 | `label` | heading, item, checkbox, radio | Texto (acepta señal) |
-| `icon` | item | Nombre de icono Lucide del atlas (`Craft.Icons`) |
+| `icon` | item | Nombre de icono Lucide del atlas (`Craft.Icons`) — ignorado si hay `avatar` |
+| `avatar` | item | Tabla de config de `Craft.Avatar` size `sm`: `{ unit=… }` \| `{ atlas=… }` \| `{ image=…, crop=…, texCoord=… }` + `fallback` (iniciales) + `desaturated`. Sube la fila a 36px (extensión Craft, [FR-065](../requests/FR-065-menu-item-avatar.md)) |
 | `rightText` | item | Texto atenuado a la derecha (Shortcut) |
 | `onClick` | item | `fn()` al clickear la fila |
 | `onDelete` | item | `fn()` — muestra ✕ trailing; su click no dispara `onClick` (extensión Craft) |
@@ -264,6 +275,15 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
   mayor y su propio `OnClick`; la fila comprueba `MouseIsOver(deleteBtn)` o el ✕ hace
   `StopPropagation` (en WoW: manejar el click en el ✕ y no propagar — botones separados ya no
   comparten el evento).
+- **`avatar` — ciclo de vida (FR-065)**: el `Craft.Avatar` vive en el **bundle de la fila
+  pooleada** y se crea **lazy** la primera vez que esa fila lo necesita (`_ensureAvatar`) — nunca
+  uno por rebuild: `AttachContextMenu` reconstruye en cada apertura y `Craft.Avatar` crea
+  `MaskTexture`s (regla #132 de [FR-062](../requests/FR-062-avatar-avatargroup.md): nada de
+  máscaras colgando de filas que no muestran retrato). En rebuilds se **reusa** el mismo objeto
+  (`SetAtlas`/`SetImage`/`SetFallback`), se **oculta** si la fila se recicla como otro tipo, y
+  `Menu:Destroy()` llama a `avatar:Destroy()` de cada fila del pool. La altura por fila ya la
+  devuelve `_renderRow` (el `separator` ya devolvía la suya), así que las alturas mixtas 28/36
+  no necesitan refactor; sí hay que estirar la hit-area del ✕ a la altura real de la fila.
 - **Radios por `group`**: el menú mantиene un mapa `group → value` vivo; al seleccionar una
   fila radio, actualiza el mapa, refresca los discos de todas las filas del mismo grupo, y
   dispara `onSelect(value)`. Si `checked` es señal, `applyOrBind` la refleja.
@@ -278,7 +298,8 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
 
 - **Un `Craft.Menu` = `DropdownMenu` + `ContextMenu`** (misma anatomía; solo cambia el
   disparador). No se replican dos componentes.
-- **`onDelete` (✕ por fila)**: extensión de Craft, no existe en shadcn.
+- **`onDelete` (✕ por fila)** y **`avatar` (retrato leading)**: extensiones de Craft, no existen
+  en shadcn `dropdown-menu` (el avatar del account-switcher vive en el markup del bloque).
 - **Submenús y `Group`**: diferidos (v1 usa `heading`+`separator` para agrupar; `submenu` no-op).
 - **Config declarativa plana** (`items[]` con `type`) en vez del árbol de subcomponentes JSX de
   shadcn — coherente con el resto de componentes de Craft (Select, Sidebar).

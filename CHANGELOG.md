@@ -31,6 +31,24 @@ Versioning: [SemVer](https://semver.org/lang/es/)
     (fila de `classicon-*`, atlas roto → iniciales, `SetAtlas` en vivo y fila de `texCoord`).
   - Spec: `docs/components/avatar.md`. Tests: `tests/avatar_spec.lua` (+16, suite 552).
     Verificado in-game en 12.0.7.
+- **`Craft.Menu` — `avatar` en el slot leading de una fila `item`** (FR-065), el patrón
+  *account/team switcher* de shadcn: cada fila ES una identidad (retrato + nombre + dato
+  secundario), en vez del mismo glifo genérico repetido.
+  - `avatar = { unit=… } | { atlas=… } | { image=…, crop=…, texCoord=… }` + `fallback` +
+    `desaturated`: la misma config que `Craft.Avatar`, montado en size `sm` (24px) en `pl-2`.
+    **Excluye a `icon`** (si vienen los dos, gana `avatar`).
+  - **Altura de fila 36px SOLO en las filas con avatar** (24 + 6×2); el resto sigue en 28. Las
+    alturas mixtas ya funcionaban (`_renderRow` devuelve la altura por fila, como el
+    `separator`); la hit-area del ✕ de `onDelete` ahora sigue la altura real de la fila.
+  - **Ciclo de vida:** el avatar vive en el **bundle de la fila pooleada** y se crea **lazy** la
+    primera vez que esa fila lo necesita — nunca uno por rebuild (`AttachContextMenu` reconstruye
+    en cada apertura y `Craft.Avatar` crea `MaskTexture`s: regla #132). Se reusa en rebuilds, se
+    oculta si la fila se recicla como otro tipo, y `Menu:Destroy()` destruye los del pool. Sin
+    `Craft.Avatar` embebido, la fila degrada a su `icon`.
+  - Es una **extensión Craft sin CSS Lyra de respaldo** (en shadcn ese avatar viene del markup
+    del bloque, no de `dropdown-menu`), igual que `rightText` y `onDelete`.
+  - Spec: `docs/components/menu.md`. Tests: `tests/menu_spec.lua` (+6, suite 558). Demo:
+    "Switch character" en la página **Menu** del Browser.
 
 ## [2.11.0] - 2026-07-26
 

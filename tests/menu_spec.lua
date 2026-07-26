@@ -25,9 +25,11 @@ dofile("Craft/Craft.lua")
 dofile("Craft/Reactive.lua")
 dofile("Craft/theme/Presets.lua")
 dofile("Craft/theme/Theme.lua")
+dofile("Craft/theme/Shapes.lua")
 dofile("Craft/icons/Atlas.lua")
 dofile("Craft/icons/Icons.lua")
 dofile("Craft/layout/Flex.lua")
+dofile("Craft/components/Avatar.lua")   -- FR-065: rows with an avatar in the leading slot
 dofile("Craft/components/Menu.lua")
 
 local Craft = LibStub("Craft-2.0")
@@ -96,6 +98,83 @@ describe("Craft.Menu construction", function()
         assert.is_true(m._items[1].indDot:IsShown())
         assert.is_false(m._items[2].indDot:IsShown())
         m:Destroy()
+    end)
+end)
+
+-- ─── Avatar row (FR-065) ──────────────────────────────────────────────────────
+
+describe("Craft.Menu item avatar (FR-065)", function()
+
+    it("an item with `avatar` shows a 24px avatar and a taller row", function()
+        local m = Craft.Menu:Create({ items = {
+            { type = "item", label = "Thalindra", avatar = { fallback = "Th" },
+              rightText = "80 Night Elf" },
+        } })
+        local it = m._items[1]
+        assert.is_not_nil(it.avatar)
+        assert.is_true(it.avatar:GetFrame():IsShown())
+        assert.equals(24, it.avatar:GetFrame():GetWidth())
+        assert.equals(36, it.row:GetHeight())              -- 24 + 6*2
+        assert.is_false(it.icon:IsShown())
+        m:Destroy()
+    end)
+
+    it("rows without an avatar keep the 28px height (mixed heights stack)", function()
+        local m = Craft.Menu:Create({ items = {
+            { type = "item", label = "Plain", icon = "user" },
+            { type = "item", label = "Portrait", avatar = { fallback = "P" } },
+        } })
+        assert.equals(28, m._items[1].row:GetHeight())
+        assert.equals(36, m._items[2].row:GetHeight())
+        assert.equals(28 + 36, m._contentH)
+        assert.is_nil(m._items[1].avatar)                  -- lazy: never created
+        m:Destroy()
+    end)
+
+    it("`avatar` wins over `icon` when both are given", function()
+        local m = Craft.Menu:Create({ items = {
+            { type = "item", label = "Both", icon = "user", avatar = { fallback = "B" } },
+        } })
+        assert.is_true(m._items[1].avatar:GetFrame():IsShown())
+        assert.is_false(m._items[1].icon:IsShown())
+        m:Destroy()
+    end)
+
+    it("the avatar is reused across rebuilds and hidden when the row recycles", function()
+        local m = Craft.Menu:Create({ items = {
+            { type = "item", label = "A", avatar = { fallback = "A" } },
+        } })
+        local av = m._items[1].avatar
+        m:SetItems({ { type = "item", label = "B", avatar = { fallback = "B" } } })
+        assert.equals(av, m._items[1].avatar)              -- same object, not recreated
+        assert.is_true(av:GetFrame():IsShown())
+
+        m:SetItems({ { type = "checkbox", label = "C", checked = true } })
+        assert.equals(av, m._items[1].avatar)              -- kept in the pool…
+        assert.is_false(av:GetFrame():IsShown())           -- …but hidden
+        assert.equals(28, m._items[1].row:GetHeight())
+        m:Destroy()
+    end)
+
+    it("an atlas avatar takes the atlas source; a portrait row still fires onClick", function()
+        local clicked = false
+        local m = Craft.Menu:Create({ items = {
+            { type = "item", label = "Mage", avatar = { atlas = "classicon-mage", fallback = "M" },
+              onClick = function() clicked = true end },
+        } })
+        assert.equals("atlas", m._items[1].avatar._source)
+        m._items[1].row:_fire("OnClick")
+        assert.is_true(clicked)
+        m:Destroy()
+    end)
+
+    it("Destroy releases the pooled avatars", function()
+        local m = Craft.Menu:Create({ items = {
+            { type = "item", label = "A", avatar = { fallback = "A" } },
+        } })
+        local av = m._items[1].avatar
+        m:Destroy()
+        assert.is_nil(av.frame)                            -- Avatar:Destroy ran
     end)
 end)
 
