@@ -7,7 +7,7 @@ portar shadcn (shadcn-mapper, 2026-07-24)
 **Tipo:** Feature (nueva API pública — requiere aprobación del maintainer)
 **Prioridad:** Media (bloquea el demo "No Team Members"; depende de [`FR-062`](FR-062-avatar-avatargroup.md)
 solo para ese demo concreto, no para el componente)
-**Estado:** **Implementado** (pendiente de verificación in-game)
+**Estado:** **Cerrado** — implementado y **verificado in-game** (12.0.7, 2026-07-26)
 
 ---
 
@@ -32,6 +32,17 @@ solo para ese demo concreto, no para el componente)
 - **Demo**: `Craft_Browser/pages/Empty.lua` (página propia, cobertura de API — convención
   del catálogo: un componente, una página) **y** el ejemplo "No Team Members" como Card en
   `Craft_Browser/pages/Panel.lua`, que es donde lo pedía el FR.
+
+Verificado in-game sin retoques: centrado en los dos ejes, anillo de 1px nítido, wrap a
+`max-w-sm` y el bloque centrado en vertical con `height = 224`. El borde sólido (en vez del
+`dashed` de Lyra) se da por bueno ⇒ **no** hace falta el FR de seguimiento de la opción B
+(textura de patrón con `SetHorizTile`).
+
+Tropiezo del camino, ya corregido y anotado en `AGENTS.md` §8: `Craft_Browser.toc` enumera
+uno a uno los archivos del Craft **embebido** (`libs\Craft\components\…`) además del bloque
+`pages\…`, así que un componente nuevo necesita **tres** líneas en **dos** `.toc`. Con la del
+embed ausente, el deploy copia el archivo pero el cliente no lo carga: `Craft.Empty` sale nil
+y re-desplegar no cambia nada.
 
 ---
 

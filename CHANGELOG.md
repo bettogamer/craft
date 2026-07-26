@@ -31,7 +31,8 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   alpha ~0.10 la diferencia es tenue. Fuera de alcance: `[&>a]:underline` en la descripción (un
   `FontString` plano no tiene anchors clicables). Spec: `docs/components/empty.md`. Tests:
   `tests/empty_spec.lua` (43). Demos: página **Empty** del Browser (cobertura de API) y el
-  ejemplo "No Team Members" (Card + Empty + AvatarGroup) en la página **Panel**.
+  ejemplo "No Team Members" (Card + Empty + AvatarGroup) en la página **Panel**. Verificado
+  in-game (el borde sólido se da por bueno: no hace falta la textura de patrón).
 - **`Craft.Avatar` + `Craft.AvatarGroup`** (FR-062): retrato **circular** con fallback de
   iniciales (`bg t.muted` / texto `t.mutedForeground` a text-xs), tres tamaños (`sm` 24 ·
   `default` 32 · `lg` 40), imagen de textura **local** opcional y `desaturated`
