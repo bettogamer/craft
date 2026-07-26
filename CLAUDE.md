@@ -14,7 +14,7 @@ necesita compilador C) — usar exactamente estas invocaciones (lección Weave, 
 ```bash
 luac -p <archivo>                                            # sintaxis, tras cada edición
 luacheck Craft/*.lua Craft/components/*.lua Craft/theme/*.lua Craft/layout/*.lua Craft/icons/*.lua --config .luacheckrc
-lua tests/run.lua tests/button_spec.lua tests/sidebar_spec.lua tests/reactive_spec.lua tests/theme_spec.lua tests/label_spec.lua tests/menu_spec.lua tests/input_spec.lua tests/textarea_spec.lua tests/toggle_spec.lua tests/togglegroup_spec.lua tests/popover_spec.lua tests/combobox_spec.lua tests/badge_spec.lua tests/icons_spec.lua tests/flex_spec.lua tests/grid_spec.lua tests/panel_spec.lua tests/slider_spec.lua tests/field_spec.lua tests/tabs_spec.lua tests/section_spec.lua tests/switch_spec.lua   # suite completa (mini-runner local)
+lua tests/run.lua tests/avatar_spec.lua tests/button_spec.lua tests/sidebar_spec.lua tests/reactive_spec.lua tests/theme_spec.lua tests/label_spec.lua tests/menu_spec.lua tests/input_spec.lua tests/textarea_spec.lua tests/toggle_spec.lua tests/togglegroup_spec.lua tests/popover_spec.lua tests/combobox_spec.lua tests/badge_spec.lua tests/icons_spec.lua tests/flex_spec.lua tests/grid_spec.lua tests/panel_spec.lua tests/slider_spec.lua tests/field_spec.lua tests/tabs_spec.lua tests/section_spec.lua tests/switch_spec.lua   # suite completa (mini-runner local)
 bash scripts/bump-build.sh <X.Y.Z>                           # bump CRAFT_BUILD + Craft.VERSION antes de release (FR-029: sin arg aborta si VERSION == último tag)
 
 # atlas de iconos — la consola de esta máquina es cp1252 y el script imprime ✓/✅:
@@ -161,3 +161,30 @@ del pill y thumb roto.
   porque el rango real de display (14-24px = mip 0-2) deja el gutter de 4px en ≥1px
   transparente; el bleed solo aparecería <~10px, que no ocurre. Regla general: trilinear en
   un atlas SOLO si el gutter aguanta los mips que de verdad se usan.
+
+### 6. `filterMode` en `SetTexture` sobre una ruta AJENA **crashea el cliente** (#132)
+
+Pasar `filterMode` (`SetTexture(path, "CLAMP", "CLAMP", "TRILINEAR")`) sobre una textura que
+**no generamos nosotros** — un BLP arbitrario del cliente, p. ej. `Interface\Icons\…`, o
+cualquier ruta que venga del addon consumidor — mata el cliente con
+`ACCESS_VIOLATION` / **ERROR #132** (`0xffffffffffffffff` = −1 usado como handle ⇒ permutación
+de shader / slot de textura inválido). **No hay error Lua ni stack**: `<LuaErrors> 0`.
+
+- **Confirmado in-game (12.0.7, D3D12, 2026-07-26)** aislando con el banco de bisección de la
+  página Avatar del Browser: `icono + máscara + TRILINEAR` mata (caso F) **y `icono +
+  TRILINEAR` SIN máscara mata igual** (caso L, misma firma) ⇒ **la máscara es irrelevante: el
+  `filterMode` sobre la ruta ajena basta**. El mismo icono **sin `filterMode`** va bien (con y
+  sin máscara), igual que icono+desaturado y colortexture+máscara. Fue la causa del crash de
+  FR-062 (`Craft.Avatar:SetImage`).
+- **REGLA:** `filterMode` **solo** en archivos propios, POT y con cadena de mips (los
+  `shape_*.tga` de `Craft/theme/Shapes.lua`, el atlas `lucide.tga`). En **cualquier** ruta que
+  venga de fuera → `SetTexture(path)` **a secas**, sin excepciones y sin importar si lleva
+  máscara. Aplica a toda API pública que acepte una ruta de textura del consumidor.
+- **Corolario de depuración:** un #132 no trae stack ⇒ nunca depurar a base de "cambio algo y
+  reprueba" (cada intento = un reinicio del cliente). Montar un **banco de bisección** en la
+  página del Browser: un clic = una hipótesis, con **texturas crudas** (no el componente) para
+  que la única variable sea la combinación bajo sospecha, y confirmar por el **timestamp** del
+  nuevo log en `_retail_\Errors`. Reglas de máscaras que salieron del mismo episodio: una
+  `MaskTexture` **por destino y en su misma draw layer** (nunca compartida entre capas), la
+  región con **tamaño antes** de anclarle la máscara, y **nunca** dejar una máscara colgando de
+  una textura sin archivo asignado.
