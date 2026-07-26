@@ -2,7 +2,8 @@
 
 > Referencia shadcn: `avatar` — https://ui.shadcn.com/docs/components/avatar
 > WoW frame base: `Frame` (no hay widget avatar nativo en WoW)
-> FR: [FR-062](../requests/FR-062-avatar-avatargroup.md)
+> FR: [FR-062](../requests/FR-062-avatar-avatargroup.md) ·
+> [FR-064](../requests/FR-064-avatar-atlas-texcoord.md) (fuentes `atlas` / `texCoord`)
 
 ## CSS de referencia (Lyra)
 
@@ -95,8 +96,15 @@ Avatar no tiene estados interactivos. Los dos modos de contenido:
 
 | Modo                 | `_bg`     | `_image` | `_text`  |
 |----------------------|-----------|----------|----------|
-| Fallback (sin `image`) | `t.muted` | oculto   | iniciales en `t.mutedForeground` |
-| Imagen (`image` set) | `t.muted` (tapado) | visible, recortado por la máscara | oculto |
+| Fallback (sin fuente) | `t.muted` | oculto   | iniciales en `t.mutedForeground` |
+| Imagen (fuente asignada) | `t.muted` (tapado) | visible, recortada por la máscara | oculto |
+
+**Tres fuentes de imagen MUTUAMENTE EXCLUYENTES** — `unit` (retrato 3D), `atlas` (arte del
+propio cliente) e `image` (ruta de textura): asignar una **anula** las otras dos, así que
+gana la última. Si el `config` trae varias, la precedencia en `Create` es
+`unit` > `atlas` > `image`. Sin ninguna (o con `nil`) se muestran las iniciales; un
+**atlas inexistente** también cae al fallback (una ruta inexistente **no**, ver
+«Limitaciones conocidas»).
 
 ## Mapa de tokens
 
@@ -113,9 +121,11 @@ Avatar no tiene estados interactivos. Los dos modos de contenido:
 | Clave         | Tipo    | Default     | Descripción                                                     |
 |---------------|---------|-------------|-----------------------------------------------------------------|
 | `size`        | string  | `"default"` | `"sm"` (24) \| `"default"` (32) \| `"lg"` (40).                 |
-| `image`       | string  | `nil`       | Ruta de textura **LOCAL** del addon. Sin ella se usa `fallback`. |
-| `unit`        | string  | `nil`       | Unidad WoW (`"player"`, `"target"`, …) → **retrato del personaje** vía `SetPortraitTexture`. Es el equivalente WoW del `AvatarImage` remoto de shadcn. Excluyente con `image`: gana la última fuente asignada. |
+| `image`       | string  | `nil`       | Ruta de textura **LOCAL** del addon (o del cliente). Sin ella se usa `fallback`. |
+| `unit`        | string  | `nil`       | Unidad WoW (`"player"`, `"target"`, …) → **retrato del personaje** vía `SetPortraitTexture`. Es el equivalente WoW del `AvatarImage` remoto de shadcn. Excluyente con `image`/`atlas`: gana la última fuente asignada. |
+| `atlas`       | string  | `nil`       | **Atlas del cliente** (`"classicon-mage"`, …) → arte del juego para lo que **no está en el mundo** (un personaje offline no tiene unidad que retratar). Se **valida** con `C_Texture.GetAtlasInfo`: si no existe, iniciales. Excluyente con `image`/`unit`. **`crop`/`texCoord` no aplican** (el atlas fija sus texcoords). |
 | `crop`        | number  | `0`         | Recorte por lado (fracción 0..0.5) vía `SetTexCoord`. **`0.08` para `Interface\Icons\*`**: el bisel de item va horneado en el BLP y sin recorte se ve dentro del círculo. Los retratos de `unit` vienen a sangre → `0`. |
+| `texCoord`    | table   | `nil`       | Texcoords **explícitos** `{ l, r, t, b }` para celdas **asimétricas** de un sheet del cliente (p. ej. `CLASS_ICON_TCOORDS[class]` sobre `UI-CHARACTERCREATE-CLASSES`), que el inset simétrico de `crop` no puede expresar. **Pisa a `crop`**; ignorado en modo `atlas`. |
 | `fallback`    | string  | `""`        | 1-2 iniciales (no se truncan: es decisión del caller).          |
 | `desaturated` | boolean | `false`     | Equivalente de `grayscale` — `Texture:SetDesaturated` sobre la imagen. |
 | `ring`        | boolean | `false`     | Anillo de 2px `t.background`. Lo activa `AvatarGroup`; suelto no lleva anillo. |
@@ -124,7 +134,7 @@ Avatar no tiene estados interactivos. Los dos modos de contenido:
 
 | Clave         | Tipo             | Default     | Descripción                                                    |
 |---------------|------------------|-------------|----------------------------------------------------------------|
-| `items`       | table \| señal   | `{}`        | Lista de `{ fallback, image, unit, crop, desaturated }`. Prop de LISTA reactiva (ADR-0013), one-way. |
+| `items`       | table \| señal   | `{}`        | Lista de `{ fallback, image, unit, atlas, crop, texCoord, desaturated }` (mismas claves que el Avatar suelto). Prop de LISTA reactiva (ADR-0013), one-way. |
 | `size`        | string           | `"default"` | Aplica a todos los avatares y a la burbuja.                    |
 | `max`         | number           | `nil`       | Si `#items > max`, muestra `max` avatares + burbuja `+N`.      |
 | `overlap`     | number           | `8`         | Px de solape (`-space-x-2`).                                   |
@@ -137,9 +147,11 @@ Avatar no tiene estados interactivos. Los dos modos de contenido:
 
 | Método                   | Firma            | Descripción                                                        |
 |--------------------------|------------------|--------------------------------------------------------------------|
-| `SetImage(path)`         | `string? → void` | Cambia el retrato por una ruta de textura; `nil` vuelve al fallback de iniciales. Anula `unit`. |
-| `SetPortraitUnit(unit)`  | `string? → void` | Retrato del personaje de esa unidad; `nil` vuelve al fallback. Anula `image`. **No se auto-refresca** (ver abajo). |
-| `SetCrop(inset)`         | `number? → void` | Recorte por lado (fracción). Se re-aplica solo tras cada cambio de textura. |
+| `SetImage(path)`         | `string? → void` | Cambia el retrato por una ruta de textura; `nil` vuelve al fallback de iniciales. Anula `unit`/`atlas`. |
+| `SetPortraitUnit(unit)`  | `string? → void` | Retrato del personaje de esa unidad; `nil` vuelve al fallback. Anula `image`/`atlas`. **No se auto-refresca** (ver abajo). |
+| `SetAtlas(name)`         | `string? → void` | Arte del cliente por nombre de atlas; `nil` **o un atlas inexistente** vuelve al fallback. Anula `image`/`unit`. |
+| `SetCrop(inset)`         | `number? → void` | Recorte por lado (fracción). Se re-aplica solo tras cada cambio de textura. Sin efecto si hay `texCoord` o en modo atlas. |
+| `SetTexCoord(l, r, t, b)`| `number⁴? → void`| Texcoords explícitos (celda asimétrica de un sheet). `SetTexCoord(nil)` devuelve el mando a `crop`. Sin efecto en modo atlas. |
 | `SetFallback(text)`      | `string → void`  | Cambia las iniciales.                                              |
 | `SetDesaturated(flag)`   | `boolean → void` | Aplica/quita el grayscale de la imagen o el retrato.               |
 | `GetFrame()`             | `→ Frame`        | Frame WoW raíz para posicionamiento externo.                       |
@@ -182,6 +194,27 @@ parecido al `<AvatarImage src="…">` de shadcn que permite el cliente (no hay f
 retrato **no se auto-refresca**: si el consumidor quiere que siga vivo tras cambios de zona,
 debe re-llamar a `SetPortraitUnit` en `UNIT_PORTRAIT_UPDATE` (con `arg1 == unit`) y
 `PORTRAITS_UPDATED`. La página de demo del Browser lo hace y sirve de ejemplo.
+
+**Atlas del cliente (`atlas`) — la fuente para lo que no está en el mundo**: un personaje
+offline no tiene unidad que retratar y su arte de clase/raza **no es una ruta plana**, sino
+una celda de un atlas de juego (`classicon-<clase>`, con cobertura de las 13 clases; el
+patrón que usan oUF/ElvUI y BigWigs). `SetAtlas` valida **antes de pintar** con
+`C_Texture.GetAtlasInfo`: un atlas inexistente deja las **iniciales** en vez del círculo
+vacío que pintaría un atlas roto. Sin `Texture:SetAtlas` (cliente viejo) degrada al mismo
+fallback, sin error. Se llama **sin `filterMode`**, igual que `SetImage` y por la misma
+razón (crash #132): el arte es del cliente, no nuestro. En modo atlas `_applyCrop` **no se
+ejecuta** — `SetAtlas` fija los texcoords de su celda y re-escribirlos pintaría un trozo
+equivocado del sheet.
+
+> **Craft no lleva datos de juego**: no hay helper `ClassAtlas(classFile)` ni tablas de
+> clase/raza. El componente es presentacional y agnóstico; el nombre del atlas lo pone el
+> consumidor.
+
+**Texcoords explícitos (`texCoord`)**: los sheets del cliente (p. ej.
+`Interface\Glues\CHARACTERCREATE\UI-CHARACTERCREATE-CLASSES` + `CLASS_ICON_TCOORDS[class]`)
+recortan celdas **asimétricas**, imposibles de expresar con el inset simétrico de `crop`.
+`texCoord` los pisa mientras esté puesto y `SetTexCoord(nil)` devuelve el mando a `crop`;
+ambos se re-aplican tras cada cambio de textura (ver abajo).
 
 **Bisel horneado de los iconos (`crop`)**: las texturas `Interface\Icons\*` traen el marco de
 item **dentro del propio BLP**, así que dentro de un círculo se ve un trozo de borde recto.
@@ -229,8 +262,12 @@ no hay ancho que descongelar.
   el FR. Tokens documentados arriba (`t.primary` / `t.primaryForeground` + anillo
   `t.background`) para cuando haga falta.
 - **`AvatarImage` remoto imposible**: shadcn carga `https://github.com/shadcn.png`; WoW no
-  puede fetchear imágenes HTTP. `image` acepta únicamente rutas de textura locales del
-  addon consumidor.
+  puede fetchear imágenes HTTP. Las fuentes son locales: `unit` (retrato del personaje),
+  `atlas` (arte del propio cliente) e `image` (ruta de textura del addon o del cliente).
+- **Una `image` inexistente NO cae al fallback** (a diferencia de un `atlas` inexistente):
+  el cliente no ofrece una validación síncrona y barata de una ruta de textura —
+  `C_Texture.GetAtlasInfo` solo existe para atlas—, así que una ruta rota deja un círculo
+  vacío. Si la fuente puede fallar, prefiérase `atlas`.
 - **`desaturated` afecta solo a la imagen**: el chrome del fallback ya es gris
   (`t.muted` / `t.mutedForeground`), así que el `grayscale` del CSS no cambia nada visible
   sobre un avatar de iniciales.

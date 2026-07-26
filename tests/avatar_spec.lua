@@ -203,6 +203,138 @@ describe("Craft.Avatar (FR-062)", function()
         end)
     end)
 
+    -- ── Atlas del cliente (FR-064) ────────────────────────────────────────
+    -- La fuente para lo que NO está en el mundo (un alt offline no tiene unidad):
+    -- el arte de clase/raza vive en un atlas, no en una ruta plana.
+
+    describe("atlas", function()
+        it("atlas → the texture is shown and the fallback hidden", function()
+            local av = newAvatar({ fallback = "Th", atlas = "classicon-mage" })
+            assert.is_true(av._image:IsShown())
+            assert.is_false(av._text:IsShown())
+            assert.equals("classicon-mage", av._image:GetAtlas())
+            av:Destroy()
+        end)
+
+        it("SetAtlas(nil) returns to the fallback", function()
+            local av = newAvatar({ fallback = "Th", atlas = "classicon-mage" })
+            av:SetAtlas(nil)
+            assert.is_false(av._image:IsShown())
+            assert.is_true(av._text:IsShown())
+            av:Destroy()
+        end)
+
+        -- Sin esto un atlas mal escrito pinta un círculo VACÍO, que es peor que las
+        -- iniciales. C_Texture.GetAtlasInfo es la validación barata que sí existe
+        -- para atlas (para una ruta de textura no hay equivalente).
+        it("an atlas that does not exist falls back to the initials", function()
+            local av = newAvatar({ fallback = "Th", atlas = "classicon-notaclass" })
+            assert.is_false(av._image:IsShown())
+            assert.is_true(av._text:IsShown())
+            av:Destroy()
+        end)
+
+        it("the image mask is created lazily for the atlas too", function()
+            local av = newAvatar({ fallback = "Th" })
+            assert.is_nil(av._imageMask)
+            av:SetAtlas("classicon-mage")
+            assert.is_not_nil(av._imageMask)
+            assert.equals(1, av._image:GetNumMaskTextures())
+            av:Destroy()
+        end)
+
+        it("a rejected atlas leaves no mask behind (regla #132)", function()
+            local av = newAvatar({ fallback = "Th", atlas = "classicon-notaclass" })
+            assert.is_nil(av._imageMask)
+            assert.equals(0, av._image:GetNumMaskTextures())
+            av:Destroy()
+        end)
+
+        it("the THREE sources are mutually exclusive — the last one wins", function()
+            local av = newAvatar({ image = "Interface\\Icons\\Temp" })
+            av:SetAtlas("classicon-mage")
+            assert.is_nil(av._cfg.image)
+            assert.is_nil(av._cfg.unit)
+            assert.equals("classicon-mage", av._image:GetAtlas())
+
+            av:SetPortraitUnit("player")
+            assert.is_nil(av._cfg.atlas)
+            assert.is_nil(av._image:GetAtlas())
+            assert.equals("MockPortrait:player", av._image:GetTexture())
+
+            av:SetAtlas("classicon-warrior")
+            assert.is_nil(av._cfg.unit)
+            av:SetImage("Interface\\Icons\\Other")
+            assert.is_nil(av._cfg.atlas)
+            assert.equals("Interface\\Icons\\Other", av._image:GetTexture())
+            av:Destroy()
+        end)
+
+        -- SetAtlas fija los texcoords de SU celda: re-aplicar el inset simétrico
+        -- encima pintaría un trozo equivocado del sheet.
+        it("crop is ignored in atlas mode (SetAtlas owns the texcoords)", function()
+            local av = newAvatar({ atlas = "classicon-mage", crop = 0.08 })
+            local tc = av._image._texCoords
+            assert.near(0.25, tc[1], 1e-6); assert.near(0.5,  tc[2], 1e-6)
+            assert.near(0,    tc[3], 1e-6); assert.near(0.25, tc[4], 1e-6)
+            av:SetCrop(0.2)
+            assert.near(0.25, av._image._texCoords[1], 1e-6)
+            av:Destroy()
+        end)
+
+        it("leaving atlas mode restores the crop", function()
+            local av = newAvatar({ atlas = "classicon-mage", crop = 0.08 })
+            av:SetImage("Interface\\Icons\\Temp")
+            assert.near(0.08, av._image._texCoords[1], 1e-6)
+            av:Destroy()
+        end)
+
+        it("desaturated applies to an atlas image", function()
+            local av = newAvatar({ atlas = "classicon-mage", desaturated = true })
+            assert.is_true(av._image:IsDesaturated())
+            av:Destroy()
+        end)
+    end)
+
+    -- ── texCoord explícito (FR-064 B) ─────────────────────────────────────
+    -- Las celdas de los sheets del cliente (CLASS_ICON_TCOORDS) son ASIMÉTRICAS y
+    -- el inset simétrico de `crop` no puede expresarlas.
+
+    describe("texCoord", function()
+        local MAGE = { 0.25, 0.49609375, 0, 0.25 }   -- CLASS_ICON_TCOORDS.MAGE
+
+        it("explicit texCoord is applied verbatim", function()
+            local av = newAvatar({ image = "Interface\\Glues\\Classes", texCoord = MAGE })
+            local tc = av._image._texCoords
+            assert.near(MAGE[1], tc[1], 1e-6); assert.near(MAGE[2], tc[2], 1e-6)
+            assert.near(MAGE[3], tc[3], 1e-6); assert.near(MAGE[4], tc[4], 1e-6)
+            av:Destroy()
+        end)
+
+        it("texCoord overrides crop, and SetTexCoord(nil) gives it back", function()
+            local av = newAvatar({ image = "Interface\\Glues\\Classes", crop = 0.08 })
+            assert.near(0.08, av._image._texCoords[1], 1e-6)
+            av:SetTexCoord(MAGE[1], MAGE[2], MAGE[3], MAGE[4])
+            assert.near(MAGE[1], av._image._texCoords[1], 1e-6)
+            av:SetTexCoord(nil)
+            assert.near(0.08, av._image._texCoords[1], 1e-6)
+            av:Destroy()
+        end)
+
+        it("the texCoord survives a texture swap", function()
+            local av = newAvatar({ image = "Interface\\Glues\\Classes", texCoord = MAGE })
+            av:SetImage("Interface\\Glues\\Other")
+            assert.near(MAGE[1], av._image._texCoords[1], 1e-6)
+            av:Destroy()
+        end)
+
+        it("is ignored in atlas mode", function()
+            local av = newAvatar({ atlas = "classicon-mage", texCoord = { 0, 0.1, 0, 0.1 } })
+            assert.near(0.25, av._image._texCoords[1], 1e-6)
+            av:Destroy()
+        end)
+    end)
+
     -- ── Crop (bisel horneado de los Interface\Icons\*) ────────────────────
 
     describe("crop", function()
@@ -458,6 +590,35 @@ describe("Craft.AvatarGroup (FR-062)", function()
             local g = newGroup({ items = { { unit = "player" }, { fallback = "ML" } } })
             assert.equals("MockPortrait:player", g._pool[1]._image:GetTexture())
             assert.is_true(g._pool[2]._text:IsShown())   -- el otro sigue con iniciales
+            g:Destroy()
+        end)
+
+        it("an item with atlas gets the client art (FR-064)", function()
+            local g = newGroup({ items = { { atlas = "classicon-mage" }, { fallback = "ML" } } })
+            assert.equals("classicon-mage", g._pool[1]._image:GetAtlas())
+            assert.is_true(g._pool[2]._text:IsShown())
+            g:Destroy()
+        end)
+
+        it("an item texCoord picks an asymmetric cell of a sheet (FR-064)", function()
+            local g = newGroup({
+                items = { { image = "Interface\\Glues\\Classes",
+                            texCoord = { 0.25, 0.49609375, 0, 0.25 } } },
+            })
+            assert.near(0.25,       g._pool[1]._image._texCoords[1], 1e-6)
+            assert.near(0.49609375, g._pool[1]._image._texCoords[2], 1e-6)
+            g:Destroy()
+        end)
+
+        -- El pool reusa el mismo Avatar: si el item nuevo no trae fuente, el arte
+        -- del anterior no puede quedarse visible.
+        it("reusing a pooled avatar drops the previous item's atlas", function()
+            local g = newGroup({ items = { { atlas = "classicon-mage" } } })
+            g:SetItems({ { fallback = "ML" } })
+            assert.is_false(g._pool[1]._image:IsShown())
+            assert.is_true(g._pool[1]._text:IsShown())
+            g:SetItems({ { atlas = "classicon-warrior" } })
+            assert.equals("classicon-warrior", g._pool[1]._image:GetAtlas())
             g:Destroy()
         end)
 

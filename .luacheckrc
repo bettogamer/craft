@@ -30,8 +30,13 @@ globals = {
     -- Player/class info (used by consumers to feed Craft.Theme; ADR-0015 demo)
     "UnitClass",
     "RAID_CLASS_COLORS",
+    -- Sheet clásico de iconos de clase (demo `texCoord` del Browser — FR-064)
+    "CLASS_ICON_TCOORDS",
     -- Retrato 3D del personaje (Craft.Avatar `unit` / SetPortraitUnit — FR-062)
     "SetPortraitTexture",
+    -- C_Texture.GetAtlasInfo: valida un atlas antes de pintarlo (Craft.Avatar
+    -- `atlas` / SetAtlas — FR-064). Se lee con guarda: puede no existir.
+    "C_Texture",
     -- Font global del juego (ElvUI y otros lo sobreescriben; ADR-0015 demo)
     "STANDARD_TEXT_FONT",
     -- Native color picker (Craft.ColorSwatch wraps it; mutated pre-Dragonflight style)

@@ -6,6 +6,32 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+### Added
+- **`Craft.Avatar` — dos fuentes de imagen nuevas: `atlas` y `texCoord`** (FR-064). Hasta ahora
+  el retrato solo podía venir de una **unidad presente** (`unit`) o de una **ruta de textura**
+  (`image` + un `crop` simétrico), y ninguna de las dos sirve para un personaje que **no está en
+  el mundo**: un alt offline no tiene unidad, y el arte de clase del cliente vive en un atlas o
+  en una celda **asimétrica** de un sheet.
+  - **`atlas = "classicon-mage"`** / **`SetAtlas(name)`** — arte del propio cliente. Es una
+    **tercera fuente mutuamente excluyente** (asignar una anula las otras dos; en `Create` la
+    precedencia es `unit` > `atlas` > `image`). Se **valida antes de pintar** con
+    `C_Texture.GetAtlasInfo`: un atlas inexistente deja las **iniciales** en vez del círculo
+    vacío que pintaría un atlas roto — y sin `Texture:SetAtlas` (cliente viejo) degrada al mismo
+    fallback, sin error. La máscara del retrato se sigue creando **lazy** y `SetAtlas` se llama
+    **sin `filterMode`**, por la misma razón que `SetImage` (crash #132). `crop`/`texCoord` **no
+    aplican** en modo atlas: `SetAtlas` fija los texcoords de su celda.
+  - **`texCoord = { l, r, t, b }`** / **`SetTexCoord(l, r, t, b)`** — texcoords explícitos para
+    las celdas **asimétricas** de los sheets del cliente (`CLASS_ICON_TCOORDS[class]` sobre
+    `UI-CHARACTERCREATE-CLASSES`), que el inset simétrico de `crop` no puede expresar. Pisa a
+    `crop` mientras esté puesto; `SetTexCoord(nil)` se lo devuelve.
+  - Ambas claves valen también como **item de `AvatarGroup`** (`{ atlas = … }`,
+    `{ image = …, texCoord = … }`).
+  - Craft **no** gana datos de juego: nada de `ClassAtlas(classFile)` ni tablas de clase/raza —
+    el nombre del atlas lo pone el consumidor. Demo en la página **Avatar** del Browser
+    (fila de `classicon-*`, atlas roto → iniciales, `SetAtlas` en vivo y fila de `texCoord`).
+  - Spec: `docs/components/avatar.md`. Tests: `tests/avatar_spec.lua` (+16, suite 552).
+    Verificado in-game en 12.0.7.
+
 ## [2.11.0] - 2026-07-26
 
 > **Release v2.11.0 — Avatar y Empty, y el lote de fidelidad de Input y Menu.**

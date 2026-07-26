@@ -176,8 +176,29 @@ local function makeFrame(frameType, name, parent)
         self._color = {r=r or 0, g=g or 0, b=b or 0, a=a or 1}
     end
     function f:GetColorTexture()    return self._color.r, self._color.g, self._color.b, self._color.a end
-    function f:SetTexture(t)        self._texture = t end
+    -- SetTexture RESETEA los texcoords en WoW (por eso los componentes re-aplican el
+    -- recorte tras cada cambio de textura) y descarta el atlas que hubiera puesto.
+    function f:SetTexture(t)
+        self._texture   = t
+        self._atlas     = nil
+        self._texCoords = { 0, 1, 0, 1 }
+    end
     function f:GetTexture()         return self._texture end
+    -- Atlas del cliente (Craft.Avatar `atlas` / SetAtlas, FR-064): fija sus PROPIOS
+    -- texcoords —los de la celda—, que es justo por lo que el componente se salta el
+    -- crop en modo atlas. Un atlas desconocido no cambia nada (el componente lo
+    -- valida antes con C_Texture.GetAtlasInfo).
+    function f:SetAtlas(atlas, useAtlasSize)
+        local info = atlas and C_Texture.GetAtlasInfo(atlas)
+        self._atlas   = atlas
+        self._texture = atlas and ("MockAtlas:" .. tostring(atlas)) or nil
+        if info then
+            self._texCoords = { info.leftTexCoord, info.rightTexCoord,
+                                info.topTexCoord,  info.bottomTexCoord }
+            if useAtlasSize then self:SetSize(info.width, info.height) end
+        end
+    end
+    function f:GetAtlas()           return self._atlas end
     function f:SetTexCoord(...)     self._texCoords = {...} end
     function f:SetVertexColor(r,g,b,a) self._vertexColor = {r=r,g=g,b=b,a=a or 1} end
     function f:GetVertexColor()     local c=self._vertexColor; return c.r,c.g,c.b,c.a end
@@ -311,6 +332,27 @@ function SetPortraitTexture(texture, unit)
         texture:SetTexture("MockPortrait:" .. tostring(unit))
     end
 end
+
+-- C_Texture.GetAtlasInfo(name): registro de atlas "existentes". Devuelve nil para
+-- uno desconocido, que es exactamente el criterio con el que Craft.Avatar decide
+-- caer al fallback de iniciales en vez de pintar un círculo vacío (FR-064).
+local _atlases = {}
+function MockRegisterAtlas(name, info)
+    _atlases[name] = info or {
+        width = 64, height = 64,
+        leftTexCoord = 0, rightTexCoord = 1, topTexCoord = 0, bottomTexCoord = 1,
+    }
+end
+-- Un par de atlas reales de 12.0.7 (el retrato por clase que usa oUF).
+MockRegisterAtlas("classicon-mage", {
+    width = 64, height = 64,
+    leftTexCoord = 0.25, rightTexCoord = 0.5, topTexCoord = 0, bottomTexCoord = 0.25,
+})
+MockRegisterAtlas("classicon-warrior")
+
+C_Texture = {
+    GetAtlasInfo = function(name) return _atlases[name] end,
+}
 
 -- Miscellaneous globals
 function GetTime()               return 0 end

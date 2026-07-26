@@ -1,7 +1,8 @@
 CraftBrowserPages = CraftBrowserPages or {}
 
--- Avatar / AvatarGroup (FR-062) — full API coverage: sizes, initials fallback,
--- local texture + desaturated (`grayscale`), overlapped group with the 2px
+-- Avatar / AvatarGroup (FR-062 · FR-064) — full API coverage: sizes, initials
+-- fallback, the THREE image sources (`unit` / `atlas` / `image`) with `crop` and
+-- explicit `texCoord`, desaturated (`grayscale`), overlapped group with the 2px
 -- background ring, the "+N" overflow bubble and reactive `items` (ADR-0013).
 --
 -- ⚠️ Esta página mataba el cliente (#132, 2026-07-24). Causa CONFIRMADA in-game el
@@ -19,7 +20,11 @@ CraftBrowserPages = CraftBrowserPages or {}
 --     jaggies on the edge, no square corners;
 --   · the image avatars are CARVED by the mask (not square portraits);
 --   · the ring of each avatar cuts a clean 2px gap over the previous one;
---   · the "+N" bubble reads well at text-xs.
+--   · the "+N" bubble reads well at text-xs;
+--   · the `classicon-*` row shows FIVE different class icons (and the bogus atlas
+--     shows "??", not an empty circle) — SetAtlas without filterMode, so this row
+--     is also the #132 check for a client-owned texture;
+--   · the `texCoord` row shows one class per avatar, not the whole 4×4 sheet.
 CraftBrowserPages["Avatar"] = {
     title = "Avatar",
     desc  = "Circular portrait with initials fallback + overlapped group (FR-062)",
@@ -131,6 +136,58 @@ CraftBrowserPages["Avatar"] = {
         })
         grayBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 444, -(y + 8))
         table.insert(comps, grayBtn)
+        y = y + 56
+
+        -- ── Atlas del cliente (FR-064) ────────────────────────────────────────
+        -- La fuente para lo que NO está en el mundo: un personaje offline no tiene
+        -- unidad que retratar y su arte de clase vive en un ATLAS, no en una ruta
+        -- plana. SetAtlas valida con C_Texture.GetAtlasInfo, así que un atlas roto
+        -- deja las INICIALES en vez del círculo vacío que dejaría una ruta rota.
+        y = addLabel("atlas — client art (classicon-*): the source for OFFLINE characters", y)
+        local CLASSES = { "mage", "warrior", "priest", "rogue", "druid" }
+        for i, cls in ipairs(CLASSES) do
+            place(Craft.Avatar:Create(parent, { size = "lg", atlas = "classicon-" .. cls }),
+                  16 + (i - 1) * 48, y)
+        end
+        place(Craft.Avatar:Create(parent, { size = "lg", fallback = "??",
+                                            atlas = "classicon-notaclass" }), 16 + 5 * 48, y)
+        caption("mage · warrior · priest · rogue · druid · a MISSING atlas → initials",
+                16 + 6 * 48, y + 14)
+        y = y + 56
+
+        -- SetAtlas en vivo: el switcher de alts de un consumidor cambia el retrato
+        -- sin recrear el avatar.
+        y = addLabel("SetAtlas() live — the same avatar cycles through the class atlases", y)
+        local cycler = place(Craft.Avatar:Create(parent, { size = "lg", fallback = "Th",
+                                                           atlas = "classicon-mage" }), 16, y)
+        local clsIdx = 1
+        local clsBtn = Craft.Button:Create(parent, {
+            text = "Next class", variant = "outline", size = "sm",
+            onClick = function()
+                clsIdx = clsIdx % #CLASSES + 1
+                cycler:SetAtlas("classicon-" .. CLASSES[clsIdx])
+            end,
+        })
+        clsBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 64, -(y + 8))
+        table.insert(comps, clsBtn)
+        y = y + 56
+
+        -- ── texCoord explícito (FR-064 B) ─────────────────────────────────────
+        -- El sheet clásico de clases: celdas ASIMÉTRICAS que el inset simétrico de
+        -- `crop` no puede expresar (los addons las leen de CLASS_ICON_TCOORDS).
+        y = addLabel("texCoord — an ASYMMETRIC cell of a client sheet (CLASS_ICON_TCOORDS)", y)
+        local SHEET = "Interface\\Glues\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES"
+        local TC    = CLASS_ICON_TCOORDS or {}
+        for i, cls in ipairs({ "MAGE", "WARRIOR", "PRIEST", "ROGUE", "DRUID" }) do
+            local tc = TC[cls]
+            place(Craft.Avatar:Create(parent, {
+                size     = "lg",
+                fallback = cls:sub(1, 2),
+                image    = tc and SHEET or nil,   -- sin coords, mejor las iniciales
+                texCoord = tc,
+            }), 16 + (i - 1) * 48, y)
+        end
+        caption("the same sheet, one cell each (crop cannot express these)", 16 + 5 * 48, y + 14)
         y = y + 56
 
         -- ── SetImage / SetFallback ────────────────────────────────────────────

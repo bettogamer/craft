@@ -1,5 +1,6 @@
 -- Avatar.lua — Craft.Avatar + Craft.AvatarGroup: retrato circular con fallback de iniciales
 -- Spec: docs/components/avatar.md   ·   FR: docs/requests/FR-062-avatar-avatargroup.md
+--                                           docs/requests/FR-064-avatar-atlas-texcoord.md
 -- Design: shadcn Lyra — CSS real de `shadcn-pages/Profile - shadcn_ui.mhtml`:
 --   .cn-avatar               { width:32px; height:32px; border-radius:9999px }
 --   .cn-avatar[data-size=lg] { 40px }   ·   [data-size=sm] { 24px }
@@ -38,6 +39,18 @@ local SIZES = {
 local FONT_SIZE = 12
 local RING      = 2   -- ring-2 ring-background: solo dentro de un AvatarGroup
 
+-- atlasExists(name): un atlas inexistente pintaría un rectángulo vacío —peor que
+-- las iniciales—, así que se VALIDA antes. `C_Texture.GetAtlasInfo` es la
+-- comprobación barata y síncrona que el cliente ofrece para atlas; para una RUTA de
+-- textura no existe equivalente (de ahí que `image` no pueda hacer lo mismo).
+local function atlasExists(name)
+    local C = C_Texture
+    if C and C.GetAtlasInfo then
+        return C.GetAtlasInfo(name) ~= nil
+    end
+    return true   -- cliente sin API de validación: se intenta pintar igual
+end
+
 -- ─── Create ───────────────────────────────────────────────────────────────────
 function Avatar:Create(parent, config)
     local self = setmetatable({}, Avatar)
@@ -47,7 +60,9 @@ function Avatar:Create(parent, config)
         size        = SIZES[config.size] and config.size or "default",
         image       = config.image,
         unit        = config.unit,
+        atlas       = config.atlas,
         crop        = config.crop or 0,
+        texCoord    = config.texCoord,
         fallback    = config.fallback or "",
         desaturated = config.desaturated or false,
         ring        = config.ring or false,
@@ -91,10 +106,13 @@ function Avatar:Create(parent, config)
     self:_applyTheme(Craft.Theme.get())
     self._text:SetText(self._cfg.fallback)   -- después de applyFont (AGENTS §9)
 
-    -- Fuente del retrato: `unit` (retrato 3D del personaje) manda sobre `image`
-    -- (ruta de textura); sin ninguna de las dos se muestran las iniciales.
+    -- Fuente del retrato: TRES excluyentes. Si el config trae varias, la precedencia
+    -- es `unit` (retrato 3D del personaje) > `atlas` (arte del propio cliente) >
+    -- `image` (ruta de textura); sin ninguna se muestran las iniciales.
     if self._cfg.unit then
         self:SetPortraitUnit(self._cfg.unit)
+    elseif self._cfg.atlas then
+        self:SetAtlas(self._cfg.atlas)
     else
         self:SetImage(self._cfg.image)
     end
@@ -211,7 +229,9 @@ end
 function Avatar:SetImage(path)
     self._cfg.image = path
     if path then
-        self._cfg.unit = nil          -- fuentes mutuamente excluyentes: gana la última
+        self._cfg.unit  = nil         -- fuentes mutuamente excluyentes: gana la última
+        self._cfg.atlas = nil
+        self._source    = "image"
         self:_ensureImageMask()
         -- ⚠️ SIN filterMode, NUNCA. Pedir "TRILINEAR" sobre una ruta del caller
         -- (BLP arbitrario del cliente, posiblemente non-POT y sin cadena de mips)
@@ -221,6 +241,7 @@ function Avatar:SetImage(path)
         self._image:SetTexture(path)
         self:_showTexture(true)
     else
+        self._source = nil
         self:_showTexture(false)
     end
 end
@@ -237,10 +258,42 @@ function Avatar:SetPortraitUnit(unit)
     self._cfg.unit = unit
     if unit and SetPortraitTexture then
         self._cfg.image = nil
+        self._cfg.atlas = nil
+        self._source    = "unit"
         self:_ensureImageMask()
         SetPortraitTexture(self._image, unit)
         self:_showTexture(true)
     else
+        self._source = nil
+        self:_showTexture(false)
+    end
+end
+
+-- SetAtlas(name): atlas del propio cliente (`"classicon-mage"`, `"raidroster-*"`, …).
+-- Es la fuente para lo que NO está en el mundo: un personaje offline no tiene unidad
+-- que retratar y su arte de clase/raza vive en un atlas, no en una ruta plana.
+-- `nil` —o un atlas que no existe— vuelve al fallback de iniciales.
+--
+-- `crop`/`texCoord` NO aplican en modo atlas: `SetAtlas` fija los texcoords de su
+-- celda y volver a escribirlos pintaría un trozo equivocado del sheet.
+function Avatar:SetAtlas(name)
+    self._cfg.atlas = name
+    if name then
+        self._cfg.image = nil         -- fuentes mutuamente excluyentes: gana la última
+        self._cfg.unit  = nil
+    end
+
+    if name and self._image.SetAtlas and atlasExists(name) then
+        self._source = "atlas"
+        self:_ensureImageMask()
+        -- ⚠️ SIN filterMode (3er arg de SetAtlas), por la misma razón que SetImage:
+        -- el arte es del cliente, no nuestro — regla del crash #132.
+        self._image:SetAtlas(name)
+        self:_showTexture(true)
+    else
+        -- Atlas inexistente (o cliente sin Texture:SetAtlas) → iniciales, que es
+        -- mejor que el círculo vacío que dejaría un atlas roto.
+        self._source = nil
         self:_showTexture(false)
     end
 end
@@ -251,16 +304,34 @@ end
 -- círculo; el valor convencional para iconos es **0.08**. Los retratos de
 -- SetPortraitUnit ya vienen a sangre y no necesitan recorte (0).
 -- SetTexCoord sobre la textura enmascarada SÍ funciona: la limitación de CLAUDE.md
--- bug #5 es de la MaskTexture, no de su destino.
+-- bug #5 es de la MaskTexture, no de su destino. Un `texCoord` explícito pisa a este
+-- inset simétrico, y en modo atlas no se aplica ninguno de los dos.
 function Avatar:SetCrop(inset)
     self._cfg.crop = inset or 0
     self:_applyCrop()
 end
 
+-- SetTexCoord(l, r, t, b): texcoords EXPLÍCITOS, para las celdas ASIMÉTRICAS de los
+-- sheets del cliente (p. ej. `UI-CHARACTERCREATE-CLASSES` + `CLASS_ICON_TCOORDS`),
+-- que el inset simétrico de `crop` no puede expresar. Pisa a `crop` mientras esté
+-- puesto; `SetTexCoord(nil)` devuelve el mando a `crop`. Ignorado en modo atlas.
+function Avatar:SetTexCoord(l, r, t, b)
+    self._cfg.texCoord = l and { l, r or 1, t or 0, b or 1 } or nil
+    self:_applyCrop()
+end
+
 -- ─── Internos de la fuente de imagen ─────────────────────────────────────────
 function Avatar:_applyCrop()
-    local c = self._cfg.crop or 0
-    self._image:SetTexCoord(c, 1 - c, c, 1 - c)
+    -- Modo atlas: los texcoords ya los fijó SetAtlas (ver arriba).
+    if self._source == "atlas" then return end
+
+    local tc = self._cfg.texCoord
+    if tc then
+        self._image:SetTexCoord(tc[1] or 0, tc[2] or 1, tc[3] or 0, tc[4] or 1)
+    else
+        local c = self._cfg.crop or 0
+        self._image:SetTexCoord(c, 1 - c, c, 1 - c)
+    end
 end
 
 -- Alterna retrato/iniciales y re-aplica lo que SetTexture resetea (texcoords).
@@ -375,9 +446,15 @@ function AvatarGroup:SetItems(items)
         if i <= shown then
             local item = self._items[i] or {}
             av:SetFallback(item.fallback or "")
+            -- El recorte se fija ANTES que la fuente: asignar la textura re-aplica
+            -- los texcoords (SetTexture los resetea).
             av:SetCrop(item.crop or self._cfg.crop)
+            local tc = item.texCoord
+            av:SetTexCoord(tc and tc[1], tc and tc[2], tc and tc[3], tc and tc[4])
             if item.unit then
                 av:SetPortraitUnit(item.unit)
+            elseif item.atlas then
+                av:SetAtlas(item.atlas)
             else
                 av:SetImage(item.image)
             end
@@ -388,6 +465,7 @@ function AvatarGroup:SetItems(items)
             -- .cn-avatar-group-count: mismo chrome que un fallback (bg t.muted,
             -- texto t.mutedForeground) con el texto "+N".
             av:SetFallback("+" .. extra)
+            av:SetAtlas(nil)   -- el slot pudo venir de un item con atlas
             av:SetImage(nil)
             av:SetDesaturated(false)
         end
