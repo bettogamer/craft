@@ -7,6 +7,31 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 ## [Unreleased]
 
 ### Added
+- **`Craft.Empty`** (FR-063): bloque canónico de **estado vacío** — media centrada + título +
+  descripción + zona de acciones (lista sin resultados, filtro sin coincidencias, panel sin
+  configurar). Valores del CSS Lyra real: padding 24, gap 16 header↔content, gap 8 dentro del
+  header (el `margin-bottom: 8` del media es **aditivo** ⇒ media→título = 16), título text-sm
+  `t.fontMedium` `t.foreground` con line-height 20, descripción text-xs `t.mutedForeground` a
+  leading-relaxed, y `content` en fila con gap 10. Dos variantes de media: **`icon`** (caja
+  32×32 `t.muted` con icono lucide de 16 `t.foreground`, vía `icon = "users"`) y **`default`**
+  (slot libre y transparente para cualquier widget — p. ej. un `AvatarGroup`). `media` y
+  `content` se **reparentan** (duck-type `:GetFrame()` o `Frame` crudo, patrón `Craft.Field`):
+  el caller no los ancla y sigue siendo su dueño, `Destroy()` no los destruye. `content` acepta
+  además un **array** de widgets, que se alinean en fila centrada con el gap 10 de
+  `.cn-empty-content`. Alto **auto** (padding\*2 + contenido, `GetHeight()` para colocarlo en un
+  `Panel`/`Flex`) o **fijo** (`height = 224` para el `h-56` del markup, con el bloque centrado
+  verticalmente); el wrap de título y descripción se acota a `min(maxWidth, ancho − 48)` con
+  `maxWidth` 384 (`max-w-sm`). Borde **opt-in** (`border = true`) como anillo de 1px `t.border`
+  vía `Craft.Theme.AnchorBorder` (nunca full-fill, FR-038). `title` y `description` son props
+  reactivas (ADR-0013). Layout **manual con ancla única**, no Flex — mismas dos razones que
+  `Craft.Field`: Flex no dimensiona el contenedor a su contenido y el word-wrap necesita el
+  ancho final antes de medir el alto. Radius 0 (Lyra aplana Empty) ⇒ sin shapes prefab.
+  **Divergencia documentada:** Lyra pide `border-style: dashed` y WoW no tiene borde
+  discontinuo (`SetColorTexture` es sólido, no hay dash pattern) → v1 usa borde **sólido**; a
+  alpha ~0.10 la diferencia es tenue. Fuera de alcance: `[&>a]:underline` en la descripción (un
+  `FontString` plano no tiene anchors clicables). Spec: `docs/components/empty.md`. Tests:
+  `tests/empty_spec.lua` (43). Demos: página **Empty** del Browser (cobertura de API) y el
+  ejemplo "No Team Members" (Card + Empty + AvatarGroup) en la página **Panel**.
 - **`Craft.Avatar` + `Craft.AvatarGroup`** (FR-062): retrato **circular** con fallback de
   iniciales (`bg t.muted` / texto `t.mutedForeground` a text-xs), tres tamaños (`sm` 24 ·
   `default` 32 · `lg` 40), imagen de textura **local** opcional y `desaturated`

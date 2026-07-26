@@ -843,6 +843,47 @@ CraftBrowserPages["Panel"] = {
 
         y = y + 380 + 24
 
+        -- "No Team Members" card (shadcn `empty` example — Card + Empty + AvatarGroup, FR-063)
+        -- Markup real: <Card className="... h-56 border"> con un Empty dentro del CardContent.
+        -- h-56 = 224 en el Empty (que centra su bloque verticalmente), `border` = el borde
+        -- opt-in del Empty (sólido en Craft: WoW no tiene dashed — ver docs/components/empty.md).
+        y = addLabel("No Team Members — Card + Empty + AvatarGroup (FR-063)", y)
+        local teamPanel = Craft.Panel:Create(parent, { width = 360, height = 256 })
+        teamPanel:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, teamPanel)
+
+        local teamContent = teamPanel:GetContent()
+
+        -- media: AvatarGroup lg con 3 iniciales solapadas 8px (-space-x-2)
+        local teamRoster = Craft.AvatarGroup:Create(teamContent, {
+            size    = "lg",
+            overlap = 8,
+            items   = { { fallback = "SD" }, { fallback = "ML" }, { fallback = "ER" } },
+        })
+        table.insert(comps, teamRoster)
+
+        -- content: un único botón de acción (default / sm)
+        local inviteBtn = Craft.Button:Create(teamContent, {
+            text = "Invite Members", variant = "default", size = "sm",
+            onClick = function() print("|cff10b981Craft|r Empty: Invite Members") end,
+        })
+        table.insert(comps, inviteBtn)
+
+        -- El Empty REPARENTA media y content: no anclarlos a mano (ver empty.md).
+        local teamEmpty = Craft.Empty:Create(teamContent, {
+            width       = 328,   -- 360 - padding 16*2
+            height      = 224,   -- h-56
+            border      = true,
+            media       = teamRoster,
+            title       = "No Team Members",
+            description = "Invite your team to collaborate on this project.",
+            content     = inviteBtn,
+        })
+        teamEmpty:GetFrame():SetPoint("TOPLEFT", teamContent, "TOPLEFT", 0, 0)
+        table.insert(comps, teamEmpty)
+
+        y = y + 256 + 24
+
         return {
             height  = y + 24,
             cleanup = function()

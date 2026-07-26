@@ -89,6 +89,7 @@ pages\Combobox.lua
 pages\ColorSwatch.lua
 pages\Dialog.lua
 pages\DragList.lua
+pages\Empty.lua
 pages\Flex.lua
 pages\Grid.lua
 pages\Icons.lua
