@@ -7,6 +7,31 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 ## [Unreleased]
 
 ### Added
+- **`Craft.Avatar` + `Craft.AvatarGroup`** (FR-062): retrato **circular** con fallback de
+  iniciales (`bg t.muted` / texto `t.mutedForeground` a text-xs), tres tamaños (`sm` 24 ·
+  `default` 32 · `lg` 40), imagen de textura **local** opcional y `desaturated`
+  (`SetDesaturated`, equivalente de `grayscale`). Dos afordancias propias de WoW en vez del
+  `AvatarImage` remoto de shadcn (el cliente no puede fetchear URLs): **`unit`** /
+  `SetPortraitUnit(unit)` pinta el **retrato del personaje** (`SetPortraitTexture`; no se
+  auto-refresca — Craft no registra eventos, el consumidor re-llama en
+  `UNIT_PORTRAIT_UPDATE`/`PORTRAITS_UPDATED`), y **`crop`** / `SetCrop(inset)` recorta la
+  textura por `SetTexCoord` porque los `Interface\Icons\*` traen el **bisel de item horneado en
+  el BLP** y se cuela dentro del círculo (`0.08` es la convención de los addons; default `0`).
+  `image` y `unit` son excluyentes: gana la última fuente asignada. `AvatarGroup` solapa avatares 8px
+  (`-space-x-2`), separa cada uno con el anillo de 2px `t.background` (`ring-2
+  ring-background`), colapsa el excedente en una burbuja `+N` (`max`) y expone `GetWidth()`
+  para centrar el grupo; `items` es prop de lista reactiva (ADR-0013) con reuso de frames por
+  índice. Nota Lyra contraintuitiva: Lyra aplana el radio en Card/Badge/Empty pero **el
+  Avatar sigue siendo circular**, así que el círculo se hace con el shape prefab
+  `shape_circle.tga` + `AddMaskTexture` (ADR-0018, patrón del thumb de Switch; sin assets
+  nuevos). Limitaciones v1 documentadas en el spec: sin el `after:border` de 1px (sería
+  rectangular) y sin `AvatarBadge`. Spec: `docs/components/avatar.md`. Tests:
+  `tests/avatar_spec.lua` (46). Verificado in-game.
+  - ⚠️ Lección que salió de aquí (**CLAUDE.md bug #6**): pasar un `filterMode`
+    (`"TRILINEAR"`) a `SetTexture` sobre una textura que **no generamos nosotros** —un BLP
+    arbitrario del cliente— **mata el cliente** con `ACCESS_VIOLATION` (#132), con máscara y
+    sin ella. El `filterMode` va **solo** en archivos propios POT con mipmaps (`shape_*.tga`,
+    `lucide.tga`); en rutas del consumidor, `SetTexture(path)` a secas.
 - **`Craft.Input`: foco programático** (FR-059): `Focus()`, `ClearFocus()` y `HasFocus()` como
   passthrough público al `EditBox` interno, para que los consumidores no alcancen el campo privado
   `_edit`. Caso de uso (Coffer): una barra de búsqueda revelada por un botón queda lista para

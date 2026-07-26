@@ -50,6 +50,7 @@ libs\Craft\icons\Atlas.lua
 libs\Craft\icons\Icons.lua
 libs\Craft\layout\Flex.lua
 libs\Craft\layout\Grid.lua
+libs\Craft\components\Avatar.lua
 libs\Craft\components\Badge.lua
 libs\Craft\components\Button.lua
 libs\Craft\components\Checkbox.lua
@@ -80,6 +81,7 @@ libs\Craft\components\Window.lua
 
 # Showcase
 Browser.lua
+pages\Avatar.lua
 pages\Badge.lua
 pages\Button.lua
 pages\Checkbox.lua

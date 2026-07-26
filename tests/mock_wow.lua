@@ -181,6 +181,10 @@ local function makeFrame(frameType, name, parent)
     function f:SetTexCoord(...)     self._texCoords = {...} end
     function f:SetVertexColor(r,g,b,a) self._vertexColor = {r=r,g=g,b=b,a=a or 1} end
     function f:GetVertexColor()     local c=self._vertexColor; return c.r,c.g,c.b,c.a end
+    -- Desaturation (`grayscale` equivalent — Craft.Avatar): record the flag so specs
+    -- can assert it; the mock cannot rasterize, the visual is verified in-game.
+    function f:SetDesaturated(v)    self._desaturated = v and true or false end
+    function f:IsDesaturated()      return self._desaturated == true end
     -- MaskTexture wiring (ADR-0018 rounded shapes): record so specs can assert it.
     function f:AddMaskTexture(m)    self._masks = self._masks or {}; self._masks[#self._masks+1] = m end
     function f:RemoveMaskTexture(m) end
@@ -298,6 +302,15 @@ end
 -- Cursor functions
 function SetCursor(cursor)  end
 function GetCursorPosition() return 0, 0 end
+
+-- SetPortraitTexture(texture, unit): retrato del personaje — el equivalente WoW del
+-- AvatarImage remoto de shadcn (Craft.Avatar `unit` / SetPortraitUnit). El cliente
+-- rasteriza el modelo 3D; aquí basta con marcar la textura para poder afirmarlo.
+function SetPortraitTexture(texture, unit)
+    if texture and texture.SetTexture then
+        texture:SetTexture("MockPortrait:" .. tostring(unit))
+    end
+end
 
 -- Miscellaneous globals
 function GetTime()               return 0 end

@@ -48,6 +48,7 @@ layout\Flex.lua
 layout\Grid.lua
 
 # Components
+components\Avatar.lua
 components\Badge.lua
 components\Button.lua
 components\Checkbox.lua
