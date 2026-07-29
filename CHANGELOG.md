@@ -6,6 +6,62 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-07-28
+
+> **Release v2.13.0 — el desplegable deja de esconder opciones.**
+> Cierra FR-066, verificado in-game (owner) en 12.0.7. `Craft.Select` capaba la lista a 6 filas
+> y confiaba en un `ScrollFrame` que **nada podía mover**: con 9 opciones las 3 últimas no
+> existían para el usuario —sin error, sin barra, sin pista visual— y era el único desplegable
+> de la librería que **capaba la altura sin poder desplazarse** (`Menu` crece con su contenido,
+> `Combobox` sí engancha la rueda). Ahora hay **rueda**, **flechas ▲/▼** con la anatomía y la
+> semántica de Radix (cada banda existe solo mientras hay contenido en su dirección y **quita
+> espacio al viewport**, así que el panel conserva su altura y asoma una fila parcial) y un
+> **`config.maxItems`** para subir el techo. De propina, `Open()` abre desplazado hasta la fila
+> seleccionada. MINOR, retrocompatible (key sigue `Craft-2.0`). `CRAFT_BUILD` 13→14.
+> Suite: **576 tests** (luacheck 0/0, taintlint 0/0).
+>
+> El mismo hilo destapó por qué algunos items salían **en dos líneas**: el ancho del label se
+> medía una sola vez en `Create` —antes del `SetWidth` del consumidor— y nunca se re-aplicaba,
+> mientras el panel sí se re-mide al abrir; y un `FontString` con ancho envuelve por defecto. Se
+> arregla en `Select` y en `Combobox`, que tenía el mismo defecto latente. Sin componentes
+> nuevos: ningún `.toc` cambia y el re-vendoreo en los consumidores es una copia limpia.
+
+### Added
+- **`Craft.Select` — `config.maxItems`** (default `6`, mínimo 1): filas visibles antes de
+  scrollear. No limita cuántas opciones se pueden elegir; sube el techo del panel para listas que
+  se quieren ver enteras (FR-066).
+
+### Fixed
+- **`Craft.Select`: las opciones más allá de la 6ª ya son alcanzables** (FR-066). El panel
+  recortaba la lista a 6 filas y confiaba en un `ScrollFrame` que **nada podía mover** —ni rueda,
+  ni barra, ni teclado— así que con 9 opciones las 3 últimas no existían para el usuario, sin
+  error ni pista visual (reportado desde Coffer, fila "Agrupar por"). Ahora:
+  - **rueda del ratón** (2 filas por muesca, clampeada), enganchada en el `ScrollFrame`, en el
+    panel y en las bandas de flecha para que no queden zonas muertas;
+  - **flechas ▲/▼** (`SelectScrollUpButton`/`SelectScrollDownButton` de shadcn): bandas de 24px
+    en los bordes del panel con auto-scroll al pasar el cursor, con la **semántica de Radix
+    literal** — cada banda existe solo mientras hay contenido en su dirección (la de arriba
+    aparece al scrollear, la de abajo desaparece al final) y **quita espacio al viewport** en vez
+    de superponerse, así que la altura del panel no cambia y asoma una **fila parcial**, que es
+    la otra mitad del affordance de shadcn;
+  - **`Open()` abre desplazado hasta la fila seleccionada** (scroll mínimo), de modo que un valor
+    fuera de la ventana visible deja de abrirse sin fila ni checkmark a la vista.
+- **`Craft.Select`: los items ya no salen en dos líneas ni truncados a destiempo.** Dos defectos
+  encadenados. (1) **El ancho del label estaba obsoleto**: se calculaba en `_buildItems`, que
+  corre en `Create` —cuando el consumidor todavía no ha hecho su `SetWidth`, así que el trigger
+  mide 0 y cae al suelo `min-w-36`— y **no se recalculaba nunca**; en un Select de 240px los
+  labels se medían como si el panel tuviera 144. (2) Un `FontString` con ancho **envuelve por
+  defecto**, así que ese ancho corto partía la etiqueta en una segunda línea que se salía de la
+  fila (28px) y pisaba el item siguiente. Ahora el ancho tiene **una sola fuente**
+  (`_itemTextWidth`) que `_updatePanelSize` re-aplica en cada `Open()` con el tamaño real, y el
+  texto es de **una sola línea** con truncado por elipsis (`SetWordWrap(false)` +
+  `SetNonSpaceWrap(false)`) — el equivalente WoW del item flex de shadcn y del
+  `[&>span]:line-clamp-1` de su trigger.
+- **`Craft.Combobox`: mismo arreglo, mismo defecto latente.** Sus filas anclan el label
+  LEFT+RIGHT+TOP+BOTTOM (o sea, también tienen ancho) y su trigger igual, así que un label largo
+  podía partirse en dos líneas dentro de una fila de 24px. Ahora fila y trigger son de una sola
+  línea con truncado.
+
 ## [2.12.0] - 2026-07-26
 
 > **Release v2.12.0 — el avatar deja de necesitar una unidad en el mundo.**
