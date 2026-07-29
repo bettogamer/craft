@@ -35,9 +35,15 @@ local ITEM_HEIGHT     = 28   -- py-2×2 + 12px text
 local ITEM_PL         = 8    -- pl-2
 local ITEM_PR         = 32   -- pr-8 (reserves space for checkmark)
 local ITEM_FONT       = 12   -- text-xs
-local MAX_ITEMS_VIS   = 6    -- max visible before scrolling
+local MAX_ITEMS_VIS   = 6    -- default max visible before scrolling (config.maxItems overrides)
 local CHECK_SIZE      = 12   -- checkmark icon 12px
 local MIN_PANEL_W     = 144  -- min-w-36 — panel never narrower than this
+-- Scrolling (FR-066). The panel used to clamp at 6 rows with nothing able to move
+-- the ScrollFrame: the surplus options were unreachable AND unannounced.
+local WHEEL_STEP      = ITEM_HEIGHT * 2  -- one wheel notch = 2 rows (same as Combobox)
+local ARROW_H         = 24   -- SelectScroll{Up,Down}Button: py-1 (4+4) + 16px chevron
+local ARROW_ICON      = 16   -- size-4
+local ARROW_SPEED     = ITEM_HEIGHT * 4  -- px/s while the cursor rests on an arrow
 
 
 -- ─── Create ───────────────────────────────────────────────────────────────────
@@ -53,6 +59,9 @@ function Select:Create(parent, config)
         disabled    = config.disabled    or false,
         onSelect    = config.onSelect,
         width       = config.width,               -- fixed trigger width (nil = fill parent)
+        -- Rows visible before the panel scrolls (FR-066). Everything past it is
+        -- still reachable — wheel + scroll arrows — this only sets the panel height.
+        maxItems    = math.max(math.floor(tonumber(config.maxItems) or MAX_ITEMS_VIS), 1),
     }
     -- self._open is a Weave.signal (created below, once self._panel exists) — the
     -- private open/close state that drives the dropdown fade. NOT a public prop.
@@ -101,6 +110,11 @@ function Select:Create(parent, config)
     self._selectedText = self._trigger:CreateFontString(nil, "OVERLAY")
     self._selectedText:SetJustifyH("LEFT")
     self._selectedText:SetJustifyV("MIDDLE")
+    -- `[&>span]:line-clamp-1` on shadcn's SelectTrigger: the selected label is one
+    -- line and truncates. Its LEFT+RIGHT anchors give it a width, so without this
+    -- a long value wraps and overflows a 28/32px trigger.
+    self._selectedText:SetWordWrap(false)
+    self._selectedText:SetNonSpaceWrap(false)
 
     -- _chevron: "chevron-down" icon 16px on the right
     self._chevron = self._trigger:CreateTexture(nil, "ARTWORK")
@@ -124,10 +138,31 @@ function Select:Create(parent, config)
     -- _panelBg: Texture inset 1px — t.popover background
     self._panelBg = self._panel:CreateTexture(nil, "BACKGROUND")
 
-    -- _scroll: ScrollFrame for more than MAX_ITEMS_VIS items
+    -- _scroll: ScrollFrame for more than maxItems items
     self._scroll = CreateFrame("ScrollFrame", nil, self._panel)
     self._scrollChild = CreateFrame("Frame", nil, self._scroll)
     self._scroll:SetScrollChild(self._scrollChild)
+
+    -- Wheel scrolling (FR-066). Enabled on every frame that can sit under the
+    -- cursor inside the panel — the item Buttons don't handle the wheel, so it
+    -- reaches the ScrollFrame beneath them; the arrows and the panel itself get
+    -- their own hook so the notch never falls into a dead band.
+    local function onWheel(_, delta)
+        self:_scrollBy(-(delta or 0) * WHEEL_STEP)
+    end
+    self._scroll:EnableMouseWheel(true)
+    self._scroll:SetScript("OnMouseWheel", onWheel)
+    self._panel:EnableMouseWheel(true)
+    self._panel:SetScript("OnMouseWheel", onWheel)
+
+    -- _arrowUp / _arrowDown: shadcn SelectScrollUpButton / SelectScrollDownButton.
+    -- Radix semantics, kept literal: each band exists ONLY while there is content
+    -- in its direction (up appears once you scroll, down disappears at the end),
+    -- and it takes space FROM the viewport instead of overlaying it — so the
+    -- panel keeps its height and the rows show through as a partial sliver, which
+    -- is the other half of shadcn's "there is more" affordance.
+    self._arrowUp   = self:_makeScrollArrow("up",   onWheel)
+    self._arrowDown = self:_makeScrollArrow("down", onWheel)
 
     -- _items: array of item frames (created in _buildItems)
     self._items = {}
@@ -226,6 +261,10 @@ function Select:Create(parent, config)
     end)
     self._panel:SetScript("OnHide", function()
         self._panel:SetScript("OnUpdate", nil)
+        -- Stop an arrow's auto-scroll if the panel closed while hovering it
+        -- (OnLeave doesn't fire for a frame that disappears under the cursor).
+        self._arrowUp.frame:SetScript("OnUpdate", nil)
+        self._arrowDown.frame:SetScript("OnUpdate", nil)
     end)
 
     -- ── Theme registration ────────────────────────────────────────────────────
@@ -280,6 +319,13 @@ function Select:_makeItem()
     local itemText = itemFrame:CreateFontString(nil, "OVERLAY")
     itemText:SetJustifyH("LEFT")
     itemText:SetJustifyV("MIDDLE")
+    -- ONE line, always. The width below is explicit, and a FontString with a width
+    -- word-wraps by default: a label wider than the row used to flow into a second
+    -- line that spilled over the next item (the row itself stays 28px). shadcn's
+    -- item is a flex row that never wraps, so the WoW equivalent is wrap off —
+    -- which also makes WoW truncate with an ellipsis, like line-clamp.
+    itemText:SetWordWrap(false)
+    itemText:SetNonSpaceWrap(false)
 
     -- Checkmark: "check" icon 12px, visible when this item is selected
     local checkmark = itemFrame:CreateTexture(nil, "ARTWORK")
@@ -327,10 +373,11 @@ function Select:_buildItems()
     local opts = self._cfg.options
     local totalH = 0
 
-    -- Width available for each item label: mirrors _updatePanelSize's panelW
-    -- (trigger width floored at MIN_PANEL_W), minus the 1px ring and the item
-    -- padding. Never 0 → item text stays visible even before the trigger is sized.
-    local availW = math.max(self._trigger:GetWidth() or 0, MIN_PANEL_W) - 2 - ITEM_PL - ITEM_PR
+    -- Seed width for the labels. It is the value AT THIS INSTANT: callers size the
+    -- trigger AFTER Create (`Create(...)` then `SetWidth(240)`), so this pass
+    -- usually measures a 0-wide trigger and falls back to MIN_PANEL_W.
+    -- _updatePanelSize re-applies the real one — see _itemTextWidth.
+    local availW = self:_itemTextWidth()
 
     for i, opt in ipairs(opts) do
         local item = self._items[i]
@@ -349,7 +396,7 @@ function Select:_buildItems()
         -- onFontsReady re-measure; avoids Bug #2 invisible text on cold boot).
         item.text:ClearAllPoints()
         item.text:SetPoint("LEFT", item.frame, "LEFT", ITEM_PL, 0)
-        item.text:SetWidth(math.max(availW, 1))
+        item.text:SetWidth(availW)
 
         -- Vertical position in scrollChild (re-anchored: the slot count can change)
         item.frame:ClearAllPoints()
@@ -368,7 +415,8 @@ function Select:_buildItems()
         item.frame:Hide()
     end
 
-    -- Adjust scrollChild size
+    -- Adjust scrollChild size (totalH also drives the scroll travel — FR-066)
+    self._contentH = totalH
     self._scrollChild:SetSize(1, math.max(totalH, 1))
 
     -- Refresh checkmarks/text colors (covers hidden surplus harmlessly)
@@ -450,6 +498,12 @@ function Select:_applyTheme(t)
     self._panelBg:SetPoint("BOTTOMRIGHT", self._panel, "BOTTOMRIGHT", -ppx1,  ppx1)
     self._panelBg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
 
+    -- Scroll arrows: opaque popover band + mutedForeground chevron (FR-066)
+    for _, arrow in ipairs({ self._arrowUp, self._arrowDown }) do
+        arrow.bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
+        arrow.icon:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)
+    end
+
     -- Rebuild items with the new colors
     self:_buildItems()
 
@@ -479,25 +533,161 @@ function Select:_updateTriggerText()
     end
 end
 
+-- ─── Scrolling (FR-066) ───────────────────────────────────────────────────────
+-- _makeScrollArrow: one edge band (bg + chevron). Frame, not Button — the band is
+-- hover-driven like Radix's, never a click target; a Button would read as one more
+-- selectable row. Auto-scroll runs from OnUpdate while the cursor rests on it.
+function Select:_makeScrollArrow(dir, onWheel)
+    local frame = CreateFrame("Frame", nil, self._panel)
+    frame:SetHeight(ARROW_H)
+    -- Above the ScrollFrame: the bands own their strip of the panel, so a click
+    -- landing on the seam can never reach the row scrolled underneath.
+    frame:SetFrameLevel(self._panel:GetFrameLevel() + 10)
+    frame:EnableMouse(true)
+    frame:EnableMouseWheel(true)
+    frame:SetScript("OnMouseWheel", onWheel)
+    frame:Hide()
+
+    -- Opaque band: the arrow sits on the panel background, never over a row.
+    local bg = frame:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints(frame)
+
+    local icon = frame:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(ARROW_ICON, ARROW_ICON)
+    icon:SetPoint("CENTER", frame, "CENTER", 0, 0)
+    Craft.Icons.Apply(icon, dir == "up" and "chevron-up" or "chevron-down", 16)
+
+    local sign = (dir == "up") and -1 or 1
+    frame:SetScript("OnEnter", function()
+        frame:SetScript("OnUpdate", function(_, elapsed)
+            self:_scrollBy(sign * ARROW_SPEED * (elapsed or 0))
+        end)
+    end)
+    frame:SetScript("OnLeave", function() frame:SetScript("OnUpdate", nil) end)
+
+    return { frame = frame, bg = bg, icon = icon }
+end
+
+-- Scroll travel, Radix-style. The panel keeps a FIXED interior height (_innerH,
+-- the max-height cap = maxItems rows); the buttons eat into it, so the viewport
+-- is _innerH minus the bands currently mounted. The end of the travel is the
+-- state "up mounted, down gone" → viewport _innerH - ARROW_H, hence the +ARROW_H.
+-- Heights are computed, never read back from the ScrollFrame: a frame anchored by
+-- its corners has no resolved height until the next frame.
+function Select:_maxScroll()
+    local inner    = self._innerH or 0
+    local contentH = self._contentH or 0
+    if contentH <= inner then return 0 end
+    return contentH - inner + ARROW_H
+end
+
+function Select:_scrollBy(dy)
+    local maxS = self:_maxScroll()
+    local cur  = self._scroll:GetVerticalScroll() or 0
+    self._scroll:SetVerticalScroll(math.min(math.max(cur + (dy or 0), 0), maxS))
+    self:_layoutViewport()
+end
+
+-- Mounts/unmounts the bands for the current offset and re-cuts the viewport
+-- around them. canUp/canDown are self-consistent with the clamp above: at 0 only
+-- down exists, at _maxScroll only up, in between both — no oscillation.
+function Select:_layoutViewport()
+    if not self._arrowUp then return end
+    local maxS    = self:_maxScroll()
+    local cur     = self._scroll:GetVerticalScroll() or 0
+    local canUp   = maxS > 0 and cur > 0.5
+    local canDown = maxS > 0 and cur < maxS - 0.5
+
+    self._arrowUp.frame:SetShown(canUp)
+    self._arrowDown.frame:SetShown(canDown)
+
+    local px1 = Craft.Theme.px(1, self._panel)
+    local top = px1 + (canUp   and ARROW_H or 0)
+    local bot = px1 + (canDown and ARROW_H or 0)
+    self._scroll:ClearAllPoints()
+    self._scroll:SetPoint("TOPLEFT",     self._panel, "TOPLEFT",     px1,  -top)
+    self._scroll:SetPoint("BOTTOMRIGHT", self._panel, "BOTTOMRIGHT", -px1,  bot)
+    self._viewH = (self._innerH or 0) - (canUp and ARROW_H or 0) - (canDown and ARROW_H or 0)
+end
+
+-- Open() lands on the selected row instead of always on the top: with a value
+-- past the visible window the list used to open showing neither the row nor its
+-- checkmark. Minimal scroll, measured against the viewport each state will have:
+-- a row that already fits under the lone down-band keeps the offset at 0.
+function Select:_scrollToSelected()
+    local maxS   = self:_maxScroll()
+    local target = 0
+    if maxS > 0 and self._cfg.value ~= nil then
+        local inner = self._innerH or 0
+        for i, opt in ipairs(self._cfg.options) do
+            if opt.value == self._cfg.value then
+                local bottom = i * ITEM_HEIGHT
+                if bottom > inner - ARROW_H then     -- doesn't fit at rest → scroll
+                    -- Scrolled state: both bands mounted (the clamp drops the
+                    -- lower one at the end of the travel, which only helps).
+                    local top = bottom - ITEM_HEIGHT
+                    target = math.min(math.max(bottom - (inner - 2 * ARROW_H), 0), top)
+                end
+                break
+            end
+        end
+    end
+    self._scroll:SetVerticalScroll(math.min(math.max(target, 0), maxS))
+    self:_layoutViewport()
+end
+
+-- ─── _itemTextWidth ───────────────────────────────────────────────────────────
+-- Room left for a row label inside the panel: panel width (trigger, floored at
+-- min-w-36) minus the 1px ring and the item padding, where pr-8 reserves the
+-- checkmark. ONE source of truth for _buildItems and _updatePanelSize — they used
+-- to compute it separately and the item copy went stale: labels were measured at
+-- Create (trigger still 0 wide → 144 floor) and never again, so in a 240px Select
+-- they truncated as if the panel were 144. Never below 1 (SetWidth(0) = no width).
+function Select:_itemTextWidth()
+    local panelW = math.max(self._trigger:GetWidth() or 0, MIN_PANEL_W)
+    return math.max(panelW - 2 - ITEM_PL - ITEM_PR, 1)
+end
+
 -- ─── _updatePanelSize ─────────────────────────────────────────────────────────
 -- Calculates the panel width and height and configures the ScrollFrame.
 function Select:_updatePanelSize()
     local numItems  = #self._cfg.options
-    local visItems  = math.min(numItems, MAX_ITEMS_VIS)
+    local visItems  = math.min(numItems, self._cfg.maxItems or MAX_ITEMS_VIS)
+    -- maxItems rows IS the max-height cap: the panel keeps this height whether or
+    -- not the scroll buttons are mounted — they take their 24px from the viewport,
+    -- exactly like Radix (which is why a scrolling list shows a partial row).
     local panelH    = visItems * ITEM_HEIGHT + 2  -- +2 for the 1px ring top+bottom
     -- min-w-36 (144px) floor like shadcn's content, else match the trigger width
     local panelW    = math.max(self._trigger:GetWidth() or 0, MIN_PANEL_W)
 
     self._panel:SetSize(panelW, panelH)
+    self._innerH = visItems * ITEM_HEIGHT   -- panel interior, inside the 1px ring
 
-    -- ScrollFrame fills the panel interior (inset 1px for the ring)
+    -- The ScrollFrame is anchored by _layoutViewport (its insets depend on which
+    -- bands are mounted right now); the bands themselves sit flush to the interior.
     local px1 = Craft.Theme.px(1, self._panel)
-    self._scroll:SetPoint("TOPLEFT",     self._panel, "TOPLEFT",     px1,  -px1)
-    self._scroll:SetPoint("BOTTOMRIGHT", self._panel, "BOTTOMRIGHT", -px1,  px1)
+    if self._arrowUp then
+        self._arrowUp.frame:ClearAllPoints()
+        self._arrowUp.frame:SetPoint("TOPLEFT",  self._panel, "TOPLEFT",  px1, -px1)
+        self._arrowUp.frame:SetPoint("TOPRIGHT", self._panel, "TOPRIGHT", -px1, -px1)
+        self._arrowDown.frame:ClearAllPoints()
+        self._arrowDown.frame:SetPoint("BOTTOMLEFT",  self._panel, "BOTTOMLEFT",  px1, px1)
+        self._arrowDown.frame:SetPoint("BOTTOMRIGHT", self._panel, "BOTTOMRIGHT", -px1, px1)
+    end
 
     -- ScrollChild: width = scroll width, height = total items height
     local scrollW = panelW - 2
     self._scrollChild:SetWidth(math.max(scrollW, 1))
+
+    -- Re-apply the label width now that the trigger has its final size (Open runs
+    -- this). Pooled rows included: a hidden surplus row can come back on a rebuild.
+    local availW = self:_itemTextWidth()
+    for _, item in ipairs(self._items) do
+        item.text:SetWidth(availW)
+    end
+
+    -- Clamp a stale offset (fewer options / larger maxItems) and repaint the arrows
+    self:_scrollBy(0)
 end
 
 -- ─── Open / Close ─────────────────────────────────────────────────────────────
@@ -524,8 +714,8 @@ function Select:Open()
     self._panel:ClearAllPoints()
     self._panel:SetPoint("TOPLEFT", self._trigger, "BOTTOMLEFT", 0, self._panelRestY)
 
-    -- Scroll to top
-    self._scroll:SetVerticalScroll(0)
+    -- Scroll to the selected row (top of the list when it fits / nothing selected)
+    self:_scrollToSelected()
 
     -- Chevron: indicate open state
     Craft.Icons.Apply(self._chevron, "chevron-up", 16)
@@ -541,6 +731,8 @@ function Select:Open()
     for _, item in ipairs(self._items) do
         item.frame:EnableMouse(true)
     end
+    self._arrowUp.frame:EnableMouse(true)
+    self._arrowDown.frame:EnableMouse(true)
 
     -- Flip the signal: the shown/alpha binds fade the panel in.
     self._open:set(true)
@@ -559,6 +751,11 @@ function Select:Close()
     for _, item in ipairs(self._items) do
         item.frame:EnableMouse(false)
     end
+    -- Same for the scroll arrows, and stop any auto-scroll still running.
+    self._arrowUp.frame:EnableMouse(false)
+    self._arrowDown.frame:EnableMouse(false)
+    self._arrowUp.frame:SetScript("OnUpdate", nil)
+    self._arrowDown.frame:SetScript("OnUpdate", nil)
 
     -- Chevron: restore closed state
     Craft.Icons.Apply(self._chevron, "chevron-down", 16)

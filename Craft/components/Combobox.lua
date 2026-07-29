@@ -100,6 +100,10 @@ function Combobox:Create(parent, config)
     self._selectedText = self._trigger:CreateFontString(nil, "OVERLAY")
     self._selectedText:SetJustifyH("LEFT")
     self._selectedText:SetJustifyV("MIDDLE")
+    -- `[&>span]:line-clamp-1` on the trigger: one line + ellipsis (its LEFT+RIGHT
+    -- anchors give it a width, so the default wrap would overflow the trigger).
+    self._selectedText:SetWordWrap(false)
+    self._selectedText:SetNonSpaceWrap(false)
 
     self._chevron = self._trigger:CreateTexture(nil, "ARTWORK")
     self._chevron:SetSize(CHEVRON, CHEVRON)
@@ -278,6 +282,12 @@ function Combobox:_makeRow()
     local label = btn:CreateFontString(nil, "OVERLAY")
     label:SetJustifyH("LEFT")
     label:SetJustifyV("MIDDLE")
+    -- ONE line, always: _buildRows anchors this LEFT+RIGHT+TOP+BOTTOM, and a
+    -- FontString with a width word-wraps by default — a label wider than the row
+    -- would draw a second line over the next one (the row stays ROW_H). Same fix
+    -- as Select; wrap off also gives WoW's ellipsis truncation (line-clamp).
+    label:SetWordWrap(false)
+    label:SetNonSpaceWrap(false)
 
     local check = btn:CreateTexture(nil, "ARTWORK")
     check:SetSize(CHECK_SIZE, CHECK_SIZE)

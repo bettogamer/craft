@@ -82,6 +82,15 @@ describe("Craft.Combobox construction", function()
         g:Destroy()
     end)
 
+    it("rows and trigger are single-line (a wide label can't draw a second line)", function()
+        local c = Craft.Combobox:Create(UIParent, { options = FLAT, value = "fira" })
+        -- _buildRows anchors the label LEFT+RIGHT+TOP+BOTTOM → it HAS a width, and a
+        -- FontString with a width word-wraps by default (row stays ROW_H tall).
+        assert.is_false(c._rows[1].label._wordWrap)
+        assert.is_false(c._selectedText._wordWrap)
+        c:Destroy()
+    end)
+
     it("builds rows: grouped options render heading + item rows", function()
         local c = Craft.Combobox:Create(UIParent, { options = GROUPED })
         assert.equals(5, c._count)   -- 2 headings + 3 items
