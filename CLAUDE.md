@@ -14,7 +14,7 @@ necesita compilador C) — usar exactamente estas invocaciones (lección Weave, 
 ```bash
 luac -p <archivo>                                            # sintaxis, tras cada edición
 luacheck Craft/*.lua Craft/components/*.lua Craft/theme/*.lua Craft/layout/*.lua Craft/icons/*.lua --config .luacheckrc
-lua tests/run.lua tests/avatar_spec.lua tests/button_spec.lua tests/sidebar_spec.lua tests/reactive_spec.lua tests/theme_spec.lua tests/label_spec.lua tests/menu_spec.lua tests/input_spec.lua tests/textarea_spec.lua tests/toggle_spec.lua tests/togglegroup_spec.lua tests/popover_spec.lua tests/combobox_spec.lua tests/badge_spec.lua tests/icons_spec.lua tests/flex_spec.lua tests/grid_spec.lua tests/panel_spec.lua tests/slider_spec.lua tests/field_spec.lua tests/tabs_spec.lua tests/section_spec.lua tests/switch_spec.lua tests/empty_spec.lua   # suite completa (mini-runner local)
+lua tests/run.lua tests/avatar_spec.lua tests/button_spec.lua tests/sidebar_spec.lua tests/reactive_spec.lua tests/theme_spec.lua tests/label_spec.lua tests/menu_spec.lua tests/input_spec.lua tests/textarea_spec.lua tests/toggle_spec.lua tests/togglegroup_spec.lua tests/popover_spec.lua tests/combobox_spec.lua tests/badge_spec.lua tests/icons_spec.lua tests/flex_spec.lua tests/grid_spec.lua tests/panel_spec.lua tests/slider_spec.lua tests/field_spec.lua tests/tabs_spec.lua tests/section_spec.lua tests/switch_spec.lua tests/empty_spec.lua tests/select_spec.lua   # suite completa (mini-runner local)
 bash scripts/bump-build.sh <X.Y.Z>                           # bump CRAFT_BUILD + Craft.VERSION antes de release (FR-029: sin arg aborta si VERSION == último tag)
 
 # atlas de iconos — la consola de esta máquina es cp1252 y el script imprime ✓/✅:
@@ -91,6 +91,30 @@ recomputa** y el texto queda invisible hasta un `/reload`.
   - `TOPRIGHT` para texto alineado a la derecha.
   - WoW auto-dimensiona el string según su contenido y resuelve la posición correctamente
     incluso cuando el frame padre recibe su ancho después de la creación.
+
+### 2b. FontString CON ancho envuelve por defecto — filas de "doble línea"
+
+Hermano del #2: en cuanto un `FontString` tiene ancho —por `SetWidth()` **o** por anclas
+opuestas (`LEFT`+`RIGHT`, `TOPLEFT`+`TOPRIGHT`)— WoW le aplica **word wrap por defecto**. En una
+fila de alto fijo (item de Select 28px, de Combobox 24px) un label que no cabe dibuja una
+**segunda línea** que se sale de la fila y pisa la de abajo. El frame no crece: solo el texto.
+
+- **Síntoma:** "en algunos Select el item tiene doble línea" — solo con labels largos, así que
+  no aparece en las demos cortas del Browser.
+- **Fix:** `SetWordWrap(false)` + `SetNonSpaceWrap(false)` al **crear** el FontString (no en el
+  `_build*`, que se re-ejecuta). Con el wrap desactivado WoW **trunca con elipsis**, que es
+  además el equivalente del `line-clamp-1` de shadcn.
+- **Regla:** al dar ancho a un FontString, decidir SIEMPRE y explícitamente si envuelve
+  (`SetWordWrap(true)`, caso Field/Tooltip/Section) o si es de una línea. El default no sirve
+  de decisión. _Visto en Select + Combobox (FR-066, 2026-07-28)._
+- **Sub-lección (el wrap suele ser el SÍNTOMA de un ancho mal medido):** en Select la doble
+  línea salía porque el ancho del label se calculaba en `Create` —cuando el consumidor aún no
+  ha llamado `SetWidth`, así que el trigger mide **0** y cae a un suelo— y no se recalculaba
+  nunca. Al desactivar el wrap, el bug se hizo obvio: truncado a 144 dentro de un panel de 240.
+  **Patrón:** todo ancho derivado de otro frame que el caller dimensiona DESPUÉS de `Create`
+  necesita una fuente única y un re-aplicado en el momento en que ese tamaño ya es real
+  (`Open()`, `_updatePanelSize`, `_applyTheme`); calcularlo una vez en el build es un bug
+  latente. Hermano de la lección de re-medida de fuentes (bug #4).
 
 ### 3. Native WoW Slider — bounding box invisible ocluye FontStrings
 
