@@ -1,4 +1,4 @@
-## Interface: 120000
+## Interface: 120100
 ## Title: Craft Browser
 ## Title-esMX: Craft Browser
 ## Notes: Interactive showcase of Craft UI components

@@ -29,7 +29,8 @@ jobs:
       - uses: actions/checkout@v4
 
       # Action propio (github.com/marketplace/actions/taintlint): secret values de WoW 12.0+.
-      # Craft es UI pura (0 hallazgos verificados en local, db 12.0.7) — el job garantiza
+      # La db la elige el propio taintlint desde el `## Interface` del .toc (hoy 120100 → 12.1.0).
+      # Craft es UI pura (0 hallazgos verificados en local, db 12.1.0) — el job garantiza
       # que siga así. Anota hallazgos inline en el diff del PR y falla con errores nuevos.
       - name: taintlint Craft
         uses: bettogamer/taintlint@v0
