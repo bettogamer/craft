@@ -324,6 +324,11 @@ end
 function SetCursor(cursor)  end
 function GetCursorPosition() return 0, 0 end
 
+-- Botón del ratón pulsado. NOTA: aquí NO se declara el global `MouseIsOver` de
+-- FrameXML a propósito — desapareció en 12.1 (FR-074) y los componentes deben
+-- usar el método de widget `region:IsMouseOver()`.
+function IsMouseButtonDown(button) return false end
+
 -- SetPortraitTexture(texture, unit): retrato del personaje — el equivalente WoW del
 -- AvatarImage remoto de shadcn (Craft.Avatar `unit` / SetPortraitUnit). El cliente
 -- rasteriza el modelo 3D; aquí basta con marcar la textura para poder afirmarlo.

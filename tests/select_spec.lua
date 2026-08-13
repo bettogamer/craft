@@ -276,3 +276,38 @@ describe("Craft.Select SetOptions", function()
         s:Destroy()
     end)
 end)
+
+-- ─── Cierre por click fuera (FR-074) ──────────────────────────────────────────
+-- El watcher del panel usaba el global `MouseIsOver` de FrameXML, que ya no
+-- existe en 12.1: un error Lua por frame mientras el panel estaba abierto.
+-- El mock NO declara ese global a propósito, así que el tick sería un error.
+
+describe("Craft.Select outside-click watcher", function()
+
+    it("ticks without touching any FrameXML global", function()
+        local s = Craft.Select:Create(UIParent, { options = NINE })
+        s:Open()
+        s._panel:_fire("OnShow")
+        local tick = s._panel:GetScript("OnUpdate")
+        assert.is_not_nil(tick)
+        assert.is_true(pcall(tick, s._panel, 0.016))
+        s:Destroy()
+    end)
+
+    it("asks the panel and the trigger themselves whether they are hovered", function()
+        local s = Craft.Select:Create(UIParent, { options = NINE })
+        s:Open()
+        s._panel:_fire("OnShow")
+
+        local asked = {}
+        s._panel.IsMouseOver   = function() asked.panel   = true; return true end
+        s._trigger.IsMouseOver = function() asked.trigger = true; return false end
+        s._panel:GetScript("OnUpdate")(s._panel, 0.016)
+
+        assert.is_true(asked.panel)
+        -- El panel está bajo el cursor: no hace falta preguntar al trigger, y
+        -- desde luego no se cierra.
+        assert.is_true(s._panel:IsShown())
+        s:Destroy()
+    end)
+end)

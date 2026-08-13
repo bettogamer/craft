@@ -24,8 +24,9 @@ globals = {
     "tinsert",
     "tremove",
     "tsort",
-    -- Mouse helpers
-    "MouseIsOver",
+    -- Mouse helpers. OJO: el global `MouseIsOver` (FrameXML) YA NO EXISTE en 12.1
+    -- (FR-074) — deliberadamente fuera de esta lista para que luacheck cace su
+    -- reintroducción. Usar el método de widget `region:IsMouseOver()`.
     "IsMouseButtonDown",
     -- Player/class info (used by consumers to feed Craft.Theme; ADR-0015 demo)
     "UnitClass",

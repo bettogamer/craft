@@ -250,9 +250,12 @@ function Select:Create(parent, config)
     end)
 
     -- ── Close on outside click (OnUpdate while panel is open) ─────────────────
+    -- Region:IsMouseOver() (widget method), NOT the global MouseIsOver(): that
+    -- FrameXML helper no longer exists in 12.1 and calling it errors once per
+    -- frame while the panel is open ("attempt to call a nil value").
     self._panel:SetScript("OnShow", function()
         self._panel:SetScript("OnUpdate", function()
-            if not MouseIsOver(self._panel) and not MouseIsOver(self._trigger) then
+            if not self._panel:IsMouseOver() and not self._trigger:IsMouseOver() then
                 if IsMouseButtonDown("LeftButton") then
                     self:Close()
                 end
