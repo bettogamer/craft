@@ -6,6 +6,44 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-08-13
+
+> **Release v2.14.0 — Craft entra en WoW 12.1.**
+> 12.1 se llevó por delante el global de FrameXML `MouseIsOver()`, y `Craft.Select` lo llamaba
+> **dentro de un `OnUpdate`**: con el desplegable abierto, el cliente escupía un error Lua **por
+> frame** (reportado 151x desde Bis) y, como el handler moría en su primera línea, el panel
+> **tampoco cerraba al clicar fuera**. Era el único global de FrameXML que Craft llamaba sin
+> guarda. La lección va más allá del sitio: los globales Lua de FrameXML no tienen contrato —
+> Blizzard los mueve o los borra entre parches— mientras que los **métodos de widget** son API C
+> y sobreviven. De ahí que el fix no sea solo la línea, sino tres capas: el método de widget,
+> `MouseIsOver` **fuera** de `globals` en `.luacheckrc` (una reintroducción la caza el linter, no
+> el cliente) y un test que **falla con el código viejo** porque el mock, a propósito, ya no
+> declara ese global.
+>
+> De paso, los `.toc` declaran **12.1** (`120100`): además del listado de addons, es lo que hace
+> que taintlint elija la api-db correcta. Re-pasado con la 12.1.0 (69214), Craft sigue en
+> **0/0/0** — es UI pura y no lee estado de unidades, así que la nueva tanda de `Unit*`
+> condicionalmente secretos de 12.1 no le toca. MINOR, retrocompatible (key sigue `Craft-2.0`),
+> ningún `.toc` añade archivos ⇒ el re-vendoreo en los consumidores es una copia limpia.
+> `CRAFT_BUILD` 14→15. Suite: **578 tests** (luacheck 0/0, taintlint 0/0 contra la db 12.1).
+
+### Changed
+- **`## Interface` 120000 → 120100** (WoW 12.1) en `Craft.toc` y `Craft_Browser.toc`. Además de
+  quitar el "desactualizado" del listado de addons, es lo que hace que **taintlint** elija la db
+  **12.1.0 (69214)** en vez de la 12.0.7: re-pasado con ella, Craft sigue en **0/0/0**. El único
+  `Unit*` de los que 12.1 vuelve condicionalmente secretos (`SecretWhenUnitIdentityRestricted`) que
+  se usa en el repo es `UnitClass("player")` en la demo de tema del Browser, y `player` está
+  exento. Los `.toc` de Weave y Loom son librerías vendoreadas (read-only) y no se tocan.
+
+### Fixed
+- **`Craft.Select` — error Lua por frame con el panel abierto en WoW 12.1** (FR-074). El watcher
+  de "click fuera" llamaba al global de FrameXML `MouseIsOver()`, **borrado en 12.1**: como vive
+  en un `OnUpdate`, cada frame lanzaba `attempt to call a nil value` (reportado 151x desde Bis) y,
+  al abortar el handler en su primera línea, el desplegable **ya no cerraba al clicar fuera**.
+  Ahora usa el método de widget `region:IsMouseOver()` (API C, mismo comportamiento). Guardarraíl:
+  `MouseIsOver` fuera de `globals` en `.luacheckrc` y sin declarar en el mock, para que una
+  reintroducción la cace el linter y no el cliente.
+
 ## [2.13.0] - 2026-07-28
 
 > **Release v2.13.0 — el desplegable deja de esconder opciones.**
