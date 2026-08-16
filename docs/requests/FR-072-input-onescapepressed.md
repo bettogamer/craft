@@ -6,7 +6,12 @@ el search", 2026-07-31
 **Tipo:** API faltante / comportamiento por defecto discutible
 **Prioridad:** Media (afecta a todo Input dentro de una ventana; hay fallback, pero toca scripts del
 `EditBox` interno)
-**Estado:** 📝 Propuesto
+**Estado:** ✅ Implementado (2026-08-16, en `dev`) — MVP exacto: 1 campo en `_cfg` + 1
+`SetScript("OnEscapePressed", …)` en `Input.lua`, fila + nota en `docs/components/input.md`, y
+2 tests en `tests/input_spec.lua`. Default = `ClearFocus()`, igual que `Craft.Textarea`; con
+`onEscapePressed` el callback **sustituye** al default (Craft no suelta además el foco: si lo
+hiciera, un search-box que se cierra a sí mismo pelearía con él). **Coffer puede retirar el
+parche sobre `input._edit` al re-vendorear.**
 
 ---
 

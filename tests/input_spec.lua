@@ -213,3 +213,33 @@ describe("Craft.Input Focus/ClearFocus (FR-059)", function()
         i:Destroy()
     end)
 end)
+
+-- ─── Escape (FR-072) ──────────────────────────────────────────────────────────
+
+describe("Craft.Input onEscapePressed (FR-072)", function()
+
+    it("Escape releases the focus by default", function()
+        local i = Craft.Input:Create(UIParent, {})
+        i:Focus()
+        assert.is_true(i:HasFocus())
+        i._edit:_fire("OnEscapePressed")
+        assert.is_false(i:HasFocus())
+        i:Destroy()
+    end)
+
+    it("onEscapePressed receives the text and owns the outcome", function()
+        local seen, calls = nil, 0
+        local i = Craft.Input:Create(UIParent, {
+            value = "arcane",
+            onEscapePressed = function(text) seen = text; calls = calls + 1 end,
+        })
+        i:Focus()
+        i._edit:_fire("OnEscapePressed")
+        assert.equals(1, calls)
+        assert.equals("arcane", seen)
+        -- The callback decides what to do: Craft does NOT also drop the caret,
+        -- or a consumer that closes its own surface would fight the default.
+        assert.is_true(i:HasFocus())
+        i:Destroy()
+    end)
+end)

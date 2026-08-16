@@ -41,6 +41,7 @@ function Input:Create(parent, config)
         onTrailingClick= config.onTrailingClick,           -- makes iconTrailing clickable
         onChange       = config.onChange,
         onEnterPressed = config.onEnterPressed,
+        onEscapePressed= config.onEscapePressed,           -- FR-072: default clears focus
         width          = config.width,
     }
 
@@ -230,6 +231,19 @@ function Input:Create(parent, config)
     self._edit:SetScript("OnEnterPressed", function(editbox)
         if self._cfg.onEnterPressed then
             self._cfg.onEnterPressed(editbox:GetText())
+        end
+    end)
+
+    -- Escape releases focus (same courtesy as Textarea.lua). It does NOT bubble up
+    -- to close a parent Window/Dialog: a focused EditBox swallows the key before
+    -- UISpecialFrames sees it anyway, and closing something is the consumer's call
+    -- (that is what onEscapePressed is for — e.g. a reveal-on-demand search bar,
+    -- which wants "close the bar", not "drop the caret"). FR-072.
+    self._edit:SetScript("OnEscapePressed", function(editbox)
+        if self._cfg.onEscapePressed then
+            self._cfg.onEscapePressed(editbox:GetText())
+        else
+            editbox:ClearFocus()
         end
     end)
 

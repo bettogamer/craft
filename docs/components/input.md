@@ -121,6 +121,7 @@ Notas sobre estados:
 | `onTrailingClick`| `function`| `nil`       | `fn()` — hace `iconTrailing` clickeable (persistente). Excluyente con `clearable` |
 | `onChange`      | `function` | `nil`       | `fn(value)` — se dispara en `OnTextChanged`                              |
 | `onEnterPressed`| `function` | `nil`       | `fn(value)` — se dispara en `OnEnterPressed` del EditBox                 |
+| `onEscapePressed`| `function`| `nil`       | `fn(value)` — se dispara en `OnEscapePressed`. Si se pasa, **sustituye** al default (Craft no suelta además el foco: cerrar algo es decisión del consumidor). FR-072 |
 | `width`         | `number`   | `nil`       | Ancho fijo en px. Si es nil, ocupa 100% del parent                       |
 
 > **Nota de fidelidad (FR-016).** El botón **clear ✕ dentro del input es una extensión de Craft**,
@@ -157,5 +158,6 @@ Notas sobre estados:
 - **Sin variantes de tamaño**: Lyra define un único tamaño (`h-8` = 32px). Eliminar la lógica de `sm`/`lg` si existe de implementaciones anteriores.
 - **Disabled**: llamar `EditBox:EnableMouse(false)` y `EditBox:SetEnabled(false)`. El frame raíz también debe tener `EnableMouse(false)` para suprimir hover. Fondo disabled dark: {r=1,g=1,b=1,a=0.12} (`input/80`).
 - **OnTextChanged**: el script recibe `(self, userInput)`. Solo disparar `onChange` si `userInput == true` para evitar loops al llamar `SetText` programáticamente.
+- **Escape (FR-072)**: por defecto ESC **suelta el foco** (`ClearFocus`), igual que `Craft.Textarea`. **No burbujea** para cerrar la ventana padre: un `EditBox` con foco se come la tecla antes de que `UISpecialFrames`/`closeOnEscape` la vean, y cerrar algo es decisión del consumidor → `config.onEscapePressed`. Cuando ese callback existe, Craft **no** suelta además el foco (si lo hiciera, un search-box que se cierra a sí mismo pelearía con el default). Simétrico con `onEnterPressed`: mismo sitio, misma firma `fn(text)`.
 - **Hover alpha**: aplicar `OnEnter`/`OnLeave` solo si `not self.disabled`. La textura de bg es la única que cambia de alpha — no el frame completo, para no afectar al texto.
 - **Hit priority del botón trailing (FR-060)**: el EditBox tiene `EnableMouse(true)` y se ancla al ancho COMPLETO del frame — cubre también la zona del ✕ (`SetTextInsets` mueve el TEXTO, no el área de mouse). Como el `_trailBtn` y el EditBox son hijos del mismo frame, comparten frame level y WoW le da el click al creado **después** (el EditBox), que se traga el click del ✕. Tras crear el EditBox hay que subir el botón: `_trailBtn:SetFrameLevel(_edit:GetFrameLevel() + 1)`. Aplica igual a `clearable` y a `onTrailingClick`.
