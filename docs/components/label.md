@@ -78,6 +78,8 @@ Las variantes `heading`, `caption`, `muted` del spec anterior **no existen en el
 | `text`     | string   | `""`     | Texto a mostrar.                                                                          |
 | `color`    | table    | `nil`    | Color RGBA explícito `{r,g,b,a}`. Si nil, hereda el color del contexto.                  |
 | `maxWidth` | number   | `nil`    | Ancho máximo en px. Si el texto supera este ancho, se trunca con "..." al final.          |
+| `width`    | number   | `nil`    | Ancho FIJO de la caja. Obligatorio con `wrap = true`; sin `wrap` no hace nada (FR-071).   |
+| `wrap`     | boolean  | `false`  | Modo caja multilínea: el texto envuelve dentro de `width` y el alto crece con las líneas. Gana sobre `maxWidth` si se pasan ambos (FR-071). |
 | `align`    | string   | `"LEFT"` | Justificado horizontal: `"LEFT"`\|`"CENTER"`\|`"RIGHT"`. Solo tiene efecto visible con `maxWidth` (caja más ancha que el texto) o texto multilínea; sin `maxWidth` NO constriñe el string (FR-025). |
 | `onClick`  | function | `nil`    | Callback `function(self)`. Activa cursor hand en hover y color `t.primary` en hover.     |
 | `weight`   | string   | `nil`    | Peso de fuente: `"normal"` (default), `"medium"` (`t.fontMedium`), `"bold"` (`t.fontBold`). Resuelto DENTRO de `_applyTheme` → sobrevive a cambios de tema. |
@@ -88,6 +90,7 @@ Las variantes `heading`, `caption`, `muted` del spec anterior **no existen en el
 | Método           | Firma            | Descripción                                                                       |
 |------------------|------------------|-----------------------------------------------------------------------------------|
 | `SetText(text)`  | `string → void`  | Cambia el texto. Respeta el `maxWidth` si está configurado.                       |
+| `SetWidth(w)`    | `number → void`  | Re-fluye la caja (FR-071). En modo `wrap` cambia el ancho y re-mide el alto; en modo hug impone el cap de elide (y apaga el word-wrap la primera vez). Pensado para el `OnSizeChanged` del contenedor. |
 | `SetColor(color)`| `table → void`   | Cambia el color del texto `{r,g,b,a}`. `nil` restaura el comportamiento heredado. |
 | `SetEnabled(b)`  | `boolean → void` | Habilita/deshabilita: `SetAlpha(1/0.5)` en el frame (`disabled:opacity-50`).      |
 | `GetFrame()`     | `→ Frame`        | Devuelve el `Frame` raíz para posicionamiento externo.                            |
@@ -107,6 +110,30 @@ Las variantes `heading`, `caption`, `muted` del spec anterior **no existen en el
 **Cursor hand en onClick**: En `OnEnter`, llamar `SetCursor("Interface\\CURSOR\\Point")`. En `OnLeave`, llamar `SetCursor(nil)`. Simultáneamente cambiar `_text:SetTextColor(t.primary.r, t.primary.g, t.primary.b)` en `OnEnter` y restaurar el color original en `OnLeave`.
 
 **`align` no constriñe el ancho (FR-025)**: `SetJustifyH` se aplica una vez en `Create`; `_recalcSize` solo hace `SetWidth` explícito cuando hay `maxWidth`. Pinear el string a su propio ancho medido por `align ~= "LEFT"` (comportamiento anterior) no aportaba nada visual y, con `WordWrap` activo, hacía que texturas embebidas `|T..|t` (`GetMoneyString`) saltaran a una segunda línea por redondeo sub-píxel. Para alinear un Label por la derecha sin `maxWidth`, basta anclar el frame por su punto `RIGHT` (el frame abraza el ancho natural).
+
+**Tres modos de ancho, decididos explícitamente (FR-071)**: `Create` elige UNO y lo fija
+en `_wrapMode`; nunca deja el word-wrap al default de WoW (CLAUDE.md bug #2b).
+
+| Config           | Comportamiento                                                        |
+|------------------|------------------------------------------------------------------------|
+| nada             | El frame **abraza** el texto: una línea, ancho natural (FR-024).       |
+| `maxWidth`       | Ancho tope; `SetWordWrap(false)` ⇒ WoW **elide** con "…".              |
+| `width` + `wrap` | Caja fija; `SetWordWrap(true)` ⇒ **multilínea**, alto = alto envuelto. |
+
+En modo `wrap` el orden importa: `_recalcSize` hace `SetWidth(width)` **antes** de
+`GetStringHeight()` — un FontString solo reporta el alto envuelto cuando ya sabe lo ancho
+que puede ser. Como `_recalcSize` también corre desde `_applyTheme`, la carga async de
+Inter (bug #4) **re-fluye** el párrafo en vez de congelarlo con el número de líneas
+equivocado. `width` + `wrap` es además lo que hace útil `align`: justificar dentro de una
+caja real.
+
+⚠️ **La medida depende de la escala del frame padre**: `GetStringWidth`/`GetStringHeight`
+escalan con la escala EFECTIVA. Un Label con `maxWidth` dentro de un frame escalado se mide
+en las unidades de ese frame y elide antes de tiempo — fue la causa de
+[FR-073](../requests/FR-073-dialog-zoom-breaks-child-text-measure.md) (`Craft.Dialog`
+aparcaba su frame cerrado a 0.95 y TODO label del modal elidía). Dialog y Window ya no
+aparcan la escala del zoom, pero la regla sigue aplicando a cualquier frame que el
+consumidor escale a mano.
 
 **Sin focus ring en WoW**: WoW es mouse-only. No implementar el frame `_ring` en el Label.
 

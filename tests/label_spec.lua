@@ -114,3 +114,64 @@ describe("Craft.Label", function()
         assert.equals(#"Hi" * 7, lbl.frame:GetWidth())
     end)
 end)
+
+-- ─── wrap box mode (FR-071) ───────────────────────────────────────────────────
+-- The mock's GetStringHeight is a fixed single line, so the *growth* to N lines is
+-- an in-game visual (same caveat as section_spec / FR-044). What is deterministic
+-- here: the mode is selected correctly, the box width is pinned, word wrap is ON
+-- (not the elide path), and SetWidth re-flows.
+
+describe("Craft.Label wrap box (FR-071)", function()
+
+    it("width + wrap pins the box and enables word wrap", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, {
+            text = "Coffer now has profiles - set them up in Settings.",
+            width = 240, wrap = true })
+        assert.is_true(lbl._wrapMode)
+        assert.is_true(lbl._text._wordWrap)
+        assert.equals(240, lbl._text:GetWidth())
+        assert.equals(240, lbl.frame:GetWidth())
+    end)
+
+    it("wrap wins over maxWidth (wrapping loses no text, eliding does)", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, {
+            text = "Texto muy largo", width = 120, wrap = true, maxWidth = 40 })
+        assert.is_true(lbl._wrapMode)
+        assert.equals(120, lbl._text:GetWidth())
+    end)
+
+    it("wrap without width falls back to hug (width is mandatory)", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Hi", wrap = true })
+        assert.is_false(lbl._wrapMode)
+        assert.equals(0, lbl._text:GetWidth())
+        assert.equals(#"Hi" * 7, lbl.frame:GetWidth())
+    end)
+
+    it("SetWidth re-flows a wrap label", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Texto", width = 240, wrap = true })
+        lbl:SetWidth(160)
+        assert.equals(160, lbl._text:GetWidth())
+        assert.equals(160, lbl.frame:GetWidth())
+    end)
+
+    it("SetWidth on a hug label caps it and turns wrapping OFF (elide, bug #2b)", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Texto muy largo" })
+        assert.equals(0, lbl._text:GetWidth())
+        lbl:SetWidth(40)
+        assert.equals(40, lbl._text:GetWidth())
+        assert.equals(40, lbl.frame:GetWidth())
+        assert.is_false(lbl._text._wordWrap)
+    end)
+
+    it("no wrap flag = nothing changes (purely additive)", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Hi" })
+        assert.is_false(lbl._wrapMode)
+        assert.equals(0, lbl._text:GetWidth())
+    end)
+end)

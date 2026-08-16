@@ -6,7 +6,19 @@ onboarding de perfiles (2026-07-31)
 **Tipo:** Feature (gap de API; hoy obliga a FontStrings crudos en el consumidor)
 **Prioridad:** Media — hay fallback simple (FontString crudo + `Theme.Fontify` del consumidor),
 pero es el **tercer** sitio de Coffer que no puede usar `Craft.Label` por lo mismo
-**Estado:** Propuesto
+**Estado:** ✅ Implementado (2026-08-16, en `dev`) — tal cual la propuesta: `width` + `wrap`
+seleccionan un tercer modo (`_wrapMode`) decidido UNA vez en `Create`; `_recalcSize` hace
+`SetWidth(width)` **antes** de `GetStringHeight()` (un FontString solo reporta el alto envuelto
+cuando ya sabe su ancho) y, como corre también desde `_applyTheme`, la carga async de Inter
+(bug #4) re-fluye el párrafo. `Label:SetWidth(w)` público para re-fluir desde el
+`OnSizeChanged` del contenedor.
+Resuelta la convivencia que el FR dejaba abierta: **`wrap` gana sobre `maxWidth`** (envolver no
+pierde texto, elidir sí). Aditivo — ningún call-site actual cambia de comportamiento.
+Tests: 6 en `tests/label_spec.lua`; el *crecimiento* a N líneas no se puede simular (el mock
+mide una línea fija, misma limitación documentada que FR-044) ⇒ el crecimiento real solo se ve
+en cliente. **✅ Verificado in-game por el owner (2026-08-16, 12.1)** — página Label del
+Browser: el mismo texto en los tres modos apilados + slider que llama `SetWidth` para re-fluir
+en vivo. **Cerrado.** Documentado en `docs/components/label.md` (tabla de los tres modos).
 
 ---
 

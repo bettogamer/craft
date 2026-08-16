@@ -17,7 +17,9 @@ function Label:Create(parent, config)
         text     = config.text     or "",
         color    = config.color,          -- {r,g,b,a} override, nil = inherit
         disabled = config.disabled or false,
-        maxWidth = config.maxWidth,        -- number or nil
+        maxWidth = config.maxWidth,        -- number or nil — elide mode
+        width    = config.width,           -- number or nil — fixed box (FR-071)
+        wrap     = config.wrap     or false,   -- multi-line inside `width` (FR-071)
         align    = config.align    or "LEFT",  -- "LEFT"|"CENTER"|"RIGHT"
         onClick  = config.onClick,         -- function(self) or nil
         weight   = config.weight,          -- "normal"|"medium"|"bold", nil = normal (t.font)
@@ -33,8 +35,18 @@ function Label:Create(parent, config)
     -- _text: FontString child — OVERLAY, text-xs = 12px, leading-none
     self._text = self.frame:CreateFontString(nil, "OVERLAY")
 
-    -- maxWidth: truncate with "..." — WoW truncates automatically via SetWordWrap(false)
-    if self._cfg.maxWidth then
+    -- Three width modes, decided ONCE here (CLAUDE.md bug #2b says the wrap flag
+    -- must always be an explicit decision, never WoW's default):
+    --   1. nothing        → the frame hugs the natural text width, one line (FR-024)
+    --   2. maxWidth       → capped width, SetWordWrap(false) ⇒ WoW elides with "…"
+    --   3. width + wrap   → fixed box, multi-line, height grows with the text (FR-071)
+    -- `wrap` wins over `maxWidth` if both are passed: asking to wrap and to elide
+    -- is contradictory, and wrapping is the one that loses no text.
+    self._wrapMode = (self._cfg.wrap and self._cfg.width) and true or false
+    if self._wrapMode then
+        self._text:SetWordWrap(true)
+        self._text:SetNonSpaceWrap(false)   -- break on spaces, don't chop mid-word
+    elseif self._cfg.maxWidth then
         self._text:SetWordWrap(false)
         self._text:SetNonSpaceWrap(false)
     end
@@ -122,6 +134,18 @@ function Label:_recalcSize()
     local natural = text:GetStringWidth()
     self._naturalWidth = natural
 
+    -- Wrap mode: the box width is given, the HEIGHT is what we compute. Set the
+    -- width first — GetStringHeight only reports the wrapped (multi-line) height
+    -- once the string knows how wide it may be. Re-runs from _applyTheme, so the
+    -- async Inter load (bug #4) re-flows the paragraph instead of freezing it at
+    -- the wrong line count.
+    if self._wrapMode then
+        local bw = self._cfg.width
+        text:SetWidth(bw)
+        self.frame:SetSize(bw, text:GetStringHeight())
+        return
+    end
+
     local w = natural
     if self._cfg.maxWidth and self._cfg.maxWidth < w then
         w = self._cfg.maxWidth
@@ -160,6 +184,26 @@ end
 function Label:SetText(text)
     self._cfg.text = text
     self._text:SetText(text)
+    self:_recalcSize()
+end
+
+-- Re-flows a wrap-mode label into a new box width (FR-071). The consumer calls
+-- this from its container's OnSizeChanged, same pattern as Craft.Section's
+-- dynamic header. On a non-wrap label it just moves the elide cap, so a label
+-- created without `width`/`wrap` keeps hugging its text.
+function Label:SetWidth(w)
+    if self._wrapMode then
+        self._cfg.width = w
+    else
+        -- First time a cap is imposed on a hug-mode label: turn the wrap off, or
+        -- the newly-pinned width would make it grow a second line instead of
+        -- eliding (CLAUDE.md bug #2b).
+        if not self._cfg.maxWidth then
+            self._text:SetWordWrap(false)
+            self._text:SetNonSpaceWrap(false)
+        end
+        self._cfg.maxWidth = w
+    end
     self:_recalcSize()
 end
 
