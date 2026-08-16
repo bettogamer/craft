@@ -8,6 +8,25 @@ spec [`docs/components/menu.md`](../components/menu.md)
 **Tipo:** Feature (hueco de API)
 **Prioridad:** Media — hay fallback (`rightText`), pero obliga a degradar información que el
 botón suelto sí daba.
+**Estado:** ✅ Implementado (2026-08-16, en `dev`) — **propuesta B** (= A + funciona con
+`disabled`). `cfg.tooltip` acepta `string` o `fn(cfg) → string`, evaluado **en el hover** (las
+filas son pooled y se reconfiguran en cada `Open`, así que una config capturada al construir
+sería la de otra apertura). Anclado a la **derecha**, como pedía el FR, para lo cual
+`Craft.Tooltip` gana `config.side` (`top`/`bottom`/`left`/`right`) — que además es paridad con
+el prop `side` de shadcn, incluida la entrada deslizante por el eje correspondiente.
+Dos matices sobre el esbozo:
+1. **Retardo de 300ms**, el mismo de `Craft.Tooltip.Attach`. Las filas están apiladas: sin
+   retardo el tooltip estroboscopía mientras el cursor baja por la lista. No se usa `Attach`
+   directamente porque ata UNA config a un frame de por vida.
+2. Para B, `_applyDisabled` deja de hacer `EnableMouse(false)` y pasa a `EnableMouse(_interactive)`:
+   el clic y el resaltado ya los bloqueaban los guards de `_disabled` en `_onRowClick`/
+   `_onRowEnter`, así que el mouse solo servía para matar el hover. Misma política que
+   `Craft.Button` (FR-020). También se retracta el tooltip en `Close()`, porque a una fila a la
+   que se le quita el mouse a mitad de hover no le llega `OnLeave`.
+**C (`cfg.description`) NO se implementa**: shadcn no la tiene en `DropdownMenuItem` y el propio
+FR la marca ortogonal. Si hace falta, FR aparte.
+Tests: 7 en `tests/menu_spec.lua`. **Coffer puede recuperar el desglose por pieza (una línea por
+ítem, coloreada por calidad) al re-vendorear.**
 
 ---
 

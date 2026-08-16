@@ -132,6 +132,25 @@ no hay glyph `circle` plano en el atlas).
 > Es un botón trailing con su propia hit-area (frameLevel mayor que la fila) para que su click
 > dispare `onDelete` sin disparar el `onClick` de la fila. Requerido por Coffer (dropdown de
 > personajes offline, caso #4). Documentado como divergencia consciente.
+>
+> **`tooltip` por fila es una extensión de Craft** ([FR-067](../requests/FR-067-menu-item-tooltip.md)).
+> `DropdownMenuItem` de shadcn no lo tiene, pero el tooltip es la afordancia WoW para explicar
+> un control (ya establecida en `Craft.Button`, FR-020) y una acción que se muda de un botón de
+> barra a una fila de menú perdía su único canal explicativo. Detalles de comportamiento:
+>
+> - `string` para el caso simple; `fn(cfg) → string` para texto que cambia entre aperturas
+>   (se evalúa **en el hover**, no al construir — las filas son pooled y se reconfiguran en
+>   cada `Open`). Devolver `nil`/`""` no muestra nada.
+> - **Anclado a la DERECHA** (`side = "right"` de `Craft.Tooltip`): un menú ya está pegado a su
+>   ancla y un tooltip arriba/abajo taparía las filas vecinas.
+> - **Retardo de 300ms**, el mismo de `Craft.Tooltip.Attach`. Las filas están apiladas, así que
+>   el cursor barre varias camino de la suya: sin retardo el tooltip estroboscopía por la lista.
+>   No se usa `Attach` directamente porque ata UNA config a un frame de por vida y estas filas
+>   se reciclan.
+> - **Funciona con `disabled = true`** — que es el caso que más lo pide ("necesitas un banquero").
+>   Por eso una fila gris **conserva el mouse** (`EnableMouse`); el clic y el resaltado de hover
+>   los siguen bloqueando los guards de `_disabled`, no la ausencia de mouse. Misma política que
+>   `Craft.Button`, cuyo tooltip también se ve estando gris.
 
 ## Dimensiones
 
@@ -225,7 +244,8 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
 | `group` | radio | Id de grupo; selección exclusiva dentro del grupo |
 | `value` | radio | Valor de esta opción de radio |
 | `onSelect` | radio | `fn(value)` al seleccionar |
-| `disabled` | item, checkbox, radio | Fila gris no clickeable — acepta señal |
+| `disabled` | item, checkbox, radio | Fila gris no clickeable — acepta señal. **Sigue recibiendo hover** para poder mostrar su `tooltip` (FR-067) |
+| `tooltip` | item, checkbox, radio | `string` \| `fn(cfg) → string`. Tooltip de la fila, anclado a su DERECHA tras 300ms de hover. Funciona también con `disabled = true` (extensión Craft, [FR-067](../requests/FR-067-menu-item-tooltip.md)) |
 | `submenu` | (reservado) | v1: ignorado |
 
 > **Props reactivas (ADR-0013):** `label`, `checked` y `disabled` de cada entrada aceptan

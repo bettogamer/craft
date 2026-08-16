@@ -24,6 +24,7 @@ Menu.__index = Menu
 
 -- ─── Constants ──────────────────────────────────────────────────────────────
 -- Geometry verified against style-lyra.css (2026-07-09). 1 Tailwind unit = 4px.
+local TOOLTIP_DELAY = 0.30  -- s — matches Craft.Tooltip.Attach's default (FR-067)
 local ROW_H       = 28   -- item/checkbox/radio/heading (py-2×2 + text-xs=12)
 local SEP_MY      = 4    -- my-1 (separator vertical margin, from base .tsx)
 local SEP_ROW_H   = SEP_MY * 2 + 1   -- separator row footprint (1px line + margins)
@@ -494,7 +495,13 @@ function Menu:_applyDisabled(item, cfg, off)
     item._disabled = off and true or false
     if item._disabled then
         item.row:SetAlpha(0.5)
-        item.row:EnableMouse(false)
+        -- Keep the mouse ON so a greyed row can still explain ITSELF on hover —
+        -- "needs a banker", "no merchant open" is exactly the case that wants a
+        -- tooltip, and EnableMouse(false) meant a disabled row never even got
+        -- OnEnter. Same policy as Craft.Button (FR-020), whose tooltip shows while
+        -- disabled. The click and the hover highlight stay blocked by the
+        -- `_disabled` guards in _onRowClick / _onRowEnter. FR-067.
+        item.row:EnableMouse(item._interactive)
         if item._baseColor then
             local m = self._t and self._t.mutedForeground
             if m then item.label:SetTextColor(m.r, m.g, m.b) end
@@ -509,7 +516,44 @@ function Menu:_applyDisabled(item, cfg, off)
 end
 
 -- ─── Row interaction ────────────────────────────────────────────────────────
+
+-- Shows the row's tooltip, if it has one. Runs BEFORE the `_disabled` bail-out in
+-- _onRowEnter on purpose: a disabled row is the one that most needs to say why.
+-- `tooltip` is a string, or a function(GameTooltipLikeConfig) → string for text
+-- that changes between openings; it is read from item.cfg at hover time because
+-- rows are pooled and reconfigured on every Open. Anchored to the row's RIGHT so
+-- it lands outside the panel instead of covering the neighbouring rows. FR-067.
+function Menu:_showRowTooltip(item)
+    local cfg = item.cfg
+    if not (cfg and cfg.tooltip) then return end
+
+    -- Same 300ms hover delay Craft.Tooltip.Attach uses everywhere else. Rows are
+    -- stacked, so the cursor sweeps several of them on its way to the target — an
+    -- instant tooltip would strobe down the list. Craft.Tooltip.Attach itself is
+    -- not usable here: it binds ONE config to a frame for good, and these rows are
+    -- pooled and reconfigured on every Open.
+    self._tipRow = item
+    C_Timer.After(TOOLTIP_DELAY, function()
+        if self._tipRow ~= item then return end     -- cursor already moved on
+        local c = item.cfg
+        local tip = c and c.tooltip
+        if not tip then return end
+        if type(tip) == "function" then
+            tip = tip(c)
+            if type(tip) ~= "string" or tip == "" then return end
+        end
+        Craft.Tooltip.Show(item.row, { text = tip, side = "right" })
+    end)
+end
+
+-- Cancels a pending row tooltip and retracts a visible one.
+function Menu:_hideRowTooltip()
+    self._tipRow = nil
+    Craft.Tooltip.Hide()
+end
+
 function Menu:_onRowEnter(item)
+    self:_showRowTooltip(item)
     if not item._interactive or item._disabled then return end
     local t = self._t
     if not t then return end
@@ -523,6 +567,7 @@ function Menu:_onRowEnter(item)
 end
 
 function Menu:_onRowLeave(item)
+    if item.cfg and item.cfg.tooltip then self:_hideRowTooltip() end
     local t = self._t
     item.bg:SetColorTexture(0, 0, 0, 0)
     if t and item._baseColor then
@@ -705,7 +750,9 @@ function Menu:_doOpen(scaleRef)
 
     for i = 1, self._count do
         local it = self._items[i]
-        it.row:EnableMouse(it._interactive and not it._disabled)
+        -- Disabled rows keep the mouse (tooltip on hover) — the click and the
+        -- highlight are gated by the `_disabled` guards, not by the mouse. FR-067.
+        it.row:EnableMouse(it._interactive)
     end
 
     self:_bindItems()
@@ -722,7 +769,9 @@ function Menu:Close()
     if self._catcher then self._catcher:Hide() end
 
     -- Drop row mouse immediately so the fading-out panel can't eat clicks meant
-    -- for the UI behind it (Open re-arms it).
+    -- for the UI behind it (Open re-arms it). No OnLeave fires for a row whose
+    -- mouse is yanked mid-hover, so retract any row tooltip by hand (FR-067).
+    self:_hideRowTooltip()
     for i = 1, self._count do
         self._items[i].row:EnableMouse(false)
     end

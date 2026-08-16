@@ -30,6 +30,7 @@ dofile("Craft/icons/Atlas.lua")
 dofile("Craft/icons/Icons.lua")
 dofile("Craft/layout/Flex.lua")
 dofile("Craft/components/Avatar.lua")   -- FR-065: rows with an avatar in the leading slot
+dofile("Craft/components/Tooltip.lua") -- FR-067: per-row tooltip
 dofile("Craft/components/Menu.lua")
 
 local Craft = LibStub("Craft-2.0")
@@ -442,6 +443,105 @@ describe("Craft.Menu:AttachContextMenu", function()
         end)
         host:_fire("OnMouseUp", "LeftButton")
         assert.equals(0, calls)
+        m:Destroy()
+    end)
+end)
+
+-- ─── per-row tooltip (FR-067) ─────────────────────────────────────────────────
+
+describe("Craft.Menu row tooltip (FR-067)", function()
+
+    -- The Tooltip singleton is a named child of UIParent (the mock does not
+    -- register frame names in _G, so we look it up by _name).
+    local function tooltipFrame()
+        for _, child in ipairs(UIParent._children) do
+            if child._name == "CraftTooltipFrame" then return child end
+        end
+    end
+
+    local function openWith(items)
+        local host = CreateFrame("Frame", nil, UIParent)
+        local m = Craft.Menu:Create({ items = items })
+        m:Open(host)
+        return m
+    end
+
+    it("a row without tooltip shows nothing on hover", function()
+        local m = openWith({ { type = "item", label = "Plain", onClick = function() end } })
+        local before = tooltipFrame() and tooltipFrame():IsShown() or false
+        m._items[1].row:_fire("OnEnter"); C_Timer._flush()
+        local tt = tooltipFrame()
+        assert.is_true(before == (tt and tt:IsShown() or false))
+        m:Destroy()
+    end)
+
+    it("string tooltip shows on hover and hides on leave", function()
+        local m = openWith({ { type = "item", label = "Vender basura",
+                               tooltip = "12 piezas, 12g 40s", onClick = function() end } })
+        m._items[1].row:_fire("OnEnter"); C_Timer._flush()
+        local tt = tooltipFrame()
+        assert.is_not_nil(tt)
+        assert.is_true(tt:IsShown())
+        assert.equals("12 piezas, 12g 40s", tt._text:GetText())
+        m._items[1].row:_fire("OnLeave")
+        m:Destroy()
+    end)
+
+    -- Anchored right so it lands outside the panel instead of covering the rows
+    -- above and below it.
+    it("anchors to the RIGHT of the row, not above it", function()
+        local m = openWith({ { type = "item", label = "A", tooltip = "Tip",
+                               onClick = function() end } })
+        m._items[1].row:_fire("OnEnter"); C_Timer._flush()
+        local tt = tooltipFrame()
+        assert.equals("LEFT",  tt._points[1][1])
+        assert.equals("RIGHT", tt._points[1][3])
+        m._items[1].row:_fire("OnLeave")
+        m:Destroy()
+    end)
+
+    -- The whole point of FR-067 option B: a greyed row is the one that most needs
+    -- to say why it is greyed.
+    it("a DISABLED row keeps the mouse and still shows its tooltip", function()
+        local m = openWith({ { type = "item", label = "Vender", disabled = true,
+                               tooltip = "Necesitas un mercader", onClick = function() end } })
+        assert.is_true(m._items[1].row:IsMouseEnabled())
+        m._items[1].row:_fire("OnEnter"); C_Timer._flush()
+        assert.equals("Necesitas un mercader", tooltipFrame()._text:GetText())
+        m._items[1].row:_fire("OnLeave")
+        m:Destroy()
+    end)
+
+    it("a disabled row still takes no click and no hover highlight", function()
+        local calls = 0
+        local m = openWith({ { type = "item", label = "Vender", disabled = true,
+                               tooltip = "Nope", onClick = function() calls = calls + 1 end } })
+        local item = m._items[1]
+        item.row:_fire("OnEnter"); C_Timer._flush()
+        local _, _, _, a = item.bg:GetColorTexture()
+        assert.equals(0, a)                 -- no accent fill on a disabled row
+        item.row:_fire("OnClick")
+        assert.equals(0, calls)
+        m:Destroy()
+    end)
+
+    it("a function tooltip is evaluated at hover time", function()
+        local n = 0
+        local m = openWith({ { type = "item", label = "A", onClick = function() end,
+                               tooltip = function() n = n + 1; return "call " .. n end } })
+        m._items[1].row:_fire("OnEnter"); C_Timer._flush()
+        assert.equals("call 1", tooltipFrame()._text:GetText())
+        m._items[1].row:_fire("OnLeave")
+        m._items[1].row:_fire("OnEnter"); C_Timer._flush()
+        assert.equals("call 2", tooltipFrame()._text:GetText())
+        m._items[1].row:_fire("OnLeave")
+        m:Destroy()
+    end)
+
+    it("a function returning nil shows nothing", function()
+        local m = openWith({ { type = "item", label = "A", onClick = function() end,
+                               tooltip = function() return nil end } })
+        assert.has_no_errors(function() m._items[1].row:_fire("OnEnter"); C_Timer._flush() end)
         m:Destroy()
     end)
 end)

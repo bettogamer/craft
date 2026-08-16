@@ -111,7 +111,14 @@ local function _getTooltipFrame()
         if not sl then return end
         local off = slidePx * (1 - prog) * sl.sign
         _tooltip:ClearAllPoints()
-        _tooltip:SetPoint(sl.point, sl.anchor, sl.relPoint, sl.x, sl.baseY + off)
+        -- The slide runs along the anchor-facing axis, which is horizontal for the
+        -- left/right sides (shadcn slide-in-from-left / -right) and vertical for
+        -- top/bottom. `axis` is stashed by _positionTooltip alongside the resting point.
+        if sl.axis == "x" then
+            _tooltip:SetPoint(sl.point, sl.anchor, sl.relPoint, sl.baseX + off, sl.y)
+        else
+            _tooltip:SetPoint(sl.point, sl.anchor, sl.relPoint, sl.x, sl.baseY + off)
+        end
     end)
 
     -- Bind alpha + shown to the singleton frame, plus the derived scale/slide
@@ -229,15 +236,32 @@ end
 
 -- ─── Positioning logic ─────────────────────────────────────────────────────
 -- Tries to place tooltip above the anchor. Falls back to below if no room.
-local function _positionTooltip(anchor)
+local function _positionTooltip(anchor, side)
     local f = _tooltip
     f:ClearAllPoints()
+
+    -- Explicit side (shadcn `side` prop). Without it Craft keeps its auto
+    -- behaviour: prefer above, flip below when there is no room. The side
+    -- matters when the anchor is one row of a stacked surface (a menu): a
+    -- vertical tooltip would cover its neighbours, so those callers ask for
+    -- "right" and the tip lands outside the panel. FR-067.
+    if side == "right" or side == "left" then
+        local toRight  = (side == "right")
+        local point    = toRight and "LEFT"  or "RIGHT"
+        local relPoint = toRight and "RIGHT" or "LEFT"
+        local baseX    = toRight and OFFSET or -OFFSET
+        f:SetPoint(point, anchor, relPoint, baseX, 0)
+        -- Enter from the anchor side: start closer to it, ease outward.
+        f._slide = { point = point, anchor = anchor, relPoint = relPoint,
+                     axis = "x", baseX = baseX, y = 0, sign = toRight and -1 or 1 }
+        return
+    end
 
     -- Check space above
     local anchorTop = anchor:GetTop() or 0
     local tipH      = f:GetHeight()
 
-    if anchorTop - tipH - OFFSET >= 0 then
+    if side ~= "bottom" and (side == "top" or anchorTop - tipH - OFFSET >= 0) then
         -- Enough room above: BOTTOM of tooltip → TOP of anchor + OFFSET.
         -- Tooltip sits ABOVE the anchor (side=top) → shadcn slide-in-from-bottom:
         -- it enters from below (toward the anchor). Start slidePx lower (sign=-1)
@@ -275,7 +299,7 @@ function TT.Show(anchor, config)
     _tooltip:SetScale(1)
 
     _layoutTooltip(config)
-    _positionTooltip(anchor)
+    _positionTooltip(anchor, config.side)
 
     -- Fade in: the shown-computed reveals the frame, the tween eases alpha 0→1.
     -- (f is kept live above via _getTooltipFrame so layout/position ran already.)
