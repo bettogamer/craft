@@ -165,7 +165,8 @@ En estado disabled (shadcn `disabled:opacity-50`): `frame:SetAlpha(0.5)` + `fram
 | `showValue`  | `boolean`  | `false`   | Muestra el valor actual en el header row (TOPRIGHT), `t.mutedForeground`. Si `label` también está presente, comparten el mismo row (justify-between). |
 | `showMinMax` | `boolean`  | `false`   | Muestra `minLabel` y `maxLabel` en los extremos del track                    |
 | `onChange`   | `function` | `nil`     | `fn(value)` — se dispara al cambiar el valor (click/rueda/drag)             |
-| `width`      | `number`   | `nil`     | Ancho fijo en px. Si es nil, ocupa 100% del parent                           |
+| `wheel`      | `boolean`  | `false`   | Habilita la rueda del ratón. **Apagada por defecto** (FR-069) — ver §Rueda. |
+| `width`      | `number`   | `nil`     | Ancho fijo en px, aplicado en `Create`. Si es `nil` **el frame nace sin ancho** y lo dimensiona el caller (`GetFrame():SetWidth(w)`, o anclas LEFT+RIGHT) — no ocupa el parent por sí solo |
 | `height`     | `number`   | `nil`     | Altura del frame root en px. Si es nil usa el valor por defecto (ver tabla de alturas). **Corrección post-testing en WoW:** necesario para embeber el slider en containers con altura variable (e.g. footer del Browser). |
 | `label`      | `string`   | `nil`     | **Craft extension** — texto descriptivo sobre el track. Agrega 20px al `topPad` (LABEL_H=12 + LABEL_PAD_TOP=8). No está en shadcn Lyra; shadcn usa `<Label>` externo. |
 | `format`     | `function` | `tostring`| **Craft extension** (FR-034) — formatea value/min/max al pintarlos. Firma `format(v, context) → string`; `context` es `"value"`, `"min"` o `"max"` (los callers que no lo necesiten ignoran el 2º arg). Ej: moneda `function(v) return ("$%.2f"):format(v) end`, porcentaje `function(v) return v.."%" end`. |
@@ -186,7 +187,27 @@ No hay parámetro `size` — el slider tiene un único tamaño de thumb (12×12p
 | `SetRange(min, max)`    | Actualiza `self._min`/`_max`, reclampa el valor y reposiciona el thumb (`_updateVisuals`) |
 | `SetLabel(text)`        | **Craft extension** — actualiza el texto del label en runtime. Solo funciona si `config.label` fue provisto en `Create`. |
 | `SetFormat(fn)`         | **Craft extension** (FR-034) — cambia el formateador en runtime y re-pinta value/min/max. `fn=nil` vuelve a `tostring`. |
+| `SetWheelEnabled(bool)` | Enciende/apaga la rueda en runtime (FR-069)                                   |
+| `IsWheelEnabled()`      | `true` si la rueda está habilitada                                            |
 | `GetFrame()`            | Retorna el frame root del componente                                          |
+
+## Rueda del ratón — apagada por defecto (FR-069)
+
+En WoW la rueda va al frame **más alto bajo el cursor** que la tenga habilitada, y **no
+se propaga** hacia abajo. Con la rueda siempre encendida, un Slider dentro de un
+`Craft.Scroll` **secuestraba el gesto**: la página dejaba de desplazarse y lo que se movía
+era el ajuste — sin error ni aviso. Y es un choque garantizado, no un caso raro: una página
+con scroll existe justamente porque hay más controles que alto, y un slider ocupa la fila
+entera, así que el cursor los cruza en cada gesto. El daño es asimétrico: el scroll perdido
+se nota y se corrige, el valor cambiado no.
+
+Por eso `wheel` es **opt-in**, que además es lo fiel: el Slider de shadcn/Radix no maneja la
+rueda en absoluto, y arrastrar el thumb o clicar la pista siguen siendo los gestos
+principales del componente.
+
+- Dentro de un `Craft.Scroll` (o cualquier superficie desplazable): dejarla apagada. WoW se
+  salta el frame y la muesca llega al `ScrollFrame` de debajo.
+- En una superficie no desplazable: `wheel = true`, o `SetWheelEnabled(true)` en runtime.
 
 ## Notas de implementación
 

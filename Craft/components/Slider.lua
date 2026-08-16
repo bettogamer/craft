@@ -57,6 +57,8 @@ function Slider:Create(parent, config)
     self._disabled = config.disabled or false
     self._onChange = config.onChange
     self._format   = config.format   or tostring
+    -- Mouse wheel is OPT-IN (FR-069). See the SetWheelEnabled block below.
+    self._wheel    = config.wheel    or false
     self._dragging = false
 
     -- Reactive props (ADR-0013): a callable prop binds through the public
@@ -89,6 +91,13 @@ function Slider:Create(parent, config)
     -- ── Root frame ───────────────────────────────────────────────────────────
     self.frame = CreateFrame("Frame", nil, parent)
     self.frame:SetHeight(frameH)
+    -- `config.width` was documented but never applied: the height was set here and
+    -- the width silently wasn't, so a caller who passed `width` (and reasonably
+    -- trusted the spec) got a 0-wide root frame — an INVISIBLE slider, with no
+    -- error. Callers who size the frame themselves after Create are unaffected:
+    -- their SetWidth still lands last and wins, and `width = nil` keeps the old
+    -- "caller owns the width" behaviour.
+    if config.width then self.frame:SetWidth(config.width) end
 
     local fl = self.frame:GetFrameLevel()
 
@@ -189,8 +198,18 @@ function Slider:Create(parent, config)
         self:_updateFromCursor()
     end)
 
-    -- ── Mouse wheel ───────────────────────────────────────────────────────────
-    self.frame:EnableMouseWheel(true)
+    -- ── Mouse wheel — OPT-IN (config.wheel, default false) ────────────────────
+    -- In WoW the wheel goes to the TOPMOST frame under the cursor that has it
+    -- enabled and does NOT propagate down the stack. A slider is a full-width form
+    -- control, and the whole point of a scrollable settings page is that it holds
+    -- more controls than fit — so the cursor crosses sliders on every scroll
+    -- gesture. With the wheel always on, the page stopped scrolling and the slider
+    -- silently changed the user's setting instead: no error, no feedback, and the
+    -- damage is asymmetric (lost scroll is noticed and undone, a changed value is
+    -- not). shadcn/Radix Slider has no wheel handling at all, and dragging the
+    -- thumb / clicking the track remain the primary gestures, so off is both the
+    -- faithful and the safe default. Consumers whose slider lives on a
+    -- non-scrollable surface opt in with `wheel = true`. FR-069.
     self.frame:SetScript("OnMouseWheel", function(_, delta)
         if self._disabled then return end
         local v = self._value + delta * self._step
@@ -203,6 +222,7 @@ function Slider:Create(parent, config)
             if self._onChange then self._onChange(v) end
         end
     end)
+    self:SetWheelEnabled(self._wheel)
 
     -- ── Thumb hover ───────────────────────────────────────────────────────────
     self._thumb:SetScript("OnEnter", function() self:_onThumbEnter() end)
@@ -433,6 +453,19 @@ function Slider:SetEnabled(enabled)
     self.frame:SetAlpha(enabled and 1 or 0.5)
     self._thumb:EnableMouse(enabled)
     self.frame:EnableMouse(enabled)
+end
+
+-- Turns the mouse wheel gesture on/off at runtime (FR-069). Disabled is the
+-- default and the safe state inside a Craft.Scroll: WoW skips a frame that has
+-- the wheel disabled, so the notch reaches the ScrollFrame underneath and the
+-- page scrolls as the user expects.
+function Slider:SetWheelEnabled(enabled)
+    self._wheel = enabled and true or false
+    self.frame:EnableMouseWheel(self._wheel)
+end
+
+function Slider:IsWheelEnabled()
+    return self._wheel
 end
 
 function Slider:SetLabel(text)

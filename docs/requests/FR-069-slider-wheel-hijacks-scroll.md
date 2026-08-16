@@ -9,7 +9,16 @@ spec [`docs/components/slider.md`](../components/slider.md)
 **Prioridad:** **Alta** — no hay error ni aviso: el usuario cree que ha desplazado la página y en
 realidad ha cambiado un ajuste (y en Coffer varios de esos ajustes son de geometría → piden
 /reload).
-**Estado:** Abierto — Coffer lleva el workaround de abajo desde hoy.
+**Estado:** ✅ Implementado (2026-08-16, en `dev`) — **propuesta A**: `config.wheel`, default
+`false`. Se descartaron B (reenviar al ancestro: mete recorrido de jerarquía en un componente
+de formulario y deja el ajuste tras un gesto oculto) y C (que `Scroll` reclame la rueda de sus
+descendientes: magia a distancia y habría que reaccionar a hijos añadidos después).
+Decisión del owner sobre el default: apagarla es lo **fiel** — el Slider de shadcn/Radix no
+maneja la rueda en absoluto — además de lo seguro. Añadidos `SetWheelEnabled(bool)` /
+`IsWheelEnabled()` para encenderla en superficies no desplazables. Documentado en
+`docs/components/slider.md` §"Rueda del ratón", que es lo que el FR pedía explícitamente.
+Tests: 4 en `tests/slider_spec.lua`. **Coffer puede retirar el helper `newSlider` al
+re-vendorear.**
 
 ---
 

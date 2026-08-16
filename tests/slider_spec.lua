@@ -149,3 +149,76 @@ describe("Craft.Slider (FR-034)", function()
     end)
 
 end)
+
+-- ─── mouse wheel is opt-in (FR-069) ───────────────────────────────────────────
+
+describe("Craft.Slider mouse wheel (FR-069)", function()
+
+    it("is OFF by default so a Craft.Scroll underneath keeps the notch", function()
+        local sl = newSlider({ value = 50 })
+        assert.is_false(sl:IsWheelEnabled())
+        assert.is_false(sl:GetFrame():IsMouseWheelEnabled())
+        sl:Destroy()
+    end)
+
+    it("wheel = true opts in", function()
+        local sl = newSlider({ value = 50, wheel = true })
+        assert.is_true(sl:IsWheelEnabled())
+        assert.is_true(sl:GetFrame():IsMouseWheelEnabled())
+        sl:Destroy()
+    end)
+
+    it("SetWheelEnabled toggles it at runtime", function()
+        local sl = newSlider({ value = 50 })
+        sl:SetWheelEnabled(true)
+        assert.is_true(sl:GetFrame():IsMouseWheelEnabled())
+        sl:SetWheelEnabled(false)
+        assert.is_false(sl:GetFrame():IsMouseWheelEnabled())
+        sl:Destroy()
+    end)
+
+    it("the handler still moves the value when the wheel is on", function()
+        local sl = newSlider({ value = 50, step = 5, wheel = true })
+        sl:GetFrame():_fire("OnMouseWheel", 1)
+        assert.equals(55, sl:GetValue())
+        sl:GetFrame():_fire("OnMouseWheel", -1)
+        assert.equals(50, sl:GetValue())
+        sl:Destroy()
+    end)
+end)
+
+-- ─── config.width ─────────────────────────────────────────────────────────────
+-- Regression: the spec documented `width` but Create only applied `height`, so a
+-- caller who passed width got a 0-wide root frame — an invisible slider, silently.
+-- Found by rendering the Craft_Browser pages headless (2026-08-16).
+
+describe("Craft.Slider config.width", function()
+
+    it("applies config.width to the root frame", function()
+        local sl = Craft.Slider:Create(UIParent, { min = 0, max = 100, value = 50, width = 200 })
+        assert.equals(200, sl:GetFrame():GetWidth())
+        sl:Destroy()
+    end)
+
+    it("applies it alongside a label/header too", function()
+        local sl = Craft.Slider:Create(UIParent, {
+            min = 0, max = 100, value = 50, width = 180, label = "Scale", showValue = true })
+        assert.equals(180, sl:GetFrame():GetWidth())
+        sl:Destroy()
+    end)
+
+    it("without width the caller still owns the sizing (unchanged behaviour)", function()
+        local sl = Craft.Slider:Create(UIParent, { min = 0, max = 100, value = 50 })
+        assert.equals(0, sl:GetFrame():GetWidth())
+        sl:GetFrame():SetWidth(240)
+        assert.equals(240, sl:GetFrame():GetWidth())
+        sl:Destroy()
+    end)
+
+    it("a later SetWidth still wins over config.width", function()
+        local sl = Craft.Slider:Create(UIParent, { min = 0, max = 100, value = 50, width = 200 })
+        sl:GetFrame():SetWidth(320)
+        assert.equals(320, sl:GetFrame():GetWidth())
+        sl:Destroy()
+    end)
+end)
