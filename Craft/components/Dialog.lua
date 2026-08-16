@@ -41,7 +41,11 @@ function Dialog:Create(parent, config)
         -- opened from a window floats over it and its own buttons stay clickable.
         -- See Craft.Strata / FR-033.
         strata       = config.strata or (Craft.Strata and Craft.Strata.modal) or "FULLSCREEN_DIALOG",
+        -- User-facing dialog scale (FR-068/FR-073). The zoom multiplies onto it.
+        scale        = config.scale or 1,
     }
+    self._baseScale = self._cfg.scale
+    self._lastZoom  = 1
 
     _instanceCount = _instanceCount + 1
     self._instanceId = _instanceCount
@@ -122,8 +126,30 @@ function Dialog:Create(parent, config)
     self._effects[#self._effects + 1] = Weave.bind(self._overlay, "shown", shown)
     -- Drive SetScale from the tween via an effect ("scale" is not a built-in Weave
     -- prop; SetScale is a frame-only method with no texture equivalent).
+    --
+    -- Two rules the naive `SetScale(scale())` got wrong (FR-073 / FR-068):
+    --
+    -- 1. NEVER park the idle-closed frame at motionZoomFrom. `_open` starts false,
+    --    so the dialog used to sit at 0.95 the whole time it was closed — and WoW's
+    --    GetStringWidth/GetStringHeight scale with the frame's EFFECTIVE scale. Every
+    --    string the consumer wrote into a closed dialog measured ~5% short, so every
+    --    Craft.Label with maxWidth got a 5%-narrow box and elided with "…" — silently,
+    --    and proportionally to the text length. The pop is unaffected: the tween
+    --    restarts from motionZoomFrom the moment _open flips. Craft.Tooltip already
+    --    resets to scale 1 before measuring for exactly this reason (Tooltip.lua).
+    --    Residual: text measured DURING the ~150ms animation is still off — write it
+    --    before Show() (the normal `refresh(); dialog:Show()` order) or after it settles.
+    --
+    -- 2. The zoom MULTIPLIES onto _baseScale instead of owning the frame's scale, so
+    --    a consumer-set dialog scale is not wiped by the next tween tick.
     self._effects[#self._effects + 1] = Weave.effect(function()
-        self.frame:SetScale(scale())
+        local z    = scale()                 -- read all reactive sources up-front
+        local anim = scale:animating()
+        local open = self._open()
+        if not self.frame then return end
+        if not anim and not open then z = 1 end
+        self._lastZoom = z
+        self:_applyScale()
     end)
     self._effects[#self._effects + 1] = alpha  -- dispose the tween (effect + driver reg)
     self._effects[#self._effects + 1] = scale  -- dispose the zoom tween (effect + driver reg)
@@ -385,6 +411,29 @@ function Dialog:GetFooter()
         return self._footer
     end
     return nil
+end
+
+-- ─── Dialog scale (FR-068 / FR-073) ────────────────────────────────────────
+-- The root frame's scale belongs to the open/close zoom, so a consumer's
+-- frame:SetScale() would be wiped on the next tween tick. SetBaseScale is the
+-- supported way in; the zoom multiplies onto it.
+function Dialog:_applyScale()
+    if not self.frame then return end
+    local s = (self._baseScale or 1) * (self._lastZoom or 1)
+    if s <= 0 then s = 1 end
+    self.frame:SetScale(s)
+end
+
+function Dialog:SetBaseScale(s)
+    s = tonumber(s)
+    if not s or s <= 0 then return end
+    self._baseScale = s
+    self._cfg.scale = s
+    self:_applyScale()
+end
+
+function Dialog:GetBaseScale()
+    return self._baseScale or 1
 end
 
 -- Updates the dialog title text.

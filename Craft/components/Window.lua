@@ -52,7 +52,12 @@ function Window:Create(parent, config)
         onClose       = config.onClose,
         onMoved       = config.onMoved,
         onResized     = config.onResized,
+        -- User-facing window scale (FR-068). The open/close zoom MULTIPLIES onto
+        -- this instead of owning the frame's scale outright — see SetBaseScale.
+        scale         = config.scale or 1,
     }
+    self._baseScale = self._cfg.scale
+    self._lastZoom  = 1
 
     _instanceCount = _instanceCount + 1
     local frameName = "CraftWindow_" .. _instanceCount
@@ -147,13 +152,23 @@ function Window:Create(parent, config)
         captureZoomAnchor()
     end)
     self._effects[#self._effects + 1] = Weave.effect(function()
-        local s = zoom()
-        local f = self.frame
-        if not f then return end
-        f:SetScale(s)
-        f:ClearAllPoints()
-        f:SetPoint("CENTER", UIParent, "CENTER",
-            (self._zoomBaseX or 0) / s, (self._zoomBaseY or 0) / s)
+        -- Read EVERY reactive source before any early return, or the effect never
+        -- subscribes to the ones behind it (Weave lesson from RadioGroup/ToggleGroup).
+        local z    = zoom()
+        local anim = zoom:animating()
+        local open = self._open()
+        if not self.frame then return end
+
+        -- Idle AND closed → park at the base scale, not at base × motionZoomFrom.
+        -- A hidden frame gains nothing from sitting at 0.95, while WoW's
+        -- GetStringWidth/GetStringHeight DO scale with the effective scale: a
+        -- consumer that fills the window before Show() would measure every string
+        -- ~5% short and every Label with maxWidth would elide (that is FR-073, the
+        -- same bug in Dialog). The pop still reads — the tween restarts from
+        -- motionZoomFrom the instant _open flips.
+        if not anim and not open then z = 1 end
+        self._lastZoom = z
+        self:_applyScale()
     end)
     self._effects[#self._effects + 1] = zoom  -- dispose the tween (effect + driver reg)
 
@@ -404,6 +419,46 @@ end
 function Window:Center()
     self.frame:ClearAllPoints()
     self.frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+end
+
+-- ─── Window scale (FR-068) ───────────────────────────────────────────────────
+-- The open/close zoom drives SetScale, and SetScale ASSIGNS — it does not compose.
+-- A consumer doing frame:SetScale(userScale) therefore held only until the next
+-- tween tick, i.e. until the first open, after which the window snapped back to
+-- the zoom's own value. So the frame's scale is NOT the consumer's to write:
+-- SetBaseScale is, and the zoom multiplies onto it. Same shape Menu/Popover/Select
+-- already use for their panels (_panelBaseScale × zoom).
+--
+-- NOTE for persisted geometry: with base scale ≠ 1, GetLeft()/GetTop() and SetPoint
+-- offsets are no longer in UIParent units. Convert before saving a position
+-- (× GetEffectiveScale() / UIParent:GetEffectiveScale()) or windows jump when the
+-- user changes the scale.
+function Window:_applyScale()
+    local f = self.frame
+    if not f then return end
+    local s = (self._baseScale or 1) * (self._lastZoom or 1)
+    if s <= 0 then s = 1 end
+    f:SetScale(s)
+    f:ClearAllPoints()
+    -- Divide the captured pivot by the REAL applied scale, never by the tween
+    -- value alone: with a base scale ≠ 1 the two differ and the window would sit
+    -- off-centre by exactly that factor.
+    f:SetPoint("CENTER", UIParent, "CENTER",
+        (self._zoomBaseX or 0) / s, (self._zoomBaseY or 0) / s)
+end
+
+-- Sets the window's user-facing scale. Takes effect immediately and survives every
+-- later open/close.
+function Window:SetBaseScale(s)
+    s = tonumber(s)
+    if not s or s <= 0 then return end
+    self._baseScale  = s
+    self._cfg.scale  = s
+    self:_applyScale()
+end
+
+function Window:GetBaseScale()
+    return self._baseScale or 1
 end
 
 -- Shows the window (fade in).

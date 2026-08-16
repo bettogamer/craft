@@ -7,7 +7,20 @@ spec [`docs/components/window.md`](../components/window.md)
 **Tipo:** Bug (la escala del consumidor sobrevive hasta la primera apertura y desaparece)
 **Prioridad:** Media — se puede sortear desde fuera (ver workaround), pero el patrón "escala de
 ventana configurable" es de manual en un addon y hoy **no hay forma de hacerlo sobre el frame**.
-**Estado:** Abierto
+**Estado:** ✅ Implementado (2026-08-16, en `dev`) — **propuesta A**, más la C (documentado en
+`docs/components/window.md`). `config.scale` + `Window:SetBaseScale(s)`/`GetBaseScale()`; el
+efecto del zoom escribe `_baseScale × zoom` vía `_applyScale()`, y el `SetPoint` del pivote
+divide por esa escala **real** (no por el valor del tween), que era el detalle delicado que
+señalaba el FR. Se aprovechó para arreglar de paso lo que reportaba
+[FR-073](FR-073-dialog-zoom-breaks-child-text-measure.md) y que aquí también aplicaba: en
+reposo-cerrada la ventana **ya no se aparca en `motionZoomFrom`**, así que medir texto antes de
+`Show()` sale bien. Mismo tratamiento en `Craft.Dialog` (`config.scale` + `SetBaseScale`).
+Documentada también la trampa de la geometría persistida (`GetLeft()`/`GetTop()` dejan de estar
+en unidades de UIParent con escala ≠ 1). **✅ Verificado in-game por el owner (2026-08-16,
+12.1)** — página Window del Browser: slider `SetBaseScale` + ventana con `config.scale = 1.3`,
+comprobando que la escala sobrevive al cerrar y reabrir (que era el fallo real). **Cerrado**
+salvo revertir el host
+intermedio de Coffer al re-vendorear.
 
 ---
 

@@ -80,6 +80,7 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
 | `resizable` | boolean | true | Muestra el handle de resize |
 | `closable` | boolean | true | Muestra el botón "x" |
 | `closeOnEscape` | boolean | true | Escape cierra la ventana (`UISpecialFrames`) |
+| `scale` | number | `1` | Escala de la ventana visible al usuario. **Única vía soportada** — `GetFrame():SetScale()` no funciona (FR-068, ver §Escala) |
 | `onMoved` | function | nil | `fn(self, x, y)` al terminar de arrastrar |
 | `onResized` | function | nil | `fn(self, w, h)` al terminar de redimensionar |
 | `onClose` | function | nil | `fn(self)` al cerrar (botón "x" o `Close()`) |
@@ -95,6 +96,7 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
 | `Show()` / `Hide()` / `Toggle()` / `IsShown()` | Visibilidad |
 | `Close()` | Dispara `onClose` y oculta (igual que el botón "x") |
 | `Center()` | Re-centra en la pantalla |
+| `SetBaseScale(s)` / `GetBaseScale()` | Escala de la ventana (FR-068). Se aplica en el acto y sobrevive a cada apertura/cierre |
 | `EnableDragFrom(region)` | Registra la región como drag handle (StartMoving/StopMovingOrSizing en el frame raíz; dispara `onMoved` al soltar). No-op si `movable = false` o region nil. Sobrescribe los scripts OnMouseDown/OnLeave de la región. |
 
 ## Notas de implementación
@@ -109,8 +111,30 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
   sobrevivir al registro versionado de bug #1). Los descendientes que dibujan a ras de esa
   esquina lo leen y se apartan — hoy `Craft.Scroll` acorta su rail por abajo; antes el
   thumb del scrollbar y el grip se pisaban. Cualquier componente puede leer la misma marca.
+- **Escala: `SetBaseScale`, NUNCA `GetFrame():SetScale()` (FR-068).** El zoom de apertura
+  (`zoom-in-95`) conduce la escala del frame raíz, y `SetScale` **asigna**, no compone: un
+  `frame:SetScale(userScale)` del consumidor aguantaba hasta el siguiente tick del tween —
+  es decir, **hasta la primera apertura**, tras la cual la ventana se quedaba clavada en el
+  valor del zoom. Lo pérfido era que arrastrar un slider de escala *parecía* funcionar (el
+  efecto del consumidor volvía a correr y ganaba la última escritura) y se perdía otra vez al
+  cerrar y reabrir. Ahora hay un `_baseScale` (de `config.scale` / `SetBaseScale`) y el zoom
+  **multiplica** sobre él — el mismo patrón que Menu/Popover/Select ya usan en sus paneles
+  (`_panelBaseScale × zoom`). El re-anclado del pivote divide por la escala **real** del frame
+  (`baseScale × zoom`), no por el valor del tween: con base ≠ 1 los dos difieren y la ventana
+  quedaría desplazada por ese factor.
+- **En reposo y cerrada, la ventana NO se aparca en `motionZoomFrom`** (0.95). Un frame oculto
+  no gana nada estando al 95%, y `GetStringWidth`/`GetStringHeight` de WoW **escalan con la
+  escala efectiva**: medir texto ahí lo deja ~5% corto y todo `Craft.Label` con `maxWidth`
+  elide (así se manifestó en Dialog, [FR-073](../requests/FR-073-dialog-zoom-breaks-child-text-measure.md)).
+  El pop sigue leyéndose porque el tween arranca en `motionZoomFrom` en cuanto se abre.
+  **Residuo conocido:** medir texto *durante* los ~150ms de la animación sigue saliendo mal —
+  rellenar antes de `Show()` (el orden normal) o esperar a que asiente.
 - **Persistencia**: el componente NO guarda posición/tamaño; el dev lo hace en `onMoved`/
   `onResized` (p. ej. `frame:GetLeft()`/`GetTop()`, `GetWidth()`/`GetHeight()` en su DB).
+  ⚠️ Con `scale` ≠ 1, `GetLeft()`/`GetTop()` y los offsets de `SetPoint` **dejan de estar en
+  unidades de UIParent**: convertir antes de guardar
+  (`× GetEffectiveScale() / UIParent:GetEffectiveScale()`) o las ventanas saltan de sitio al
+  cambiar la escala.
 - **Escape vs onClose**: el botón "x" y `Close()` disparan `onClose`. Escape (vía
   `UISpecialFrames`) solo oculta — para persistir estado, usar `onMoved`/`onResized` en vivo.
 - **EnableMouse(true)** en el frame raíz para no dejar pasar clics al mundo del juego.

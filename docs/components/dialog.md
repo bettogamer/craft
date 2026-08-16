@@ -199,6 +199,31 @@ y no ofrece un `Close` componible. Diferencia de alcance, no bug — ver
 | `Show()` | void | `dialog.frame:Show()` |
 | `Hide()` | void | `dialog.frame:Hide()` |
 | `Toggle()` | void | Alterna entre Show y Hide según estado actual |
+| `SetBaseScale(s)` / `GetBaseScale()` | void / number | Escala del diálogo (FR-068/FR-073). El zoom multiplica sobre ella; `GetFrame():SetScale()` NO funciona |
+
+## ⚠️ Medir texto dentro de un Dialog (FR-073)
+
+`GetStringWidth`/`GetStringHeight` de WoW **escalan con la escala efectiva del frame**, y el
+zoom de apertura conduce la escala del frame raíz. Mientras el diálogo estaba **cerrado**, ese
+frame se quedaba aparcado en `motionZoomFrom` (0.95), así que **todo** lo que el consumidor
+escribiera antes de `Show()` se medía ~5% corto: cada `Craft.Label` con `maxWidth` recibía una
+caja 5% estrecha y elidía con "…", en proporción a su longitud. Silencioso, y con pinta de
+"el `maxWidth` está mal calculado". La pista era el contraste: los labels SIN `maxWidth` del
+mismo diálogo se veían bien (no pinean ancho, nada que truncar), y los mismos textos dentro de
+un `Craft.Window` tampoco elidían.
+
+Arreglado en el origen: **en reposo y cerrado el frame ya no se aparca a 0.95**, se queda a su
+escala base. El pop sigue saliendo porque el tween arranca en `motionZoomFrom` al abrir.
+`Craft.Tooltip` resuelve lo mismo por otra vía (`_tooltip:SetScale(1)` antes de medir), pero
+Dialog no podía copiarla: el contenido no es suyo, lo rellena el consumidor cuando quiere.
+
+**Residuo conocido:** escribir texto *durante* los ~150ms de la animación sigue midiéndose con
+la escala del tween. El orden normal (`refresh(); dialog:Show()`) no lo toca; si hace falta
+pintar con el diálogo ya abriéndose, esperar a que asiente.
+
+Y la regla general, que no es solo de Dialog: **cualquier** frame escalado a mano por el
+consumidor mide su texto en las unidades de ese frame. Ver
+[label.md](label.md) §modos de ancho.
 
 ## Notas de implementación
 

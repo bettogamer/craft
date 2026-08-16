@@ -8,7 +8,25 @@ spec [`docs/components/dialog.md`](../components/dialog.md)
 **Prioridad:** Alta — afecta a **cualquier** `Craft.Label` con `maxWidth` dentro de un `Dialog`,
 que es el modo normal de poner texto en un modal. El fallo es silencioso y se ve como "el texto
 no cabe" (bug del consumidor) cuando en realidad la caja se midió mal.
-**Estado:** Propuesto
+**Estado:** ✅ Implementado (2026-08-16, en `dev`) — **propuesta A** (reforzada) **+ C**, no B.
+El efecto del zoom ya no aparca el frame en `motionZoomFrom` cuando está **cerrado y el tween no
+anima**: escribe la escala base. El pop se conserva porque el tween arranca en `motionZoomFrom`
+en el instante en que `_open` cambia.
+**Por qué no B (contenedor animado):** en `Dialog` y `Window` el frame raíz es además la unidad
+movable/resizable/clamped y todo (`_ringTex`, `_bg`, `_header`, `_content`, `_footer`, título,
+close) cuelga de él; mover el zoom a un frame intermedio obligaba a reparentar y re-anclar el
+componente entero, a cambio de cubrir solo el caso residual. Se combinó en su lugar con
+[FR-068](FR-068-window-consumer-scale.md): `_baseScale` + zoom multiplicativo en **ambos**
+componentes (`config.scale`, `SetBaseScale`/`GetBaseScale`), que ataca la causa de fondo que los
+dos FR señalaban — la escala del frame raíz no es propiedad exclusiva de la animación.
+**Residuo conocido y documentado:** medir texto *durante* los ~150ms de la animación sigue
+saliendo mal; el orden normal (`refresh(); dialog:Show()`) no lo toca.
+C aplicada en los dos sitios: `docs/components/dialog.md` (sección propia) y
+`docs/components/label.md` (aviso general de que `maxWidth` mide con la escala efectiva, no solo
+dentro de `Dialog`). **✅ Verificado in-game por el owner (2026-08-16, 12.1)** — página Dialog
+del Browser, "Open measure test": tres labels con `maxWidth = 400` escritos con el diálogo
+CERRADO; ninguno sale con "…". **Cerrado** — Bis puede devolver los `maxWidth` a los labels del
+picker al re-vendorear.
 
 ---
 
