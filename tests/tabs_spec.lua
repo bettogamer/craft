@@ -261,3 +261,53 @@ describe("Craft.Tabs — fill (FR-043)", function()
     end)
 
 end)
+
+-- ─── seeding the default tab is SILENT (FR-070) ───────────────────────────────
+
+describe("Craft.Tabs default tab seeding (FR-070)", function()
+
+    it("does not fire onTabChange for the default tab", function()
+        local calls = 0
+        local tabs = Craft.Tabs:Create(newContainer(), {
+            tabs = { {id="a", label="A"}, {id="b", label="B"} },
+            defaultTab = "a",
+            onTabChange = function() calls = calls + 1 end,
+        })
+        assert.equals(0, calls)
+        assert.equals("a", tabs:GetActiveTab())   -- but it IS painted
+    end)
+
+    it("does not fire for the implicit first tab either", function()
+        local calls = 0
+        local tabs = Craft.Tabs:Create(newContainer(), {
+            tabs = { {id="a", label="A"}, {id="b", label="B"} },
+            onTabChange = function() calls = calls + 1 end,
+        })
+        assert.equals(0, calls)
+        assert.equals("a", tabs:GetActiveTab())
+    end)
+
+    -- The reproduction from the FR: a forward-declared local assigned after
+    -- Create. Firing mid-Create called it while still nil.
+    it("survives a callback that closes over a not-yet-assigned local", function()
+        local onChange
+        assert.has_no_errors(function()
+            Craft.Tabs:Create(newContainer(), {
+                tabs = { {id="a", label="A"} },
+                defaultTab = "a",
+                onTabChange = function(id) onChange(id) end,
+            })
+        end)
+        onChange = function() end
+    end)
+
+    it("a real user switch still notifies", function()
+        local seen
+        local tabs = Craft.Tabs:Create(newContainer(), {
+            tabs = { {id="a", label="A"}, {id="b", label="B"} },
+            onTabChange = function(id) seen = id end,
+        })
+        tabs:SetActiveTab("b")
+        assert.equals("b", seen)
+    end)
+end)

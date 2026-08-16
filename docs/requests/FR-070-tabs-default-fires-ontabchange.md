@@ -7,7 +7,15 @@ spec [`docs/components/tabs.md`](../components/tabs.md)
 **Tipo:** Inconsistencia de API (sembrar un valor inicial no debería notificar)
 **Prioridad:** Media — hay workaround de una línea, pero el fallo es un error de Lua en la cara del
 usuario y contradice al resto de la librería, así que se tropieza con él en el primer uso.
-**Estado:** Abierto — Coffer lleva el guard de abajo desde hoy.
+**Estado:** ✅ Implementado (2026-08-16, en `dev`) — **propuesta A**: ambas ramas de `Create`
+siembran por `_applyActiveTab` (silencioso). Se descartó B (`notifyDefault` opt-in): una opción
+más de config para conservar un comportamiento que el propio FR argumenta que es frágil, y que
+ningún otro componente de la librería ofrece. `GetActiveTab()` sigue devolviendo la pestaña
+sembrada, así que quien quiera el efecto inicial llama a su función tras `Create`.
+Documentado explícitamente en `docs/components/tabs.md` (fila `defaultTab` + nota), que es lo
+que el FR pedía en cualquiera de las dos opciones. Tests: 4 en `tests/tabs_spec.lua`, uno de
+ellos reproduce el builder con local declarada adelante. **Coffer puede retirar el guard `nil`
+al re-vendorear.**
 
 ---
 

@@ -162,8 +162,8 @@ del label vía `AddTab(id, label, { icon = "<name>" })` o `tabs[i].icon`. Varian
 | `tabs[i].id` | string | — | Identificador único de la tab |
 | `tabs[i].label` | string | — | Texto visible en el Button de la tab |
 | `tabs[i].icon` | string | nil | Nombre de ícono Lucide opcional, mostrado antes del label |
-| `defaultTab` | string | primer id | Id de la tab activa al crear el componente |
-| `onTabChange` | function | nil | Callback `function(newId, oldId)` invocado al cambiar de tab |
+| `defaultTab` | string | primer id | Id de la tab activa al crear el componente. **Se siembra en SILENCIO: no dispara `onTabChange`** (FR-070) |
+| `onTabChange` | function | nil | Callback `function(newId, oldId)` invocado al **cambiar** de tab. Nunca corre dentro de `Create` (FR-070) |
 | `variant` | string | `"default"` | `"default"` (barra `bg-muted`) o `"line"` (barra transparente + subrayado activo, FR-042) |
 | `fill` | bool | `false` | `true` = barra full-width con triggers de **igual ancho** (`flex-1`, segmented control, FR-043). `false` (default) = triggers ancho-contenido con wrap |
 
@@ -183,6 +183,21 @@ No hay parámetro `size` — el TabList tiene un único tamaño (32px `h-8`).
 | `SetTabEnabled(id, enabled)` | void | Habilita/deshabilita el trigger (deshabilitado: a=0.5, sin mouse) |
 
 ## Notas de implementación
+
+**Sembrar el valor inicial NO notifica (FR-070).** Las dos ramas de `Create` — la
+literal (`defaultTab = "a"`) y la reactiva (`defaultTab = signal`) — pintan la tab
+activa por `_applyActiveTab`, que es silencioso. Pintar el estado inicial no es un
+*cambio* de tab.
+
+Antes, la rama literal salía por `SetActiveTab`, así que `onTabChange` corría **dentro
+de `Create`**, antes de que `Create` hubiera devuelto: en el patrón normal de builder
+Lua (locales declaradas adelante y asignadas más abajo) el callback se ejecutaba contra
+locales todavía `nil` → error de Lua en la cara del usuario al primer uso. Además
+contradecía al resto de la librería: `ToggleGroup` (`value`), `Select` (`value`) y
+`Checkbox`/`Switch` (`checked`) siembran todos sin llamar a su callback.
+
+Quien quiera el efecto inicial llama a su propia función **después** de `Create`, que es
+donde ya tiene todo construido. `GetActiveTab()` devuelve la tab sembrada igualmente.
 
 **Modelo de dimensionamiento y overflow (decisión de diseño):**
 > ⚠️ **Divergencia deliberada de shadcn.** shadcn **no** hace wrap de los

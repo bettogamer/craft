@@ -137,16 +137,22 @@ function Tabs:Create(parent, config)
     -- Set default active tab. A reactive defaultTab is not a literal id: seed
     -- the classic default (first tab) through the no-callback sink and let the
     -- bind below apply the signal's value on top (unknown ids keep the seed).
+    --
+    -- BOTH branches seed through _applyActiveTab, i.e. SILENTLY: painting the
+    -- initial tab is not a tab CHANGE, so it must not fire onTabChange. Firing it
+    -- from inside Create ran the consumer's callback before Create had returned —
+    -- against forward-declared locals that were still nil (the usual Lua builder
+    -- shape), which is a Lua error in the user's face on the very first open. It
+    -- also contradicted the rest of the library: ToggleGroup (`value`), Select
+    -- (`value`) and Checkbox/Switch (`checked`) all paint their initial value
+    -- without notifying. Anyone who does want the initial effect calls their own
+    -- function after Create, where everything is built. FR-070.
     local defaultId = (not activeSource) and config.defaultTab or nil
     if not defaultId and config.tabs and config.tabs[1] then
         defaultId = config.tabs[1].id
     end
     if defaultId then
-        if activeSource then
-            self:_applyActiveTab(defaultId)
-        else
-            self:SetActiveTab(defaultId)
-        end
+        self:_applyActiveTab(defaultId)
     end
 
     -- Reactive bind — after the tabs above exist so the bound id can resolve.
