@@ -67,6 +67,7 @@ libs\Craft\components\Scroll.lua
 libs\Craft\components\Select.lua
 libs\Craft\components\Menu.lua
 libs\Craft\components\Popover.lua
+libs\Craft\components\Progress.lua
 libs\Craft\components\Combobox.lua
 libs\Craft\components\Separator.lua
 libs\Craft\components\Section.lua
@@ -106,6 +107,7 @@ pages\ToggleGroup.lua
 pages\Select.lua
 pages\Menu.lua
 pages\Popover.lua
+pages\Progress.lua
 pages\Separator.lua
 pages\Sidebar.lua
 pages\Slider.lua

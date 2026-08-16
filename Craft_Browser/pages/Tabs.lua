@@ -36,6 +36,10 @@ CraftBrowserPages["Tabs"] = {
             end
         end
 
+        -- Raw FontStrings are regions: Navigate only hides child FRAMES, so they
+        -- are tracked separately and hidden by hand in cleanup.
+        local looseFS = {}
+
         local function newContainer(w, h, yOff)
             local c = CreateFrame("Frame", nil, parent)
             c:SetSize(w, h)
@@ -242,9 +246,51 @@ CraftBrowserPages["Tabs"] = {
         table.insert(comps, removeBtn)
         y = y + 40
 
+        -- ── Seeding the default tab is SILENT (FR-070) ───────────────────────
+        -- This is the FR's exact reproduction: a forward-declared local assigned
+        -- AFTER Create, with onTabChange closing over it. Firing during Create ran
+        -- the callback while `report` was still nil → "attempt to call a nil value"
+        -- in the user's face on the very first open.
+        --
+        -- PASS: the page loads with no Lua error and the counter reads 0. Clicking
+        -- a tab then bumps it — a real switch still notifies.
+        y = addLabel("Default tab does NOT fire onTabChange (FR-070)", y)
+
+        local seedStatus = parent:CreateFontString(nil, "OVERLAY")
+        seedStatus:SetFont(t.font, t.fontSizeSm)
+        seedStatus:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+        table.insert(looseFS, seedStatus)
+
+        local fired  = 0
+        local report                      -- forward-declared, assigned below
+        local c5 = newContainer(400, 120, y)
+        local tabs5 = Craft.Tabs:Create(c5, {
+            tabs = {
+                { id="general",  label="General"  },
+                { id="advanced", label="Advanced" },
+            },
+            defaultTab  = "general",
+            onTabChange = function(id) report(id) end,   -- nil during Create → used to blow up
+        })
+        report = function(id)
+            fired = fired + 1
+            seedStatus:SetText(("onTabChange fired %d time(s) — last: %s"):format(fired, id))
+        end
+        seedStatus:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(y + 96))
+        seedStatus:SetText("onTabChange fired 0 time(s) — seeded '"
+            .. tostring(tabs5:GetActiveTab()) .. "' silently")
+
+        fillContent(tabs5, {
+            { id="general",  text="General settings" },
+            { id="advanced", text="Advanced settings" },
+        })
+        table.insert(comps, tabs5)
+        y = y + 130
+
         return {
             height  = y + 24,
             cleanup = function()
+                for _, fs in ipairs(looseFS) do fs:Hide() end
                 for _, c in ipairs(comps) do if c.Destroy then c:Destroy() end end
                 for _, c in ipairs(containers) do
                     c:Hide()

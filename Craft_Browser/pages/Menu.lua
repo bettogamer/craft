@@ -136,6 +136,45 @@ CraftBrowserPages["Menu"] = {
         table.insert(menus, ctxMenu)
         y = y + 68
 
+        -- ── Case 4 — Row tooltips (FR-067) ───────────────────────────────────
+        -- The case the FR was filed for: toolbar actions collapsed into a menu
+        -- lose the tooltip the loose button had. Hover a row for ~300ms; the tip
+        -- anchors to the RIGHT so it never covers the neighbouring rows.
+        y = addLabel("Dropdown — per-row tooltip, incl. a DISABLED row explaining why", y)
+
+        local sold = 0
+        local menu4 = Craft.Menu:Create({ items = {
+            { type="heading", label="Bag actions" },
+            { type="item", icon="brush-cleaning", label="Clean up", rightText="Ctrl+C",
+              tooltip = "Sorts and stacks every bag.\nHold Shift to include the bank.",
+              onClick=function() end },
+            -- Function form: re-evaluated on every hover, so the number is live.
+            { type="item", icon="banknote-arrow-up", label="Sell junk", rightText="12g 40s",
+              tooltip = function()
+                  return "12 items, 12g 40s\n(sold " .. sold .. " times this session)"
+              end,
+              onClick=function() sold = sold + 1 end },
+            { type="separator" },
+            -- The row that most needs a tooltip: greyed out, and the tip is the
+            -- only place the reason fits. It still receives hover (FR-067).
+            { type="item", icon="lock", label="Deposit reagents", disabled = true,
+              tooltip = "Requires an open bank window.",
+              onClick=function() end },
+            { type="checkbox", label="Auto-sell on vendor", checked = false,
+              tooltip = "Runs 'Sell junk' automatically when you open a merchant.",
+              onToggle=function() end },
+            -- No tooltip: hovering this one must show nothing at all.
+            { type="item", icon="settings", label="Settings (no tooltip)",
+              onClick=function() end },
+        } })
+        table.insert(menus, menu4)
+
+        local btn4 = Craft.Button:Create(parent, { text="Actions", icon="tag",
+            onClick=function(b) menu4:Open(b:GetFrame(), { point="TOPLEFT", relativePoint="BOTTOMLEFT" }) end })
+        btn4:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, btn4)
+        y = y + 44
+
         return {
             height  = y + 24,
             cleanup = function()

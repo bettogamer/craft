@@ -76,6 +76,53 @@ CraftBrowserPages["Window"] = {
         table.insert(comps, openBtn)
         y = y + 44
 
+        -- ── Window scale (FR-068) ────────────────────────────────────────────
+        -- The regression this guards against: `GetFrame():SetScale()` used to hold
+        -- only until the next tween tick — i.e. until the first open — after which
+        -- the zoom clobbered it. The check is NOT "does the slider resize it"
+        -- (that always appeared to work); it is "close the window, reopen it, and
+        -- see whether the scale SURVIVED".
+        y = addLabel("Scale (FR-068) — SetBaseScale; close and REOPEN: the scale must stick", y)
+
+        local scaleSlider = Craft.Slider:Create(parent, {
+            min = 50, max = 150, step = 5, value = 100, width = 220,
+            label = "Window scale", showValue = true,
+            format = function(v) return v .. "%" end,
+            onChange = function(v)
+                if win then win:SetBaseScale(v / 100) end
+            end,
+        })
+        scaleSlider:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, scaleSlider)
+        y = y + 52
+
+        -- A window born scaled: config.scale must apply from the very first frame,
+        -- before any open/close cycle has run.
+        local scaledWin
+        local scaledBtn = Craft.Button:Create(parent, { text="Open at scale 1.3", variant="outline" })
+        scaledBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        scaledBtn:GetFrame():SetScript("OnClick", function()
+            if not scaledWin then
+                scaledWin = Craft.Window:Create(UIParent, {
+                    title       = "config.scale = 1.3",
+                    description = "Born scaled — no SetBaseScale call needed",
+                    width = 420, height = 240,
+                    scale = 1.3,
+                })
+                local c = scaledWin:GetContent()
+                local note = Craft.Label:Create(c, {
+                    text  = "Drag me off-centre, close, reopen: position AND scale hold.",
+                    width = 360, wrap = true,
+                    color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+                })
+                note:GetFrame():SetPoint("TOPLEFT", c, "TOPLEFT", 16, -16)
+                scaledWin._demoNote = note
+            end
+            scaledWin:Show()
+        end)
+        table.insert(comps, scaledBtn)
+        y = y + 44
+
         return {
             height  = y + 24,
             cleanup = function()
@@ -87,6 +134,11 @@ CraftBrowserPages["Window"] = {
                     if win._demoScroll and win._demoScroll.Destroy then win._demoScroll:Destroy() end
                     win:Destroy()
                     win = nil
+                end
+                if scaledWin then
+                    if scaledWin._demoNote then scaledWin._demoNote:Destroy() end
+                    scaledWin:Destroy()
+                    scaledWin = nil
                 end
             end,
         }

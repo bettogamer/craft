@@ -13,7 +13,7 @@ CraftBrowserPages["Section"] = {
 
         -- Intro line
         local intro = Craft.Label:Create(parent, {
-            text  = "Click a header to expand/collapse. Stacked items reflow on toggle.",
+            text  = "Click a header to expand/collapse. Hover one: the title underlines (FR-045).",
             color = { r=t.mutedForeground.r, g=t.mutedForeground.g, b=t.mutedForeground.b, a=1 },
         })
         intro:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -16)

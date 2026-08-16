@@ -21,6 +21,10 @@ CraftBrowserPages["Input"] = {
             return yOff + 20
         end
 
+        -- Raw FontStrings are regions: Navigate only hides child FRAMES, so they
+        -- are tracked separately and hidden by hand in cleanup.
+        local looseFS = {}
+
         local function addInput(cfg, yOff)
             local inp = Craft.Input:Create(parent, cfg)
             inp:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -yOff)
@@ -50,9 +54,38 @@ CraftBrowserPages["Input"] = {
         y = addLabel("Disabled", y)
         y = addInput({ value="Not editable", disabled=true }, y)
 
+        -- ── Escape (FR-072) ──────────────────────────────────────────────────
+        -- Before FR-072 ESC did NOTHING here: the focused EditBox swallowed the
+        -- key before UISpecialFrames saw it, so you were stuck in the field.
+        y = addLabel("Escape — default: click in, press ESC, the caret is released", y)
+        y = addInput({ placeholder = "Focus me, then hit ESC" }, y)
+
+        y = addLabel("Escape — onEscapePressed(text) takes over (here: clears + reports)", y)
+        local escStatus = parent:CreateFontString(nil, "OVERLAY")
+        escStatus:SetFont(t.font, t.fontSizeSm)
+        escStatus:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+        escStatus:SetText("(no ESC yet)")
+        table.insert(looseFS, escStatus)
+
+        local escInput
+        escInput = Craft.Input:Create(parent, {
+            value = "type, then ESC",
+            onEscapePressed = function(text)
+                escStatus:SetText("ESC with: \"" .. tostring(text) .. "\"")
+                escInput:SetValue("")
+                escInput:ClearFocus()
+            end,
+        })
+        escInput:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        escInput:GetFrame():SetWidth(inputW)
+        table.insert(comps, escInput)
+        escStatus:SetPoint("LEFT", escInput:GetFrame(), "RIGHT", 12, 0)
+        y = y + 44
+
         return {
             height  = y + 24,
             cleanup = function()
+                for _, fs in ipairs(looseFS) do fs:Hide() end
                 for _, c in ipairs(comps) do if c.Destroy then c:Destroy() end end
             end,
         }

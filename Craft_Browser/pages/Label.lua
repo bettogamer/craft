@@ -62,6 +62,56 @@ CraftBrowserPages["Label"] = {
         table.insert(comps, lblTrunc)
         y = y + 28
 
+        -- ── Wrap box (FR-071) ────────────────────────────────────────────────
+        -- The SAME text in the three width modes, stacked, so the difference is
+        -- the only variable: hug (overflows), maxWidth (elides), wrap (fits).
+        local LONG = "Coffer now has profiles - set them up in Settings > Profiles "
+                  .. "to keep separate layouts per character."
+
+        y = addLabel("Wrap box (FR-071) — width + wrap = true: fixed width, grows in height", y)
+        local lblWrap = Craft.Label:Create(parent, {
+            text  = LONG,
+            width = 260,
+            wrap  = true,
+            color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+        })
+        lblWrap:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, lblWrap)
+        y = y + (lblWrap:GetFrame():GetHeight() or 14) + 12
+
+        y = addLabel("Same text with maxWidth=260 — elides (this is the OLD only option)", y)
+        local lblElide = Craft.Label:Create(parent, {
+            text     = LONG,
+            maxWidth = 260,
+            color    = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+        })
+        lblElide:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, lblElide)
+        y = y + 28
+
+        -- Re-flow: the slider drives Label:SetWidth, which is what a consumer
+        -- would call from its container's OnSizeChanged.
+        y = addLabel("SetWidth() re-flows the box — drag to re-wrap live", y)
+        local lblFlow = Craft.Label:Create(parent, {
+            text  = LONG,
+            width = 260,
+            wrap  = true,
+            color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+        })
+        lblFlow:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, lblFlow)
+        local flowTop = y
+        y = y + 56
+
+        local flowSlider = Craft.Slider:Create(parent, {
+            min = 120, max = 380, step = 10, value = 260, width = 200,
+            label = "width", showValue = true,
+            onChange = function(v) lblFlow:SetWidth(v) end,
+        })
+        flowSlider:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 300, -flowTop)
+        table.insert(comps, flowSlider)
+        y = y + 16
+
         return {
             height  = y + 24,
             cleanup = function()
