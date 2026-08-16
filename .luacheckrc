@@ -42,6 +42,10 @@ globals = {
     "STANDARD_TEXT_FONT",
     -- Native color picker (Craft.ColorSwatch wraps it; mutated pre-Dragonflight style)
     "ColorPickerFrame",
+    -- 12.0+ secret values. Craft.Progress guards the numbers it must do arithmetic
+    -- on (the marker position) before touching them. Read with a nil-check: the API
+    -- does not exist on older clients (FR-075).
+    "issecretvalue",
     "OpacitySliderFrame",
     -- Chat output
     "DEFAULT_CHAT_FRAME",
