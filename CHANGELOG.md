@@ -6,6 +6,122 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.15.0] - 2026-08-16
+
+> **Release v2.15.0 — la cola de FR abiertos queda vacía: los nueve (FR-045, 067..073, 075).**
+> Casi todos vienen de consumidores reales (Coffer, Bis, GearScope) que ya llevaban workarounds;
+> al re-vendorear los revierten. Dos temas atraviesan la tanda: (1) **la escala del frame raíz no
+> es propiedad de la animación** — el mismo defecto rompía la escala configurable en `Window` y
+> la medida de texto en `Dialog`; (2) **sembrar un valor inicial no es notificar, y consumir un
+> gesto no es merecerlo** — `Tabs` disparaba `onTabChange` a mitad de `Create` y `Slider` se
+> quedaba la rueda dentro de un `Scroll`. **Dos defaults cambian**, y en ambos casos el nuevo es
+> el que ya tienen shadcn/Radix y el resto de la librería.
+>
+> MINOR: entra un componente nuevo (`Craft.Progress`), la clave LibStub sigue siendo `Craft-2.0`
+> y todo lo demás es aditivo. **`Craft/Craft.toc` añade una línea** (`components\Progress.lua`),
+> así que el re-vendoreo en los consumidores NO es una copia ciega: hay que arrastrar el `.toc`.
+> `CRAFT_BUILD` 15→17 (el 16 fue un bump local para romper un empate de registro durante la
+> verificación). Suite: **633 tests** (luacheck 0/0, taintlint 0/0 contra la db 12.1).
+> Verificado in-game por el maintainer en 12.1, demo por demo en Craft_Browser — con una
+> salvedad: el camino de **secret values** de `Craft.Progress` sigue sin ejercitar (la demo pinta
+> números normales), y solo se cierra alimentando la barra desde GearScope con una magnitud de
+> combate real.
+
+### Added
+
+- **`Craft.Progress` — componente nuevo** ([FR-075](docs/requests/FR-075-meter-barra-con-marcador-de-objetivo.md)).
+  Medidor de salida (track + indicator) con una extensión Craft: **`marker`**, la marca del
+  objetivo que el valor debería alcanzar. El FR lo pedía como `Craft.Meter`; sale como
+  `Progress` porque es el nombre que tiene en shadcn y el volcado Lyra confirma sus dos slots
+  (`progress-track` / `progress-indicator`) — un `Meter` habría dejado un hueco para que mañana
+  entrara un `Progress` duplicado.
+  **El relleno es un `StatusBar` nativo y el valor se le pasa DIRECTO**: en 12.1 las magnitudes
+  de combate llegan como *secret values* y un `v / max` las revienta, mientras que
+  `SetValue`/`SetMinMaxValues` las aceptan y pintan bien (patrón unit-frame). La única
+  aritmética del componente coloca el marcador, opera sobre `marker`/`min`/`max` (nunca sobre
+  `value`) y pasa por una sonda `scrubNum` (`issecretvalue` + `pcall`) que **oculta el marcador
+  en vez de lanzar**. Variantes de color por token, alto 8px (`h-2`), radius 0, sin interacción
+  y sin texto horneado dentro de la barra. Spec: `docs/components/progress.md`; demo:
+  `Craft_Browser/pages/Progress.lua`.
+- **`Craft.Label`: modo caja con wrap** ([FR-071](docs/requests/FR-071-label-wrap-fill-box.md)).
+  `width` + `wrap = true` → ancho fijo, multilínea, alto derivado del texto envuelto; más
+  `SetWidth(w)` público para re-fluir desde el `OnSizeChanged` del contenedor. Cubre el hueco
+  entre los dos modos que ya había (abrazar el texto sin tope, o `maxWidth` que elide) y que
+  empujaba a los consumidores a FontStrings crudos — es lo que `Craft.Section` ya hacía en
+  privado desde FR-044. Aditivo: sin `wrap` no cambia nada.
+- **`Craft.Input`: `onEscapePressed`** ([FR-072](docs/requests/FR-072-input-onescapepressed.md)).
+  Con el campo enfocado, ESC no hacía **nada**: ni soltaba el foco ni llegaba al `closeOnEscape`
+  de la ventana (un `EditBox` con foco se come la tecla antes que `UISpecialFrames`). Ahora el
+  default suelta el foco, igual que `Craft.Textarea`, y `onEscapePressed(text)` deja que el
+  consumidor decida (cerrar su barra de búsqueda, p. ej.). Simétrico con `onEnterPressed`.
+- **`Craft.Menu`: `tooltip` por fila** ([FR-067](docs/requests/FR-067-menu-item-tooltip.md)).
+  `string` o `fn(cfg) → string`, evaluado en el hover (las filas son pooled). Anclado a la
+  **derecha** para no tapar las filas vecinas, con el retardo de 300ms de `Craft.Tooltip`.
+  Funciona con `disabled = true` — que es el caso que más lo pide ("necesitas un banquero") —
+  así que una fila gris **conserva el mouse**; el clic y el resaltado los siguen bloqueando los
+  guards de `_disabled`. Misma política que `Craft.Button` (FR-020).
+- **`Craft.Tooltip`: `config.side`** (`"top"`/`"bottom"`/`"left"`/`"right"`) — paridad con el
+  prop `side` de shadcn, incluida la entrada deslizante por el eje correspondiente. Sin `side`
+  se mantiene el automático de siempre. Necesario para FR-067.
+- **`Craft.Window` / `Craft.Dialog`: `config.scale` + `SetBaseScale()`/`GetBaseScale()`**
+  ([FR-068](docs/requests/FR-068-window-consumer-scale.md)).
+
+### Changed
+
+- **`Craft.Slider`: la rueda del ratón pasa a ser opt-in (`config.wheel`, default `false`)**
+  ([FR-069](docs/requests/FR-069-slider-wheel-hijacks-scroll.md)). **Cambio de comportamiento.**
+  En WoW la rueda va al frame más alto bajo el cursor que la tenga habilitada y no se propaga:
+  un Slider dentro de un `Craft.Scroll` **secuestraba el gesto** — la página dejaba de bajar y
+  lo que se movía era el ajuste, sin error ni aviso. No es un caso raro sino garantizado (una
+  página con scroll existe porque hay más controles que alto, y un slider ocupa la fila entera),
+  y el daño es asimétrico: el scroll perdido se corrige, el valor cambiado no se ve. Apagarla es
+  además lo fiel — el Slider de shadcn/Radix no maneja la rueda en absoluto — y no le quita al
+  componente ninguna función exclusiva. Nuevos `SetWheelEnabled(bool)` / `IsWheelEnabled()`.
+- **`Craft.Tabs`: la pestaña por defecto ya NO dispara `onTabChange`**
+  ([FR-070](docs/requests/FR-070-tabs-default-fires-ontabchange.md)). **Cambio de
+  comportamiento.** La rama literal de `Create` salía por `SetActiveTab`, así que el callback
+  del consumidor corría **dentro de `Create`**, antes de que `Create` devolviera: con el patrón
+  normal de builder Lua (locales declaradas adelante, asignadas después) se ejecutaba contra
+  locales `nil` → error de Lua al primer uso. Ahora ambas ramas siembran por `_applyActiveTab`,
+  como ya hacía la reactiva y como hacen `ToggleGroup`/`Select`/`Checkbox`/`Switch`.
+  `GetActiveTab()` sigue devolviendo la pestaña sembrada.
+
+### Fixed
+
+- **`Craft.Window`: el zoom de apertura pisaba la escala del consumidor**
+  ([FR-068](docs/requests/FR-068-window-consumer-scale.md)). `SetScale` asigna, no compone: un
+  `frame:SetScale(userScale)` vivía hasta el siguiente tick del tween, o sea **hasta la primera
+  apertura**. Lo pérfido es que parecía funcionar (arrastrar el slider de escala sí reescalaba,
+  y se perdía al cerrar y reabrir) — de ahí el reporte "no respeta la escala **al iniciar**".
+  Ahora hay un `_baseScale` y el zoom **multiplica** sobre él, igual que Menu/Popover/Select en
+  sus paneles; el re-anclado del pivote divide por la escala **real** del frame, no por el valor
+  del tween (con base ≠ 1 difieren y la ventana quedaría desplazada por ese factor).
+- **`Craft.Dialog`: el zoom rompía la medida de texto de su contenido**
+  ([FR-073](docs/requests/FR-073-dialog-zoom-breaks-child-text-measure.md)). Como `_open`
+  arranca en `false`, el frame se quedaba **aparcado en 0.95 mientras estaba cerrado**, y
+  `GetStringWidth`/`GetStringHeight` escalan con la escala efectiva: todo lo que el consumidor
+  escribiera antes de `Show()` se medía ~5% corto y **cada** `Craft.Label` con `maxWidth` elidía
+  con "…", proporcionalmente a su longitud. Silencioso, y con pinta de bug del consumidor. Fix
+  en la raíz y compartido con Window: **en reposo y cerrado ya no se aparca en
+  `motionZoomFrom`**; el pop sigue saliendo porque el tween arranca ahí al abrir. Residuo
+  documentado: medir *durante* los ~150ms de la animación sigue saliendo mal.
+- **`Craft.Slider`: `config.width` no se aplicaba** — `Create` fijaba el alto (`config.height`)
+  y el ancho **silenciosamente no**, así que quien pasaba `width` (fiándose de la spec, que lo
+  documentaba) obtenía un frame raíz de ancho 0: **un slider invisible, sin error**. Los que
+  dimensionan el frame ellos mismos tras `Create` no se veían afectados, que es por lo que
+  sobrevivió tanto. Cazado renderizando las páginas de Craft_Browser en headless: afectaba a la
+  página **Switch** (el slider de "Scale test" de FR-053 llevaba invisible desde entonces) y a
+  cuatro demos nuevas de esta tanda. `width = nil` mantiene el comportamiento de siempre (lo
+  dimensiona el caller) y un `SetWidth` posterior sigue ganando. Corregida también la fila de la
+  spec, que prometía un "si es nil, ocupa 100% del parent" que nunca existió.
+- **`Craft.Section`: `hover:underline` en el trigger del accordion**
+  ([FR-045](docs/requests/FR-045-section-hover-underline.md)). El header no daba ningún feedback
+  de hover, así que no se percibía interactivo hasta hacer clic. WoW no tiene decoración de
+  texto en FontString: el subrayado es una textura de 1px (`t.foreground`, pixel-perfect por
+  `SetPixelHeight`) que sigue al **texto** (no al header, que llega hasta el chevron) y compone
+  con el `OnClick` existente. Con el título envuelto a 2+ líneas subraya solo la última —
+  degradación documentada.
+
 ## [2.14.0] - 2026-08-13
 
 > **Release v2.14.0 — Craft entra en WoW 12.1.**
