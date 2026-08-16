@@ -64,6 +64,7 @@ section.frame            (Frame — alto = header + (content si expandido) )
 | Título | `t.fontBold` (font-medium), 12px (`text-xs`), `t.foreground` |
 | Chevron color | `t.mutedForeground` |
 | Divider | 1px `t.border` (`border-b`, white@0.10) |
+| Subrayado hover | 1px `t.foreground` bajo el título, solo con el cursor sobre el header (`hover:underline`, FR-045) |
 
 ## Config — `Create(parent, config)`
 
@@ -102,5 +103,16 @@ section.frame            (Frame — alto = header + (content si expandido) )
   durante la animación de expand/collapse, reflejando el comportamiento de shadcn v4
   (`rotate-180 + transition-transform`). La rotación es manejada por `SetRotation()`, sincronizada
   al tween `prog` del expand/collapse.
+- **`hover:underline` en el trigger (FR-045)**: WoW no tiene decoración de texto en
+  FontString, así que el subrayado es una **textura de 1px** (`_titleUnderline`, capa
+  `OVERLAY`, color `t.foreground`, alto por `Craft.Theme.SetPixelHeight` — ADR-0011) anclada
+  `TOPLEFT` → `BOTTOMLEFT` del `_title`, oculta por defecto y mostrada en `OnEnter` del
+  header. Los scripts `OnEnter`/`OnLeave` **componen** con el `OnClick` ya existente, no lo
+  pisan. El ancho sigue al TEXTO (`_title:GetStringWidth()`, acotado al ancho reservado del
+  título), no al header entero — shadcn subraya la etiqueta, y el header llega hasta el
+  chevron. Se re-deriva desde `_remeasureHeader` (cambio de título, resize, fuente tardía).
+  **Degradación conocida:** con el título envuelto a 2+ líneas se subraya solo la ÚLTIMA
+  (`BOTTOMLEFT` del FontString); CSS subrayaría todas. Estos triggers son de una línea en la
+  práctica; el subrayado por-línea queda fuera de alcance salvo demanda.
 - **font-medium**: Craft solo trae Regular + Bold; se usa `t.fontBold` como aproximación.
 - El contenido oculto usa `SetHeight(0.001)` (no 0) para evitar degeneración de anclas en WoW.

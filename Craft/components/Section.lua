@@ -60,6 +60,14 @@ function Section:Create(parent, config)
     self._title:SetJustifyV("TOP")
     self._title:SetWordWrap(true)   -- FR-044: long titles wrap instead of drawing over the chevron
 
+    -- hover:underline (.cn-accordion-trigger). WoW FontStrings have no text
+    -- decoration, so the underline is a 1px texture parked under the title's last
+    -- line and shown only while the cursor is over the header. Without it the
+    -- trigger gives no hover feedback at all and reads as static text until you
+    -- click it. FR-045.
+    self._titleUnderline = self._header:CreateTexture(nil, "OVERLAY")
+    self._titleUnderline:Hide()
+
     self._chevron = self._header:CreateTexture(nil, "ARTWORK")
     self._chevron:SetSize(CHEVRON_SZ, CHEVRON_SZ)
     self._chevron:SetPoint("TOPRIGHT", self._header, "TOPRIGHT", 0, -PAD_V)
@@ -80,6 +88,10 @@ function Section:Create(parent, config)
     self._border:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
 
     self._header:SetScript("OnClick", function() self:Toggle() end)
+
+    -- Compose with OnClick above, never replace it (FR-045).
+    self._header:SetScript("OnEnter", function() self:_setHovered(true)  end)
+    self._header:SetScript("OnLeave", function() self:_setHovered(false) end)
 
     -- ── Expand/collapse animation (Weave.tween — ADR-0013 §4.6) ────────────────
     -- `_open` mirrors `_expanded` and is the reactive source; `_bodyH` publishes the
@@ -188,6 +200,51 @@ function Section:_remeasureHeader()
         self._header:SetHeight(headerH)
     end
     if self._headerH then self._headerH:set(headerH) end
+
+    -- The rule follows the text, so it re-derives with it (FR-045).
+    if self._hovered then self:_layoutUnderline() end
+end
+
+-- ─── Hover underline (FR-045) ─────────────────────────────────────────────────
+-- Sizes/positions the 1px rule so it tracks the TEXT, not the full header width:
+-- shadcn underlines the trigger's label, and the header spans to the chevron.
+-- Re-run wherever the header is re-measured (title change, resize, late font).
+function Section:_layoutUnderline()
+    local tex = self._titleUnderline
+    if not tex or not self._t then return end
+
+    -- GetStringWidth on a width-constrained FontString reports the box, so cap it:
+    -- the rule can never be wider than the width reserved for the title.
+    local w = self._title:GetStringWidth() or 0
+    local maxW = self._title:GetWidth() or 0
+    if maxW > 0 and w > maxW then w = maxW end
+    if w < 1 then tex:Hide() return end
+
+    tex:ClearAllPoints()
+    -- BOTTOMLEFT of the title = under its LAST line. A wrapped multi-line title
+    -- therefore gets its last line underlined, not every line as CSS would — the
+    -- documented MVP degradation (these triggers are single-line in practice).
+    tex:SetPoint("TOPLEFT", self._title, "BOTTOMLEFT", 0, 0)
+    tex:SetWidth(w)
+    Craft.Theme.SetPixelHeight(tex, 1)   -- ADR-0011: never SetHeight(1) directly
+    local t = self._t
+    tex:SetColorTexture(t.foreground.r, t.foreground.g, t.foreground.b, t.foreground.a or 1)
+end
+
+function Section:_setHovered(hovered)
+    self._hovered = hovered and true or false
+    local tex = self._titleUnderline
+    if not tex then return end
+    if self._hovered then
+        self:_layoutUnderline()
+        tex:Show()
+    else
+        tex:Hide()
+    end
+end
+
+function Section:IsHovered()
+    return self._hovered or false
 end
 
 -- ─── Layout ───────────────────────────────────────────────────────────────────

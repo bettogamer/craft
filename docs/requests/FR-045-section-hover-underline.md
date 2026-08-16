@@ -5,8 +5,15 @@
 **Componente:** `Craft/components/Section.lua` (shadcn: `accordion` — `.cn-accordion-trigger`)
 **Tipo:** Fidelidad (estado hover ausente en un componente existente)
 **Prioridad:** Baja (cosmético; bajo impacto — no bloquea ningún port)
-**Estado:** 🅿️ Propuesto (2026-07-19). No implementado. Fallback: hoy el trigger no da
-feedback de hover; el click funciona igual.
+**Estado:** ✅ Implementado (2026-08-16, en `dev`) — MVP tal cual se propuso: textura de 1px
+`t.foreground` (`_titleUnderline`, `OVERLAY`, alto por `Craft.Theme.SetPixelHeight`) anclada
+`TOPLEFT`→`BOTTOMLEFT` del `_title`, `OnEnter`/`OnLeave` **compuestos** con el `OnClick`
+existente, y ancho = `_title:GetStringWidth()` acotado al ancho reservado (sigue al TEXTO, no
+al header, que llega hasta el chevron). Se re-deriva desde `_remeasureHeader` (título nuevo,
+resize, fuente tardía). Título envuelto a 2+ líneas → subraya solo la última: degradación
+aceptada y documentada en `docs/components/section.md`. Tests: 5 en `tests/section_spec.lua`
+(incluido "no pisa el OnClick"). **✅ Verificado in-game por el owner (2026-08-16, 12.1)** —
+página Section del Browser. **Cerrado.**
 
 ---
 

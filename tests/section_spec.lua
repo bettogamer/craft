@@ -103,3 +103,59 @@ describe("Craft.Section (FR-044 title wrap)", function()
     end)
 
 end)
+
+-- ─── hover:underline on the trigger (FR-045) ─────────────────────────────────
+
+describe("Craft.Section hover underline (FR-045)", function()
+
+    it("is hidden at rest", function()
+        local s = Craft.Section:Create(newContainer(), { title = "How secure is my data?" })
+        sizeHeader(s, 300)
+        assert.is_false(s._titleUnderline:IsShown())
+        assert.is_false(s:IsHovered())
+    end)
+
+    it("OnEnter shows it, OnLeave hides it", function()
+        local s = Craft.Section:Create(newContainer(), { title = "How secure is my data?" })
+        sizeHeader(s, 300)
+        s._header:_fire("OnEnter")
+        assert.is_true(s._titleUnderline:IsShown())
+        assert.is_true(s:IsHovered())
+        s._header:_fire("OnLeave")
+        assert.is_false(s._titleUnderline:IsShown())
+    end)
+
+    it("is painted with t.foreground (same colour as the text)", function()
+        local t = Craft.Theme.get()
+        local s = Craft.Section:Create(newContainer(), { title = "General" })
+        sizeHeader(s, 300)
+        s._header:_fire("OnEnter")
+        local r, g, b = s._titleUnderline:GetColorTexture()
+        assert.equals(t.foreground.r, r)
+        assert.equals(t.foreground.g, g)
+        assert.equals(t.foreground.b, b)
+    end)
+
+    it("tracks the TEXT width, never wider than the reserved title box", function()
+        local s = Craft.Section:Create(newContainer(), { title = "General" })
+        sizeHeader(s, 300)
+        s._header:_fire("OnEnter")
+        assert.equals(#"General" * 7, s._titleUnderline:GetWidth())
+
+        -- A title longer than the reserve is capped at the box, not the header.
+        local long = Craft.Section:Create(newContainer(), {
+            title = "A much longer question that would wrap in a narrow card" })
+        sizeHeader(long, 300)
+        long._header:_fire("OnEnter")
+        assert.equals(long._title:GetWidth(), long._titleUnderline:GetWidth())
+    end)
+
+    it("does not clobber OnClick — hovering then clicking still toggles", function()
+        local s = Craft.Section:Create(newContainer(), { title = "General" })
+        sizeHeader(s, 300)
+        local before = s:IsExpanded()
+        s._header:_fire("OnEnter")
+        s._header:_fire("OnClick")
+        assert.equals(not before, s:IsExpanded())
+    end)
+end)
