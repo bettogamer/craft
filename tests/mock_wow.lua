@@ -131,7 +131,10 @@ local function makeFrame(frameType, name, parent)
     -- Mouse input
     function f:EnableMouse(v)       self._mouseEnabled = v end
     function f:IsMouseEnabled()     return self._mouseEnabled end
-    function f:EnableMouseWheel(v)  end
+    -- The wheel flag is observable: in WoW it decides whether a frame swallows the
+    -- notch or lets it fall through to the scroll surface underneath (FR-069).
+    function f:EnableMouseWheel(v)  self._wheelEnabled = v and true or false end
+    function f:IsMouseWheelEnabled() return self._wheelEnabled or false end
     function f:RegisterForDrag(...)  end
     function f:SetHitRectInsets(l, r, t, b)
         self._hitInsets = { l or 0, r or 0, t or 0, b or 0 }
@@ -170,6 +173,26 @@ local function makeFrame(frameType, name, parent)
     function f:GetRight()           return self._width end
     function f:GetBottom()          return 0 end
     function f:GetCenter()          return self._width / 2, self._height / 2 end
+
+    -- StatusBar (Craft.Progress, FR-075). The real widget accepts SECRET values in
+    -- SetValue/SetMinMaxValues and paints them without the addon ever inspecting
+    -- them (the unit-frame pattern) — so the mock stores whatever it is handed and
+    -- never does arithmetic on it, exactly like the client.
+    function f:SetStatusBarTexture(tex)  self._sbTexture = tex end
+    function f:GetStatusBarTexture()     return self._sbTexture end
+    function f:SetStatusBarColor(r,g,b,a)
+        self._sbColor = {r=r or 0, g=g or 0, b=b or 0, a=a or 1}
+    end
+    function f:GetStatusBarColor()
+        local c = self._sbColor or {r=1,g=1,b=1,a=1}
+        return c.r, c.g, c.b, c.a
+    end
+    function f:SetMinMaxValues(mn, mx)   self._sbMin, self._sbMax = mn, mx end
+    function f:GetMinMaxValues()         return self._sbMin, self._sbMax end
+    function f:SetValue(v)               self._sbValue = v end
+    function f:GetValue()                return self._sbValue end
+    function f:SetOrientation(o)         self._sbOrientation = o end
+    function f:SetReverseFill(v)         self._sbReverseFill = v end
 
     -- Texture (only for Texture-type frames)
     function f:SetColorTexture(r,g,b,a)
