@@ -28,6 +28,54 @@ local RESIZE_PAD  = 2    -- its inset from the frame's bottom-right corner
 -- correct no matter which embedded copy won the versioned registration.
 local CORNER_MARK = "_craftCornerInset"
 
+-- ─── Anchor → centre (FR-078) ───────────────────────────────────
+-- Returns the frame's geometric centre in SCREEN units, derived from its anchor
+-- point + its size, WITHOUT ever reading its own rect.
+--
+-- Why not just GetCenter(): WoW does not recompute the rectangle of a HIDDEN
+-- frame, and it has not recomputed it yet right after a SetPoint. In both cases
+-- GetCenter() answers with the PREVIOUS geometry -- or with nil when the frame
+-- never had one. Both were teleporting the window: nil drove the pivot to 0,0
+-- (= the exact centre of the screen, and it stuck, because the pivot is
+-- persistent state), and a stale rect quietly pinned the pop to wherever the
+-- window used to be. The anchor, by contrast, is what SetPoint WROTE: it is
+-- never stale and it exists while the frame is hidden.
+--
+-- Returns nil when the anchor cannot be resolved (no point, several points, or a
+-- relative frame with no geometry of its own) -- the caller then falls back.
+local function centreFromAnchor(f)
+    if not (f.GetPoint and f.GetNumPoints) then return nil end
+    -- With more than one point the size is derived FROM the anchors, so point 1
+    -- plus GetWidth/GetHeight no longer describes the rect. Let the caller fall back.
+    if f:GetNumPoints() ~= 1 then return nil end
+    local point, rel, relPoint, ox, oy = f:GetPoint(1)
+    if not point then return nil end
+    rel = rel or f:GetParent() or UIParent
+    if rel == f then return nil end
+    relPoint = relPoint or point
+
+    local rl, rb = rel:GetLeft(), rel:GetBottom()
+    local rw, rh = rel:GetWidth(), rel:GetHeight()
+    if not (rl and rb and rw and rh) then return nil end
+
+    -- The anchor's position on `rel`, in rel units → screen units.
+    local re = rel:GetEffectiveScale()
+    local ax = rl + (relPoint:find("LEFT") and 0 or relPoint:find("RIGHT") and rw or rw / 2)
+    local ay = rb + (relPoint:find("BOTTOM") and 0 or relPoint:find("TOP") and rh or rh / 2)
+    ax, ay = ax * re, ay * re
+
+    -- SetPoint offsets and the frame's own size are in the FRAME's units.
+    local fe = f:GetEffectiveScale()
+    ax = ax + (ox or 0) * fe
+    ay = ay + (oy or 0) * fe
+    local fw, fh = (f:GetWidth() or 0) * fe, (f:GetHeight() or 0) * fe
+
+    -- Shift from the anchored edge to the centre.
+    local cx = ax + (point:find("LEFT") and fw / 2 or point:find("RIGHT") and -fw / 2 or 0)
+    local cy = ay + (point:find("BOTTOM") and fh / 2 or point:find("TOP") and -fh / 2 or 0)
+    return cx, cy
+end
+
 -- ─── Create ────────────────────────────────────────────────────────────────
 function Window:Create(parent, config)
     local self = setmetatable({}, Window)
@@ -126,31 +174,15 @@ function Window:Create(parent, config)
         Weave.computed(function() return self._open() and 1 or motion.motionZoomFrom end),
         { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
 
-    -- Capture the scale-1 CENTER offset (in frame units) at every open/close flip,
-    -- BEFORE the tween advances, so it reads the resting position (whatever the user
-    -- dragged to) and not a mid-zoom one. Scale-invariant: the `* GetScale()` term
-    -- divides out whatever scale the frame is currently parked at (e.g. 0.95 while
-    -- hidden after a close), recovering the true scale-1 offset.
-    local function captureZoomAnchor()
-        local f = self.frame
-        if not f then return end
-        local fx, fy = f:GetCenter()
-        local ux, uy = UIParent:GetCenter()
-        if not (fx and ux) then
-            self._zoomBaseX, self._zoomBaseY = 0, 0
-            return
-        end
-        local fe = f:GetEffectiveScale()
-        local ue = UIParent:GetEffectiveScale()
-        local s  = f:GetScale()
-        self._zoomBaseX = (fx * fe - ux * ue) * s / fe
-        self._zoomBaseY = (fy * fe - uy * ue) * s / fe
-    end
-
-    self._effects[#self._effects + 1] = Weave.effect(function()
-        self._open()               -- track: recapture the resting offset on each flip
-        captureZoomAnchor()
-    end)
+    -- ONE effect for both halves — capture then apply — because the order between
+    -- them is not negotiable: _applyScale re-anchors by CENTER from the pivot, so
+    -- if it ran first on a flip it would overwrite the anchor the consumer had
+    -- just written with the STALE pivot, and the capture behind it would then
+    -- faithfully re-derive that stale value. Two separate effects left that order
+    -- up to the scheduler; folding them removes the question. The capture still
+    -- runs only on a real flip (see _lastOpen), never on every zoom tick: mid-tween
+    -- the frame is scaled, and deriving a centre from a non-CENTER anchor uses the
+    -- scaled size, which would fold the zoom into the pivot.
     self._effects[#self._effects + 1] = Weave.effect(function()
         -- Read EVERY reactive source before any early return, or the effect never
         -- subscribes to the ones behind it (Weave lesson from RadioGroup/ToggleGroup).
@@ -158,6 +190,11 @@ function Window:Create(parent, config)
         local anim = zoom:animating()
         local open = self._open()
         if not self.frame then return end
+
+        if open ~= self._lastOpen then
+            self._lastOpen = open
+            self:_captureZoomAnchor()   -- flip edge: re-read the resting position
+        end
 
         -- Idle AND closed → park at the base scale, not at base × motionZoomFrom.
         -- A hidden frame gains nothing from sitting at 0.95, while WoW's
@@ -282,6 +319,7 @@ function Window:Create(parent, config)
         self._resize:SetScript("OnMouseDown", function() self.frame:StartSizing("BOTTOMRIGHT") end)
         self._resize:SetScript("OnMouseUp", function()
             self.frame:StopMovingOrSizing()
+            self:_captureZoomAnchor()   -- resizing moved the centre; resync the pivot
             if self._cfg.onResized then
                 self._cfg.onResized(self, self.frame:GetWidth(), self.frame:GetHeight())
             end
@@ -410,15 +448,59 @@ function Window:EnableDragFrom(region)
     region:SetScript("OnMouseDown", function() self.frame:StartMoving() end)
     region:SetScript("OnMouseUp", function()
         self.frame:StopMovingOrSizing()
+        self:_captureZoomAnchor()   -- the drag rewrote the anchor; resync the pivot
         if self._cfg.onMoved then
             self._cfg.onMoved(self, self.frame:GetLeft(), self.frame:GetTop())
         end
     end)
 end
 
+-- ─── Position (FR-078) ───────────────────────────────────────
+-- The official place to put the window. Use this instead of SetPoint on
+-- GetFrame(): the root frame is re-anchored by CENTER on every zoom tick, so an
+-- anchor set from outside only survives until the next open/close -- and the zoom
+-- pivot used to be captured from a rectangle WoW had not recomputed yet.
+-- SetPosition writes the anchor, re-derives the pivot from it and re-applies the
+-- scale, so the window is parked where you asked immediately and stays there
+-- through the pop.
+--
+-- `x`/`y` are in UIParent units, NOT frame units -- that is the whole point of
+-- having an official setter: they no longer change meaning when the window's base
+-- scale does, so a persisted pair survives a scale change. `GetPosition()`
+-- returns a tuple this accepts, so save/restore round-trips exactly.
+--
+-- All arguments are optional: point defaults to CENTER, relTo to UIParent,
+-- relPoint to `point`, offsets to 0.
+function Window:SetPosition(point, relTo, relPoint, x, y)
+    local f = self.frame
+    if not f then return end
+    point    = point or "CENTER"
+    relTo    = relTo or UIParent
+    relPoint = relPoint or point
+    x = tonumber(x) or 0
+    y = tonumber(y) or 0
+
+    -- UIParent units -> the frame units SetPoint expects.
+    local fe = f:GetEffectiveScale()
+    local ue = UIParent:GetEffectiveScale()
+    local k  = (fe and fe > 0) and (ue / fe) or 1
+
+    f:ClearAllPoints()
+    f:SetPoint(point, relTo, relPoint, x * k, y * k)
+    self:_captureZoomAnchor()   -- from the anchor we just wrote, never from the rect
+    self:_applyScale()
+end
+
+-- The current position, as the tuple SetPosition takes -- normalised to the
+-- window's centre against UIParent, in UIParent units. Re-derives first, so it is
+-- correct right after a drag or a resize (both rewrite the anchor).
+function Window:GetPosition()
+    self:_captureZoomAnchor()
+    return "CENTER", UIParent, "CENTER", self._zoomBaseX or 0, self._zoomBaseY or 0
+end
+
 function Window:Center()
-    self.frame:ClearAllPoints()
-    self.frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    self:SetPosition("CENTER", UIParent, "CENTER", 0, 0)
 end
 
 -- ─── Window scale (FR-068) ───────────────────────────────────────────────────
@@ -433,6 +515,43 @@ end
 -- offsets are no longer in UIParent units. Convert before saving a position
 -- (× GetEffectiveScale() / UIParent:GetEffectiveScale()) or windows jump when the
 -- user changes the scale.
+-- Re-derives the zoom pivot: the window's centre offset from the screen centre,
+-- in UIParent units (`* GetScale() / GetEffectiveScale()` collapses to
+-- `1 / parentEffectiveScale`, so the value is scale-invariant and survives a
+-- SetBaseScale untouched). Called on every open/close flip, after a drag/resize,
+-- and from SetPosition.
+--
+-- Source of truth = the ANCHOR, not the rect (see centreFromAnchor): the rect is
+-- unusable exactly when it matters -- while the frame is hidden, which is the one
+-- window a consumer has to restore a persisted position in, and on the ESC path,
+-- where Blizzard's frame:Hide() reaches OnHide with the frame already gone. It is
+-- also idempotent against our own writes: _applyScale anchors by CENTER with
+-- `pivot / s`, and re-deriving that anchor gives `pivot` back exactly.
+--
+-- If neither the anchor nor the rect can answer, KEEP the previous pivot. Losing
+-- a tick of precision beats teleporting the window to the centre of the screen --
+-- which is what the old `= 0, 0` fallback did, permanently (FR-078).
+function Window:_captureZoomAnchor()
+    local f = self.frame
+    if not f then return end
+    local ux, uy = UIParent:GetCenter()
+    if not ux then return end
+
+    local cx, cy = centreFromAnchor(f)
+    if not cx then
+        local fx, fy = f:GetCenter()
+        if not fx then return end                 -- keep the previous pivot
+        local e = f:GetEffectiveScale()
+        cx, cy = fx * e, fy * e
+    end
+
+    local fe = f:GetEffectiveScale()
+    local ue = UIParent:GetEffectiveScale()
+    local s  = f:GetScale()
+    self._zoomBaseX = (cx - ux * ue) * s / fe
+    self._zoomBaseY = (cy - uy * ue) * s / fe
+end
+
 function Window:_applyScale()
     local f = self.frame
     if not f then return end

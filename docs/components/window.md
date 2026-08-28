@@ -95,7 +95,9 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
 | `SetTitle(text)` / `SetDescription(text)` | Actualizan el título / descripción |
 | `Show()` / `Hide()` / `Toggle()` / `IsShown()` | Visibilidad |
 | `Close()` | Dispara `onClose` y oculta (igual que el botón "x") |
-| `Center()` | Re-centra en la pantalla |
+| `SetPosition(point, relTo, relPoint, x, y)` | **La vía oficial para colocar la ventana** (FR-078). Escribe el ancla, re-deriva el pivote del zoom y re-aplica la escala en el acto. `x`/`y` en **unidades de UIParent** (no del frame), así que un par persistido sobrevive a un cambio de `scale`. Todos los argumentos son opcionales (`"CENTER"`, `UIParent`, `point`, `0`, `0`) |
+| `GetPosition()` | Devuelve la posición actual como la tupla que acepta `SetPosition`, normalizada al **centro** contra UIParent y en unidades de UIParent. Re-deriva antes de contestar, así que es correcta justo después de arrastrar o redimensionar |
+| `Center()` | Re-centra en la pantalla (pasa por `SetPosition`) |
 | `SetBaseScale(s)` / `GetBaseScale()` | Escala de la ventana (FR-068). Se aplica en el acto y sobrevive a cada apertura/cierre |
 | `EnableDragFrom(region)` | Registra la región como drag handle (StartMoving/StopMovingOrSizing en el frame raíz; dispara `onMoved` al soltar). No-op si `movable = false` o region nil. Sobrescribe los scripts OnMouseDown/OnLeave de la región. |
 
@@ -129,12 +131,38 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
   El pop sigue leyéndose porque el tween arranca en `motionZoomFrom` en cuanto se abre.
   **Residuo conocido:** medir texto *durante* los ~150ms de la animación sigue saliendo mal —
   rellenar antes de `Show()` (el orden normal) o esperar a que asiente.
-- **Persistencia**: el componente NO guarda posición/tamaño; el dev lo hace en `onMoved`/
-  `onResized` (p. ej. `frame:GetLeft()`/`GetTop()`, `GetWidth()`/`GetHeight()` en su DB).
-  ⚠️ Con `scale` ≠ 1, `GetLeft()`/`GetTop()` y los offsets de `SetPoint` **dejan de estar en
-  unidades de UIParent**: convertir antes de guardar
-  (`× GetEffectiveScale() / UIParent:GetEffectiveScale()`) o las ventanas saltan de sitio al
-  cambiar la escala.
+- **El frame raíz está anclado por `CENTER` mientras vive el componente** (FR-078, propuesta
+  D). Cada tick del zoom hace `ClearAllPoints()` + `SetPoint("CENTER", UIParent, "CENTER",
+  pivote/escala)`, así que **cualquier ancla puesta desde fuera sobre `GetFrame()` dura hasta
+  el siguiente tick**. No es un detalle interno que se pueda ignorar: es la razón de que
+  `SetPosition`/`GetPosition` existan. Usarlos siempre; no hacer `SetPoint` sobre el frame raíz.
+- **Persistencia de la posición**: guardar con `GetPosition()` en `onMoved` y restaurar con
+  `SetPosition(...)` **en cualquier momento** — también con la ventana oculta, que es el caso
+  normal (se restaura antes del primer `Show()`). El pivote del zoom se re-deriva del ancla,
+  no del rectángulo, así que no hace falta mostrar el frame antes ni forzar un `GetCenter()`.
+  Los offsets van en unidades de UIParent en las dos direcciones, así que el par guardado
+  sobrevive a un cambio de `scale`.
+  ⚠️ La vía antigua (`frame:GetLeft()`/`GetTop()` en `onMoved` + `SetPoint` a mano) sigue
+  funcionando pero arrastra la conversión de escala: con `scale` ≠ 1, `GetLeft()`/`GetTop()` y
+  los offsets de `SetPoint` **no están en unidades de UIParent** (convertir con
+  `× GetEffectiveScale() / UIParent:GetEffectiveScale()`).
+- **El pivote del zoom se deriva del ANCLA, nunca del rectángulo** (FR-078). WoW no recalcula
+  el rectángulo de un frame **oculto**, ni el de un frame recién re-anclado: `GetCenter()`
+  contesta con la geometría anterior — o con `nil` si nunca tuvo ninguna. Antes eso mandaba el
+  pivote a `0,0`, que es el **centro exacto de la pantalla**, y se quedaba ahí para todas las
+  aperturas siguientes (síntoma: "restauro la posición y la ventana aparece en el medio"; por
+  la ruta de ESC, "se va al medio y se cierra", porque `UISpecialFrames` llama a
+  `frame:Hide()` directo y el hook `OnHide` voltea `_open` con el frame ya oculto). El ancla,
+  en cambio, es lo que `SetPoint` **escribió**: nunca está rancia y existe con el frame
+  oculto. Si ni el ancla ni el rectángulo pueden contestar se **conserva el pivote anterior**
+  — perder precisión un tick es infinitamente mejor que teletransportar la ventana.
+- **La captura del pivote y `_applyScale` viven en el MISMO effect**, en ese orden. Separados,
+  el orden entre ellos lo decidía el scheduler: si `_applyScale` corría primero en un volteo,
+  pisaba con el pivote viejo el ancla que el consumidor acababa de escribir, y la captura de
+  detrás re-derivaba fielmente ese valor rancio. La captura solo corre en un volteo real de
+  `_open` (no en cada tick del zoom): a media animación el frame está escalado, y derivar el
+  centro desde un ancla que no sea `CENTER` usa el tamaño escalado, lo que metería el zoom
+  dentro del pivote.
 - **Escape vs onClose**: el botón "x" y `Close()` disparan `onClose`. Escape (vía
   `UISpecialFrames`) solo oculta — para persistir estado, usar `onMoved`/`onResized` en vivo.
 - **EnableMouse(true)** en el frame raíz para no dejar pasar clics al mundo del juego.

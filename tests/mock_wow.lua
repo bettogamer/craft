@@ -1,6 +1,10 @@
 -- mock_wow.lua — WoW API mock for headless tests with busted
 -- Provides the minimum globals that Craft needs to run without WoW.
 
+-- WoW ships Lua 5.1, where `unpack` is a global; the local runner is 5.4, where
+-- it lives in `table`. The mock uses it (GetPoint), so bridge it once here.
+local unpack = unpack or table.unpack
+
 -- ─── LibStub ───────────────────────────────────────────────────────────────
 
 LibStub = (function()
@@ -82,6 +86,10 @@ local function makeFrame(frameType, name, parent)
     end
     function f:ClearAllPoints()  self._points = {}; self._pointsByAnchor = {} end
     function f:GetPoint()        return unpack(self._points[1] or {}) end
+    -- Simplification worth knowing: SetPoint above keeps only the LAST point, so
+    -- this answers 1 for a frame the client would report several for. Enough for
+    -- the "does the anchor describe the rect?" guard in Craft.Window (FR-078).
+    function f:GetNumPoints()    return #self._points end
     function f:SetAllPoints(rel) self._points = {{"ALL", rel}}; self._pointsByAnchor = nil end
 
     -- Dimensions
