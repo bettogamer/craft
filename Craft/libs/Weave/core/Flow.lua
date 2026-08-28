@@ -10,33 +10,51 @@ if not Weave or Weave._flowLayout then return end -- lib missing or duplicate co
 
 local floor = math.floor
 
--- items[i] = { grid = boolean, height = number }. Consecutive grid entries pack into a
--- visual row of up to `columns` (sharing the row's max height); a full-width entry gets
--- its own row and flushes any open grid row. Returns { rows, contentHeight }.
+-- items[i] = { grid = boolean, height = number, indent? = number, columns? = number }.
+-- Consecutive grid entries pack into a visual row of up to `columns` (sharing the row's
+-- max height); a full-width entry gets its own row and flushes any open grid row.
+-- Returns { rows, contentHeight }.
+--
+-- indent/columns are the per-row INDENT (FR Coffer 2026-08-26): a band of cells that
+-- hangs off the header above it. Core stays dumb about pixels — the ui hands it the
+-- indent and how many columns still fit at that indent — and applies two rules: a
+-- CHANGE OF INDENT closes the open row (a sub-section starts on its own line, like a
+-- header does), and every row remembers its indent so the ui can offset it.
+--
+-- padTop/padBottom inset the stream vertically (FR Coffer 2026-07-23): every row's y is
+-- shifted down by padTop and contentHeight grows by padTop+padBottom, so the first row is
+-- never flush with the viewport clip. _flowVisible needs no change — it works in the same
+-- (already shifted) content space the ui scrolls over.
 function Weave._flowLayout(items, opts)
   local columns = opts.columns or 1
   local spacing = opts.spacing or 0
-  local rows, y, n, i = {}, 0, #items, 1
+  local padTop  = opts.padTop or 0
+  local padBot  = opts.padBottom or 0
+  local rows, y, n, i = {}, padTop, #items, 1
 
   while i <= n do
     if items[i].grid then
       local first, count, h = i, 0, 0
-      while i <= n and items[i].grid and count < columns do
+      local indent = items[i].indent or 0    -- the band's indent: a change of it breaks the row
+      local cols   = items[i].columns or columns
+      while i <= n and items[i].grid and count < cols
+        and (items[i].indent or 0) == indent do
         count = count + 1
         if items[i].height > h then h = items[i].height end
         i = i + 1
       end
-      rows[#rows + 1] = { y = y, height = h, first = first, count = count }
+      rows[#rows + 1] = { y = y, height = h, first = first, count = count, indent = indent }
       y = y + h + spacing
     else
       local h = items[i].height
-      rows[#rows + 1] = { y = y, height = h, first = i, count = 1 }
+      rows[#rows + 1] = { y = y, height = h, first = i, count = 1,
+        indent = items[i].indent or 0 }
       y = y + h + spacing
       i = i + 1
     end
   end
 
-  local contentHeight = #rows > 0 and (y - spacing) or 0
+  local contentHeight = #rows > 0 and (y - spacing + padBot) or 0
   return { rows = rows, contentHeight = contentHeight }
 end
 
