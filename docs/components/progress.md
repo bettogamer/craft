@@ -143,6 +143,15 @@ Extensión Craft (shadcn `Progress` no tiene variantes); pedida por FR-075 §6 p
 colorear por estado sin que el consumidor toque texturas. Un nombre desconocido se
 ignora, igual que un icono desconocido en `Craft.Button`.
 
+**`color` gana sobre `variant` (FR-076).** Las cinco variantes son el repertorio de **un**
+medidor; un consumidor que apila cuatro barras y las compara entre sí necesita más matices de
+los que la paleta trae. El caso que lo pidió (GearScope) tiene cinco estados —`low`,
+`tolerance`, `ok`, `over`, `minor/unknown`— y `secondary` no le sirve: en `lyra-dark` vale
+zinc-800, así que una barra `over` se lee como una barra **vacía**, justo lo contrario de lo
+que significa. Misma semántica que `Craft.Label`: si se pasa, gana; `nil` vuelve al token de
+la variante. La pista se sigue derivando **del color que haya ganado** a α 0.20, así que una
+barra teñida conserva un fondo que se lee como "la parte vacía de ESTA barra".
+
 ## Config — `Create(parent, config)`
 
 | Clave     | Tipo                     | Default     | Descripción |
@@ -154,6 +163,7 @@ ignora, igual que un icono desconocido en `Craft.Button`.
 | `width`   | number                   | `200`       | Ancho de la barra. |
 | `height`  | number                   | `8`         | Alto (`h-2`). |
 | `variant` | string                   | `"primary"` | Token del relleno (tabla arriba). |
+| `color`   | table \| `nil`           | `nil`       | `{r,g,b,a}` explícito del relleno (FR-076). **Gana sobre `variant`**; `nil` = comportamiento de tema. La pista se deriva de él a α 0.20. |
 
 ## API pública
 
@@ -166,7 +176,9 @@ ignora, igual que un icono desconocido en `Craft.Button`.
 | `GetMinMaxValues()`        | `→ number, number`        | Rango actual. |
 | `SetMarker(v)`             | `number\|nil → void`      | Fija o borra (`nil`) el marcador. |
 | `GetMarker()`              | `→ number\|nil`           | Marcador actual. |
-| `SetVariant(name)`         | `string → void`           | Repinta el relleno. Nombre desconocido = no-op. |
+| `SetVariant(name)`         | `string → void`           | Repinta el relleno. Nombre desconocido = no-op. Sin efecto visible mientras haya un `color` puesto. |
+| `SetColor(color)`          | `table\|nil → void`       | Fija o borra (`nil`) el color explícito del relleno (FR-076). Igual que `Craft.Label:SetColor`. |
+| `GetColor()`               | `→ table\|nil`            | El color explícito, o `nil` si manda la variante. |
 | `SetWidth(w)`              | `number → void`           | Redimensiona; re-coloca el marcador (su X es fracción del ancho). |
 | `SetHeight(h)`             | `number → void`           | Redimensiona en alto. |
 | `GetFrame()`               | `→ Frame`                 | Frame raíz para posicionamiento externo. |

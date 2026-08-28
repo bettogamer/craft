@@ -214,6 +214,48 @@ describe("Craft.Progress", function()
         end)
     end)
 
+    -- FR-076: five variant names are one meter's worth of states; a consumer
+    -- stacking four bars needs shades the palette does not happen to carry.
+    describe("explicit colour (FR-076)", function()
+        it("config.color wins over the variant, on the fill AND on the track", function()
+            local c = { r = 0.9, g = 0.6, b = 0.1 }
+            local p = newProgress({ variant = "destructive", color = c })
+            local r, g, b, a = p._barTex:GetColorTexture()
+            assert.equals(c.r, r); assert.equals(c.g, g); assert.equals(c.b, b)
+            assert.equals(1, a)
+            -- the track keeps deriving from whatever won, at 20%
+            local tr, tg, tb, ta = p._track:GetColorTexture()
+            assert.equals(c.r, tr); assert.equals(c.g, tg); assert.equals(c.b, tb)
+            assert.near(0.20, ta, 1e-9)
+        end)
+
+        it("honours the colour's alpha on the fill", function()
+            local p = newProgress({ color = { r = 1, g = 0, b = 0, a = 0.5 } })
+            local _, _, _, a = p._barTex:GetColorTexture()
+            assert.near(0.5, a, 1e-9)
+        end)
+
+        it("SetColor(c) repaints; SetColor(nil) restores the variant token", function()
+            local t = Craft.Theme.get()
+            local p = newProgress({ variant = "destructive" })
+            p:SetColor({ r = 0.2, g = 0.4, b = 0.6 })
+            local r = p._barTex:GetColorTexture()
+            assert.equals(0.2, r)
+            assert.equals(0.2, p:GetColor().r)
+            p:SetColor(nil)
+            r = p._barTex:GetColorTexture()
+            assert.equals(t.destructive.r, r)
+            assert.is_nil(p:GetColor())
+        end)
+
+        it("survives a theme pass (the colour is not a one-shot paint)", function()
+            local p = newProgress({ color = { r = 0.9, g = 0.6, b = 0.1 } })
+            p:_applyTheme(Craft.Theme.get())
+            local r = p._barTex:GetColorTexture()
+            assert.equals(0.9, r)
+        end)
+    end)
+
     describe("destroy", function()
         it("unregisters and is safe to call twice", function()
             local p = newProgress({ value = Weave.signal(1) })

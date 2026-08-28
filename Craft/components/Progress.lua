@@ -71,6 +71,12 @@ function Progress:Create(parent, config)
         width   = config.width  or DEFAULT_W,
         height  = config.height or DEFAULT_H,
         variant = VARIANTS[config.variant] and config.variant or "primary",
+        -- FR-076: explicit fill colour. Same semantics as Craft.Label's `color` —
+        -- when set it WINS over `variant`; nil falls back to the theme token. It
+        -- exists because the five variant names are one meter's worth of states,
+        -- and a consumer stacking four bars needs more shades than the palette
+        -- happens to carry (GearScope: low / tolerance / ok / over / unscored).
+        color   = config.color,
     }
 
     -- Reactive props (ADR-0013). The secret guard runs BEFORE isCallable so a
@@ -129,7 +135,10 @@ end
 function Progress:_applyTheme(t)
     self._t = t
 
-    local fill = t[VARIANTS[self._cfg.variant]] or t.primary
+    -- Explicit colour first (FR-076), then the variant token. The track keeps
+    -- deriving from whatever won, so a tinted bar still reads as "the empty part
+    -- of THIS bar" instead of borrowing the primary track.
+    local fill = self._cfg.color or t[VARIANTS[self._cfg.variant]] or t.primary
     self._barTex:SetColorTexture(fill.r, fill.g, fill.b, fill.a or 1)
 
     -- Track: bg-primary/20 — the fill colour at 20%, so a variant bar keeps a
@@ -219,11 +228,23 @@ function Progress:GetMarker()
 end
 
 -- Repaints the fill from a variant token name (see VARIANTS). Unknown names are
--- ignored, mirroring how Craft.Button treats an unknown icon.
+-- ignored, mirroring how Craft.Button treats an unknown icon. No-op on screen
+-- while an explicit `color` is set — that one wins (SetColor(nil) restores this).
 function Progress:SetVariant(name)
     if not VARIANTS[name] then return end
     self._cfg.variant = name
     if self._t then self:_applyTheme(self._t) end
+end
+
+-- Sets or clears (nil) the explicit fill colour (FR-076). `{r,g,b,a}`, exactly
+-- like Craft.Label:SetColor. nil restores the variant/theme behaviour.
+function Progress:SetColor(color)
+    self._cfg.color = color
+    if self._t then self:_applyTheme(self._t) end
+end
+
+function Progress:GetColor()
+    return self._cfg.color
 end
 
 -- Resizes the bar. The marker is re-placed because its X is a fraction of width.
