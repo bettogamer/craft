@@ -6,6 +6,123 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.16.0] - 2026-08-28
+
+> **Release v2.16.0 — los tres FR nuevos (076, 077, 078) y Weave v0.7.0 → v0.9.0.** Los dos
+> primeros son la misma petición sobre componentes distintos —*"déjame poner el color a mano"*—
+> y llegan de dos consumidores en la misma semana: cuando el sistema de tokens no cubre un caso,
+> el consumidor termina escribiendo en campos privados de la librería (`_icon`) o colapsando
+> estados que necesita distinguir. La respuesta en ambos es la misma que ya tenía `Craft.Label`:
+> un color explícito que **gana** sobre el token y `nil` que devuelve el mando al tema.
+>
+> El tercero es un bug de los caros: **el pivote del zoom se leía del rectángulo del frame, y
+> WoW no recalcula el rectángulo de un frame oculto**. Afectaba a cualquier consumidor que
+> restaurase una posición persistida —el caso normal de una ventana movible— y era silencioso:
+> el `SetPoint` del consumidor era correcto y aun así la ventana acababa en el centro exacto de
+> la pantalla. A Coffer le costó dos rondas in-game y un apaño que escribía dos campos privados
+> en cada apertura y cada cierre de cinco ventanas.
+>
+> MINOR: todo aditivo, sin componentes nuevos, la clave LibStub sigue siendo `Craft-2.0` y
+> **`Craft/Craft.toc` no cambia** (el re-vendoreo de Weave no mueve su lista de archivos), así
+> que el re-vendoreo en los consumidores SÍ es una copia ciega esta vez. `CRAFT_BUILD` 17→18.
+> Suite: **655 tests** (luacheck 0/0, taintlint 0/0 contra la db 12.1). Verificado in-game por
+> el maintainer en 12.1, demo por demo en Craft_Browser.
+
+### Added
+
+- **`Craft.Progress`: `color` explícito del relleno**
+  ([FR-076](docs/requests/FR-076-progress-color-explicito.md)).
+  `color = {r,g,b,a}` en el config + `SetColor(color)`/`GetColor()`, misma semántica que
+  `Craft.Label`: si se pasa, **gana** sobre `variant`; `nil` vuelve al token del tema. Las cinco
+  variantes son el repertorio de **un** medidor, y el caso que lo pide apila cuatro barras que se
+  comparan entre sí con cinco estados: `secondary` (zinc-800 en `lyra-dark`) hacía que una barra
+  "vas sobrado" se leyera como una barra **vacía**. La pista se sigue derivando **del color que
+  gane** a α 0.20, así que una barra teñida conserva un fondo que se lee como "la parte vacía de
+  ESTA barra". No entra la variante `warning` que proponía la alternativa: un token de aviso
+  resuelve un estado, y son cinco.
+- **`Craft.Button`: `tone` — color explícito del par label+icono**
+  ([FR-077](docs/requests/FR-077-button-tono-de-icono-y-texto.md)).
+  Acepta **las dos formas**: un **nombre de token del tema** (`tone = "sidebarPrimary"`, que se
+  re-resuelve en cada pasada de tema y por tanto sigue al tema solo) o una tabla `{r,g,b,a}`
+  literal. `SetTone(tone)`/`GetTone()` en caliente, como `SetIcon`/`SetVariant`. Existe porque un
+  botón `ghost` pintaba siempre con `t.foreground` y el icono heredaba ese gris, así que *todo*
+  ghost era chrome — y a veces es la acción de un bloque que ya tiene color propio (una cabecera
+  de sección fijada, donde la acción quedaba indistinguible de la ✕ de la ventana). `link` no
+  servía de sustituto: usa `t.primary`, que en Lyra dark es un color de **superficie**. Se aplica
+  al final de `_applyTheme` —después de la variante, antes de tintar el icono— así que un cambio
+  de tema lo respeta sin re-pintar y el icono lo hereda. Sin comportamiento de estado nuevo. El
+  apaño que sustituye re-tintaba `_icon`, un campo privado, desde el listener de tema del
+  consumidor, apoyándose en el orden de registro de los listeners.
+- **`Craft.Window`: `SetPosition()` / `GetPosition()`**
+  ([FR-078](docs/requests/FR-078-window-zoom-pivot-frame-oculto.md)).
+  La vía **oficial** para colocar una ventana: escribe el ancla, re-deriva el pivote del zoom y
+  re-aplica la escala en una llamada. Hasta ahora no existía ese contrato — el consumidor tenía
+  que hacer `ClearAllPoints`+`SetPoint` sobre `GetFrame()` sabiendo que la animación le iba a
+  pisar el ancla, que ya es de por sí una fuga de abstracción. Los offsets van en **unidades de
+  UIParent**, no del frame, así que una posición persistida sobrevive a un cambio de `scale`; y
+  `GetPosition()` devuelve una tupla que `SetPosition` acepta, con lo que guardar/restaurar hace
+  round-trip exacto. `Center()` pasa por ahí.
+
+### Fixed
+
+- **`Craft.Window`: una ventana reposicionada antes de abrir saltaba al centro de la pantalla**
+  ([FR-078](docs/requests/FR-078-window-zoom-pivot-frame-oculto.md)).
+  El zoom re-ancla el frame por `CENTER` en cada tick con un pivote capturado al voltear
+  `_open`, y ese pivote salía de `GetCenter()` — el rectángulo. **WoW no recalcula el rectángulo
+  de un frame oculto**, ni el de uno recién re-anclado: contestaba con la geometría anterior, o
+  con `nil`, y la rama del `nil` fijaba el pivote en `0,0`, que es el **centro exacto de la
+  pantalla**, y ahí se quedaba para todas las aperturas siguientes. Afectaba a **cualquier**
+  consumidor que restaurase una posición persistida (o sea, al caso normal de una ventana
+  movible) y era silencioso: el `SetPoint` del consumidor era correcto y aun así la ventana
+  acababa centrada. Por la ruta de ESC se veía además al cerrar — `UISpecialFrames` llama a
+  `frame:Hide()` directo y el hook `OnHide` voltea `_open` con el frame ya oculto: *"se va al
+  medio y se cierra"*.
+  **El arreglo es una sola idea: el pivote se deriva del ANCLA (`GetPoint` + `GetSize`), nunca
+  del rectángulo.** El ancla es lo que `SetPoint` escribió — no está rancia y existe con el frame
+  oculto —, así que caen las dos formas del fallo, la del `nil` y la del rectángulo viejo. Es
+  idempotente contra nuestras propias escrituras (`_applyScale` ancla por `CENTER` con
+  `pivote/escala`, y re-derivar eso devuelve el mismo pivote a cualquier escala), así que el
+  volteo del **cierre** —el que ve el jugador— tampoco desplaza nada. Si ni el ancla ni el
+  rectángulo pueden contestar se **conserva el pivote anterior**: perder precisión un tick es
+  mejor que teletransportar la ventana. El pivote se re-deriva también al soltar un arrastre o un
+  resize.
+- **`Craft.Window`: la captura del pivote y `_applyScale` pasan a un único effect**
+  ([FR-078](docs/requests/FR-078-window-zoom-pivot-frame-oculto.md)).
+  Estaban en dos effects distintos y el orden entre ellos lo decidía el scheduler: si
+  `_applyScale` corría primero en un volteo, pisaba con el pivote viejo el ancla que el consumidor
+  acababa de escribir, y la captura de detrás re-derivaba fielmente ese valor rancio — el bug
+  sobrevivía al arreglo de arriba. Salió al correr la suite entera: el spec pasaba en solitario y
+  fallaba acompañado. Ahora es capturar-y-aplicar en ese orden, con la captura limitada al volteo
+  real de `_open` (a media animación el frame está escalado, y derivar el centro desde un ancla
+  que no sea `CENTER` metería el zoom dentro del pivote).
+
+### Changed
+
+- **Weave vendoreada: v0.7.0 → v0.9.0** (`Craft/libs/Weave/`, READ-ONLY). Sin cambios de API en
+  Craft: la lista de archivos del `.toc` no se mueve. Trae `tween:snap(value)` (teletransporte
+  que sigue apuntando al destino — el fade-in a media luz deja de necesitar el ping-pong por la
+  señal fuente), `Weave.virtual` con viewport vivo por `Resize` + `indentOf` por fila, y
+  `opts.padding` para que la fila/columna 0 no se coma el clip. Ningún componente de Craft los usa
+  todavía.
+
+### Docs
+
+- `docs/components/window.md` documenta explícitamente lo que hasta ahora era un detalle interno
+  que mordía (FR-078, propuesta D): el frame raíz está anclado por `CENTER` mientras vive el
+  componente, **cualquier ancla puesta desde fuera dura hasta el siguiente tick del zoom**, y el
+  momento correcto de restaurar una posición guardada es `SetPosition()` — en cualquier momento,
+  también con la ventana oculta.
+
+### Tests
+
+- `tests/window_spec.lua` — **nuevo**, 12 casos sobre el pivote del zoom: restauración con el
+  frame oculto, la ruta de ESC (`OnHide` con el frame ya oculto), idempotencia a través de
+  volteos y de `SetBaseScale`, conservación del pivote cuando nada puede contestar, el fallback
+  al rectángulo y el round-trip `SetPosition`/`GetPosition`.
+- `tests/mock_wow.lua` — `GetNumPoints()` y un puente de `unpack` (WoW es Lua 5.1, el runner
+  local 5.4; `GetPoint()` del mock estaba roto sin él).
+- Suite: **655 tests** (luacheck 0/0, taintlint 0/0 contra la db 12.1).
+
 ## [2.15.0] - 2026-08-16
 
 > **Release v2.15.0 — la cola de FR abiertos queda vacía: los nueve (FR-045, 067..073, 075).**
