@@ -460,4 +460,57 @@ describe("Craft.Button", function()
         end)
     end)
 
+    -- FR-077: a ghost button is not always chrome. When it is the action of a
+    -- coloured block, label+icon must be able to carry that block's accent.
+    describe("tone (FR-077)", function()
+        it("a literal {r,g,b} overrides the variant's text colour", function()
+            local btn = newBtn({ text="Seen", variant="ghost", tone={ r=0.3, g=0.7, b=0.9 } })
+            local r, g, b = btn._label:GetTextColor()
+            assert.equals(0.3, r); assert.equals(0.7, g); assert.equals(0.9, b)
+        end)
+
+        it("the icon inherits the tone instead of staying chrome-grey", function()
+            local btn = newBtn({ icon="check-check", size="icon-xs", variant="ghost",
+                                 tone={ r=0.3, g=0.7, b=0.9 } })
+            local vc = btn._icon._vertexColor
+            assert.equals(0.3, vc.r); assert.equals(0.7, vc.g); assert.equals(0.9, vc.b)
+        end)
+
+        it("a string is a THEME TOKEN, re-resolved on every theme pass", function()
+            local t = Craft.Theme.get()
+            local btn = newBtn({ text="Seen", variant="ghost", tone="sidebarPrimary" })
+            local r = btn._label:GetTextColor()
+            assert.equals(t.sidebarPrimary.r, r)
+            btn:_applyTheme(t)                    -- a theme pass must not lose it
+            r = btn._label:GetTextColor()
+            assert.equals(t.sidebarPrimary.r, r)
+        end)
+
+        it("an unknown token name is ignored (variant colour stands)", function()
+            local t = Craft.Theme.get()
+            local btn = newBtn({ text="Seen", variant="ghost", tone="notAToken" })
+            local r = btn._label:GetTextColor()
+            assert.equals(t.foreground.r, r)
+        end)
+
+        it("SetTone() hot-swaps; SetTone(nil) restores the variant colour", function()
+            local t = Craft.Theme.get()
+            local btn = newBtn({ text="Seen", variant="ghost" })
+            btn:SetTone({ r=0.3, g=0.7, b=0.9 })
+            local r = btn._label:GetTextColor()
+            assert.equals(0.3, r)
+            assert.equals(0.3, btn:GetTone().r)
+            btn:SetTone(nil)
+            r = btn._label:GetTextColor()
+            assert.equals(t.foreground.r, r)
+        end)
+
+        it("no tone leaves every variant exactly as it was", function()
+            local t = Craft.Theme.get()
+            local btn = newBtn({ text="Save", variant="default" })
+            local r = btn._label:GetTextColor()
+            assert.equals(t.primaryForeground.r, r)
+        end)
+    end)
+
 end)

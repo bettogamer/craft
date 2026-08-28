@@ -49,6 +49,13 @@ function Button:Create(parent, config)
         iconPosition = config.iconPosition or "left",  -- "left" | "right"
         onClick      = config.onClick,
         tooltip      = config.tooltip,                 -- string or nil (FR-020)
+        -- FR-077: explicit tone for the label+icon pair. A STRING is a theme token
+        -- name ("sidebarPrimary") and keeps following the theme; a TABLE is a
+        -- literal {r,g,b,a}. nil = the variant's own text colour (today's
+        -- behaviour). Exists because a ghost button is not always chrome: it is
+        -- sometimes the action of a coloured block, and inheriting `foreground`
+        -- made it read as window chrome (Coffer's pinned section headers).
+        tone         = config.tone,
     }
 
     -- Root frame (WoW Button — has native OnClick)
@@ -198,6 +205,19 @@ function Button:_setBorderColor(r, g, b, a)
     self._bR:SetColorTexture(r, g, b, a)
 end
 
+-- ─── Tone resolver (FR-077) ────────────────────────────────────────────────
+-- Returns the {r,g,b,a} the label+icon should use, or nil to keep the variant's.
+-- A string is looked up in the theme, so `tone = "sidebarPrimary"` re-resolves on
+-- every theme pass instead of freezing one palette's value; an unknown token name
+-- is ignored (same policy as an unknown icon name or an unknown variant).
+function Button:_resolveTone(t)
+    local tone = self._cfg.tone
+    if not tone then return nil end
+    if type(tone) == "string" then tone = t and t[tone] end
+    if type(tone) ~= "table" or type(tone.r) ~= "number" then return nil end
+    return tone
+end
+
 -- ─── Theme ─────────────────────────────────────────────────────────────────
 function Button:_applyTheme(t)
     self._t = t
@@ -277,10 +297,23 @@ function Button:_applyTheme(t)
     -- when prog MOVES, and a theme change doesn't move it.
     self:_paintHoverBg(self._prog and self._prog:peek() or 0)
 
+    -- Tone override (FR-077): applied AFTER the variant chain so it wins over the
+    -- variant's text colour, and BEFORE the icon tint so the icon inherits it —
+    -- which is the point of the request. No new state behaviour: hover/disabled
+    -- keep working exactly as they do for the colour it replaces (only the bg
+    -- animates on hover, and `disabled` is a frame-wide alpha).
+    local tone = self:_resolveTone(t)
+    if tone then
+        self._label:SetTextColor(tone.r, tone.g, tone.b, tone.a or 1)
+        if v == "link" then
+            self._underline:SetColorTexture(tone.r, tone.g, tone.b, tone.a or 1)
+        end
+    end
+
     -- Icon: inherits text color via SetVertexColor
     if self._cfg.icon then
-        local r, g, b = self._label:GetTextColor()
-        self._icon:SetVertexColor(r, g, b, 1)
+        local r, g, b, a = self._label:GetTextColor()
+        self._icon:SetVertexColor(r, g, b, a or 1)
     end
 
     self:_recalcWidth()
@@ -407,6 +440,21 @@ function Button:SetVariant(variant)
     if self._t then
         self:_applyTheme(self._t)
     end
+end
+
+-- Sets or clears (nil) the label+icon tone (FR-077). Accepts a theme token name
+-- (string) or a literal {r,g,b,a}; nil restores the variant's own text colour.
+-- Hot-swappable like SetIcon/SetVariant: re-runs the theme pass, which resolves
+-- the token and re-tints both the label and the icon.
+function Button:SetTone(tone)
+    self._cfg.tone = tone
+    if self._t then
+        self:_applyTheme(self._t)
+    end
+end
+
+function Button:GetTone()
+    return self._cfg.tone
 end
 
 -- Swaps the icon (Lucide name) after Create; nil removes it (FR-023).
