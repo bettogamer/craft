@@ -78,6 +78,43 @@ CraftBrowserPages["Progress"] = {
         end
         y = y + 8
 
+        -- ── Explicit colour (FR-076) ──────────────────────────────────────────
+        -- The five variant names are ONE meter's worth of states. Stack four bars
+        -- that are compared against each other and the palette runs out: `over`
+        -- has no token, and `secondary` (zinc-800 in lyra-dark) reads as an EMPTY
+        -- bar — the opposite of what "you are over the goal" means. `color` wins
+        -- over `variant`, and the track keeps deriving from it at 20%.
+        y = addLabel("Explicit colour (FR-076) — colour wins over variant; track follows it", y)
+        local states = {
+            { name = "low",       value = 45, color = { r = 0.85, g = 0.27, b = 0.27 } },
+            { name = "tolerance", value = 72, color = { r = 0.85, g = 0.65, b = 0.13 } },
+            { name = "ok",        value = 82, color = { r = 0.06, g = 0.73, b = 0.51 } },
+            { name = "over",      value = 96, color = { r = 0.95, g = 0.95, b = 0.96 } },
+            { name = "unscored",  value = 30, color = { r = 0.45, g = 0.45, b = 0.48 } },
+        }
+        for _, st in ipairs(states) do
+            place(Craft.Progress:Create(parent, { value = st.value, marker = 80,
+                                                  width = 220, color = st.color }), 16, y + 3)
+            caption(st.name, 250, y, st.color)
+            y = y + 22
+        end
+        -- SetColor(nil) hands the bar back to the theme, exactly like Label:SetColor.
+        local swapper = place(Craft.Progress:Create(parent, { value = 65, marker = 80,
+                                                             width = 220 }), 16, y + 3)
+        caption("click →", 250, y)
+        local swapOn = false
+        local swapBtn = Craft.Button:Create(parent, {
+            text = "SetColor", size = "xs", variant = "outline",
+            onClick = function(btn)
+                swapOn = not swapOn
+                swapper:SetColor(swapOn and { r = 0.85, g = 0.65, b = 0.13 } or nil)
+                btn:SetText(swapOn and "SetColor(nil)" or "SetColor")
+            end,
+        })
+        swapBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 310, -(y - 5))
+        table.insert(comps, swapBtn)
+        y = y + 34
+
         -- ── Heights ───────────────────────────────────────────────────────────
         y = addLabel("Heights — 4 / 8 (shadcn h-2) / 14", y)
         for _, h in ipairs({ 4, 8, 14 }) do

@@ -123,6 +123,65 @@ CraftBrowserPages["Window"] = {
         table.insert(comps, scaledBtn)
         y = y + 44
 
+        -- ── Persisted position (FR-078) ──────────────────────────────────────
+        -- The bug this guards against: the zoom pivot was captured from the frame's
+        -- RECTANGLE, and WoW does not recompute the rect of a hidden frame. A window
+        -- re-anchored before Show() therefore popped at the screen centre — and the
+        -- ESC route showed the same thing on the way out ("it runs to the middle and
+        -- closes"), because UISpecialFrames calls frame:Hide() directly and Window's
+        -- OnHide hook flips _open with the frame already gone.
+        --
+        -- The check is a full round-trip: drag it to a CORNER, close it with ESC,
+        -- reopen. It must come back to the corner, both on the way out and in. The
+        -- position lives in a page-local (a real addon would put it in its DB).
+        y = addLabel("Persisted position (FR-078) — drag to a CORNER, close with Esc, reopen", y)
+        y = addLabel("It must reappear where you left it — and the close fade must not run to the centre.", y)
+
+        local savedX, savedY   -- UIParent units, straight from GetPosition()
+        local posWin
+        local posBtn = Craft.Button:Create(parent, { text="Open (restores position)", variant="default" })
+        posBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        posBtn:GetFrame():SetScript("OnClick", function()
+            if not posWin then
+                posWin = Craft.Window:Create(UIParent, {
+                    title       = "Saved position",
+                    description = "SetPosition / GetPosition (FR-078)",
+                    width = 420, height = 220,
+                    -- onMoved fires on drag release; GetPosition() re-derives from the
+                    -- anchor, so it is already correct here.
+                    onMoved = function(w)
+                        local _, _, _, px, py = w:GetPosition()
+                        savedX, savedY = px, py
+                        print(string.format("Window position saved: %.0f, %.0f", px, py))
+                    end,
+                })
+                local c = posWin:GetContent()
+                local note = Craft.Label:Create(c, {
+                    text  = "Drag me to a corner, press Esc, then reopen. No Show()-before-anchor "
+                         .. "dance needed: SetPosition works while the window is hidden.",
+                    width = 360, wrap = true,
+                    color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+                })
+                note:GetFrame():SetPoint("TOPLEFT", c, "TOPLEFT", 16, -16)
+                posWin._demoNote = note
+            end
+            -- Restore BEFORE Show(), with the frame still hidden — the exact window
+            -- of time a consumer has, and the one that used to break.
+            if savedX then posWin:SetPosition("CENTER", UIParent, "CENTER", savedX, savedY) end
+            posWin:Show()
+        end)
+        table.insert(comps, posBtn)
+
+        local resetBtn = Craft.Button:Create(parent, { text="Forget position", variant="outline" })
+        resetBtn:GetFrame():SetPoint("TOPLEFT", posBtn:GetFrame(), "TOPRIGHT", 8, 0)
+        resetBtn:GetFrame():SetScript("OnClick", function()
+            savedX, savedY = nil, nil
+            if posWin then posWin:Center() end
+            print("Window position forgotten (Center)")
+        end)
+        table.insert(comps, resetBtn)
+        y = y + 44
+
         return {
             height  = y + 24,
             cleanup = function()
@@ -139,6 +198,11 @@ CraftBrowserPages["Window"] = {
                     if scaledWin._demoNote then scaledWin._demoNote:Destroy() end
                     scaledWin:Destroy()
                     scaledWin = nil
+                end
+                if posWin then
+                    if posWin._demoNote then posWin._demoNote:Destroy() end
+                    posWin:Destroy()
+                    posWin = nil
                 end
             end,
         }

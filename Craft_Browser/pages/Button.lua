@@ -85,6 +85,50 @@ CraftBrowserPages["Button"] = {
             Craft.Button:Create(parent, { text="Secondary", variant="secondary", disabled=true }),
         }
         y = addRow(disabled, y)
+        y = y + 8
+
+        -- Tone (FR-077): a ghost button is not always chrome. When it is the action
+        -- of a coloured block it has to be able to carry that block's accent — and
+        -- the ICON is the half that matters, since it used to inherit `foreground`
+        -- and read as window chrome. A string is a THEME TOKEN (follows the theme
+        -- switcher on its own); a table is a literal colour.
+        y = addLabel("Tone (FR-077) — explicit colour for label + icon", y)
+        local toned = {
+            Craft.Button:Create(parent, { text="no tone", icon="check-check", variant="ghost" }),
+            Craft.Button:Create(parent, { text="sidebarPrimary", icon="check-check",
+                                          variant="ghost", tone="sidebarPrimary" }),
+            Craft.Button:Create(parent, { text="destructive", icon="trash-2",
+                                          variant="ghost", tone="destructive" }),
+            Craft.Button:Create(parent, { text="literal rgb", icon="star",
+                                          variant="ghost", tone={ r=0.85, g=0.65, b=0.13 } }),
+        }
+        y = addRow(toned, y)
+
+        -- The case that filed the FR: an icon-only ghost action inside a coloured
+        -- section header. Grey, it is indistinguishable from the window's ✕.
+        y = addLabel("Icon-only in a coloured header — the ✕ ambiguity the FR describes", y)
+        local pinned = {
+            Craft.Button:Create(parent, { icon="check-check", size="icon-xs", variant="ghost",
+                                          tooltip="Mark as seen (no tone — reads as chrome)" }),
+            Craft.Button:Create(parent, { icon="check-check", size="icon-xs", variant="ghost",
+                                          tone="sidebarPrimary",
+                                          tooltip="Mark as seen (tone = the section's accent)" }),
+        }
+        y = addRow(pinned, y)
+
+        -- SetTone in the hot path, like SetIcon/SetVariant.
+        y = addLabel("SetTone() / SetTone(nil) — hot-swappable, and a theme switch keeps it", y)
+        local toneOn = false
+        local toneBtn
+        toneBtn = Craft.Button:Create(parent, {
+            text = "SetTone()", icon = "palette", variant = "ghost",
+            onClick = function()
+                toneOn = not toneOn
+                toneBtn:SetTone(toneOn and "sidebarPrimary" or nil)
+                toneBtn:SetText(toneOn and "SetTone(nil)" or "SetTone()")
+            end,
+        })
+        y = addRow({ toneBtn }, y)
 
         return {
             height  = y + 24,
