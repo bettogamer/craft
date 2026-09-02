@@ -6,6 +6,33 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+### Fixed
+
+- **`Craft.DragList:SetItems()` fugaba una generación entera de frames por refresco (FR-079).**
+  `_build` no reusaba nada: ocultaba las filas anteriores (`Hide()` + `SetParent(nil)`) y creaba
+  N filas, N botones de grip y 3N texturas nuevas. Como los frames de WoW **no se destruyen
+  nunca**, la fuga era proporcional al uso, no al tiempo: en Coffer (Ajustes ▸ Categorías) cada
+  clic, cada renombrado y **cada pulsación en la caja de búsqueda** dejaba atrás una lista
+  entera. Ahora `_build` **poolea por índice** como ya hacía `Craft.Menu:_buildRows` — `self._rows`
+  es el pool (orden de creación, estable) y `self._order` el orden visual (referencias al pool,
+  que es lo único que el drag reordena): reusa las filas que hay, crea solo las que falten y
+  oculta las sobrantes. Sin cambios de API; el `FontString` del label por defecto también se reusa
+  en vez de apilarse.
+
+### Added
+
+- **`Craft.DragList` — `onRowReleased(content, prevItem)` (FR-079).** La otra mitad del ciclo de
+  vida de la fila: con el pool, `renderRow` recibe un `content` **reciclado** que aún trae lo que
+  el consumidor pintó para el item anterior, y hasta ahora no había ningún gancho para destruirlo.
+  Craft lo llama antes de re-renderizar una fila, antes de ocultarla como sobrante y una vez por
+  fila viva en `Destroy()`. Importa porque todo componente Craft se queda en `Theme._listeners`
+  hasta su `Destroy()`: un `renderRow` que crea un `Craft.Label` por fila fugaba un listener por
+  fila y por refresco, y el consumidor no tenía forma de evitarlo (Coffer se llevaba su propia
+  lista de etiquetas a mano). El contrato alternativo —`renderRow` idempotente que guarda sus
+  componentes en el propio `content` y los actualiza— queda **documentado explícitamente** en
+  `docs/components/draglist.md`; antes no había ninguna forma correcta de escribirlo y nada
+  avisaba. Specs nuevos: `tests/draglist_spec.lua` (13).
+
 ## [2.16.0] - 2026-08-28
 
 > **Release v2.16.0 — los tres FR nuevos (076, 077, 078) y Weave v0.7.0 → v0.9.0.** Los dos

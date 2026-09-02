@@ -13,7 +13,7 @@ el handle de una fila y la lista se reordena en vivo; al soltar se confirma el n
 
 ```
 draglist.frame              (Frame — alto = n·36 + (n-1)·4)
-└── row[i]                   (Frame — alto 36; se reposiciona al reordenar, no se recrea)
+└── row[i]                   (Frame — alto 36; se reposiciona al reordenar y se REUSA en cada rebuild)
     ├── dragBg               (Texture BACKGROUND — bg-muted, visible al arrastrar "lift")
     ├── divider              (Texture BORDER 1px — border-b entre filas)
     ├── grip (Button)        (handle grip-vertical, RegisterForDrag "LeftButton")
@@ -52,7 +52,8 @@ draglist.frame              (Frame — alto = n·36 + (n-1)·4)
 | Clave | Tipo | Default | Descripción |
 |---|---|---|---|
 | `items` | table | `{}` | Lista de datos (tabla u otro); el orden inicial |
-| `renderRow` | function | nil | `fn(contentFrame, item, index)` rellena la fila; si falta, label por defecto (`item.label` o `tostring`) |
+| `renderRow` | function | nil | `fn(contentFrame, item, index)` rellena la fila; si falta, label por defecto (`item.label` o `tostring`). **`contentFrame` puede venir RECICLADO** — ver *Ciclo de vida de la fila* |
+| `onRowReleased` | function | nil | `fn(contentFrame, prevItem)` justo antes de que esa fila se reutilice para otro item, se oculte por sobrante o se suelte en `Destroy()`. Es donde el consumidor destruye lo que creó en `renderRow` |
 | `onReorder` | function | nil | `fn(items)` al soltar si el orden cambió; `items` en el nuevo orden |
 | `width` | number | 300 | Ancho de la lista/filas |
 | `disabled` | boolean | false | Deshabilita el arrastre |
@@ -61,6 +62,28 @@ draglist.frame              (Frame — alto = n·36 + (n-1)·4)
 > **two-way**: reordenar escribe el nuevo orden de vuelta en la señal (si es escribible),
 > antes de `onReorder`; un guard de eco por identidad de tabla evita el rebuild que dispararía
 > ese `:set`. `disabled` bindea vía `SetEnabled`.
+
+## Ciclo de vida de la fila (FR-079)
+
+Las filas están **pooleadas**, igual que en `Craft.Menu`: `self._rows` es el pool (orden de
+creación, nunca se reordena) y `self._order` es el orden visual (referencias al pool). Un
+`SetItems` **reutiliza** los frames existentes, crea solo los que falten y oculta los sobrantes.
+Los frames de WoW no se destruyen nunca, así que reconstruir tirando las filas fugaba N frames,
+N botones y 3N texturas por refresco.
+
+Consecuencia para el consumidor: **`renderRow` se ejecuta más de una vez sobre el mismo
+`contentFrame`**. Hay dos formas correctas de escribirlo, y hay que elegir una:
+
+1. **`renderRow` idempotente** (recomendado): guardar los componentes en el propio `content`
+   (`content._label = content._label or Craft.Label:Create(content, …)`) y **actualizarlos** en
+   vez de recrearlos. Sin `onRowReleased`, sin listas `owned` a mano.
+2. **`onRowReleased(content, prevItem)`**: crear en `renderRow` y destruir en `onRowReleased`.
+   Craft lo llama antes de re-renderizar la fila, antes de ocultarla como sobrante y una vez por
+   fila viva en `Destroy()`; nunca dos veces seguidas para el mismo render.
+
+> **Por qué importa:** todo componente Craft se registra en `Theme._listeners`, un array fuerte
+> que solo `Destroy()` vacía. Un `renderRow` que crea un `Craft.Label` en cada refresco sin
+> ninguna de las dos vías fuga un listener por fila y por refresco.
 
 ## API pública
 
@@ -78,4 +101,6 @@ draglist.frame              (Frame — alto = n·36 + (n-1)·4)
 - **Scroll**: la lista crece en alto con los items. Para muchas filas, envolver en `Craft.Scroll`
   desde el consumidor (DragList no scrollea por sí mismo). El cálculo de slot usa `frame:GetTop()`,
   válido dentro de un scroll child mientras esté visible.
-- **`renderRow` corre una vez** — no re-renderizar por índice durante el drag; la fila lleva su item.
+- **`renderRow` NO se re-ejecuta durante el drag** — el reorden solo reposiciona filas y cada
+  fila lleva su item. Sí se re-ejecuta en cada `SetItems` (rebuild), sobre un `content` reciclado:
+  ver *Ciclo de vida de la fila*.
