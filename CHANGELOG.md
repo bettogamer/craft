@@ -6,18 +6,43 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
-### Fixed
+## [2.17.0] - 2026-09-02
 
-- **`Craft.DragList:SetItems()` fugaba una generación entera de frames por refresco (FR-079).**
-  `_build` no reusaba nada: ocultaba las filas anteriores (`Hide()` + `SetParent(nil)`) y creaba
-  N filas, N botones de grip y 3N texturas nuevas. Como los frames de WoW **no se destruyen
-  nunca**, la fuga era proporcional al uso, no al tiempo: en Coffer (Ajustes ▸ Categorías) cada
-  clic, cada renombrado y **cada pulsación en la caja de búsqueda** dejaba atrás una lista
-  entera. Ahora `_build` **poolea por índice** como ya hacía `Craft.Menu:_buildRows` — `self._rows`
-  es el pool (orden de creación, estable) y `self._order` el orden visual (referencias al pool,
-  que es lo único que el drag reordena): reusa las filas que hay, crea solo las que falten y
-  oculta las sobrantes. Sin cambios de API; el `FontString` del label por defecto también se reusa
-  en vez de apilarse.
+> **Release v2.17.0 — FR-079: reconstruir una lista deja de costar memoria.** Sale de una
+> investigación de Coffer (*"cada vez que refresco coffer, va aumentando su uso de memoria"*) y
+> el hallazgo es pequeño de escribir y feo de tener: `DragList:_build` no reusaba nada, y en WoW
+> un frame **no se destruye nunca**. La fuga no crecía con el tiempo sino con el USO — cada clic,
+> cada renombrado y cada pulsación en una caja de búsqueda dejaba atrás una lista entera de
+> frames, botones y texturas.
+>
+> El arreglo es la forma que `Menu:_buildRows` ya tenía, pero una lista arrastrable necesita una
+> idea más para llegar ahí: **dos arrays**. `self._rows` es el pool (orden de creación, estable)
+> y `self._order` el orden visual. Esa separación es lo que hace convivir pool y drag — el
+> arrastre sigue reordenando `_order` y el pool ni se entera.
+>
+> Lo interesante es la mitad que el pool **obliga a mirar**: al reusar filas, `renderRow` pasa a
+> correr sobre un `content` reciclado que aún trae lo que el consumidor pintó para el item
+> anterior — y no había ningún gancho para destruirlo. Eso importa porque todo componente Craft
+> se queda en `Theme._listeners` hasta su `Destroy()`. De ahí `onRowReleased`, y de ahí que el
+> contrato quede **escrito**: hasta hoy no existía forma correcta de escribir un `renderRow` que
+> creara componentes, y nada avisaba.
+>
+> La misma auditoría, pasada a toda la librería, dejó **FR-080** (`Sidebar:SetItems` tiene la
+> idéntica fuga, y peor: `items` es prop reactiva, así que fuga sola), **FR-081**
+> (`Tooltip.Attach` apila closures de `HookScript` para siempre), **FR-082** (`Craft.scope()`) y
+> **FR-083** (menores, con la lista de lo que salió limpio para no re-auditarlo). Ninguno entra
+> en esta release.
+>
+> MINOR: `onRowReleased` es aditivo y el pool no cambia ninguna firma pública. La clave LibStub
+> sigue siendo `Craft-2.0` y **`Craft/Craft.toc` no cambia** (no hay archivos nuevos en `Craft/`),
+> así que el re-vendoreo en los consumidores es una copia ciega. `CRAFT_BUILD` 18→19.
+> Suite: **668 tests** (luacheck 0/0, taintlint 0/0 contra la db 12.1). Verificado in-game por el
+> maintainer en 12.1, con el banco de la página DragList de Craft_Browser.
+>
+> ⚠️ Un consumidor con un `renderRow` que **crea** regiones o componentes debe adaptarlo: o
+> hacerlo idempotente (cachear en el propio `content` y actualizar) o añadir `onRowReleased`.
+> Antes fugaba; ahora, sin una de las dos, apila. Ver `docs/components/draglist.md`
+> §*Ciclo de vida de la fila*.
 
 ### Added
 
@@ -32,6 +57,19 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   componentes en el propio `content` y los actualiza— queda **documentado explícitamente** en
   `docs/components/draglist.md`; antes no había ninguna forma correcta de escribirlo y nada
   avisaba. Specs nuevos: `tests/draglist_spec.lua` (13).
+
+### Fixed
+
+- **`Craft.DragList:SetItems()` fugaba una generación entera de frames por refresco (FR-079).**
+  `_build` no reusaba nada: ocultaba las filas anteriores (`Hide()` + `SetParent(nil)`) y creaba
+  N filas, N botones de grip y 3N texturas nuevas. Como los frames de WoW **no se destruyen
+  nunca**, la fuga era proporcional al uso, no al tiempo: en Coffer (Ajustes ▸ Categorías) cada
+  clic, cada renombrado y **cada pulsación en la caja de búsqueda** dejaba atrás una lista
+  entera. Ahora `_build` **poolea por índice** como ya hacía `Craft.Menu:_buildRows` — `self._rows`
+  es el pool (orden de creación, estable) y `self._order` el orden visual (referencias al pool,
+  que es lo único que el drag reordena): reusa las filas que hay, crea solo las que falten y
+  oculta las sobrantes. Sin cambios de API; el `FontString` del label por defecto también se reusa
+  en vez de apilarse.
 
 ## [2.16.0] - 2026-08-28
 
