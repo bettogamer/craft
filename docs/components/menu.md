@@ -2,8 +2,12 @@
 
 > Referencia shadcn: `dropdown-menu` + `context-menu` — WoW frame base: `Frame` (popover custom)
 > Origen: [FR-015](../requests/FR-015-context-menu.md) (+ [FR-065](../requests/FR-065-menu-item-avatar.md),
-> avatar de fila). Estado: **implementado** en `dev` y verificado in-game
-> (`Craft/components/Menu.lua`, `tests/menu_spec.lua`). Pendiente de release (MINOR).
+> avatar de fila; [FR-067](../requests/FR-067-menu-item-tooltip.md), tooltip de fila;
+> [FR-084](../requests/FR-084-menu-icono-real-y-tooltip-nativo-por-fila.md), slot leading en filas
+> de selección + tooltip nativo; [FR-085](../requests/FR-085-menu-submenus.md), submenús).
+> Estado: **implementado** y verificado in-game
+> (`Craft/components/Menu.lua`, `tests/menu_spec.lua`). Submenús y las dos mitades de FR-084
+> salen en **v2.18.0**.
 
 `Craft.Menu` es **un solo componente** que cubre las dos primitivas de shadcn a la vez:
 `DropdownMenu` (abre con click izquierdo desde un trigger) y `ContextMenu` (abre con click
@@ -37,6 +41,13 @@ sobre `Craft.Menu`*, no un componente nuevo.
          py-2 pr-8 pl-2 text-xs data-inset:pl-7 [&_svg]:size-4;
 }
 .cn-dropdown-menu-item-indicator { @apply absolute right-2 flex items-center justify-center; }
+.cn-dropdown-menu-sub-trigger {    /* = item + estado abierto persistente */
+  @apply focus:bg-accent focus:text-accent-foreground
+         data-[state=open]:bg-accent data-[state=open]:text-accent-foreground;
+}
+.cn-dropdown-menu-sub-content {    /* mismo panel que -content, misma entrada zoom-95 */
+  @apply bg-popover text-popover-foreground ring-foreground/10 min-w-32 rounded-none ring-1;
+}
 .cn-dropdown-menu-label      { @apply text-muted-foreground px-2 py-2 text-xs font-medium; }
 .cn-dropdown-menu-separator  { @apply bg-border -mx-1 h-px; }  /* my-1 (4px) del base .tsx */
 .cn-dropdown-menu-shortcut   { @apply text-muted-foreground ml-auto text-xs tracking-widest; }
@@ -67,10 +78,14 @@ de panel de `Craft.Select`.
 (catcher fullscreen + Esc), `Open(anchor, opts)` anclado + `AttachContextMenu(frame, builder)`
 al cursor, scroll interno si excede `maxHeight`.
 
-**Diferido (fuera de v1):**
-- **Submenús** (`Sub`/`SubTrigger`/`SubContent`). Ningún caso de Coffer los usa y concentran el
-  grueso de la complejidad (panel propio, apertura por hover, flip lateral, dismissal
-  encadenado). La key `submenu` queda **reservada / no-op** en v1 para no romper el API.
+**Añadido después de v1:**
+- **Submenús** ([FR-085](../requests/FR-085-menu-submenus.md)) — `type="submenu"` con `items`
+  (estático) o `builder` (evaluado **al abrir**), apertura por hover con gracia + clic, flip
+  lateral y dismissal encadenado. La key `submenu` **ya no es no-op**.
+- **Slot leading en filas de selección** y **tooltip nativo del juego**
+  ([FR-084](../requests/FR-084-menu-icono-real-y-tooltip-nativo-por-fila.md)).
+
+**Diferido:**
 - **`layout="grid"`** (marker-menu de Coffer — grid 4×2 de iconos). Coffer lo resuelve custom;
   posible variante futura.
 
@@ -95,14 +110,21 @@ Frame (panel)                       — TOOLTIP strata, parent UIParent, con NOM
             └─ item      → Button   (pl-2; checkbox/radio reservan pr-8 a la derecha)
                  ├── Craft.Avatar (24px)   ← si config.avatar (slot leading; PISA a icon, fila 36px)
                  ├── Texture (icon 16px)   ← si config.icon (izquierda, tras pl-2)
+                 │        · el slot leading vale en item/checkbox/radio/submenu (FR-084)
                  ├── FontString (label)
                  ├── FontString (rightText)← muted, right-aligned (Shortcut)
                  ├── Texture (indicator)   ← DERECHA (right-2): check/minus 14px (checkbox)
                  │                              | discos ring/fill/dot 8px (radio)   [ver DECISIÓN]
+                 ├── Texture (chevron 16px)← si type=="submenu" (ml-auto, px-2 del borde)
                  └── Button (delete ✕ 12px)← si config.onDelete (área propia, no dispara onClick)
 
 Frame (catcher)                     — FULLSCREEN_DIALOG strata (justo bajo TOOLTIP),
                                        fullscreen, transparente, EnableMouse → click cierra
+                                       (SOLO el menú raíz: un hijo no monta el suyo)
+
+Craft.Menu (hijo, self._sub)        — un Craft.Menu COMPLETO, no un panel aparte (FR-085):
+                                       misma clase ⇒ mismos tipos de fila, props reactivas,
+                                       scroll y animación; profundidad ilimitada gratis.
 ```
 
 El indicador de `checkbox` reutiliza el patrón de [`Checkbox.lua`](../../Craft/components/Checkbox.lua)
@@ -116,10 +138,18 @@ no hay glyph `circle` plano en el atlas).
 |---|---|---|---|
 | `heading` | label atenuado (`mutedForeground`, font-medium), no interactivo | — | `MenuLabel` (Group) |
 | `item` | label + (`avatar` **o** `icon` izq) + (`rightText` der) + (`onDelete`→✕); `variant="destructive"` → texto/hover destructive | `onClick` | `MenuItem` (+`Shortcut`) |
-| `checkbox` | indicador check/minus a la izq (tri-estado) | `onToggle(on)` | `CheckboxItem` |
-| `radio` (`group`) | disco radio; exclusivo dentro de `group` | `onSelect(value)` | `RadioGroup`+`RadioItem` |
+| `checkbox` | (`avatar`/`icon` izq) + indicador check/minus a la **derecha** (tri-estado) | `onToggle(on)` | `CheckboxItem` |
+| `radio` (`group`) | (`avatar`/`icon` izq) + disco radio a la derecha; exclusivo dentro de `group` | `onSelect(value)` | `RadioGroup`+`RadioItem` |
 | `separator` | línea 1px `t.border` | — | `MenuSeparator` |
-| `submenu` | **reservado / no-op en v1** (chevron-right a futuro) | — | `Sub…` |
+| `submenu` | label + (`avatar`/`icon` izq) + (`rightText`) + **chevron-right**; abre un menú hijo con `items` o `builder` | — (abre la rama) | `Sub`+`SubTrigger`+`SubContent` |
+
+> **El slot leading (`avatar`/`icon`) vale en TODOS los tipos interactivos**
+> ([FR-084](../requests/FR-084-menu-icono-real-y-tooltip-nativo-por-fila.md) hueco 1). Antes vivía
+> sólo en la rama de `item`, así que una lista de ítems del juego podía enseñar la textura real
+> **o** decir cuál estaba elegida, nunca las dos. shadcn no separa nada de eso: `CheckboxItem` y
+> `RadioItem` pintan sus children igual que un `Item` (la regla Lyra dice `gap-2 [&_svg]:size-4`
+> para los tres) y el indicador es `absolute right-2`, así que no compite con el slot leading. Lo
+> único que cambia entre ramas es qué padding derecho tiene que librar la etiqueta.
 
 > **`avatar` (retrato en el slot leading) es una extensión de Craft** ([FR-065](../requests/FR-065-menu-item-avatar.md)),
 > igual que `rightText` y `onDelete`. En shadcn el avatar del patrón *account switcher* viene del
@@ -141,6 +171,15 @@ no hay glyph `circle` plano en el atlas).
 > - `string` para el caso simple; `fn(cfg) → string` para texto que cambia entre aperturas
 >   (se evalúa **en el hover**, no al construir — las filas son pooled y se reconfiguran en
 >   cada `Open`). Devolver `nil`/`""` no muestra nada.
+> - **`table` → tooltip NATIVO del juego** ([FR-084](../requests/FR-084-menu-icono-real-y-tooltip-nativo-por-fila.md)
+>   hueco 2): `{ item = <id|link> }`, `{ spell = <id> }`, `{ link = <hyperlink> }`,
+>   `{ unit = <unit> }`, o `{ setup = fn(GameTooltip) }` como escotilla para los setters no
+>   listados (`SetCurrencyByID`, …). Es la única forma que Craft no puede pintar por su cuenta:
+>   el tooltip real de un ítem o un hechizo es dato que el addon **no tiene como texto**. Craft
+>   se encarga del ciclo entero — `SetOwner(row, "ANCHOR_RIGHT")`, el setter, y la retirada al
+>   salir de la fila **y al cerrar el menú** — así que el consumidor **no engancha** `OnUpdate`
+>   ni `OnHide` sobre el panel. Sólo esconde el `GameTooltip` mientras siga siendo suyo
+>   (`GetOwner() == row`): apropiarse del tooltip de otro frame no le toca.
 > - **Anclado a la DERECHA** (`side = "right"` de `Craft.Tooltip`): un menú ya está pegado a su
 >   ancla y un tooltip arriba/abajo taparía las filas vecinas.
 > - **Retardo de 300ms**, el mismo de `Craft.Tooltip.Attach`. Las filas están apiladas, así que
@@ -159,8 +198,8 @@ no hay glyph `circle` plano en el atlas).
 
 | Propiedad | Valor |
 |---|---|
-| Altura de fila `item`/`checkbox`/`radio` | **28px** (`py-2`=8 + text-xs=12 + `py-2`=8) — igual que Select |
-| Altura de fila `item` **con `avatar`** | **36px** = 24 (avatar `sm`) + 6×2 de aire — solo esa fila (extensión Craft, alturas mixtas) |
+| Altura de fila `item`/`checkbox`/`radio`/`submenu` | **28px** (`py-2`=8 + text-xs=12 + `py-2`=8) — igual que Select |
+| Altura de fila **con `avatar`** (cualquier tipo) | **36px** = 24 (avatar `sm`) + 6×2 de aire — solo esa fila (extensión Craft, alturas mixtas) |
 | Avatar de fila | `Craft.Avatar` size `sm` = **24px**, en `pl-2`, `gap-2` hasta el label |
 | Altura `heading` | 28px (`px-2 py-2` + text-xs, `font-medium`) |
 | Padding interno del panel | `p-1` = 4px (del base .tsx; Lyra no lo overridea) |
@@ -171,6 +210,8 @@ no hay glyph `circle` plano en el atlas).
 | Check indicator | `size-3.5` = 14px (glyph `check`/`minus`) |
 | Radio dot | `size-2` = 8px (disco `dot`, como RadioGroup) |
 | Icono de fila | `size-4` = 16px |
+| Chevron de `submenu` | `size-4` = 16px, `ml-auto` → pegado al `px-2` derecho; `rightText` **antes**, a `px-2 + 16 + gap-2` = 32px |
+| Retardo de apertura por hover (`submenu`) | 200 ms (Radix usa 100 ms + safe-triangle; ver Notas) |
 | Botón delete ✕ | 12px (extensión Craft) |
 | Separator | `h-px` (1px) + `-mx-1` (se extiende 4px) + `my-1` (4px margen V, del base) |
 | Min-width del panel | dropdown `min-w-32`=**128px** · context `min-w-36`=144px |
@@ -186,6 +227,7 @@ no hay glyph `circle` plano en el atlas).
 |---|---|---|
 | Default | Transparent | `t.popoverForeground` |
 | Hover | `t.accent` | `t.accentForeground` |
+| `submenu` con su rama abierta | `t.accent` (persiste al salir de la fila) | `t.accentForeground` |
 | Disabled | Transparent + `SetAlpha(0.5)`, sin mouse | `t.mutedForeground` |
 
 - `checkbox` marcado → glyph `check`; indeterminado → glyph `minus`; ambos `popoverForeground`.
@@ -210,6 +252,7 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
 | Heading | `t.mutedForeground` |
 | rightText | `t.mutedForeground` |
 | Separator | `t.border` |
+| Chevron de `submenu` | `t.popoverForeground` (hereda el color de texto en shadcn) |
 | Checkbox indicador | `t.popoverForeground` (glyph check/minus) |
 | Radio ring/fill/dot | `t.border`/`t.input` (idle) · `t.primary`/`t.primaryForeground` (selected) |
 | Delete ✕ | `t.mutedForeground` · `t.destructive` (hover) |
@@ -231,11 +274,11 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
 
 | Campo | Tipos que lo usan | Descripción |
 |---|---|---|
-| `type` | todos | `"heading"` \| `"item"` \| `"checkbox"` \| `"radio"` \| `"separator"` \| `"submenu"`(no-op) |
-| `label` | heading, item, checkbox, radio | Texto (acepta señal) |
-| `icon` | item | Nombre de icono Lucide del atlas (`Craft.Icons`) — ignorado si hay `avatar` |
-| `avatar` | item | Tabla de config de `Craft.Avatar` size `sm`: `{ unit=… }` \| `{ atlas=… }` \| `{ image=…, crop=…, texCoord=… }` + `fallback` (iniciales) + `desaturated`. Sube la fila a 36px (extensión Craft, [FR-065](../requests/FR-065-menu-item-avatar.md)) |
-| `rightText` | item | Texto atenuado a la derecha (Shortcut) |
+| `type` | todos | `"heading"` \| `"item"` \| `"checkbox"` \| `"radio"` \| `"separator"` \| `"submenu"` |
+| `label` | heading, item, checkbox, radio, submenu | Texto (acepta señal) |
+| `icon` | item, checkbox, radio, submenu | Nombre de icono Lucide del atlas (`Craft.Icons`) — ignorado si hay `avatar` |
+| `avatar` | item, checkbox, radio, submenu | Tabla de config de `Craft.Avatar` size `sm`: `{ unit=… }` \| `{ atlas=… }` \| `{ image=…, crop=…, texCoord=… }` + `fallback` (iniciales) + `desaturated`. Sube la fila a 36px (extensión Craft, [FR-065](../requests/FR-065-menu-item-avatar.md) + [FR-084](../requests/FR-084-menu-icono-real-y-tooltip-nativo-por-fila.md)) |
+| `rightText` | item, submenu | Texto atenuado a la derecha (Shortcut). En `submenu` va **antes** del chevron: dice qué lleva la rama sin abrirla |
 | `onClick` | item | `fn()` al clickear la fila |
 | `onDelete` | item | `fn()` — muestra ✕ trailing; su click no dispara `onClick` (extensión Craft) |
 | `variant` | item | `"default"` (def) \| `"destructive"` → texto `t.destructive`, hover `destructive/20` (confirmado en HTML Lyra real) |
@@ -244,9 +287,11 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
 | `group` | radio | Id de grupo; selección exclusiva dentro del grupo |
 | `value` | radio | Valor de esta opción de radio |
 | `onSelect` | radio | `fn(value)` al seleccionar |
-| `disabled` | item, checkbox, radio | Fila gris no clickeable — acepta señal. **Sigue recibiendo hover** para poder mostrar su `tooltip` (FR-067) |
-| `tooltip` | item, checkbox, radio | `string` \| `fn(cfg) → string`. Tooltip de la fila, anclado a su DERECHA tras 300ms de hover. Funciona también con `disabled = true` (extensión Craft, [FR-067](../requests/FR-067-menu-item-tooltip.md)) |
-| `submenu` | (reservado) | v1: ignorado |
+| `disabled` | item, checkbox, radio, submenu | Fila gris no clickeable — acepta señal. **Sigue recibiendo hover** para poder mostrar su `tooltip` (FR-067). Un `submenu` gris no abre su rama |
+| `tooltip` | item, checkbox, radio, submenu | `string` \| `fn(cfg) → string` \| **`table`** (tooltip nativo: `item`/`spell`/`link`/`unit`/`setup`). Anclado a la DERECHA de la fila tras 300ms de hover. Funciona también con `disabled = true` (extensión Craft, [FR-067](../requests/FR-067-menu-item-tooltip.md) + [FR-084](../requests/FR-084-menu-icono-real-y-tooltip-nativo-por-fila.md)) |
+| `items` | submenu | Array de entradas de la rama (mismo esquema, recursivo) |
+| `builder` | submenu | `fn() → items`, **evaluado al abrir la rama**, no al construir el padre. Preferido para ramas caras: cinco listas de 40 filas construidas en cada clic derecho, para que el jugador abra una, es trabajo tirado |
+| `width` / `maxHeight` | submenu | Como en `Create`, pero para el panel de esa rama. `maxHeight` se hereda del padre si no se da |
 
 > **Props reactivas (ADR-0013):** `label`, `checked` y `disabled` de cada entrada aceptan
 > señal/computed de Weave. **Ciclo de vida:** los binds se crean al **abrir** el menú y se
@@ -314,6 +359,34 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
 - **Strata TOOLTIP** (decisión FR): el panel debe quedar sobre `Window`/`Dialog` (strata
   `DIALOG`). Catcher un escalón por debajo (`FULLSCREEN_DIALOG`).
 - **Sin focus ring / navegación por teclado** (WoW mouse-only, ADR-0011). Esc sí aplica (cierra).
+- **Submenús = un `Craft.Menu` hijo** ([FR-085](../requests/FR-085-menu-submenus.md)), no un
+  segundo tipo de panel. Al ser la misma clase, la rama hereda tipos de fila, props reactivas,
+  tooltips, scroll, medición de ancho y animación, y la profundidad es ilimitada sin código
+  extra. Sólo cambian dos cosas en una instancia hija: **no monta catcher** (el del raíz ya
+  cubre la pantalla, y un segundo se comería el clic que debe cerrar toda la cadena) y **conoce
+  a su padre**, así que una selección cierra hacia arriba. **Una sola instancia hija por menú**
+  y se reutiliza entre triggers — misma razón por la que las filas son pooled.
+  - **Colocación:** `side="right" align="start"` de Radix — el `TOPLEFT` del hijo contra el
+    `TOPRIGHT` de la fila trigger; si el panel se saldría de pantalla, se **voltea** (`TOPRIGHT`
+    contra `TOPLEFT`). Las anchuras se comparan en unidades de PANTALLA (`GetRight() *
+    GetEffectiveScale()`), y el hijo adopta la escala del panel padre.
+  - **Animación:** el mismo progreso único, con el slide en el eje **X** (`_panelSlideAxis`):
+    Lyra mantiene el `zoom-in-95` de `-content` y cambia `slide-in-from-top` por
+    `-from-left` (`-from-right` si volteó).
+  - **Hover con gracia:** abre a los 200 ms; la rama abierta se cierra **sólo cuando el puntero
+    entra en OTRA fila** del padre, nunca al salir de la fila trigger — la versión barata del
+    problema de la diagonal (Radix usa un safe-triangle), suficiente porque el panel hijo nace
+    pegado al borde derecho de la fila (no hay hueco que cruzar).
+  - **La fila trigger se queda encendida** mientras su rama está abierta
+    (`data-[state=open]:bg-accent`): `_onRowLeave` no la apaga si es la trigger activa.
+  - **Esc encadenado:** `CloseSpecialWindows()` de Blizzard esconde **todos** los frames
+    listados en `UISpecialFrames` de una sola pulsación, así que padre e hijo caerían juntos.
+    Craft cierra de dentro afuera como Radix: mientras la rama está abierta el **padre se
+    desregistra** y el hijo queda como único panel listado; el `onClose` del hijo se lo
+    devuelve. Una Esc por nivel, sin re-`Show()` a mitad de `OnHide`.
+  - **Una selección en cualquier nivel cierra la cadena entera** (`_closeChain`): el jugador ya
+    respondió la pregunta que hacía el menú raíz. Las filas `checkbox` son la excepción y ni
+    pasan por ahí (siguen abiertas para multi-toggle).
 
 ### Diferencias conocidas vs shadcn
 
@@ -321,7 +394,13 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
   disparador). No se replican dos componentes.
 - **`onDelete` (✕ por fila)** y **`avatar` (retrato leading)**: extensiones de Craft, no existen
   en shadcn `dropdown-menu` (el avatar del account-switcher vive en el markup del bloque).
-- **Submenús y `Group`**: diferidos (v1 usa `heading`+`separator` para agrupar; `submenu` no-op).
+- **`tooltip` como tabla (GameTooltip)**: extensión de Craft sin análogo en shadcn — es la
+  afordancia WoW para lo que el addon no puede redactar (el tooltip real de un ítem/hechizo).
+- **`Group`**: diferido (se agrupa con `heading`+`separator`). Los submenús **ya no**: FR-085.
+- **Esc en un submenú**: Radix cierra el nivel interno; Craft también, pero pagando el
+  desregistro del padre en `UISpecialFrames` (Blizzard no distingue niveles). Ver Notas.
+- **Hover de submenú sin safe-triangle**: Radix rastrea el polígono cursor→panel; Craft cierra
+  la rama sólo al entrar en otra fila. Mismo resultado práctico, un orden de magnitud menos.
 - **Config declarativa plana** (`items[]` con `type`) en vez del árbol de subcomponentes JSX de
   shadcn — coherente con el resto de componentes de Craft (Select, Sidebar).
 
