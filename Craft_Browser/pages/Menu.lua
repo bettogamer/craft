@@ -175,6 +175,87 @@ CraftBrowserPages["Menu"] = {
         table.insert(comps, btn4)
         y = y + 44
 
+        -- ── Case 5 — Submenus (FR-085) + native GameTooltip rows (FR-084) ──────────
+        -- The case both FRs were filed for: one right-click configures a whole piece
+        -- of gear. Each branch is a single-choice list whose rows carry the REAL item
+        -- texture *and* the selection mark (FR-084 hueco 1) — the combination the
+        -- component could not express — and explain themselves with the CLIENT's
+        -- tooltip (FR-084 hueco 2), which no addon can rebuild as text.
+        y = addLabel("Context menu with submenus — hover a ▸ row (branches build on open)", y)
+
+        local gear = { gem = "ruby", enchant = "speed", catalyzed = false }
+        local GEMS = {
+            { value="ruby",     label="Bold Ruby",        item=213743, atlas="classicon-mage" },
+            { value="onyx",     label="Solid Onyx",       item=213746, atlas="classicon-warrior" },
+            { value="sapphire", label="Sparkling Sapphire", item=213749, atlas="classicon-mage" },
+        }
+        local gemName = function()
+            for _, g in ipairs(GEMS) do if g.value == gear.gem then return g.label end end
+        end
+
+        local slot = CreateFrame("Frame", nil, parent)
+        slot:SetSize(280, 56)
+        slot:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        local slotBg = slot:CreateTexture(nil, "BACKGROUND")
+        slotBg:SetAllPoints(slot)
+        slotBg:SetColorTexture(t.input.r, t.input.g, t.input.b, (t.input.a or 1) * 0.30)
+        local slotLbl = Craft.Label:Create(slot, { text="Right-click this slot",
+            color = { r=t.mutedForeground.r, g=t.mutedForeground.g, b=t.mutedForeground.b, a=1 } })
+        slotLbl:GetFrame():SetPoint("CENTER", slot, "CENTER")
+        table.insert(comps, slotLbl)
+
+        local gearMenu = Craft.Menu:AttachContextMenu(slot, function()
+            return { items = {
+                { type="item", label="Change item…", icon="package", onClick=function() end },
+                { type="separator" },
+                -- `builder` (not `items`): the 3 gem rows are built the moment this
+                -- branch opens, not on every right-click of the slot.
+                { type="submenu", label="Gem", icon="gem", rightText=gemName(),
+                  builder=function()
+                      local rows = {}
+                      for _, g in ipairs(GEMS) do
+                          rows[#rows+1] = {
+                              type="radio", group="gem", value=g.value, label=g.label,
+                              avatar={ atlas=g.atlas, fallback=g.label:sub(1,1) },
+                              checked = (gear.gem == g.value),
+                              tooltip = { item = g.item },     -- the client's own tooltip
+                              onSelect=function(v) gear.gem = v end,
+                          }
+                      end
+                      return rows
+                  end },
+                { type="submenu", label="Enchant", icon="wand-sparkles", rightText="Whisper of Speed",
+                  items = {
+                      { type="radio", group="ench", value="speed", label="Whisper of Speed",
+                        checked = (gear.enchant == "speed"), tooltip = { spell = 7301 },
+                        onSelect=function(v) gear.enchant = v end },
+                      { type="radio", group="ench", value="armor", label="Council's Guile",
+                        checked = (gear.enchant == "armor"),
+                        onSelect=function(v) gear.enchant = v end },
+                  } },
+                -- A branch nested inside a branch: depth is free (the child IS a Menu).
+                { type="submenu", label="Item level", rightText="Mythic 723", items = {
+                    { type="submenu", label="Raid", items = {
+                        { type="item", label="Mythic 723",  onClick=function() end },
+                        { type="item", label="Heroic 710",  onClick=function() end },
+                        { type="item", label="Normal 697",  onClick=function() end },
+                    } },
+                    { type="submenu", label="Delve", items = {
+                        { type="item", label="Tier 11 704", onClick=function() end },
+                        { type="item", label="Tier 8 691",  onClick=function() end },
+                    } },
+                } },
+                -- A checkbox in the root keeps the menu open, as it always did.
+                { type="checkbox", label="Catalyzed", checked=gear.catalyzed,
+                  onToggle=function(on) gear.catalyzed = on end },
+                { type="separator" },
+                { type="item", label="Remove item", icon="trash-2", variant="destructive",
+                  onClick=function() end },
+            } }
+        end)
+        table.insert(menus, gearMenu)
+        y = y + 68
+
         return {
             height  = y + 24,
             cleanup = function()
