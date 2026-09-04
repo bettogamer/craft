@@ -1,19 +1,25 @@
 -- Menu.lua
 -- Spec: docs/components/menu.md   ·   FR: docs/requests/FR-015-context-menu.md
 --                                        docs/requests/FR-065-menu-item-avatar.md
+--                                        docs/requests/FR-084-menu-icono-real-y-tooltip-nativo-por-fila.md
+--                                        docs/requests/FR-085-menu-submenus.md
 -- Design: shadcn Lyra — dropdown-menu + context-menu (same anatomy, one component)
 --   .cn-dropdown-menu-content   { bg-popover ring-foreground/10 min-w-32 rounded-none ring-1 }  (+ p-1 base)
 --   .cn-dropdown-menu-item      { focus:bg-accent gap-2 px-2 py-2 text-xs  data-[variant=destructive]:... }
 --   .cn-dropdown-menu-checkbox-item / -radio-item { py-2 pr-8 pl-2 }  (indicator absolute right-2)
+--   .cn-dropdown-menu-sub-trigger  { data-[state=open]:bg-accent data-[state=open]:text-accent-foreground }
+--   .cn-dropdown-menu-sub-content  { = content (bg-popover ring-1 p-1) + zoom-in-95 }
 --   .cn-dropdown-menu-label     { text-muted-foreground px-2 py-2 text-xs font-medium }
 --   .cn-dropdown-menu-separator { bg-border -mx-1 h-px }  (+ my-1 base)
 --   indicators: check/minus size-3.5 (14px) · radio CircleIcon fill size-2 (8px) shown when selected.
+--   sub-trigger chevron: ChevronRightIcon ml-auto size-4 (16px).
 --
 -- Craft.Menu is ONE component covering shadcn's DropdownMenu (Open, anchored) and ContextMenu
 -- (OpenAtCursor / AttachContextMenu). It reuses Select's popover panel infra (UIParent/TOOLTIP,
 -- 1px ring + popover bg, ScrollFrame, fade+zoom+slide, index-pooled rows) with heterogeneous
--- rows and a unified dismissal (fullscreen catcher + Esc). Submenus and layout="grid" are
--- deferred (v1): `submenu` is a reserved no-op key.
+-- rows and a unified dismissal (fullscreen catcher + Esc). A `submenu` row opens a CHILD
+-- Craft.Menu (FR-085) — same class, so every row type, prop and animation comes for free and
+-- depth is unbounded; layout="grid" stays deferred.
 
 local Craft = LibStub("Craft-2.0")
 local Weave = LibStub("Weave-1.0")
@@ -25,6 +31,11 @@ Menu.__index = Menu
 -- ─── Constants ──────────────────────────────────────────────────────────────
 -- Geometry verified against style-lyra.css (2026-07-09). 1 Tailwind unit = 4px.
 local TOOLTIP_DELAY = 0.30  -- s — matches Craft.Tooltip.Attach's default (FR-067)
+-- Hover-to-open grace for a submenu (FR-085 §3). Shorter than the tooltip delay:
+-- the child is the destination the cursor is heading for, not an explanation of
+-- the row it is passing over. Radix' own default is 100ms + a safe-triangle; the
+-- cheap substitute here is "only another ROW closes the child" (see _onRowEnter).
+local SUBMENU_DELAY = 0.20
 local ROW_H       = 28   -- item/checkbox/radio/heading (py-2×2 + text-xs=12)
 local SEP_MY      = 4    -- my-1 (separator vertical margin, from base .tsx)
 local SEP_ROW_H   = SEP_MY * 2 + 1   -- separator row footprint (1px line + margins)
@@ -39,6 +50,7 @@ local GAP         = 8    -- gap-2 (icon → label)
 local CHECK_SIZE  = 14   -- size-3.5 (check/minus glyph)
 local RADIO_DOT   = 8    -- size-2 (radio dot, shown only when selected)
 local ICON_SIZE   = 16   -- size-4
+local CHEV_SIZE   = 16   -- size-4 (sub-trigger chevron, ml-auto)
 local DELETE_SIZE = 12   -- ✕ (Craft extension)
 -- Avatar in the leading slot (FR-065, Craft extension — shadcn's account-switcher
 -- avatar comes from the BLOCK markup, not from dropdown-menu's CSS: no Lyra to
@@ -131,6 +143,7 @@ function Menu:Create(config)
     self._anchorX        = 0
     self._anchorY        = -2
     self._panelSlideDir  = 1
+    self._panelSlideAxis = "y"   -- "x" for a submenu (side=right → slide-in-from-left)
     self._effects[#self._effects + 1] = Weave.effect(function()
         local prog = alpha()
         if type(prog) ~= "number" then return end
@@ -144,8 +157,18 @@ function Menu:Create(config)
         -- would fly in from the bottom-left corner. Divide the zoom out so only the
         -- panel scales and the anchor point stays put (FR-061).
         local comp = (zoom ~= 0) and (1 / zoom) or 1
-        local dx = self._anchorX * comp
-        local dy = (self._anchorY + m.motionSlide * (1 - prog) * self._panelSlideDir) * comp
+        -- The slide runs along the axis the panel entered from: down from its anchor
+        -- for a dropdown/context panel, sideways for a submenu (Lyra's sub-content
+        -- keeps the same zoom-in-95 and swaps slide-in-from-top for -from-left).
+        local slide = m.motionSlide * (1 - prog) * self._panelSlideDir
+        local dx, dy
+        if self._panelSlideAxis == "x" then
+            dx = (self._anchorX + slide) * comp
+            dy = self._anchorY * comp
+        else
+            dx = self._anchorX * comp
+            dy = (self._anchorY + slide) * comp
+        end
         self._panel:ClearAllPoints()
         self._panel:SetPoint(self._anchorPoint, self._anchorFrame, self._anchorRelPoint, dx, dy)
     end)
@@ -156,7 +179,7 @@ function Menu:Create(config)
     -- run Close() so binds/catcher/onClose fire exactly once. A graceful Close()
     -- already flipped _open false before the fade hid the panel, so OnHide sees
     -- open=false and does nothing (no double onClose).
-    table.insert(UISpecialFrames, panelName)
+    self:_escResume()
     self._panel:SetScript("OnHide", function()
         if self._open:peek() then
             self._hidden:set(true)
@@ -169,6 +192,25 @@ function Menu:Create(config)
     self:_applyTheme(Craft.Theme.get())
 
     return self
+end
+
+-- ─── Esc registration (UISpecialFrames) ─────────────────────────────────────
+-- Blizzard's CloseSpecialWindows() hides EVERY shown frame listed in
+-- UISpecialFrames on a single Esc — so a parent and its open child would both go
+-- down at once. Radix closes the innermost level first, and so does Craft: while a
+-- submenu is open the PARENT unregisters, leaving the child the only listed panel;
+-- the child's onClose puts the parent back. One Esc per level, no re-Show hacks.
+function Menu:_escResume()
+    for i = 1, #UISpecialFrames do
+        if UISpecialFrames[i] == self._panelName then return end
+    end
+    table.insert(UISpecialFrames, self._panelName)
+end
+
+function Menu:_escSuspend()
+    for i = #UISpecialFrames, 1, -1 do
+        if UISpecialFrames[i] == self._panelName then table.remove(UISpecialFrames, i) end
+    end
 end
 
 -- ─── Row factory ──────────────────────────────────────────────────────────────
@@ -203,6 +245,9 @@ function Menu:_makeRow()
     local indDot = row:CreateTexture(nil, "ARTWORK")    -- radio dot, right
     indDot:SetSize(DOT_TEX, DOT_TEX)
 
+    local chev = row:CreateTexture(nil, "ARTWORK")      -- submenu chevron, right
+    chev:SetSize(CHEV_SIZE, CHEV_SIZE)
+
     -- NOTE: no avatar here. It is created LAZILY (_ensureAvatar) the first time a
     -- row actually needs one: Craft.Avatar builds MaskTextures, and rule #132
     -- (FR-062) says no masks dangling off rows that never show a portrait.
@@ -216,7 +261,7 @@ function Menu:_makeRow()
 
     local item = {
         row = row, bg = bg, sep = sep, icon = icon, label = label,
-        rightText = rightText, indCheck = indCheck, indDot = indDot,
+        rightText = rightText, indCheck = indCheck, indDot = indDot, chev = chev,
         del = del, delTex = delTex,
     }
 
@@ -313,7 +358,7 @@ function Menu:_renderRow(item, cfg)
 
     -- Reset every optional part; start from a neutral row.
     item.icon:Hide(); item.rightText:Hide(); item.indCheck:Hide()
-    item.indDot:Hide(); item.del:Hide(); item.sep:Hide()
+    item.indDot:Hide(); item.del:Hide(); item.sep:Hide(); item.chev:Hide()
     item.bg:SetColorTexture(0, 0, 0, 0)
     item.label:Hide()
     if item.avatar then item.avatar:GetFrame():Hide() end
@@ -334,9 +379,9 @@ function Menu:_renderRow(item, cfg)
     end
 
     -- Row height is per-row (the separator already returned its own above): only a
-    -- plain item carrying an avatar grows to fit the 24px portrait. _buildRows
-    -- accumulates whatever _renderRow returns, so mixed heights just work.
-    local useAvatar = (typ == "item") and cfg.avatar and Craft.Avatar and true or false
+    -- row carrying an avatar grows to fit the 24px portrait. _buildRows accumulates
+    -- whatever _renderRow returns, so mixed heights just work.
+    local useAvatar = cfg.avatar and Craft.Avatar and true or false
     local rowH = useAvatar and AVATAR_ROW_H or ROW_H
     row:SetHeight(rowH)
     Craft.Theme.applyFont(item.label, (typ == "heading" and (t.fontMedium or t.font)) or t.font, FONT_SIZE)
@@ -359,11 +404,53 @@ function Menu:_renderRow(item, cfg)
     item._interactive = true
     item._checkedSignal = Craft.Reactive.isWritableSignal(cfg.checked) and cfg.checked or nil
 
+    -- ── Leading slot (avatar / icon) — shared by EVERY interactive type ────────
+    -- FR-084 hueco 1: it used to live inside the plain-item branch, so a list of
+    -- real item textures could not also say which one was picked. shadcn has no
+    -- such split — CheckboxItem/RadioItem render their children exactly like an
+    -- Item (Lyra states `gap-2 [&_svg]:size-4` for all three) and the indicator is
+    -- `absolute right-2`, so it never competes with the leading slot. The only
+    -- difference between the branches is which right padding the label must clear.
+    local isCR    = (typ == "checkbox" or typ == "radio")
+    local leftPad = isCR and CR_PL or ITEM_PL
+    local x = leftPad
+    if useAvatar then
+        -- `avatar` WINS over `icon` (they compete for the same leading slot).
+        local av  = self:_ensureAvatar(item)
+        local spec = cfg.avatar
+        -- Crop BEFORE the source: assigning a texture re-applies the texcoords.
+        av:SetFallback(spec.fallback or "")
+        av:SetCrop(spec.crop or 0)
+        local tc = spec.texCoord
+        av:SetTexCoord(tc and tc[1], tc and tc[2], tc and tc[3], tc and tc[4])
+        if spec.unit then
+            av:SetPortraitUnit(spec.unit)
+        elseif spec.atlas then
+            av:SetAtlas(spec.atlas)
+        else
+            av:SetImage(spec.image)
+        end
+        av:SetDesaturated(spec.desaturated and true or false)
+        -- Craft.Avatar is purely presentational (no EnableMouse), so it never
+        -- steals the row's click/hover.
+        av:GetFrame():ClearAllPoints()
+        av:GetFrame():SetPoint("LEFT", row, "LEFT", leftPad, 0)
+        av:GetFrame():Show()
+        x = leftPad + AVATAR_SIZE + GAP
+    elseif cfg.icon then
+        item.icon:ClearAllPoints()
+        item.icon:SetPoint("LEFT", row, "LEFT", leftPad, 0)
+        Craft.Icons.Apply(item.icon, cfg.icon, ICON_SIZE)
+        item.icon:SetVertexColor(1, 1, 1, 1)
+        item.icon:Show()
+        x = leftPad + ICON_SIZE + GAP
+    end
+    item.label:ClearAllPoints()
+    item.label:SetPoint("LEFT", row, "LEFT", x, 0)
+
     local contentW
-    if typ == "checkbox" or typ == "radio" then
-        item.label:ClearAllPoints()
-        item.label:SetPoint("LEFT", row, "LEFT", CR_PL, 0)
-        contentW = CR_PL + item.label:GetStringWidth() + CR_PR
+    if isCR then
+        contentW = x + item.label:GetStringWidth() + CR_PR
 
         if typ == "checkbox" then
             item._checked = resolve(cfg.checked)
@@ -372,42 +459,30 @@ function Menu:_renderRow(item, cfg)
         else -- radio
             self:_setRadioIndicator(item, cfg)
         end
-    else -- plain item
-        local x = ITEM_PL
-        if useAvatar then
-            -- `avatar` WINS over `icon` (they compete for the same leading slot).
-            local av  = self:_ensureAvatar(item)
-            local spec = cfg.avatar
-            -- Crop BEFORE the source: assigning a texture re-applies the texcoords.
-            av:SetFallback(spec.fallback or "")
-            av:SetCrop(spec.crop or 0)
-            local tc = spec.texCoord
-            av:SetTexCoord(tc and tc[1], tc and tc[2], tc and tc[3], tc and tc[4])
-            if spec.unit then
-                av:SetPortraitUnit(spec.unit)
-            elseif spec.atlas then
-                av:SetAtlas(spec.atlas)
-            else
-                av:SetImage(spec.image)
-            end
-            av:SetDesaturated(spec.desaturated and true or false)
-            -- Craft.Avatar is purely presentational (no EnableMouse), so it never
-            -- steals the row's click/hover.
-            av:GetFrame():ClearAllPoints()
-            av:GetFrame():SetPoint("LEFT", row, "LEFT", ITEM_PL, 0)
-            av:GetFrame():Show()
-            x = ITEM_PL + AVATAR_SIZE + GAP
-        elseif cfg.icon then
-            item.icon:ClearAllPoints()
-            item.icon:SetPoint("LEFT", row, "LEFT", ITEM_PL, 0)
-            Craft.Icons.Apply(item.icon, cfg.icon, ICON_SIZE)
-            item.icon:SetVertexColor(1, 1, 1, 1)
-            item.icon:Show()
-            x = ITEM_PL + ICON_SIZE + GAP
-        end
-        item.label:ClearAllPoints()
-        item.label:SetPoint("LEFT", row, "LEFT", x, 0)
 
+    elseif typ == "submenu" then
+        -- Sub-trigger: chevron-right pinned at the right padding edge (`ml-auto
+        -- size-4`), with the optional rightText sitting BEFORE it — the row says
+        -- what the branch currently holds without having to open it (FR-085 §1).
+        Craft.Icons.Apply(item.chev, "chevron-right", CHEV_SIZE)
+        item.chev:ClearAllPoints()
+        item.chev:SetPoint("RIGHT", row, "RIGHT", -ITEM_PR, 0)
+        item.chev:SetVertexColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b, 1)
+        item.chev:Show()
+
+        local rightPad = ITEM_PR + CHEV_SIZE + GAP
+        contentW = x + item.label:GetStringWidth() + rightPad
+        if cfg.rightText and cfg.rightText ~= "" then
+            Craft.Theme.applyFont(item.rightText, t.font, FONT_SIZE)
+            item.rightText:SetText(cfg.rightText)
+            item.rightText:ClearAllPoints()
+            item.rightText:SetPoint("RIGHT", row, "RIGHT", -rightPad, 0)
+            item.rightText:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+            item.rightText:Show()
+            contentW = contentW + GAP + item.rightText:GetStringWidth()
+        end
+
+    else -- plain item
         local rightPad = ITEM_PR
         if cfg.onDelete then
             item.del:SetHeight(rowH)   -- hit-area follows the (possibly taller) row
@@ -523,6 +598,40 @@ end
 -- that changes between openings; it is read from item.cfg at hover time because
 -- rows are pooled and reconfigured on every Open. Anchored to the row's RIGHT so
 -- it lands outside the panel instead of covering the neighbouring rows. FR-067.
+-- Hands the row's tooltip over to the CLIENT's GameTooltip (FR-084 hueco 2). A
+-- table `tooltip` is the one form Craft cannot render itself: the real tooltip of
+-- an item, a spell or a unit is data the addon does not have as text and cannot
+-- fabricate. Craft owns the whole cycle — SetOwner, the setter, and the retract in
+-- _hideRowTooltip — so a consumer never has to hook the panel from outside.
+-- `setup = fn(GameTooltip)` is the escape hatch for the setters not listed here
+-- (SetCurrencyByID, SetTradeSkillItem…) without reopening the panel's internals.
+local NATIVE_TIP = {
+    { "setup", function(tip, v)      v(tip) end },
+    { "item",  function(tip, v)
+        if type(v) == "number" then tip:SetItemByID(v) else tip:SetHyperlink(v) end
+      end },
+    { "spell", function(tip, v)      tip:SetSpellByID(v) end },
+    { "link",  function(tip, v)      tip:SetHyperlink(v) end },
+    { "unit",  function(tip, v)      tip:SetUnit(v) end },
+}
+
+function Menu:_showNativeTooltip(item, spec)
+    local tip = GameTooltip
+    if not tip then return end
+    for _, form in ipairs(NATIVE_TIP) do
+        local v = spec[form[1]]
+        if v ~= nil then
+            -- Same side as Craft's own row tooltip: a menu is already glued to its
+            -- anchor, and a tip above/below would cover the neighbouring rows.
+            tip:SetOwner(item.row, "ANCHOR_RIGHT")
+            form[2](tip, v)
+            tip:Show()
+            self._gtRow = item.row
+            return
+        end
+    end
+end
+
 function Menu:_showRowTooltip(item)
     local cfg = item.cfg
     if not (cfg and cfg.tooltip) then return end
@@ -538,6 +647,10 @@ function Menu:_showRowTooltip(item)
         local c = item.cfg
         local tip = c and c.tooltip
         if not tip then return end
+        if type(tip) == "table" then
+            self:_showNativeTooltip(item, tip)
+            return
+        end
         if type(tip) == "function" then
             tip = tip(c)
             if type(tip) ~= "string" or tip == "" then return end
@@ -546,15 +659,27 @@ function Menu:_showRowTooltip(item)
     end)
 end
 
--- Cancels a pending row tooltip and retracts a visible one.
+-- Cancels a pending row tooltip and retracts a visible one — Craft's own AND the
+-- GameTooltip, but only while WE still own the latter (another frame may have
+-- taken it over in the meantime; hiding someone else's tooltip is not ours to do).
 function Menu:_hideRowTooltip()
     self._tipRow = nil
     Craft.Tooltip.Hide()
+    local row = self._gtRow
+    self._gtRow = nil
+    if row and GameTooltip and GameTooltip.GetOwner and GameTooltip:GetOwner() == row then
+        GameTooltip:Hide()
+    end
 end
 
 function Menu:_onRowEnter(item)
     self:_showRowTooltip(item)
+    -- The cheap answer to the diagonal problem (FR-085 §3): an open child closes
+    -- when the pointer lands on ANOTHER row, never on merely leaving the trigger —
+    -- so a cursor cutting the corner on its way into the child panel keeps it open.
+    if self._subRow and self._subRow ~= item then self:_closeSubmenu() end
     if not item._interactive or item._disabled then return end
+    if item.cfg and item.cfg.type == "submenu" then self:_scheduleSubmenu(item) end
     local t = self._t
     if not t then return end
     if item.cfg and item.cfg.variant == "destructive" then
@@ -568,6 +693,9 @@ end
 
 function Menu:_onRowLeave(item)
     if item.cfg and item.cfg.tooltip then self:_hideRowTooltip() end
+    -- data-[state=open]:bg-accent — a sub-trigger stays lit while its child panel
+    -- is up, which is what tells the player which branch they are inside.
+    if self._subRow == item then return end
     local t = self._t
     item.bg:SetColorTexture(0, 0, 0, 0)
     if t and item._baseColor then
@@ -583,7 +711,12 @@ function Menu:_onRowClick(item)
 
     if typ == "item" then
         if cfg.onClick then cfg.onClick() end
-        self:Close()
+        self:_closeChain()
+
+    elseif typ == "submenu" then
+        -- Click opens the branch immediately (no hover grace) and keeps the parent
+        -- up — a sub-trigger is not a choice, it is a step into one.
+        self:_openSubmenu(item)
 
     elseif typ == "checkbox" then
         -- Tri-state toggles as a plain on/off (indeterminate counts as off).
@@ -602,7 +735,19 @@ function Menu:_onRowClick(item)
         end
         if item._checkedSignal then item._checkedSignal:set(true) end
         if cfg.onSelect then cfg.onSelect(cfg.value) end
-        self:Close()  -- single choice → close, like Select
+        self:_closeChain()  -- single choice → close, like Select
+    end
+end
+
+-- A choice made anywhere in the chain dismisses the WHOLE chain (FR-085 §5): the
+-- player answered the question the root menu asked. Checkbox rows are the
+-- exception and never come through here — they stay open for multi-toggle.
+function Menu:_closeChain()
+    self:Close()
+    local p = self._parentMenu
+    while p do
+        p:Close()
+        p = p._parentMenu
     end
 end
 
@@ -612,6 +757,99 @@ function Menu:_onDelete(item)
     local cfg = item.cfg
     if not cfg or item._disabled then return end
     if cfg.onDelete then cfg.onDelete() end
+end
+
+-- ─── Submenus (FR-085) ──────────────────────────────────────────────────────
+-- A submenu is a CHILD Craft.Menu, not a second kind of panel: every row type,
+-- reactive prop, tooltip, scroll and animation already lives in this class, so the
+-- branch inherits them and depth is unbounded for free. Only two things change for
+-- a child instance — it shows no catcher of its own (the root's fullscreen catcher
+-- dismisses the whole chain) and it knows its parent, so a choice closes upwards.
+-- ONE child instance per menu is enough: only one branch can be open at a time,
+-- and it is reused across triggers (rows are pooled for the same reason).
+function Menu:_ensureSubmenu()
+    if self._sub then return self._sub end
+    local sub = Menu:Create({})
+    sub._parentMenu   = self
+    sub._isSub        = true
+    sub._cfg.onClose  = function() self:_onSubClosed() end
+    self._sub = sub
+    return sub
+end
+
+-- Opens `item`'s branch now. `items` is the static form; `builder` is evaluated
+-- HERE, on open — the reason it exists: five branches of 40 rows each, built on
+-- every right-click for the one the player actually opens, is work thrown away.
+function Menu:_openSubmenu(item)
+    local cfg = item.cfg
+    if not (cfg and cfg.type == "submenu") or item._disabled then return end
+    if self._subRow == item then return end
+    self:_closeSubmenu()
+
+    local sub = self:_ensureSubmenu()
+    local items = cfg.items
+    if not items and cfg.builder then items = cfg.builder() end
+    sub._cfg.width     = cfg.width
+    sub._cfg.maxHeight = cfg.maxHeight or self._cfg.maxHeight
+    sub:SetItems(items or {})
+
+    -- Placement: side=right align=start (Radix) — the child's top-left meets the
+    -- trigger row's top-right. Flip to the other side when the panel would run off
+    -- screen, which is the same test _doOpen delegates to SetClampedToScreen
+    -- vertically. Widths are compared in SCREEN units, so both sides are scaled.
+    local rowScale = (item.row.GetEffectiveScale and item.row:GetEffectiveScale()) or 1
+    local rowRight = ((item.row:GetRight() or 0)) * rowScale
+    local subW     = (sub._panel:GetWidth() or 0) * rowScale
+    local screenW  = (UIParent:GetWidth() or 0) * (UIParent:GetEffectiveScale() or 1)
+    local flip     = (rowRight + subW) > screenW
+
+    sub._anchorFrame    = item.row
+    sub._anchorPoint    = flip and "TOPRIGHT" or "TOPLEFT"
+    sub._anchorRelPoint = flip and "TOPLEFT"  or "TOPRIGHT"
+    sub._anchorX        = 0
+    sub._anchorY        = 0
+    sub._panelSlideAxis = "x"
+    sub._panelSlideDir  = flip and 1 or -1   -- slide-in-from-left / -from-right
+
+    self._subRow = item
+    self:_escSuspend()                       -- Esc now belongs to the child
+    -- Both panels sit in TOOLTIP strata, so the child must win on frame level.
+    sub._panel:SetFrameLevel((self._panel:GetFrameLevel() or 0) + 10)
+    sub:_doOpen(self._panel)                 -- child adopts the parent panel's scale
+
+    -- data-[state=open]: keep the trigger accented while its branch is up.
+    local t = self._t
+    if t then
+        item.bg:SetColorTexture(t.accent.r, t.accent.g, t.accent.b, 1)
+        item.label:SetTextColor(t.accentForeground.r, t.accentForeground.g, t.accentForeground.b)
+    end
+end
+
+function Menu:_scheduleSubmenu(item)
+    if self._subRow == item then return end
+    self._subPending = item
+    C_Timer.After(SUBMENU_DELAY, function()
+        if self._subPending ~= item then return end   -- cursor moved on
+        self._subPending = nil
+        if not self._open:peek() then return end
+        self:_openSubmenu(item)
+    end)
+end
+
+function Menu:_closeSubmenu()
+    self._subPending = nil
+    if self._sub then self._sub:Close() end   -- → _onSubClosed (its onClose)
+    self:_onSubClosed()                       -- idempotent: the child may be closed already
+end
+
+-- Runs when the child goes down for ANY reason (Esc on the child, another row of
+-- this menu, a selection deeper in the chain): give this panel Esc back and let
+-- the trigger row settle to its resting colors.
+function Menu:_onSubClosed()
+    local row = self._subRow
+    self._subRow = nil
+    self:_escResume()
+    if row then self:_onRowLeave(row) end
 end
 
 -- ─── Reactive binds (created on Open, disposed on Close) ─────────────────────
@@ -705,6 +943,7 @@ function Menu:Open(anchor, opts)
     self._anchorX        = opts.x or 0
     self._anchorY        = opts.y or -2
     self._panelSlideDir  = 1
+    self._panelSlideAxis = "y"
     self:_doOpen(self._anchorFrame)
 end
 
@@ -728,6 +967,7 @@ function Menu:OpenAtCursor(scaleRef)
     self._anchorX        = (cx or 0) / eff
     self._anchorY        = (cy or 0) / eff
     self._panelSlideDir  = 1
+    self._panelSlideAxis = "y"
     self:_doOpen(ref)
 end
 
@@ -756,7 +996,9 @@ function Menu:_doOpen(scaleRef)
     end
 
     self:_bindItems()
-    self._catcher:Show()
+    -- A child panel shows NO catcher: the root's already covers the screen, and a
+    -- second one would swallow the click that should dismiss the whole chain.
+    if not self._isSub then self._catcher:Show() end
     self._hidden:set(false)
     self._open:set(true)
 end
@@ -765,6 +1007,7 @@ function Menu:Close()
     if not self._open:peek() then return end
     self._open:set(false)
 
+    self:_closeSubmenu()
     self:_disposeItemEffects()
     if self._catcher then self._catcher:Hide() end
 
@@ -781,6 +1024,9 @@ end
 
 -- ─── Public API ───────────────────────────────────────────────────────────────
 function Menu:SetItems(items)
+    -- Rows are pooled, so the frame an open branch hangs off may come back as a
+    -- different entry entirely: drop the branch before the content moves under it.
+    self:_closeSubmenu()
     self._cfg.items = items or {}
     self:_buildRows()
     self:_updatePanelSize()
@@ -794,6 +1040,7 @@ end
 function Menu:Destroy()
     if not self._panel then return end
     self:Close()
+    if self._sub then self._sub:Destroy(); self._sub = nil end
     Craft.Reactive.disposeAll(self)      -- animation binds (self._effects)
     self:_disposeItemEffects()
     Craft.Theme.unregister(self._themeHandle)

@@ -545,3 +545,350 @@ describe("Craft.Menu row tooltip (FR-067)", function()
         m:Destroy()
     end)
 end)
+
+-- ─── FR-084 hueco 1 — leading slot on selection rows ─────────────────────────
+-- A single-choice list of game items could not exist before: `avatar` only
+-- travelled on `item` rows, so a list could show the real texture OR say which
+-- entry was picked, never both.
+
+describe("Craft.Menu leading slot on checkbox/radio rows (FR-084)", function()
+
+    it("a radio row shows its avatar AND its selection dot", function()
+        local m = Craft.Menu:Create({ items = {
+            { type = "radio", group = "gem", value = "ruby", label = "Ruby",
+              avatar = { fallback = "Ru" }, checked = true },
+            { type = "radio", group = "gem", value = "onyx", label = "Onyx",
+              avatar = { fallback = "On" } },
+        } })
+        local picked, other = m._items[1], m._items[2]
+        assert.is_true(picked.avatar:GetFrame():IsShown())
+        assert.is_true(picked.indDot:IsShown())            -- both, on the same row
+        assert.is_true(other.avatar:GetFrame():IsShown())
+        assert.is_false(other.indDot:IsShown())
+        m:Destroy()
+    end)
+
+    it("an avatar raises a radio row to 36px and pushes its label past the portrait", function()
+        local m = Craft.Menu:Create({ items = {
+            { type = "radio", group = "g", value = "a", label = "With", avatar = { fallback = "W" } },
+            { type = "radio", group = "g", value = "b", label = "Without" },
+        } })
+        assert.equals(36, m._items[1].row:GetHeight())      -- AVATAR_ROW_H
+        assert.equals(28, m._items[2].row:GetHeight())      -- ROW_H, mixed heights stack
+        assert.equals(40, select(4, m._items[1].label:GetPoint()))   -- CR_PL + 24 + gap-2
+        assert.equals(8,  select(4, m._items[2].label:GetPoint()))   -- CR_PL alone
+        m:Destroy()
+    end)
+
+    it("a checkbox row takes an icon in the same slot, indicator untouched", function()
+        local m = Craft.Menu:Create({ items = {
+            { type = "checkbox", label = "Catalyzed", icon = "star", checked = true },
+        } })
+        local it = m._items[1]
+        assert.is_true(it.icon:IsShown())
+        assert.is_true(it.indCheck:IsShown())               -- still at right-2
+        assert.equals(32, select(4, it.label:GetPoint()))   -- CR_PL + size-4 + gap-2
+        m:Destroy()
+    end)
+
+    it("selecting a radio row with an avatar still moves the dot and fires onSelect", function()
+        local got
+        local m = Craft.Menu:Create({ items = {
+            { type = "radio", group = "g", value = "a", label = "A", checked = true,
+              avatar = { fallback = "A" }, onSelect = function(v) got = v end },
+            { type = "radio", group = "g", value = "b", label = "B",
+              avatar = { fallback = "B" }, onSelect = function(v) got = v end },
+        } })
+        m:Open(UIParent)
+        m._items[2].row:_fire("OnClick")
+        assert.equals("b", got)
+        assert.is_false(m._items[1].indDot:IsShown())
+        assert.is_true(m._items[2].indDot:IsShown())
+        m:Destroy()
+    end)
+end)
+
+-- ─── FR-084 hueco 2 — native GameTooltip forms ───────────────────────────────
+-- The tip of an item or a spell is data the addon does not have as text. Craft
+-- owns the whole cycle so the consumer never hooks the panel from outside.
+
+describe("Craft.Menu native row tooltip (FR-084)", function()
+
+    local function openWith(items)
+        local m = Craft.Menu:Create({ items = items })
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        return m
+    end
+
+    it("`tooltip = { item = id }` hands the row to GameTooltip, anchored right", function()
+        local m = openWith({ { type = "item", label = "Onyx", tooltip = { item = 213743 },
+                               onClick = function() end } })
+        m._items[1].row:_fire("OnEnter"); C_Timer._flush()
+        assert.equals(m._items[1].row, GameTooltip:GetOwner())
+        assert.equals("ANCHOR_RIGHT", GameTooltip._anchor)
+        assert.equals("item",  GameTooltip._set[1])
+        assert.equals(213743,  GameTooltip._set[2])
+        m:Destroy()
+    end)
+
+    it("spell / link / unit forms each pick their setter", function()
+        local cases = {
+            { spec = { spell = 7301 },       set = { "spell", 7301 } },
+            { spec = { link  = "|Hitem|h" }, set = { "link",  "|Hitem|h" } },
+            { spec = { unit  = "player" },   set = { "unit",  "player" } },
+        }
+        for _, case in ipairs(cases) do
+            local m = openWith({ { type = "item", label = "X", tooltip = case.spec,
+                                   onClick = function() end } })
+            m._items[1].row:_fire("OnEnter"); C_Timer._flush()
+            assert.equals(case.set[1], GameTooltip._set[1])
+            assert.equals(case.set[2], GameTooltip._set[2])
+            m:Destroy()
+        end
+    end)
+
+    it("`setup` runs against the client tooltip (escape hatch for other setters)", function()
+        local seen
+        local m = openWith({ { type = "item", label = "X", onClick = function() end,
+                               tooltip = { setup = function(tip) seen = tip; tip:AddLine("Custom") end } } })
+        m._items[1].row:_fire("OnEnter"); C_Timer._flush()
+        assert.equals(GameTooltip, seen)
+        assert.equals("line",   GameTooltip._set[1])
+        assert.equals("Custom", GameTooltip._set[2])
+        m:Destroy()
+    end)
+
+    it("leaving the row retracts it — no OnUpdate hook needed in the consumer", function()
+        local m = openWith({ { type = "item", label = "X", tooltip = { item = 1 },
+                               onClick = function() end } })
+        m._items[1].row:_fire("OnEnter"); C_Timer._flush()
+        assert.is_not_nil(GameTooltip:GetOwner())
+        m._items[1].row:_fire("OnLeave")
+        assert.is_nil(GameTooltip:GetOwner())
+        m:Destroy()
+    end)
+
+    -- Close is the case the consumer could not fix from outside: no OnLeave fires
+    -- for a row whose mouse is yanked mid-hover.
+    it("Close retracts it too", function()
+        local m = openWith({ { type = "item", label = "X", tooltip = { item = 1 },
+                               onClick = function() end } })
+        m._items[1].row:_fire("OnEnter"); C_Timer._flush()
+        m:Close()
+        assert.is_nil(GameTooltip:GetOwner())
+        m:Destroy()
+    end)
+
+    it("never hides a GameTooltip owned by somebody else", function()
+        local m = openWith({ { type = "item", label = "X", tooltip = { item = 1 },
+                               onClick = function() end } })
+        m._items[1].row:_fire("OnEnter"); C_Timer._flush()
+        local stranger = CreateFrame("Frame", nil, UIParent)
+        GameTooltip:SetOwner(stranger, "ANCHOR_CURSOR")    -- somebody took it over
+        m._items[1].row:_fire("OnLeave")
+        assert.equals(stranger, GameTooltip:GetOwner())    -- left alone
+        m:Destroy()
+    end)
+end)
+
+-- ─── FR-085 — submenus ───────────────────────────────────────────────────────
+
+describe("Craft.Menu submenus (FR-085)", function()
+
+    local function inSpecialFrames(name)
+        for i = 1, #UISpecialFrames do
+            if UISpecialFrames[i] == name then return true end
+        end
+        return false
+    end
+
+    local function openWithSub(subCfg, extra)
+        local entry = { type = "submenu", label = "Gem", rightText = "Ruby" }
+        for k, v in pairs(subCfg) do entry[k] = v end
+        local items = { entry }
+        for _, e in ipairs(extra or {}) do items[#items + 1] = e end
+        local m = Craft.Menu:Create({ items = items })
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        return m
+    end
+
+    it("a submenu row is interactive and shows the chevron before its rightText", function()
+        local m = openWithSub({ items = { { type = "item", label = "Ruby" } } })
+        local it = m._items[1]
+        assert.is_true(it._interactive)
+        assert.is_true(it.chev:IsShown())
+        assert.equals(16, it.chev:GetWidth())                     -- size-4
+        assert.equals(-8, select(4, it.chev:GetPoint()))          -- ml-auto → px-2 from the edge
+        assert.is_true(it.rightText:IsShown())
+        assert.equals(-32, select(4, it.rightText:GetPoint()))    -- px-2 + chevron + gap-2
+        m:Destroy()
+    end)
+
+    it("hovering opens the branch after the grace delay, click opens it at once", function()
+        local m = openWithSub({ items = { { type = "item", label = "Ruby" } } })
+        m._items[1].row:_fire("OnEnter")
+        assert.is_nil(m._sub)                               -- nothing built yet
+        C_Timer._flush()
+        assert.is_true(m._sub._open:peek())
+        assert.equals("Ruby", m._sub._items[1].label:GetText())
+        m:Destroy()
+
+        local m2 = openWithSub({ items = { { type = "item", label = "Ruby" } } })
+        m2._items[1].row:_fire("OnClick")
+        assert.is_true(m2._sub._open:peek())                -- no flush needed
+        assert.is_true(m2._open:peek())                     -- parent stays up
+        m2:Destroy()
+    end)
+
+    it("`builder` is evaluated on OPEN, not when the parent is built", function()
+        local calls = 0
+        local m = openWithSub({ builder = function()
+            calls = calls + 1
+            return { { type = "item", label = "Late" } }
+        end })
+        assert.equals(0, calls)                             -- 39 gems not paid for
+        m._items[1].row:_fire("OnClick")
+        assert.equals(1, calls)
+        assert.equals("Late", m._sub._items[1].label:GetText())
+        m:Destroy()
+    end)
+
+    it("the trigger stays accented while its branch is open, and settles after", function()
+        local m = openWithSub({ items = { { type = "item", label = "Ruby" } } })
+        local it = m._items[1]
+        it.row:_fire("OnEnter"); C_Timer._flush()
+        it.row:_fire("OnLeave")                             -- cursor heading INTO the child
+        local _, _, _, a = it.bg:GetColorTexture()
+        assert.equals(1, a)                                 -- data-[state=open]:bg-accent
+        m:_closeSubmenu()
+        local _, _, _, a2 = it.bg:GetColorTexture()
+        assert.equals(0, a2)
+        m:Destroy()
+    end)
+
+    it("only ANOTHER row closes the branch (the cheap diagonal)", function()
+        local m = openWithSub({ items = { { type = "item", label = "Ruby" } } },
+                              { { type = "item", label = "Remove" } })
+        m._items[1].row:_fire("OnEnter"); C_Timer._flush()
+        assert.is_true(m._sub._open:peek())
+        m._items[1].row:_fire("OnLeave")                     -- leaving the trigger: stays
+        assert.is_true(m._sub._open:peek())
+        m._items[2].row:_fire("OnEnter")                     -- another row: closes
+        assert.is_false(m._sub._open:peek())
+        assert.is_nil(m._subRow)
+        m:Destroy()
+    end)
+
+    it("child rows are ordinary rows: a radio group selects and closes the CHAIN", function()
+        local got, closed = nil, false
+        local m = Craft.Menu:Create({ onClose = function() closed = true end, items = {
+            { type = "submenu", label = "Gem", items = {
+                { type = "radio", group = "gem", value = "ruby", label = "Ruby", checked = true,
+                  avatar = { fallback = "Ru" } },
+                { type = "radio", group = "gem", value = "onyx", label = "Onyx",
+                  avatar = { fallback = "On" }, onSelect = function(v) got = v end },
+            } },
+        } })
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        m._items[1].row:_fire("OnClick")
+        assert.is_true(m._sub._items[1].indDot:IsShown())            -- current choice marked…
+        assert.is_true(m._sub._items[1].avatar:GetFrame():IsShown()) -- …with its own texture
+        m._sub._items[2].row:_fire("OnClick")
+        assert.equals("onyx", got)
+        assert.is_false(m._sub._open:peek())
+        assert.is_false(m._open:peek())                              -- the whole chain goes down
+        assert.is_true(closed)
+        m:Destroy()
+    end)
+
+    it("a checkbox in the branch keeps both panels open (multi-toggle)", function()
+        local on
+        local m = openWithSub({ items = {
+            { type = "checkbox", label = "Catalyzed", checked = false,
+              onToggle = function(v) on = v end },
+        } })
+        m._items[1].row:_fire("OnClick")
+        m._sub._items[1].row:_fire("OnClick")
+        assert.is_true(on)
+        assert.is_true(m._sub._open:peek())
+        assert.is_true(m._open:peek())
+        m:Destroy()
+    end)
+
+    it("the child shows no catcher of its own; the root's dismisses everything", function()
+        local m = openWithSub({ items = { { type = "item", label = "Ruby" } } })
+        m._items[1].row:_fire("OnClick")
+        assert.is_false(m._sub._catcher:IsShown())
+        m._catcher:_fire("OnMouseDown")
+        assert.is_false(m._open:peek())
+        assert.is_false(m._sub._open:peek())
+        m:Destroy()
+    end)
+
+    -- Blizzard's CloseSpecialWindows hides EVERY listed frame on one Esc, so the
+    -- parent steps out of the list while the child is up: one Esc per level.
+    it("Esc closes the child first — the parent unregisters while it is open", function()
+        local m = openWithSub({ items = { { type = "item", label = "Ruby" } } })
+        assert.is_true(inSpecialFrames(m._panelName))
+        m._items[1].row:_fire("OnClick")
+        assert.is_false(inSpecialFrames(m._panelName))
+        assert.is_true(inSpecialFrames(m._sub._panelName))
+
+        m._sub._panel:Hide(); m._sub._panel:_fire("OnHide")   -- what Esc does
+        assert.is_false(m._sub._open:peek())
+        assert.is_true(m._open:peek())                        -- parent survives it
+        assert.is_true(inSpecialFrames(m._panelName))         -- and takes Esc back
+        m:Destroy()
+    end)
+
+    it("closing the parent closes the branch with it", function()
+        local m = openWithSub({ items = { { type = "item", label = "Ruby" } } })
+        m._items[1].row:_fire("OnClick")
+        m:Close()
+        assert.is_false(m._sub._open:peek())
+        assert.is_true(inSpecialFrames(m._panelName))
+        m:Destroy()
+    end)
+
+    it("the branch flips to the left when it would run off the screen", function()
+        local m = openWithSub({ items = { { type = "item", label = "Ruby" } } })
+        m._items[1].row:_fire("OnClick")
+        assert.equals("TOPLEFT",  m._sub._anchorPoint)        -- side=right, align=start
+        assert.equals("TOPRIGHT", m._sub._anchorRelPoint)
+        assert.equals("x", m._sub._panelSlideAxis)
+        assert.equals(-1, m._sub._panelSlideDir)              -- slide-in-from-left
+
+        m:_closeSubmenu()
+        m._items[1].row.GetRight = function() return 1340 end -- hugging the right edge
+        m._items[1].row:_fire("OnClick")
+        assert.equals("TOPRIGHT", m._sub._anchorPoint)
+        assert.equals("TOPLEFT",  m._sub._anchorRelPoint)
+        assert.equals(1, m._sub._panelSlideDir)               -- slide-in-from-right
+        m:Destroy()
+    end)
+
+    it("one child instance is reused across triggers, and Destroy takes it down", function()
+        local m = Craft.Menu:Create({ items = {
+            { type = "submenu", label = "Gem",     items = { { type = "item", label = "Ruby" } } },
+            { type = "submenu", label = "Enchant", items = { { type = "item", label = "Speed" } } },
+        } })
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        m._items[1].row:_fire("OnClick")
+        local sub = m._sub
+        m._items[2].row:_fire("OnEnter"); C_Timer._flush()
+        assert.equals(sub, m._sub)                            -- pooled, not a second panel
+        assert.equals("Speed", m._sub._items[1].label:GetText())
+        assert.equals(m._items[2], m._subRow)
+        m:Destroy()
+        assert.is_nil(m._sub)
+        assert.is_nil(sub._panel)
+    end)
+
+    it("a disabled submenu row opens nothing", function()
+        local m = openWithSub({ disabled = true, items = { { type = "item", label = "Ruby" } } })
+        m._items[1].row:_fire("OnEnter"); C_Timer._flush()
+        m._items[1].row:_fire("OnClick")
+        assert.is_nil(m._sub)
+        m:Destroy()
+    end)
+end)

@@ -452,6 +452,27 @@ function C_Timer._flush()
     for _, fn in ipairs(q) do fn() end
 end
 
+-- GameTooltip — the CLIENT's tooltip, the one Craft.Menu hands a row over to when
+-- `tooltip` is a table (FR-084). Only the owner/visibility contract is modelled:
+-- what a test can meaningfully assert is WHO owns it, WHICH setter ran with which
+-- argument, and that Craft retracts it (and only while it still owns it).
+GameTooltip = CreateFrame("Frame", "GameTooltip")
+function GameTooltip:SetOwner(owner, anchor)
+    self._owner, self._anchor = owner, anchor
+    self._set = nil
+end
+function GameTooltip:GetOwner()             return self._owner end
+function GameTooltip:SetItemByID(id)        self._set = { "item",  id } end
+function GameTooltip:SetSpellByID(id)       self._set = { "spell", id } end
+function GameTooltip:SetHyperlink(link)     self._set = { "link",  link } end
+function GameTooltip:SetUnit(unit)          self._set = { "unit",  unit } end
+function GameTooltip:AddLine(text)          self._set = { "line",  text } end
+function GameTooltip:ClearLines()           self._set = nil end
+function GameTooltip:Hide()
+    self._shown = false
+    self._owner = nil     -- the client drops ownership when the tooltip goes down
+end
+
 -- SlashCmdList
 SlashCmdList = {}
 

@@ -47,6 +47,10 @@ globals = {
     -- does not exist on older clients (FR-075).
     "issecretvalue",
     "OpacitySliderFrame",
+    -- Client tooltip. Craft.Menu hands a row's tip over to it when `tooltip` is a
+    -- table (an item's/spell's real tooltip is data no addon can fabricate as
+    -- text — FR-084). Always read with a guard: it is nil before FrameXML loads.
+    "GameTooltip",
     -- Chat output
     "DEFAULT_CHAT_FRAME",
     "print",
