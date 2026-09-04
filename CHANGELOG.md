@@ -6,6 +6,69 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.18.0] - 2026-09-04
+
+> **Release v2.18.0 — `Craft.Menu` completa el `ContextMenu` de shadcn: submenús (FR-085) y las
+> dos cosas que le faltaban a una fila (FR-084).** Los dos FR llegan del mismo consumidor (Bis) y
+> del mismo día de trabajo, y no son separables: el caso es *configurar una pieza de equipo con
+> el botón derecho*, y sin la mitad de FR-084 cada rama de FR-085 sale coja — una lista de gemas
+> se reconoce por la **textura** del ítem y se explica con el **tooltip del juego**, no con su
+> nombre.
+>
+> Lo que hace barato el submenú es la decisión de qué ES: **un `Craft.Menu` hijo**, no un panel
+> nuevo. Al ser la misma clase hereda tipos de fila, props reactivas, tooltips, scroll, medición
+> de ancho y animación — así que "las filas del hijo son filas normales" no costó código — y la
+> profundidad sale **ilimitada** aunque el FR solo pedía un nivel. La pieza que sí hubo que
+> pensar es Esc: `CloseSpecialWindows()` de Blizzard esconde **todos** los frames listados en
+> `UISpecialFrames` de una sola pulsación, así que padre e hijo caerían juntos. Craft cierra de
+> dentro afuera **desregistrando el padre** mientras la rama está abierta y devolviéndoselo en el
+> `onClose` del hijo: una Esc por nivel, sin re-`Show()` a mitad de `OnHide`.
+>
+> De FR-084 conviene anotar lo que **no** era: el hueco 1 no es una extensión de Craft sino
+> código mal colocado. shadcn nunca separó el slot leading — `CheckboxItem` y `RadioItem` pintan
+> sus children igual que un `Item`, y la regla Lyra que ya estaba citada en la cabecera del
+> archivo (`gap-2 [&_svg]:size-4`) aplica a los tres. El arreglo es mover un bloque, no inventar
+> API. El hueco 2 sí es extensión, y se resolvió por la vía del azúcar (`tooltip` como tabla) en
+> vez de por ganchos de fila: `onRowEnter`/`onRowLeave` habría publicado el ciclo de vida de una
+> fila pooleada y dejado el cierre en manos del consumidor, que es justo donde su apaño se rompía.
+>
+> MINOR: todo aditivo. `submenu` era una key **reservada / no-op** desde v1, así que estrenarla
+> no rompe a nadie; `avatar`/`icon` en `checkbox`/`radio` y `tooltip` como tabla son formas
+> nuevas de campos que ya existían. La clave LibStub sigue siendo `Craft-2.0` y **`Craft/Craft.toc`
+> no cambia** (no hay archivos nuevos en `Craft/`), así que el re-vendoreo en los consumidores es
+> una copia ciega. `CRAFT_BUILD` 19→20. Suite: **691 tests** (luacheck 0/0, taintlint 0/0 contra
+> la db 12.1). Verificado in-game por el maintainer en 12.1, con el caso 5 de la página Menu de
+> Craft_Browser.
+
+### Added
+
+- **`Craft.Menu`: submenús** ([FR-085](docs/requests/FR-085-menu-submenus.md)). `type = "submenu"`
+  deja de ser una key reservada: pinta chevron-right (`ml-auto size-4`) con `rightText` opcional
+  **antes** del chevron —la fila «Gema» dice qué gema lleva sin abrirse— y abre una rama con
+  `items` (estático) o `builder` (**evaluado al abrir**: cinco listas de 40 filas construidas en
+  cada clic derecho, para que el jugador abra una, es trabajo tirado). Abre por hover a los 200 ms
+  y por clic; la rama se cierra **sólo al entrar en otra fila** del padre, que es la versión barata
+  del problema de la diagonal. Coloca `side=right align=start` con **flip** lateral, anima el
+  `zoom-in-95` con el slide en el eje X (`slide-in-from-left`), y encadena el dismissal: **Esc
+  cierra un nivel por pulsación**, el catcher y una selección en cualquier nivel cierran la
+  cadena entera, `onClose` del raíz dispara una vez.
+  La rama **es un `Craft.Menu` completo**, no un panel aparte: hereda todos los tipos de fila, las
+  props reactivas, los tooltips, el scroll y la animación, y la profundidad sale ilimitada gratis.
+- **`Craft.Menu`: el slot leading vale en filas de selección**
+  ([FR-084](docs/requests/FR-084-menu-icono-real-y-tooltip-nativo-por-fila.md) hueco 1).
+  `avatar`/`icon` ya no viven sólo en la rama de `item`, así que una lista de ítems del juego
+  puede enseñar **a la vez** la textura real de cada entrada y la marca de cuál está elegida —
+  antes había que elegir una de las dos. shadcn nunca separó nada de eso (`CheckboxItem` y
+  `RadioItem` pintan sus children como un `Item`, y el indicador es `absolute right-2`).
+- **`Craft.Menu`: tooltip nativo del juego por fila**
+  ([FR-084](docs/requests/FR-084-menu-icono-real-y-tooltip-nativo-por-fila.md) hueco 2).
+  `tooltip` acepta una tabla: `{ item = … }`, `{ spell = … }`, `{ link = … }`, `{ unit = … }` o
+  `{ setup = fn(GameTooltip) }`. Es lo único que Craft no puede pintar por su cuenta: el tooltip
+  real de un ítem es dato que el addon no tiene como texto. Craft posee el ciclo entero —
+  `SetOwner`, el setter, y la retirada al salir de la fila **y al cerrar el menú**— así que el
+  consumidor deja de enganchar `OnUpdate`/`OnHide` al panel interno del componente. Sólo esconde
+  el `GameTooltip` mientras siga siendo suyo (`GetOwner() == row`).
+
 ## [2.17.0] - 2026-09-02
 
 > **Release v2.17.0 — FR-079: reconstruir una lista deja de costar memoria.** Sale de una
