@@ -4,7 +4,8 @@
 > Origen: [FR-015](../requests/FR-015-context-menu.md) (+ [FR-065](../requests/FR-065-menu-item-avatar.md),
 > avatar de fila; [FR-067](../requests/FR-067-menu-item-tooltip.md), tooltip de fila;
 > [FR-084](../requests/FR-084-menu-icono-real-y-tooltip-nativo-por-fila.md), slot leading en filas
-> de selección + tooltip nativo; [FR-085](../requests/FR-085-menu-submenus.md), submenús).
+> de selección + tooltip nativo; [FR-085](../requests/FR-085-menu-submenus.md), submenús;
+> [FR-086](../requests/FR-086-menu-rueda-del-raton.md), rueda del ratón + rail de scroll).
 > Estado: **implementado** y verificado in-game
 > (`Craft/components/Menu.lua`, `tests/menu_spec.lua`). Submenús y las dos mitades de FR-084
 > salen en **v2.18.0**.
@@ -84,6 +85,10 @@ al cursor, scroll interno si excede `maxHeight`.
   lateral y dismissal encadenado. La key `submenu` **ya no es no-op**.
 - **Slot leading en filas de selección** y **tooltip nativo del juego**
   ([FR-084](../requests/FR-084-menu-icono-real-y-tooltip-nativo-por-fila.md)).
+- **Scroll conducido** ([FR-086](../requests/FR-086-menu-rueda-del-raton.md)) — el `ScrollFrame`
+  ya existía y recortaba, pero nada lo movía: rueda del ratón (3 filas por muesca), rail estilo
+  `ScrollArea` con thumb arrastrable, apertura sobre el `radio` marcado, y la rueda **no
+  atraviesa** el menú (el catcher se la come, como el scroll-lock de Radix).
 
 **Diferido:**
 - **`layout="grid"`** (marker-menu de Coffer — grid 4×2 de iconos). Coffer lo resuelve custom;
@@ -102,6 +107,10 @@ modo context (anclado al cursor) el slide entra desde el borde más cercano al c
 Frame (panel)                       — TOOLTIP strata, parent UIParent, con NOMBRE (UISpecialFrames)
 ├── Texture (bg)                    — BACKGROUND layer, t.popover fill
 ├── Frame  (ring)                   — hermano 1px outward, t.foreground a=0.10
+├── Frame (bar)                     — rail de scroll, SOLO si el contenido desborda (FR-086);
+│   │                                  vive en el canal de 8px que el panel se ensancha para él,
+│   └── Button (thumb)                  frame level +10 (por encima de las filas)
+│         └── Texture                 — t.border (shadcn ScrollAreaThumb `bg-border`; sin track)
 └── ScrollFrame (rowScroll)
     └── Frame (scrollChild)
         └── row × N  (pooled por índice — nunca destruir/recrear):
@@ -216,7 +225,10 @@ no hay glyph `circle` plano en el atlas).
 | Separator | `h-px` (1px) + `-mx-1` (se extiende 4px) + `my-1` (4px margen V, del base) |
 | Min-width del panel | dropdown `min-w-32`=**128px** · context `min-w-36`=144px |
 | Width del panel | `w-fit`: `max` sobre filas de `(pl + indicador? + icono? + gap + label + rightText + delete? + pr)`, piso `min-w-32` |
-| Max height | altura disponible en pantalla (`max-h-available`); scroll si excede |
+| Max height | `maxHeight` o la altura disponible en pantalla (`max-h-available`); scroll si excede |
+| Paso de la rueda | **3 filas** = 84px por muesca (FR-086) |
+| Rail de scroll | canal **8px** · thumb **6px** (1px de aire a cada lado) · alto mínimo **32px** |
+| Ancho del panel al desbordar | `+8px` — el canal es **aditivo**: las filas conservan el ancho con el que se midieron |
 | Ring del panel | 1px outward, `t.foreground` a=0.10 (idéntico a Select) |
 
 ## Estados
@@ -252,6 +264,7 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
 | Heading | `t.mutedForeground` |
 | rightText | `t.mutedForeground` |
 | Separator | `t.border` |
+| Thumb del rail | `t.border` (shadcn `ScrollAreaThumb bg-border`; el track es transparente) |
 | Chevron de `submenu` | `t.popoverForeground` (hereda el color de texto en shadcn) |
 | Checkbox indicador | `t.popoverForeground` (glyph check/minus) |
 | Radio ring/fill/dot | `t.border`/`t.input` (idle) · `t.primary`/`t.primaryForeground` (selected) |
@@ -388,6 +401,36 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
     respondió la pregunta que hacía el menú raíz. Las filas `checkbox` son la excepción y ni
     pasan por ahí (siguen abiertas para multi-toggle).
 
+- **Scroll (FR-086)** — el panel recortaba a `maxHeight` desde v1, pero `SetVerticalScroll` sólo
+  se llamaba una vez, a 0: el contenido estaba ahí y era inalcanzable, y **nada en la UI decía
+  que hubiera más**, que es la mitad cara del bug (la lista se lee como completa).
+  - **La rueda va en el panel, el ScrollFrame y el rail**, los tres. Las filas son `Button`s sin
+    script de rueda, así que una muesca sobre una fila cae al `ScrollFrame` de debajo; el panel
+    (sus márgenes `p-1`) y el rail se enganchan aparte para que ningún pixel del menú sea banda
+    muerta. Un submenú **es** un `Craft.Menu`, así que hereda todo esto por construcción y cada
+    panel de la cadena scrollea por su cuenta.
+  - **Alturas calculadas, nunca releídas** (misma razón que en Select): `_scroll` está anclado
+    por sus esquinas, así que no tiene alto resuelto en el mismo frame en que corre
+    `_updatePanelSize`. `_viewH` (de ahí) y `_contentH` (de `_buildRows`) son la única fuente.
+  - **El canal del rail es aditivo, no un recorte.** El panel es `w-fit`: ensancharlo 8px es el
+    equivalente WoW de que el navegador reserve el track del scrollbar, y evita el bug hermano
+    de re-medir labels (los anchos se calcularon con el ancho de contenido, no con el recortado).
+  - **Abre sobre el `radio` marcado.** Sólo `radio`: un menú puede tener muchos `checkbox`
+    marcados y saltar al primero es ruido. Scroll mínimo — una fila que ya cabe deja el offset
+    en 0.
+  - **El catcher se come la rueda.** Radix bloquea el scroll del body mientras hay un menú
+    abierto; aquí ese bloqueo vive en el catcher fullscreen, que reclama la rueda que nunca usa
+    para que no llegue a la lista/mapa de debajo.
+  - **Una rama abierta mientras se scrollea el padre** = el `hide` middleware de Radix
+    (`strategy: "referenceHidden"`), en dos mitades. La primera es gratis: el panel hijo está
+    anclado a la FILA trigger, así que **viaja con ella** al scrollear. La segunda es
+    `_syncSubmenuVisibility`: en cuanto la fila sale del viewport, la rama pasa a **invisible —
+    no se cierra** (`_refHidden`, un tercer término del `shown` computado), y vuelve tal cual si
+    se scrollea de regreso. Se propaga por la cadena: el panel de un nieto es **hermano** bajo
+    `UIParent`, no descendiente, así que ocultar al padre no lo oculta — hay que decírselo.
+    `OnHide` lleva un guard para no confundir esa ocultación con una Esc de Blizzard, y
+    `_doOpen` limpia la bandera (si no, la rama siguiente nacería invisible).
+
 ### Diferencias conocidas vs shadcn
 
 - **Un `Craft.Menu` = `DropdownMenu` + `ContextMenu`** (misma anatomía; solo cambia el
@@ -401,8 +444,19 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
   desregistro del padre en `UISpecialFrames` (Blizzard no distingue niveles). Ver Notas.
 - **Hover de submenú sin safe-triangle**: Radix rastrea el polígono cursor→panel; Craft cierra
   la rama sólo al entrar en otra fila. Mismo resultado práctico, un orden de magnitud menos.
+- **Rama + scroll del padre**: igual que Radix — sigue a su fila trigger y se vuelve **invisible**
+  (no se cierra) cuando la fila sale de vista. Lo que Craft no tiene es el reposicionamiento
+  continuo de Floating UI: no hace falta, el anclaje de WoW ya es relativo.
 - **Config declarativa plana** (`items[]` con `type`) en vez del árbol de subcomponentes JSX de
   shadcn — coherente con el resto de componentes de Craft (Select, Sidebar).
+- **Sin navegación por teclado** (flechas / PgUp / PgDn sobre el menú abierto): Radix la trae,
+  Craft no. No es un olvido — AGENTS §5 lo prohíbe explícitamente («WoW es mouse-only, sin
+  navegación por teclado», misma regla que veta los focus rings): capturar el teclado con un
+  menú contextual abierto le quitaría al jugador sus keybinds. El scroll es de rueda y rail.
+- **El rail es permanente mientras haya desbordamiento**, no `type="hover"`: shadcn deja el
+  scrollbar nativo (`overflow-y-auto`) en `dropdown-menu` y `Craft.Scroll` ya tomó esa decisión
+  para el `ScrollArea` de Craft. Un rail que se desvanece reintroduce a medias el bug que este
+  FR cierra — que un menú que cabe y uno que no se lean igual.
 
 ---
 
