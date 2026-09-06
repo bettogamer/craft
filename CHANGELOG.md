@@ -6,6 +6,76 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.19.0] - 2026-09-06
+
+> **Release v2.19.0 — FR-086: el menú tenía medio scroll construido y nada que lo condujera.**
+> `Craft.Menu` montaba su `ScrollFrame` desde v1 y recortaba correctamente a `maxHeight`, pero
+> `SetVerticalScroll` sólo se llamaba una vez, a 0: el contenido estaba ahí y era inalcanzable.
+> El caso real —una rama de 39 gemas de la que el jugador veía 11— trae además la mitad cara del
+> bug: **la UI no decía que hubiera más**, así que la lista se lee como completa y la conclusión
+> del usuario es que al addon le faltan datos.
+>
+> La rueda va enganchada en **tres** frames (el `ScrollFrame`, el panel y el rail) por la misma
+> razón que en `Craft.Select`: las filas son `Button`s sin script de rueda, así que una muesca
+> sobre una fila cae al `ScrollFrame` de debajo, y los otros dos enganches evitan que quede una
+> banda muerta en los márgenes `p-1`. Los submenús salen gratis otra vez: una rama **es** un
+> `Craft.Menu`, con su panel, su scroll y sus handlers.
+>
+> Dos decisiones de forma que conviene tener escritas. El canal del rail es **aditivo** — el panel
+> es `w-fit` y se ensancha 8px al desbordar en vez de recortar las filas, que es el equivalente
+> WoW de reservar el track del scrollbar: recortarlas habría invalidado los anchos con los que se
+> midieron los labels. Y el rail es **permanente mientras haya desbordamiento**, no `type="hover"`
+> como pedía el FR: un rail que se desvanece reintroduce a medias justo lo que este release cierra
+> —que un menú que cabe y uno que no se lean igual al abrirlos—, `Craft.Scroll` ya tomó esa misma
+> decisión para el `ScrollArea` de Craft y shadcn deja el scrollbar nativo permanente en
+> `dropdown-menu`.
+>
+> El teclado (flechas / PgUp / PgDn) que el FR proponía como opcional **queda descartado por
+> regla, no por coste**: AGENTS §5 prohíbe la navegación por teclado —la misma regla que veta los
+> focus rings— porque capturarlo con un menú contextual abierto le quita al jugador sus keybinds.
+> Lo que sí entra de ese punto es el auto-scroll de apertura sobre el `radio` marcado.
+>
+> El hallazgo del maintainer al probarlo in-game cierra el círculo: con una rama abierta,
+> scrollear el padre la dejaba colgando de una fila ya invisible. La mitad de eso era correcta
+> (el panel hijo está anclado a la FILA, así que viaja con ella, como en Radix); faltaba el
+> `hide` middleware de Floating UI (`strategy: "referenceHidden"`), que **oculta el flotante sin
+> cerrarlo** cuando su ancla sale del contenedor scrolleable. Se propaga por la cadena: el panel
+> de un nieto es **hermano** bajo `UIParent`, no descendiente, así que ocultar al padre no lo
+> oculta.
+>
+> MINOR: todo aditivo y sin cambio de API — `Craft.Menu` no gana ni pierde una sola prop; lo que
+> cambia es que `maxHeight`, que ya existía, por fin sirve para algo. La clave LibStub sigue
+> siendo `Craft-2.0` y **`Craft/Craft.toc` no cambia** (no hay archivos nuevos), así que el
+> re-vendoreo en los consumidores es una copia ciega. `CRAFT_BUILD` 20→21. Suite: **704 tests**
+> (luacheck 0/0, taintlint 0/0 contra la db 12.1). Rueda, rail y submenús vistos in-game por el
+> maintainer en 12.1 con el caso 6 de la página Menu de Craft_Browser; el `referenceHidden` de la
+> rama es posterior a esa pasada y queda por confirmar.
+>
+> **Para el consumidor:** el apaño de Bis (agrupar en submenús a partir de 12 filas, en
+> `enhanceMenuItems`) puede retirarse tras re-vendorear — la agrupación vuelve a ser una decisión
+> de contenido y no la salida a una limitación de scroll.
+
+### Added
+- **`Craft.Menu`: la rueda del ratón mueve el panel** ([FR-086](docs/requests/FR-086-menu-rueda-del-raton.md)).
+  3 filas por muesca, acotada a `[0, contenido - viewport]`, enganchada en el panel, el
+  `ScrollFrame` y el rail — las filas son `Button`s sin script de rueda, así que una muesca sobre
+  una fila cae al `ScrollFrame` de debajo y ningún pixel del menú es banda muerta. Un submenú es
+  un `Craft.Menu`, así que cada panel de la cadena scrollea por su cuenta.
+- **Rail de scroll** en el menú, montado sólo cuando el contenido desborda: thumb `t.border`
+  arrastrable sobre track transparente (shadcn `ScrollAreaThumb bg-border`), 8px de canal · 6px de
+  thumb · 32px de alto mínimo, en un canal **aditivo** — el panel se ensancha 8px en vez de
+  recortar las filas, que conservan el ancho con el que se midieron.
+- **El menú abre sobre el `radio` marcado** cuando queda fuera de vista (scroll mínimo). Sólo
+  `radio`: un menú puede tener muchos `checkbox` marcados y saltar al primero es ruido.
+
+### Fixed
+- **Una rama abierta ya no se queda colgando de una fila invisible** al scrollear el menú padre:
+  el panel hijo sigue a su fila trigger (ya lo hacía: está anclado a ella) y ahora se vuelve
+  **invisible cuando la fila sale del viewport**, volviendo intacto al scrollear de regreso —
+  el `hide` middleware de Radix (`referenceHidden`). Se propaga por toda la cadena de submenús.
+- **La rueda ya no atraviesa un menú abierto** hacia la lista/mapa de debajo: el catcher
+  fullscreen reclama la rueda que nunca usa, que es el equivalente del scroll-lock de Radix.
+
 ## [2.18.0] - 2026-09-04
 
 > **Release v2.18.0 — `Craft.Menu` completa el `ContextMenu` de shadcn: submenús (FR-085) y las
