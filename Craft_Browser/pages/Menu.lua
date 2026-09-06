@@ -256,6 +256,47 @@ CraftBrowserPages["Menu"] = {
         table.insert(menus, gearMenu)
         y = y + 68
 
+        -- ── Case 6 — A branch longer than the height cap (FR-086) ──────────────────
+        -- The case the FR was filed for: 39 gems, a 320px cap, ~11 rows visible. The
+        -- wheel moves the panel (3 rows a notch), the rail says there IS more, and the
+        -- menu opens landing on the stone actually socketed — row 27 of a list that
+        -- used to look like it ended at row 11. Both panels scroll: the same list is
+        -- offered inline (root) and behind a ▸ (child), each with its own rail.
+        y = addLabel("Long list — wheel over the panel; opens on the current choice", y)
+
+        local STATS = { "Critical Strike", "Haste", "Mastery", "Versatility" }
+        local socketed = "gem-27"
+        local longMenu = Craft.Menu:Create({ maxHeight = 320, items = {} })
+        table.insert(menus, longMenu)
+
+        local function gemRows()
+            local rows = {}
+            for i = 1, 39 do
+                rows[#rows + 1] = {
+                    type = "radio", group = "stone", value = "gem-" .. i,
+                    label = "Rank " .. i .. " · " .. STATS[(i - 1) % #STATS + 1],
+                    checked = (socketed == "gem-" .. i),
+                    onSelect = function(v) socketed = v end,
+                }
+            end
+            return rows
+        end
+
+        local btn6 = Craft.Button:Create(parent, { text = "Gem (39 stones)", icon = "gem",
+            onClick = function(b)
+                local items = {
+                    { type = "heading", label = "Socket" },
+                    { type = "submenu", label = "All stones", items = gemRows() },
+                    { type = "separator" },
+                }
+                for _, row in ipairs(gemRows()) do items[#items + 1] = row end
+                longMenu:SetItems(items)
+                longMenu:Open(b:GetFrame(), { point = "TOPLEFT", relativePoint = "BOTTOMLEFT" })
+            end })
+        btn6:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, btn6)
+        y = y + 44
+
         return {
             height  = y + 24,
             cleanup = function()
