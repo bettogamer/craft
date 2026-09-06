@@ -60,6 +60,13 @@ local AVATAR_PAD   = 6                         -- breathing room above/below
 local AVATAR_ROW_H = AVATAR_SIZE + AVATAR_PAD * 2   -- 36, ONLY on rows with an avatar
 local FONT_SIZE   = 12   -- text-xs
 local MIN_W       = 128  -- min-w-32 (dropdown floor; context uses 144 but 128 is a safe floor)
+-- Scrolling past maxHeight (FR-086). The panel already CLIPPED the overflow; these
+-- are what MOVES it. Rail geometry = Craft.Scroll's (Craft's ScrollArea mapping);
+-- the thumb color is shadcn's own (ScrollAreaThumb `bg-border`, transparent track).
+local WHEEL_ROWS  = 3    -- rows per wheel notch
+local BAR_W       = 8    -- rail gutter the panel grows when the content overflows
+local THUMB_W     = 6    -- thumb width (1px inset each side of the rail)
+local THUMB_MIN_H = 32   -- thumb floor: a 40-row branch keeps a grabbable thumb
 
 -- The disc glyph renders at 56 of its 64px (a 4px gutter): compensate so the VISIBLE
 -- diameter matches (same trick as RadioGroup GUTTER_COMP).
@@ -103,6 +110,37 @@ function Menu:Create(config)
     self._scrollChild = CreateFrame("Frame", nil, self._scroll)
     self._scroll:SetScrollChild(self._scrollChild)
 
+    -- ── Wheel + rail (FR-086) ─────────────────────────────────────────────────
+    -- The rows are Buttons with no wheel script, so a notch over one falls through
+    -- to the ScrollFrame underneath them; the panel (its p-1 margins) and the rail
+    -- take the same handler so no pixel of the menu is a dead band. A submenu is a
+    -- Menu of its own, so its panel gets all of this by construction.
+    local function onWheel(_, delta)
+        self:_scrollBy(-(delta or 0) * WHEEL_ROWS * ROW_H)
+    end
+    self._scroll:EnableMouseWheel(true)
+    self._scroll:SetScript("OnMouseWheel", onWheel)
+    self._panel:EnableMouseWheel(true)
+    self._panel:SetScript("OnMouseWheel", onWheel)
+
+    -- Rail: mounted ONLY while the content overflows, in the gutter the panel grows
+    -- for it (see _updatePanelSize). Above the rows, like Select's scroll bands, so
+    -- a click on the seam can never reach the row scrolled beneath it.
+    self._bar = CreateFrame("Frame", nil, self._panel)
+    self._bar:SetFrameLevel((self._panel:GetFrameLevel() or 0) + 10)
+    self._bar:SetWidth(BAR_W)
+    self._bar:EnableMouseWheel(true)
+    self._bar:SetScript("OnMouseWheel", onWheel)
+    self._bar:Hide()
+
+    self._barThumb = CreateFrame("Button", nil, self._bar)
+    self._barThumb:SetWidth(THUMB_W)
+    self._barThumb:EnableMouseWheel(true)
+    self._barThumb:SetScript("OnMouseWheel", onWheel)
+    self._barThumbTex = self._barThumb:CreateTexture(nil, "ARTWORK")
+    self._barThumbTex:SetAllPoints(self._barThumb)
+    self:_wireThumbDrag()
+
     -- ── Catcher: fullscreen click-outside dismissal (one strata below the panel) ─
     self._catcher = CreateFrame("Frame", nil, UIParent)
     self._catcher:SetFrameStrata("FULLSCREEN_DIALOG")
@@ -110,6 +148,11 @@ function Menu:Create(config)
     self._catcher:EnableMouse(true)
     self._catcher:Hide()
     self._catcher:SetScript("OnMouseDown", function() self:Close() end)
+    -- Radix locks the body scroll while a menu is open. Same here: the catcher
+    -- covers the screen one strata below the panel, so eating the wheel keeps a
+    -- notch that misses the menu from scrolling the list/map underneath it.
+    self._catcher:EnableMouseWheel(true)
+    self._catcher:SetScript("OnMouseWheel", function() end)
 
     -- ── Open/close state + fade (mirror Select) ───────────────────────────────
     -- Only ALPHA is animated (never height: the panel height is variable and WoW
@@ -117,6 +160,11 @@ function Menu:Create(config)
     -- Blizzard's Esc handler calls panel:Hide() out from under the fade.
     self._open   = Weave.signal(false)
     self._hidden = Weave.signal(false)
+    -- Radix' `hide` middleware (strategy "referenceHidden"): a floating panel whose
+    -- ANCHOR has been scrolled out of its scroll container goes `visibility:hidden`
+    -- — it stays open, it just stops dangling off a row nobody can see. Only a
+    -- submenu ever sets this; the parent drives it from _syncSubmenuVisibility.
+    self._refHidden = Weave.signal(false)
 
     local motion = Craft.Theme.get()
     local alpha = Weave.tween(
@@ -124,7 +172,8 @@ function Menu:Create(config)
         { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
 
     local shown = Weave.computed(function()
-        return (not self._hidden()) and (self._open() or alpha:animating())
+        return (not self._hidden()) and (not self._refHidden())
+               and (self._open() or alpha:animating())
     end)
 
     self._effects = self._effects or {}
@@ -181,6 +230,7 @@ function Menu:Create(config)
     -- open=false and does nothing (no double onClose).
     self:_escResume()
     self._panel:SetScript("OnHide", function()
+        if self._refHidden:peek() then return end   -- clipped away, not dismissed
         if self._open:peek() then
             self._hidden:set(true)
             self:Close()
@@ -330,6 +380,8 @@ function Menu:_buildRows()
         item.row:SetPoint("TOPLEFT",  self._scrollChild, "TOPLEFT",  0, -totalH)
         item.row:SetPoint("TOPRIGHT", self._scrollChild, "TOPRIGHT", 0, -totalH)
         item.row:Show()
+        item.top = totalH   -- offset inside the scroll child (used by _scrollToChecked)
+        item.h   = h
         totalH = totalH + h
         if w > maxContentW then maxContentW = w end
     end
@@ -816,6 +868,7 @@ function Menu:_openSubmenu(item)
     -- Both panels sit in TOOLTIP strata, so the child must win on frame level.
     sub._panel:SetFrameLevel((self._panel:GetFrameLevel() or 0) + 10)
     sub:_doOpen(self._panel)                 -- child adopts the parent panel's scale
+    self:_syncSubmenuVisibility()            -- a branch opened while scrolled: settle it now
 
     -- data-[state=open]: keep the trigger accented while its branch is up.
     local t = self._t
@@ -897,6 +950,116 @@ function Menu:_disposeItemEffects()
     end
 end
 
+-- ─── Scrolling (FR-086) ─────────────────────────────────────────────────────
+-- Heights are COMPUTED, never read back: _scroll is anchored by its corners, so it
+-- has no resolved height in the same frame _updatePanelSize runs (the reason Select
+-- derives its own too). _viewH (set there) and _contentH (set by _buildRows) are
+-- the single source of truth for the travel, the thumb and the gutter.
+function Menu:_maxScroll()
+    return math.max((self._contentH or 0) - (self._viewH or 0), 0)
+end
+
+function Menu:_scrollBy(dy)
+    self:_setScroll((self._scroll:GetVerticalScroll() or 0) + (dy or 0))
+end
+
+function Menu:_setScroll(v)
+    self._scroll:SetVerticalScroll(math.min(math.max(v or 0, 0), self:_maxScroll()))
+    self:_updateScrollbar()
+    self:_syncSubmenuVisibility()
+end
+
+-- An open branch is anchored to its trigger ROW, so it travels with the scroll on
+-- its own (SetPoint is relative) — that half is Radix' behaviour and is correct.
+-- This is the other half: once the trigger has scrolled out of the viewport the
+-- branch is hanging off a row nobody can see, so it goes invisible until the row
+-- comes back (Radix' `referenceHidden`), instead of closing. The chain follows: a
+-- hidden panel's own child is a sibling frame under UIParent, not a descendant, so
+-- it would keep floating unless it is told too.
+function Menu:_syncSubmenuVisibility()
+    local item, sub = self._subRow, self._sub
+    if not (item and sub and sub._open:peek()) then return end
+
+    local scroll = self._scroll:GetVerticalScroll() or 0
+    local top    = item.top or 0
+    local bottom = top + (item.h or 0)
+    local hidden = self._refHidden:peek()                    -- this panel is gone too
+                   or bottom <= scroll                        -- row above the viewport
+                   or top >= scroll + (self._viewH or 0)      -- row below it
+
+    sub._refHidden:set(hidden and true or false)
+    sub:_syncSubmenuVisibility()
+end
+
+-- Thumb geometry: proportional to the fraction of the content that is visible,
+-- floored at THUMB_MIN_H, positioned by the same fraction of the travel spent.
+function Menu:_updateScrollbar()
+    if not self._bar then return end
+    local maxS = self:_maxScroll()
+    if maxS <= 0 then self._bar:Hide(); return end
+
+    local viewH  = self._viewH or 0
+    local thumbH = math.max(THUMB_MIN_H, math.floor(viewH * viewH / math.max(self._contentH or 1, 1)))
+    if thumbH > viewH then thumbH = viewH end
+    local ratio  = math.min(math.max((self._scroll:GetVerticalScroll() or 0) / maxS, 0), 1)
+
+    self._barThumb:SetHeight(math.max(thumbH, 1))
+    self._barThumb:ClearAllPoints()
+    self._barThumb:SetPoint("TOP",  self._bar, "TOP",  0, -((viewH - thumbH) * ratio))
+    self._barThumb:SetPoint("LEFT", self._bar, "LEFT", 1, 0)
+    self._bar:Show()
+end
+
+-- Thumb drag, the same mapping Craft.Scroll uses: travel in rail px scaled to
+-- content px. GetCursorPosition() is in SCREEN pixels, so both samples are divided
+-- by the rail's effective scale (the panel carries the host container's scale).
+function Menu:_wireThumbDrag()
+    local thumb = self._barThumb
+    local function cursorY()
+        local sc = (self._bar:GetEffectiveScale() or 1)
+        if sc == 0 then sc = 1 end
+        return ((select(2, GetCursorPosition())) or 0) / sc
+    end
+    thumb:SetScript("OnMouseDown", function()
+        self._dragFromY      = cursorY()
+        self._dragFromScroll = self._scroll:GetVerticalScroll() or 0
+        thumb:SetScript("OnUpdate", function()
+            local movable = (self._viewH or 0) - (thumb:GetHeight() or 0)
+            local maxS    = self:_maxScroll()
+            if movable <= 0 or maxS <= 0 then return end
+            local dy = self._dragFromY - cursorY()      -- cursor down = scroll down
+            self:_setScroll(self._dragFromScroll + (dy / movable) * maxS)
+        end)
+    end)
+    thumb:SetScript("OnMouseUp", function() thumb:SetScript("OnUpdate", nil) end)
+end
+
+-- Open lands on the CHECKED radio instead of always on the top: a branch of 39
+-- gems whose selected one sits past the cap used to open showing neither the row
+-- nor its dot, which reads as "nothing is selected". Minimal scroll — a row that
+-- already fits keeps the offset at 0 — and radios only: a menu can have many
+-- checkboxes ticked, and jumping to the first of them is noise, not information.
+function Menu:_scrollToChecked()
+    local maxS = self:_maxScroll()
+    if maxS <= 0 then return self:_setScroll(0) end
+
+    local target = 0
+    for i = 1, self._count do
+        local item = self._items[i]
+        local cfg  = item.cfg
+        if cfg and cfg.type == "radio" and cfg.group
+           and self._groupSel[cfg.group] == cfg.value then
+            local top    = item.top or 0
+            local bottom = top + (item.h or 0)
+            if bottom > (self._viewH or 0) then
+                target = math.min(bottom - (self._viewH or 0), top)  -- never past its own top
+            end
+            break
+        end
+    end
+    self:_setScroll(target)
+end
+
 -- ─── _applyTheme ────────────────────────────────────────────────────────────
 function Menu:_applyTheme(t)
     self._t = t
@@ -910,6 +1073,10 @@ function Menu:_applyTheme(t)
     self._panelBg:SetPoint("BOTTOMRIGHT", self._panel, "BOTTOMRIGHT", -px1,  px1)
     self._panelBg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
 
+    -- shadcn's ScrollAreaThumb is `bg-border` over a transparent track — so here the
+    -- rail IS the thumb and nothing else (no track texture is ever created).
+    self._barThumbTex:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a or 1)
+
     self:_buildRows()
     self:_updatePanelSize()
 end
@@ -918,20 +1085,35 @@ end
 -- Panel outer size from the measured content, floored at MIN_W and capped by
 -- maxHeight (scroll past it). ScrollFrame is inset by the ring (1px) + p-1 pad.
 function Menu:_updatePanelSize()
-    local px1 = Craft.Theme.px(1, self._panel)
+    local px1    = Craft.Theme.px(1, self._panel)
+    local inset  = px1 + PANEL_PAD
     local innerW = self._cfg.width or math.max(self._contentW or 0, MIN_W)
-    local panelW = innerW + 2 * PANEL_PAD + 2 * px1
 
     local maxH   = self._cfg.maxHeight or ((UIParent:GetHeight() or 768) - 40)
-    local fullH  = (self._contentH or 0) + 2 * PANEL_PAD + 2 * px1
+    local fullH  = (self._contentH or 0) + 2 * inset
     local panelH = math.min(fullH, maxH)
+    self._viewH  = math.max(panelH - 2 * inset, 0)   -- derived; see _maxScroll
 
-    self._panel:SetSize(panelW, math.max(panelH, 1))
+    -- An overflowing menu grows an 8px gutter for the rail instead of squeezing the
+    -- rows: the panel is w-fit, so this is the WoW equivalent of a browser reserving
+    -- the scrollbar track — the labels keep the width they were measured at.
+    local barW   = (self:_maxScroll() > 0) and BAR_W or 0
+
+    self._panel:SetSize(innerW + 2 * inset + barW, math.max(panelH, 1))
 
     self._scroll:ClearAllPoints()
-    self._scroll:SetPoint("TOPLEFT",     self._panel, "TOPLEFT",     px1 + PANEL_PAD,  -(px1 + PANEL_PAD))
-    self._scroll:SetPoint("BOTTOMRIGHT", self._panel, "BOTTOMRIGHT", -(px1 + PANEL_PAD), px1 + PANEL_PAD)
+    self._scroll:SetPoint("TOPLEFT",     self._panel, "TOPLEFT",      inset,          -inset)
+    self._scroll:SetPoint("BOTTOMRIGHT", self._panel, "BOTTOMRIGHT", -(inset + barW),  inset)
     self._scrollChild:SetWidth(math.max(innerW, 1))
+
+    -- Rail: the gutter itself — full viewport height, inside the p-1 padding.
+    self._bar:ClearAllPoints()
+    self._bar:SetPoint("TOPRIGHT", self._panel, "TOPRIGHT", -inset, -inset)
+    self._bar:SetSize(BAR_W, math.max(self._viewH, 1))
+
+    -- The content may have shrunk under the current offset (SetItems, a theme
+    -- reflow): re-clamp and repaint the thumb from the geometry just computed.
+    self:_setScroll(self._scroll:GetVerticalScroll() or 0)
 end
 
 -- ─── Open / Close ─────────────────────────────────────────────────────────────
@@ -986,7 +1168,7 @@ function Menu:_doOpen(scaleRef)
 
     self:_updatePanelSize()
     self._panel:SetClampedToScreen(true)
-    self._scroll:SetVerticalScroll(0)
+    self:_scrollToChecked()
 
     for i = 1, self._count do
         local it = self._items[i]
@@ -1000,6 +1182,7 @@ function Menu:_doOpen(scaleRef)
     -- second one would swallow the click that should dismiss the whole chain.
     if not self._isSub then self._catcher:Show() end
     self._hidden:set(false)
+    self._refHidden:set(false)
     self._open:set(true)
 end
 
@@ -1030,6 +1213,7 @@ function Menu:SetItems(items)
     self._cfg.items = items or {}
     self:_buildRows()
     self:_updatePanelSize()
+    self:_setScroll(0)          -- new content, new list: back to the top
     if self._open:peek() then self:_bindItems() end
 end
 

@@ -892,3 +892,237 @@ describe("Craft.Menu submenus (FR-085)", function()
         m:Destroy()
     end)
 end)
+
+-- ─── Scrolling (FR-086) ───────────────────────────────────────────────────────
+-- Geometry these numbers come from (the mock's px(1) == 1):
+--   inset    = 1px ring + p-1 = 5   ·   viewport = maxHeight - 2*inset = 310
+--   notch    = WHEEL_ROWS(3) * ROW_H(28) = 84   ·   rail gutter = 8
+--   20 rows  = 560px of content → travel = 560 - 310 = 250
+local NOTCH, BAR_W = 84, 8
+
+local function rows(n, make)
+    local items = {}
+    for i = 1, n do items[i] = make(i) end
+    return items
+end
+
+local function plainRow(i) return { type = "item", label = "Row " .. i } end
+
+local function longMenu(n, maxHeight)
+    return Craft.Menu:Create({ maxHeight = maxHeight or 320, items = rows(n, plainRow) })
+end
+
+describe("Craft.Menu wheel scrolling", function()
+
+    it("the wheel moves three rows per notch and clamps at both ends", function()
+        local m = longMenu(20)
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        assert.equals(310, m._viewH)
+        assert.equals(250, m:_maxScroll())
+        assert.equals(0, m._scroll:GetVerticalScroll())
+
+        m._scroll:_fire("OnMouseWheel", -1)                  -- down
+        assert.equals(NOTCH, m._scroll:GetVerticalScroll())
+        m._scroll:_fire("OnMouseWheel", -1)
+        m._scroll:_fire("OnMouseWheel", -1)                  -- would overshoot the last row
+        assert.equals(250, m._scroll:GetVerticalScroll())    -- row 20 IS reachable
+        m._scroll:_fire("OnMouseWheel", -1)
+        assert.equals(250, m._scroll:GetVerticalScroll())
+
+        m._scroll:_fire("OnMouseWheel", 1)                   -- up
+        assert.equals(250 - NOTCH, m._scroll:GetVerticalScroll())
+        m._scroll:_fire("OnMouseWheel", 1)
+        m._scroll:_fire("OnMouseWheel", 1)
+        assert.equals(0, m._scroll:GetVerticalScroll())
+        m:Destroy()
+    end)
+
+    it("the panel and the rail take the wheel too (no dead band)", function()
+        local m = longMenu(20)
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        m._panel:_fire("OnMouseWheel", -1)
+        assert.equals(NOTCH, m._scroll:GetVerticalScroll())
+        m._bar:_fire("OnMouseWheel", -1)
+        assert.equals(2 * NOTCH, m._scroll:GetVerticalScroll())
+        m._barThumb:_fire("OnMouseWheel", 1)
+        assert.equals(NOTCH, m._scroll:GetVerticalScroll())
+        m:Destroy()
+    end)
+
+    it("a menu that fits cannot scroll", function()
+        local m = longMenu(5)
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        assert.equals(0, m:_maxScroll())
+        m._scroll:_fire("OnMouseWheel", -1)
+        assert.equals(0, m._scroll:GetVerticalScroll())
+        m:Destroy()
+    end)
+
+    -- Radix locks the body scroll while a menu is open; the fullscreen catcher is
+    -- where that lock lives here, so it claims the wheel it never acts on.
+    it("the catcher swallows the wheel meant for whatever sits underneath", function()
+        local m = longMenu(5)
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        assert.is_true(m._catcher._wheelEnabled)
+        assert.is_not_nil(m._catcher:GetScript("OnMouseWheel"))
+        m:Destroy()
+    end)
+end)
+
+describe("Craft.Menu scroll rail", function()
+
+    it("appears only when the content overflows, and takes its own gutter", function()
+        local m = longMenu(20)
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        assert.is_true(m._bar:IsShown())
+        local wide = m._panel:GetWidth()
+
+        m:SetItems(rows(5, plainRow))
+        assert.is_false(m._bar:IsShown())
+        assert.equals(wide - BAR_W, m._panel:GetWidth())      -- the gutter goes with it
+        m:Destroy()
+    end)
+
+    it("the thumb is sized by the visible fraction and travels the whole rail", function()
+        local m = longMenu(20)
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        local viewH  = m._viewH                               -- 310
+        local thumbH = math.floor(viewH * viewH / 560)        -- 171
+        assert.equals(thumbH, m._barThumb:GetHeight())
+        assert.equals(viewH, m._bar:GetHeight())
+        assert.equals(0, m._barThumb._pointsByAnchor["TOP"][5])   -- parked at the top
+
+        m:_setScroll(m:_maxScroll())
+        assert.near(-(viewH - thumbH), m._barThumb._pointsByAnchor["TOP"][5], 0.5)
+        m:Destroy()
+    end)
+
+    it("dragging the thumb scrolls the content by the mapped distance", function()
+        local m = longMenu(20)
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        local movable = m._viewH - m._barThumb:GetHeight()    -- 139
+        local y = 500
+        local realCursor = GetCursorPosition
+        GetCursorPosition = function() return 0, y end
+
+        m._barThumb:_fire("OnMouseDown")
+        y = y - movable / 2                                   -- half the rail, downwards
+        m._barThumb:_fire("OnUpdate", 0)
+        assert.near(m:_maxScroll() / 2, m._scroll:GetVerticalScroll(), 0.5)
+
+        m._barThumb:_fire("OnMouseUp")
+        y = y - movable / 2
+        m._barThumb:_fire("OnUpdate", 0)                      -- released: no more travel
+        assert.near(m:_maxScroll() / 2, m._scroll:GetVerticalScroll(), 0.5)
+
+        GetCursorPosition = realCursor
+        m:Destroy()
+    end)
+end)
+
+describe("Craft.Menu scroll in a submenu", function()
+
+    it("a branch scrolls on its own, and the parent stays where it was", function()
+        local items = { { type = "submenu", label = "Gem", items = rows(20, function(i)
+            return { type = "radio", group = "gem", value = "g" .. i, label = "Gem " .. i }
+        end) } }
+        -- The parent needs its own overflow to prove the two are independent.
+        for i = 1, 20 do items[#items + 1] = plainRow(i) end
+
+        local m = Craft.Menu:Create({ maxHeight = 320, items = items })
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        m._scroll:_fire("OnMouseWheel", -1)
+        assert.equals(NOTCH, m._scroll:GetVerticalScroll())
+
+        m._items[1].row:_fire("OnClick")                      -- open the branch
+        local sub = m._sub
+        assert.is_true(sub._open:peek())
+        sub._scroll:_fire("OnMouseWheel", -1)
+        assert.equals(NOTCH, sub._scroll:GetVerticalScroll())
+        assert.equals(NOTCH, m._scroll:GetVerticalScroll())   -- untouched by the child
+        m:Destroy()
+    end)
+end)
+
+describe("Craft.Menu opens on the checked radio", function()
+
+    it("scrolls the selected row into view, minimally", function()
+        local m = Craft.Menu:Create({ maxHeight = 320, items = rows(20, function(i)
+            return { type = "radio", group = "gem", value = "g" .. i, label = "Gem " .. i,
+                     checked = (i == 15) }
+        end) })
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        -- Row 15 spans [392, 420) in a 310px viewport → the least scroll that shows it.
+        assert.equals(420 - m._viewH, m._scroll:GetVerticalScroll())
+        assert.is_true(m._items[15].indDot:IsShown())
+        m:Destroy()
+    end)
+
+    it("a selected row that already fits leaves the menu at the top", function()
+        local m = Craft.Menu:Create({ maxHeight = 320, items = rows(20, function(i)
+            return { type = "radio", group = "gem", value = "g" .. i, label = "Gem " .. i,
+                     checked = (i == 2) }
+        end) })
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        assert.equals(0, m._scroll:GetVerticalScroll())
+        m:Destroy()
+    end)
+
+    it("new items always come back to the top", function()
+        local m = longMenu(20)
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        m:_setScroll(200)
+        m:SetItems(rows(20, function(i) return { type = "item", label = "Other " .. i } end))
+        assert.equals(0, m._scroll:GetVerticalScroll())
+        m:Destroy()
+    end)
+end)
+
+-- Radix' `hide` middleware (referenceHidden): the branch travels with its trigger
+-- row — that part is free, the panel is anchored to the row — and goes INVISIBLE
+-- (not closed) once the row leaves the viewport, so it never dangles off a row
+-- nobody can see. Scrolling back brings it straight back.
+describe("Craft.Menu branch vs a scrolling parent", function()
+
+    local function menuWithBranch()
+        local items = { { type = "submenu", label = "All stones",
+                          items = rows(3, function(i) return { type = "item", label = "Gem " .. i } end) } }
+        for i = 1, 20 do items[#items + 1] = plainRow(i) end
+        local m = Craft.Menu:Create({ maxHeight = 320, items = items })
+        m:Open(CreateFrame("Frame", nil, UIParent))
+        m._items[1].row:_fire("OnClick")            -- open the branch
+        return m, m._sub
+    end
+
+    it("hides the branch when its trigger scrolls out of view, without closing it", function()
+        local m, sub = menuWithBranch()
+        assert.is_true(sub._panel:IsShown())
+
+        m:_setScroll(14)                            -- row 1 spans [0,28): still half visible
+        assert.is_true(sub._panel:IsShown())
+
+        m:_setScroll(NOTCH)                         -- 84: the trigger is gone
+        assert.is_true(sub._refHidden:peek())
+        assert.is_false(sub._panel:IsShown())
+        assert.is_true(sub._open:peek())            -- open, just not on screen
+        assert.equals(m._items[1], m._subRow)       -- and still ITS branch
+
+        m:_setScroll(0)                             -- scrolled back: it returns as it was
+        assert.is_false(sub._refHidden:peek())
+        assert.is_true(sub._panel:IsShown())
+        m:Destroy()
+    end)
+
+    it("a re-opened branch is visible again after having been scrolled away", function()
+        local m, sub = menuWithBranch()
+        m:_setScroll(NOTCH)
+        assert.is_false(sub._panel:IsShown())
+
+        m:_closeSubmenu()
+        m:_setScroll(0)
+        m._items[1].row:_fire("OnClick")
+        assert.is_false(sub._refHidden:peek())      -- _doOpen clears it
+        assert.is_true(sub._panel:IsShown())
+        m:Destroy()
+    end)
+end)
