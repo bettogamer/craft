@@ -6,6 +6,104 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.20.0] - 2026-09-06
+
+> **Release v2.20.0 — `Craft.ProgressRing`: el medidor de `Progress`, circular y legible a 16px
+> (FR-087).** Viene de Bis, donde dieciséis tarjetas de ranura llevan una insignia de veredicto
+> sobre el icono del objeto: hoy son dos glifos Lucide que sólo saben decir «todo» o «algo», cuando
+> el motor ya ha evaluado entre uno y cinco requisitos por pieza. Un anillo dice **3 de 5** en el
+> mismo sitio y sin una palabra — el salto que `Craft.Progress` dio para las barras, aplicado justo
+> donde no cabe una barra. Todo lo que se podía heredar se hereda literal (`min`/`max`/`value`, las
+> cinco variantes, `color` ganando a `variant`, pista al color del relleno α 0.20): shadcn no tiene
+> medidor radial, así que la fidelidad aquí es **no inventar un segundo dialecto** para la pregunta
+> que su hermano ya contesta. Lo único nuevo es `completeColor`.
+>
+> **La vía nativa que pedía el FR no existe, y se descartó sin spike.** Un `Cooldown` pausado
+> parecía el equivalente radial del `StatusBar` que hace inmune a `Craft.Progress` frente a los
+> secret values, pero su contrato es `(start, duration)` en segundos de `GetTime()`: congelar el
+> barrido en una fracción obliga a `start = GetTime() - f * duration`, **aritmética sobre el valor**.
+> No resuelve el problema, lo mueve una línea arriba — y encima pinta una tarta rellena, no un
+> anillo. Lo confirma el campo: los addons que usan `Cooldown` (NorthernSkyRaidTools) lo usan para
+> temporizadores reales, nunca como medidor. Va la vía 2 del FR: arco geométrico, el `scrubNum` de
+> `Progress` y degradación a **pista sola** cuando el valor no se deja operar. Corolario honesto que
+> queda escrito: con un valor secreto tampoco se puede decidir `value >= max`, así que un anillo
+> degradado nunca toma `completeColor`.
+>
+> **El motor del arco llevó dos iteraciones, y la segunda la abrió una captura del maintainer.** La
+> primera recortaba ocho rectángulos paralelos a los ejes: la longitud del arco salía exacta, pero
+> el corte se desvía hasta 45° del radial. En la banda por defecto (2px a 16px) eso es sub-píxel; a
+> 1/4 de grosor es un chaflán visible más un escalón donde se tocan dos sectores — un artefacto
+> **proporcional al grosor**, invisible en el caso de uso y evidente en el extremo de la API. La
+> versión que sale es el motor **wedge**: cuatro quads, uno por cuadrante, recortados al rayo del
+> ángulo con `SetVertexOffset` + `SetTexCoord` de 8 argumentos moviendo pantalla y UV *por la misma
+> cantidad* — `uv ≡ (pantalla − origen) / size` en cada vértice, mapeo afín, anillo **recortado y
+> nunca deformado**, corte exactamente radial. Es la técnica de la *Progress Texture* radial de
+> WeakAuras, y las fórmulas de esquina se contrastaron una a una contra
+> `BaseRegions/TextureCoords.lua` de Beacon (`angleToCoord` y la regla de signos de `MoveCorner`:
+> la UV crece hacia abajo, el vertex offset hacia arriba). El motor viejo se queda de respaldo
+> automático y la página del Browser los pone lado a lado.
+>
+> MINOR: todo aditivo, ningún componente existente cambia de API y la clave LibStub sigue siendo
+> `Craft-2.0`. `CRAFT_BUILD` 21→22. Suite: **741 tests** (37 del anillo, con un barrido cada 5° que
+> afirma que el corte cae sobre el rayo y que la UV sigue clavada a las esquinas), luacheck 0/0,
+> taintlint 0/0 contra la db 12.1. Verificado in-game por el maintainer en 12.1.
+>
+> **Para el consumidor — este re-vendoreo NO es una copia ciega:** `Craft/Craft.toc` gana
+> `components/ProgressRing.lua`, así que un addon que liste Craft archivo por archivo en su propio
+> `.toc` (como hace Craft_Browser) debe añadir esa línea o el componente sale `nil` in-game. Además
+> hay cinco TGA nuevos (`shape_ring_*`) y un `theme/Shapes.lua` regenerado: hay que copiar el
+> `media/` completo y **reiniciar el cliente**, no `/reload` (ADR-0018 §7). En Bis, el cambio son
+> unas diez líneas: la insignia pasa a ser un `ProgressRing` y el numerador sale de contar los
+> requisitos que el motor ya evalúa por pieza.
+
+### Added
+- **`Craft.ProgressRing`: el medidor de `Craft.Progress`, circular y utilizable a 16px**
+  ([FR-087](docs/requests/FR-087-progress-radial.md)). Misma semántica y mismo vocabulario —
+  `min`/`max`/`value`, las cinco variantes, `color` ganando a `variant` (FR-076), pista al color
+  del relleno α 0.20 — dibujados como anillo con el arco arrancando a las 12 en punto y en el
+  sentido de las agujas del reloj. Existe porque a 16px no cabe una barra y porque una insignia
+  de estado (`check` / `circle-dot`) tira un número que el consumidor ya tiene: un anillo dice
+  **3 de 5** sin ocupar más sitio. ADR-0002 no aplica: un anillo es redondo por definición.
+- **`completeColor`**, lo único que se añade sobre `Progress`: el color que toma el arco **sólo**
+  cuando el anillo cierra. Vive dentro del componente porque `value >= max` es la comparación que
+  el consumidor no siempre puede hacer.
+- **Familia de anillos prefabricados** en `scripts/export-shapes.py` → `shape_ring_{4,6,8,12,16}.tga`
+  y `Craft.Shapes._geom` / `GetGeometry(name)`, que publica la geometría (gutter y grosor de banda
+  como fracción del archivo) que el componente necesita para saber dónde vive la banda.
+- **`GetEngine()`** y la prop de diagnóstico `engine`, que convierten la página del Browser en un
+  banco de bisección entre los dos motores de arco.
+
+### Notas de implementación
+- **La vía nativa (`Cooldown` pausado) que pedía el FR está descartada, y sin spike in-game:** su
+  contrato es `(start, duration)` en segundos de `GetTime()`, así que fijar el barrido en una
+  fracción obliga a `start = GetTime() - f * duration` — **aritmética sobre el valor**. No resuelve
+  los secret values, los mueve una línea arriba; y pinta una tarta rellena, no un anillo. Se
+  implementa la vía 2 del FR: el valor se guarda sin inspeccionar, sólo llega a `scrubNum`
+  (`issecretvalue` + `pcall(v + 0)`, el guard de `Craft.Progress`) y un valor que no se deje operar
+  **degrada a pista sola sin lanzar error**. Corolario honesto: un anillo degradado nunca se sabe
+  cerrado, así que nunca toma `completeColor`.
+- **El arco es un quad recortado al rayo por cuadrante**, no rotación ni máscaras (las máscaras son
+  de donde salieron los «garabatos» de ADR-0018 y el crash #132). Un archivo de anillo se estira 1:1
+  sobre el frame y cuatro texturas lo recortan: `SetVertexOffset` arrastra las esquinas del quad
+  hasta el rayo del ángulo, así que **el corte es exactamente radial**. Lo que lo hace exacto en vez
+  de un estirón es que los vertex offsets mueven las esquinas en pantalla y el `SetTexCoord` de 8
+  argumentos mueve las UV *por la misma cantidad*: `uv ≡ (pantalla − origen) / size` en cada
+  vértice, mapeo afín, anillo **recortado y nunca deformado**. Es la técnica de la *Progress
+  Texture* radial de WeakAuras, con las fórmulas de esquina contrastadas contra
+  `BaseRegions/TextureCoords.lua` de Beacon (`angleToCoord` + la regla de signos de `MoveCorner`).
+  Coste por instancia: un frame y cinco texturas.
+- **Respaldo rectangular** (`engine = "rect"`, y automático si el cliente no tiene
+  `SetVertexOffset`): ocho recortes paralelos a los ejes, la primera implementación. Se queda
+  porque está vista in-game, pero su corte se desvía hasta 45° del radial — sub-píxel en una banda
+  de 2px, chaflán visible en una de 1/4. La página del Browser pone los dos motores lado a lado y
+  `GetEngine()` dice cuál pinta.
+- **El grosor está cuantizado**: el radio del agujero va horneado en el archivo, así que
+  `thickness` se ajusta al ratio más cercano de la familia (1/4 · 1/6 · 1/8 · 1/12 · 1/16).
+  `GetThickness()` devuelve lo pedido, `GetBandRatio()` lo que se pinta. Ampliar la familia es una
+  línea en `RING_DENOMS`: el componente lee los ratios del descriptor.
+- `Craft/Craft.toc` **sí cambia** (`components/ProgressRing.lua`), y los TGA nuevos exigen
+  **reiniciar el cliente**, no `/reload` (ADR-0018 §7).
+
 ## [2.19.0] - 2026-09-06
 
 > **Release v2.19.0 — FR-086: el menú tenía medio scroll construido y nada que lo condujera.**
