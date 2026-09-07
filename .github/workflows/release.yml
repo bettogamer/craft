@@ -103,6 +103,9 @@ jobs:
           [ -f "Craft/media/shape_pill_32x18.tga" ] || (echo "❌ shape_pill_32x18.tga" && exit 1)
           [ -f "Craft/media/shape_pill_24x14.tga" ] || (echo "❌ shape_pill_24x14.tga" && exit 1)
           [ -f "Craft/media/shape_circle.tga"     ] || (echo "❌ shape_circle.tga"     && exit 1)
+          for n in 4 6 8 12 16; do
+            [ -f "Craft/media/shape_ring_$n.tga" ] || (echo "❌ shape_ring_$n.tga" && exit 1)
+          done
           [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf" && exit 1)
           [ -f "Craft/media/Inter-Medium.ttf"  ] || (echo "❌ Inter-Medium.ttf"  && exit 1)
           [ -f "Craft/media/Inter-Bold.ttf"    ] || (echo "❌ Inter-Bold.ttf"    && exit 1)

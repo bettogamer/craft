@@ -9,7 +9,8 @@ Outputs (one WHITE anti-aliased shape per file, on a transparent background):
   Craft/media/shape_pill_32x18.tga   256×128  — Switch default track
   Craft/media/shape_pill_24x14.tga   256×128  — Switch sm track
   Craft/media/shape_circle.tga       128×128  — Switch thumb
-  Craft/theme/Shapes.lua             — name → filename descriptor
+  Craft/media/shape_ring_<n>.tga     128×128  — ProgressRing track/arc, band = D/n (FR-087)
+  Craft/theme/Shapes.lua             — name → filename descriptor (+ geometry for rings)
 
 Why ONE FILE PER SHAPE (not a sub-atlas):
   A WoW MaskTexture applied via AddMaskTexture masks the target by the mask's
@@ -78,11 +79,24 @@ SHAPES_LUA = REPO_ROOT / "Craft" / "theme" / "Shapes.lua"
 # are kept MODERATE (≈4× the on-screen size) so WoW's un-mipmapped downscale stays
 # gentle and the baked AA survives (8× looked pixelated — see module docstring).
 
+# ─── Ring family (FR-087, Craft.ProgressRing) ─────────────────────────────────
+# An annulus whose band is 1/n of the FILE side. The file is stretched 1:1 onto the
+# component's square rect, so a "ring_8" drawn at size S has a band of S/8 — which is
+# exactly the `thickness = size/8` default the FR asks for. Thickness is therefore
+# QUANTISED to this family (the component snaps to the nearest ratio): a mask/fill file
+# bakes its own hole radius, and WoW cannot inset one at runtime.
+RING_DENOMS     = [4, 6, 8, 12, 16]
+RING_FILE_SIZE  = 128          # POT → mip chain; ≈4× the 32px sweet spot, fine down to 16px
+
 SHAPES = [
-    # name          file                       fw    fh   kind     target (w,h)
-    ("pill_32x18", "shape_pill_32x18.tga",     128,   64, "pill",  (32, 18)),
-    ("pill_24x14", "shape_pill_24x14.tga",     128,   64, "pill",  (24, 14)),
-    ("circle",     "shape_circle.tga",          64,   64, "circle", (16, 16)),
+    # name          file                       fw    fh   kind     target (w,h)  extra
+    ("pill_32x18", "shape_pill_32x18.tga",     128,   64, "pill",  (32, 18),     None),
+    ("pill_24x14", "shape_pill_24x14.tga",     128,   64, "pill",  (24, 14),     None),
+    ("circle",     "shape_circle.tga",          64,   64, "circle", (16, 16),    None),
+] + [
+    ("ring_%d" % n, "shape_ring_%d.tga" % n,
+     RING_FILE_SIZE, RING_FILE_SIZE, "ring", (RING_FILE_SIZE, RING_FILE_SIZE), n)
+    for n in RING_DENOMS
 ]
 
 # ─── Drawing ──────────────────────────────────────────────────────────────────
@@ -123,6 +137,23 @@ def draw_circle(fw: int, fh: int) -> Image.Image:
     W, H, G = fw * os_, fh * os_, GUTTER * os_
     img  = Image.new("RGBA", (W, H), (255, 255, 255, 0))
     ImageDraw.Draw(img).ellipse([G, G, W - G - 1, H - G - 1], fill=(255, 255, 255, 255))
+    return img.resize((fw, fh), Image.LANCZOS)
+
+def draw_ring(fw: int, fh: int, denom: int) -> Image.Image:
+    """Renders a WHITE annulus inside a square file, inset by GUTTER, with a band of
+    fw/denom file px. The hole is PUNCHED (ImageDraw writes values, it does not
+    composite) before the LANCZOS downscale, so BOTH edges come out anti-aliased.
+
+    The consumer stretches the whole file onto its square rect and never crops the
+    circle, so `inset` and `1/denom` are all the geometry Craft.ProgressRing needs to
+    know where the band actually lives (see Shapes.lua `_geom`)."""
+    os_ = RENDER_SCALE
+    W, H, G = fw * os_, fh * os_, GUTTER * os_
+    band = (fw / float(denom)) * os_
+    img  = Image.new("RGBA", (W, H), (255, 255, 255, 0))
+    draw = ImageDraw.Draw(img)
+    draw.ellipse([G, G, W - G - 1, H - G - 1], fill=(255, 255, 255, 255))
+    draw.ellipse([G + band, G + band, W - G - 1 - band, H - G - 1 - band], fill=(0, 0, 0, 0))
     return img.resize((fw, fh), Image.LANCZOS)
 
 # ─── Save TGA ─────────────────────────────────────────────────────────────────
@@ -168,8 +199,24 @@ def generate_shapes_lua():
         "-- Logical shape name → media filename.",
         "Craft.Shapes._file = {",
     ]
-    for name, file, _fw, _fh, _kind, _target in SHAPES:
+    for name, file, _fw, _fh, _kind, _target, _extra in SHAPES:
         lines.append(f'    ["{name}"] = "{file}",')
+    lines += [
+        "}",
+        "",
+        "-- Geometry of the shapes whose consumer has to do maths against the drawn",
+        "-- figure (rings — Craft.ProgressRing crops the band into sectors). Fractions",
+        "-- of the SIDE of the file, which the consumer stretches 1:1 onto its rect:",
+        "--   inset     — transparent gutter per side, so outerRadius = (0.5-inset)*size",
+        "--   thickness — band width, so midRadius = (0.5-inset-thickness/2)*size",
+        "Craft.Shapes._geom = {",
+    ]
+    for name, _file, fw, _fh, kind, _target, extra in SHAPES:
+        if kind != "ring":
+            continue
+        lines.append(
+            f'    ["{name}"] = {{ inset = {GUTTER / float(fw):.10g}, '
+            f'thickness = {1.0 / float(extra):.10g} }},')
     lines += [
         "}",
         "",
@@ -177,6 +224,11 @@ def generate_shapes_lua():
         "-- passes it to a MaskTexture (hypothesis A) or a fill Texture (hypothesis B).",
         "function Craft.Shapes.Get(name)",
         "    return Craft.Shapes._file[name]",
+        "end",
+        "",
+        "-- GetGeometry(name) → { inset, thickness } (or nil). Only rings carry it.",
+        "function Craft.Shapes.GetGeometry(name)",
+        "    return Craft.Shapes._geom[name]",
         "end",
         "",
     ]
@@ -194,11 +246,13 @@ def main():
     print()
 
     print("1. Rendering + saving shapes...")
-    for name, file, fw, fh, kind, target in SHAPES:
+    for name, file, fw, fh, kind, target, extra in SHAPES:
         if kind == "pill":
             img = draw_pill(fw, fh, target)
         elif kind == "circle":
             img = draw_circle(fw, fh)
+        elif kind == "ring":
+            img = draw_ring(fw, fh, extra)
         else:
             print(f"  ✗ {name}: unknown kind {kind}")
             sys.exit(1)

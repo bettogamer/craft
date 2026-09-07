@@ -19,10 +19,33 @@ Craft.Shapes._file = {
     ["pill_32x18"] = "shape_pill_32x18.tga",
     ["pill_24x14"] = "shape_pill_24x14.tga",
     ["circle"] = "shape_circle.tga",
+    ["ring_4"] = "shape_ring_4.tga",
+    ["ring_6"] = "shape_ring_6.tga",
+    ["ring_8"] = "shape_ring_8.tga",
+    ["ring_12"] = "shape_ring_12.tga",
+    ["ring_16"] = "shape_ring_16.tga",
+}
+
+-- Geometry of the shapes whose consumer has to do maths against the drawn
+-- figure (rings — Craft.ProgressRing crops the band into sectors). Fractions
+-- of the SIDE of the file, which the consumer stretches 1:1 onto its rect:
+--   inset     — transparent gutter per side, so outerRadius = (0.5-inset)*size
+--   thickness — band width, so midRadius = (0.5-inset-thickness/2)*size
+Craft.Shapes._geom = {
+    ["ring_4"] = { inset = 0.015625, thickness = 0.25 },
+    ["ring_6"] = { inset = 0.015625, thickness = 0.1666666667 },
+    ["ring_8"] = { inset = 0.015625, thickness = 0.125 },
+    ["ring_12"] = { inset = 0.015625, thickness = 0.08333333333 },
+    ["ring_16"] = { inset = 0.015625, thickness = 0.0625 },
 }
 
 -- Get(name) → filename (or nil). The consumer prepends Craft.mediaPath and
 -- passes it to a MaskTexture (hypothesis A) or a fill Texture (hypothesis B).
 function Craft.Shapes.Get(name)
     return Craft.Shapes._file[name]
+end
+
+-- GetGeometry(name) → { inset, thickness } (or nil). Only rings carry it.
+function Craft.Shapes.GetGeometry(name)
+    return Craft.Shapes._geom[name]
 end
