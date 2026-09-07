@@ -225,6 +225,8 @@ function CB._build()
     _nav:AddItem({ id="Icons",     label="Icons",     onClick=function() CB.Navigate("Icons")     end })
     _nav:AddItem({ id="Label",     label="Label",     onClick=function() CB.Navigate("Label")     end })
     _nav:AddItem({ id="Progress",  label="Progress",  onClick=function() CB.Navigate("Progress")  end })
+    _nav:AddItem({ id="ProgressRing", label="Progress Ring",
+                   onClick=function() CB.Navigate("ProgressRing") end })
     _nav:AddItem({ id="Theme",     label="Theme",     onClick=function() CB.Navigate("Theme")     end })
     _nav:AddItem({ id="Tooltip",   label="Tooltip",   onClick=function() CB.Navigate("Tooltip")   end })
     _nav:AddSection("Integration")
