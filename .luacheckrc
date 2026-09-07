@@ -51,6 +51,12 @@ globals = {
     -- table (an item's/spell's real tooltip is data no addon can fabricate as
     -- text — FR-084). Always read with a guard: it is nil before FrameXML loads.
     "GameTooltip",
+    -- Vertex indices for Texture:SetVertexOffset (Craft.ProgressRing clips the
+    -- annulus into a radial wedge — FR-087). Leídas con fallback numérico.
+    "UPPER_LEFT_VERTEX",
+    "LOWER_LEFT_VERTEX",
+    "UPPER_RIGHT_VERTEX",
+    "LOWER_RIGHT_VERTEX",
     -- Chat output
     "DEFAULT_CHAT_FRAME",
     "print",

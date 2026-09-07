@@ -245,6 +245,19 @@ local function makeFrame(frameType, name, parent)
     function f:SetDrawLayer(...)    end
     function f:SetRotation(r)       self._rotation = r end
     function f:GetRotation()        return self._rotation or 0 end
+    -- SetVertexOffset(vertexIndex, dx, dy): drags ONE corner of the texture's quad
+    -- (1=UL, 2=LL, 3=UR, 4=LR) in screen deltas, +y UP. Craft.ProgressRing uses it
+    -- with the 8-argument SetTexCoord to clip the annulus into a radial wedge, so
+    -- specs assert the corner it moved and the UV that moved with it (FR-087).
+    function f:SetVertexOffset(i, dx, dy)
+        self._vertexOffsets = self._vertexOffsets or {}
+        self._vertexOffsets[i] = { dx or 0, dy or 0 }
+    end
+    function f:GetVertexOffset(i)
+        local o = self._vertexOffsets and self._vertexOffsets[i]
+        if o then return o[1], o[2] end
+        return 0, 0
+    end
 
     -- FontString methods
     function f:SetFont(path, size, flags) self._font = path; self._fontSize = size; self._fontFlags = flags end

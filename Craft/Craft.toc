@@ -66,6 +66,7 @@ components\Select.lua
 components\Menu.lua
 components\Popover.lua
 components\Progress.lua
+components\ProgressRing.lua
 components\Combobox.lua
 components\Separator.lua
 components\Sidebar.lua
