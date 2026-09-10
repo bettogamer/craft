@@ -36,6 +36,10 @@ function Dialog:Create(parent, config)
         size         = config.size         or "default",
         onClose      = config.onClose,
         closeOnEscape= config.closeOnEscape ~= false,  -- default true
+        -- 1px rule under the header (FR-088). OPT-IN, and deliberately so: Lyra's
+        -- `.cn-dialog-header` is `gap-1 text-left` with NO border-b, so the default
+        -- dialog keeps the shadcn look. See the _headerBorder block below.
+        headerBorder = config.headerBorder and true or false,
         -- Layer `modal` (FULLSCREEN_DIALOG) sits ABOVE any Craft.Window (`page` =
         -- DIALOG) AND above the backdrop (`modalOverlay` = FULLSCREEN), so a modal
         -- opened from a window floats over it and its own buttons stay clickable.
@@ -210,6 +214,24 @@ function Dialog:Create(parent, config)
     if not self._cfg.description then
         self._desc:Hide()
     end
+
+    -- ── Header bottom separator (FR-088, opt-in) ───────────────────────────
+    -- The twin of _footerBorder, on the other edge of the same dialog. It is NOT
+    -- on by default: shadcn draws no rule under a DialogHeader (`.cn-dialog-header`
+    -- = `gap-1 text-left`), and the north is shadcn-in-WoW, so a dialog that does
+    -- not ask keeps the faithful look. `headerBorder = true` is for the modal whose
+    -- content starts with controls glued to the header — there the title, its
+    -- description and the first row of the content read as a single band, and the
+    -- line says where the heading ends and the touchable part begins.
+    -- Costs no height: it lands on the header's bottom edge, inside the `sm`
+    -- padding the header already reserves, `spacingLg` above the content.
+    self._headerBorder = CreateFrame("Frame", nil, self._header)
+    Craft.Theme.SetPixelHeight(self._headerBorder, 1)
+    self._headerBorder:SetPoint("BOTTOMLEFT",  self._header, "BOTTOMLEFT",  0, 0)
+    self._headerBorder:SetPoint("BOTTOMRIGHT", self._header, "BOTTOMRIGHT", 0, 0)
+    self._headerBorderTex = self._headerBorder:CreateTexture(nil, "BACKGROUND")
+    self._headerBorderTex:SetAllPoints(self._headerBorder)
+    self._headerBorder:SetShown(self._cfg.headerBorder)
 
     -- ── Close button: 24×24, top-right, 8px offset ─────────────────────────
     -- cn-dialog-close: absolute top-2 right-2
@@ -389,6 +411,11 @@ function Dialog:_applyTheme(t)
     -- Footer separator: t.border
     self._footerBorderTex:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
     Craft.Theme.SetPixelHeight(self._footerBorder, 1)
+
+    -- Header separator (FR-088): the same t.border, so both edges of the dialog
+    -- are drawn by one rule and a theme swap moves them together.
+    self._headerBorderTex:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
+    Craft.Theme.SetPixelHeight(self._headerBorder, 1)
 
     self:_layoutFrames(t)
 end
