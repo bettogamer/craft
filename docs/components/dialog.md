@@ -41,6 +41,7 @@ dialog.frame           (Frame, strata=modal, UIParent)        raíz draggable (1
 ├── dialog._header     (Frame, opcional)              zona de título — drag handle
 │   ├── dialog._title  (FontString)                   texto del título (text-sm)
 │   ├── dialog._desc   (FontString, opcional)         descripción (text-xs)
+│   ├── dialog._headerBorder (Frame, 1px alto)        línea separadora bottom (FR-088, opt-in)
 │   └── dialog._closeBtn (Frame, 24×24px)             botón de cierre "×"
 │       ├── dialog._closeBg  (Texture)                fondo hover/press
 │       └── dialog._closeX  (FontString)              símbolo "×"
@@ -117,6 +118,7 @@ dialog._ringTex:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
 | CloseBtn size | 24×24px | — |
 | CloseBtn offset top-right | 8px (`t.spacingSm`) en X e Y | `top-2 right-2` |
 | Footer borde-top | 1px | `border-t` (ADR-0011) |
+| Header borde-bottom (opt-in) | 1px | — (FR-088, no existe en Lyra) |
 
 > **Nota:** `text-sm` = 14px en Tailwind/Lyra. El título usa `text-sm font-medium` (14px, no 12px). No existe un titleBar de altura fija — el header crece con su contenido.
 
@@ -165,6 +167,7 @@ y no ofrece un `Close` componible. Diferencia de alcance, no bug — ver
 | Fondo del dialog | `t.popover` | {r=0.091, g=0.091, b=0.091} |
 | Ring perimetral | `t.border` | {r=1, g=1, b=1, a=0.10} |
 | Borde-top del footer | `t.border` | {r=1, g=1, b=1, a=0.10} |
+| Borde-bottom del header (`headerBorder`) | `t.border` | {r=1, g=1, b=1, a=0.10} |
 | Texto del título | `t.popoverForeground` | {r=0.980, g=0.980, b=0.980} |
 | Fuente del título | `t.fontBold`, `t.fontSizeLg` (14px) | — |
 | Texto de descripción | `t.mutedForeground` | {r=0.630, g=0.630, b=0.630} |
@@ -186,6 +189,7 @@ y no ofrece un `Close` componible. Diferencia de alcance, no bug — ver
 | `size` | string | `"default"` | Uno de: `"sm"` (320px), `"default"` (384px), `"lg"` (512px), `"xl"` (640px) |
 | `onClose` | function | nil | Callback invocado al cerrar (botón × o Escape) |
 | `closeOnEscape` | boolean | true | Si true, registrar el frame en `UISpecialFrames` |
+| `headerBorder` | boolean | **false** | (FR-088) Dibuja una regla de 1px `t.border` bajo el header, gemela de la del footer. **Opt-in a propósito:** Lyra no pinta `border-b` en `.cn-dialog-header`, así que el default es el shadcn fiel; se enciende en el modal cuyo contenido arranca con controles pegados al encabezado. No cambia la altura de nada. |
 | `strata` | string | `Craft.Strata.modal` (`"FULLSCREEN_DIALOG"`) | Strata del **frame**. Default = capa `modal` (sobre cualquier `Craft.Window`). El overlay va siempre en `Craft.Strata.modalOverlay` (`"FULLSCREEN"`), una strata por debajo. Solo cambiarlo para casos avanzados. |
 
 ## API pública
@@ -280,6 +284,24 @@ dialog._footerBorder._tex = dialog._footerBorder:CreateTexture(nil, "BACKGROUND"
 dialog._footerBorder._tex:SetAllPoints(dialog._footerBorder)
 dialog._footerBorder._tex:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
 ```
+
+**Header borde-bottom (FR-088, opt-in):** gemelo exacto del anterior, en el otro borde del
+mismo diálogo — `CreateFrame("Frame", nil, dialog._header)` anclado `BOTTOMLEFT`/`BOTTOMRIGHT`
+del header, `SetPixelHeight(…, 1)`, textura `t.border`. Nace oculto y `headerBorder = true` lo
+muestra.
+
+> **Por qué NO es el default.** El norte de Craft es shadcn en WoW, y el CSS real de Lyra
+> (arriba) define `.cn-dialog-header { @apply gap-1 text-left; }` — sin `border-b`. Encenderlo
+> por defecto haría que TODO diálogo existente dejara de parecerse a su original por un gusto,
+> que es exactamente la divergencia que el proyecto no acepta. `Craft.Window` sí pinta su
+> `_titleBarSep` porque una barra de título arrastrable no tiene equivalente shadcn: es una
+> pieza nativa de WoW. El caso legítimo del header rule — contenido que empieza con controles
+> pegados al encabezado — lo pide el consumidor con una línea de config, y no tiene que deducir
+> ningún número interno de `_layoutFrames` para dibujarlo por su cuenta.
+
+**Cae en espacio que ya existía:** el header reserva `spacingSm` (8px) de padding inferior y
+deja `spacingLg` (16px) hasta el contenido, así que la línea no altera `headerH` ni la altura
+total del diálogo.
 
 **Footer opcional:** si `config.footer` no se pasa, `_footer` no se crea y `_content` se extiende hasta el borde inferior (menos el padding exterior).
 

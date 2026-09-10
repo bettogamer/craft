@@ -175,6 +175,7 @@ items = {
 | Item | Hover | `_bg` color `t.sidebarAccent`, texto `t.sidebarAccentForeground` | `hover:bg-sidebar-accent` |
 | Item | Active | `_bg` `t.sidebarAccent`, texto `t.sidebarAccentForeground`, **fuente `t.fontMedium`** | `data-active:bg-sidebar-accent data-active:font-medium` |
 | Item | Disabled | Texto e ícono `t.mutedForeground` con a=0.5, `EnableMouse(false)` (sin hover/click) | `disabled:pointer-events-none disabled:opacity-50` |
+| Item | Disabled + `tooltip` | Igual que Disabled, pero con ratón activo **solo** para el hover del tooltip (FR-089): sin recolorear y sin clic | — |
 | Sub-button | Default | Texto `t.sidebarForeground` | — |
 | Sub-button | Hover | `_bg` color `t.sidebarAccent`, texto `t.sidebarAccentForeground` | `hover:bg-sidebar-accent` |
 | Sub-button | Active | `_bg` color `t.sidebarAccent`, texto `t.sidebarAccentForeground` | `data-active:bg-sidebar-accent` |
@@ -218,6 +219,7 @@ items = {
 | `items[i].collapsible` | boolean | auto | true si tiene `children`; fuerza rama colapsable |
 | `items[i].defaultOpen` | boolean | true | Estado inicial expandido de la rama |
 | `items[i].disabled` | boolean | false | (FR-048) Item deshabilitado: sin hover/click (`EnableMouse(false)`, chevron incluido), texto e ícono `t.mutedForeground` con a=0.5 |
+| `items[i].tooltip` | string | nil | (FR-089) Etiqueta al hover de la fila, mismo nombre y forma que en `Craft.Button` (FR-020) y `Craft.Menu` (FR-084). Vale también —y sobre todo— en filas `disabled`. Un valor que no sea string se ignora |
 | `activeItem` | string | nil | Id del item activo al crear el componente |
 | `onSelect` | function | nil | Callback `fn(id)` al seleccionar cualquier item |
 
@@ -304,6 +306,22 @@ sectionLabel:SetTextColor(t.sidebarForeground.r, t.sidebarForeground.g, t.sideba
 **Group padding (`p-2`):** `_rebuildLayout` insetea **todos** los elementos 8px a izquierda y derecha (`SetPoint` TOPLEFT +8 / TOPRIGHT −8), de modo que el contenido cae a 16px (8 group + 8 padding interno) y los resaltados hover/activo quedan inset. Verticalmente: 8px arriba del primer bloque, 16px entre secciones consecutivas (cierre + apertura de grupo), 8px abajo del último. Un **separador** (`AddSeparator`) cierra el grupo anterior: 8px arriba y 8px abajo del separador — el bloque siguiente abre con un solo padding de 8px, no 16 (FR-050, como Lyra: grupo `p-2` + separador + grupo `p-2`). No se usa un Frame contenedor de grupo — el inset se aplica por elemento.
 
 **Item activo en negrita:** `data-active:font-medium` → el label del item activo (solo nivel raíz) usa `t.fontMedium`; los inactivos usan `t.font` (regular). Los sub-items (`data-active` en `sidebar-menu-sub-button`) NO llevan `font-medium` en Lyra — mantienen `t.font` incluso activos (ver [FR-047](../requests/FR-047-sidebar-subitem-no-bold.md)).
+
+**Tooltip por entrada (FR-089):** `Craft.Tooltip.Attach(itemFrame, { text = tooltip, side = "right" })`.
+Ancla a la DERECHA para que el tip caiga fuera de la barra en vez de tapar las filas vecinas (la
+misma elección que `Craft.Menu`, FR-067), y engancha con `HookScript`, así que se apila sobre los
+scripts que la fila ya tenga en vez de reemplazarlos. `SetItems` y `Destroy` hacen `Detach` de las
+filas que descartan: el frame queda huérfano y un show diferido ya encolado dispararía contra una
+fila que ya no está en la barra.
+
+> **Separa los dos "pointer events" de una fila disabled.** Una fila gris sin explicación se lee
+> como una fila **rota**; la diferencia entre «esto no funciona» y «esto todavía no existe» es una
+> línea al hover, y solo el componente puede dársela — un consumidor que construye la barra con
+> `SetItems` no tiene acceso soportado al frame de la fila, y aunque lo tuviera la fila disabled no
+> tiene ratón. Con `tooltip`, la fila disabled pasa a `EnableMouse(true)` **solo** para recibir
+> `OnEnter`/`OnLeave`: sigue sin `OnClick` y sin recolorear (esta rama no registra ninguno de los
+> dos), así que la garantía de FR-048 no se toca. Sin `tooltip` el comportamiento es idéntico al
+> de antes: `EnableMouse(false)`. Misma política que `Craft.Button` (FR-020) y `Craft.Menu` (FR-084).
 
 **Item disabled (FR-048):** `disabled:pointer-events-none disabled:opacity-50` → `itemFrame:EnableMouse(false)` (sin OnEnter/OnLeave/OnClick registrados; en ramas también se apaga el Button del chevron) y foreground `t.mutedForeground` con a=0.5 en label, ícono y chevron. El estado disabled tiene precedencia visual sobre activo/hover en `_colorItem`.
 
