@@ -6,6 +6,65 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.21.0] - 2026-09-10
+
+> **Release v2.21.0 — dos peticiones de Bis sobre piezas que ya existían, y la línea que separa
+> «lo que falta» de «lo que me gustaría».** Ninguna de las dos añade componente: `Craft.Dialog`
+> gana un borde que ya sabía dibujar en el otro extremo, y `Craft.Sidebar` una propiedad que sus
+> dos hermanos ya tenían con ese mismo nombre. Lo que las hace distintas es **de quién es el
+> problema**: en las dos, el apaño del consumidor o no existe o depende de internals que nunca
+> fueron contrato.
+>
+> **FR-089 no tenía apaño posible, y por eso entra tal cual se pidió.** Una fila `disabled` de la
+> barra no tiene ratón —FR-048 se lo quitó a propósito— así que colgarle un tooltip desde fuera
+> exigía deshacer justo esa garantía. Sólo el componente puede separar «no acepta clics» de «no
+> acepta hover», y eso es lo que hace ahora: la fila con `tooltip` recupera `EnableMouse` **sólo**
+> para el hover, y sigue sin `OnClick` y sin recolorear porque esa rama no registra ninguno de los
+> dos. El caso que lo motiva es el de siempre en un addon que enseña su mapa completo desde el
+> día uno: una entrada gris **sin explicación se lee como una entrada rota**, y la diferencia
+> entre «esto no funciona» y «esto todavía no existe» es una línea al hover.
+>
+> **FR-088 sí llega con una corrección, y es la de siempre: el norte es shadcn.** El FR pedía que
+> la regla bajo la cabecera fuese el comportamiento por defecto, apoyándose en que la spec de
+> shadcn dibuja un `DialogHeader` con borde. No lo dibuja — el CSS real de Lyra destilado en este
+> repo es `.cn-dialog-header { @apply gap-1 text-left; }`, sin `border-b`. Encenderla por defecto
+> habría alejado de su original a todos los diálogos existentes por un criterio de gusto, que es
+> exactamente la divergencia que este proyecto no acepta ni documentada. Va **opt-in**, y lo que
+> el FR pedía de verdad —no deducir de `_layoutFrames` dos números que nunca fueron contrato—
+> queda igualmente resuelto con una línea de config. `Craft.Window` sí pinta su `_titleBarSep`
+> porque una barra de título arrastrable no tiene equivalente shadcn: es una pieza nativa de WoW.
+>
+> Queda anotada una divergencia conocida que este release **no** toca: el borde del pie del
+> diálogo tampoco existe en Lyra y está encendido por defecto desde el principio. Quitarlo sería
+> un cambio visual para todos los consumidores, así que se documenta y se deja.
+
+### Añadido
+
+- **`Craft.Dialog` — `headerBorder`: la regla de 1px bajo el encabezado (FR-088).** El diálogo
+  apila tres regiones y sólo separaba dos de las tres uniones: `contenido → pie` llevaba su línea
+  y `cabecera → contenido` no. Ahora existe `_headerBorder`, gemelo exacto de `_footerBorder`
+  (mismo `t.border`, mismo `SetPixelHeight(…, 1)`), en el otro borde del mismo componente.
+  **Nace apagado, y a propósito:** el CSS real de Lyra define `.cn-dialog-header` como
+  `gap-1 text-left`, sin `border-b`, así que encenderlo por defecto habría alejado de su original
+  a todos los diálogos existentes por un gusto — la divergencia que este proyecto no acepta.
+  (`Craft.Window` sí pinta su `_titleBarSep` porque una barra de título arrastrable no tiene
+  equivalente shadcn.) El caso que sí la quiere — contenido que arranca con controles pegados al
+  encabezado, donde título, descripción y primera fila se leen como una sola banda — la pide con
+  `headerBorder = true` y deja de deducir de `_layoutFrames` dos números internos que nunca fueron
+  contrato. No cambia ninguna altura: la línea cae dentro del padding que el header ya reservaba.
+
+- **`Craft.Sidebar` — `tooltip` por entrada (FR-089).** `itemConfig` acepta ahora `tooltip`
+  (string), con el mismo nombre y la misma forma que en `Craft.Button` (FR-020) y `Craft.Menu`
+  (FR-084), anclado a la DERECHA de la fila para no tapar a sus vecinas (como en `Craft.Menu`,
+  FR-067). Vale **sobre todo en filas `disabled`**, que es lo que motivó la petición: una entrada
+  gris sin explicación se lee como una entrada **rota**, y la diferencia entre «esto no funciona»
+  y «esto todavía no existe» es una línea al hover. Para eso se separan los dos «pointer events»
+  que hasta ahora viajaban juntos: la fila con `tooltip` recupera el ratón **sólo** para recibir
+  `OnEnter`/`OnLeave`, y sigue sin `OnClick` y sin recolorear porque esa rama no registra ninguno
+  de los dos — la garantía de FR-048 queda intacta. Sin `tooltip`, nada cambia para nadie.
+  `SetItems` y `Destroy` hacen `Detach` de las filas que descartan, para que un show diferido ya
+  encolado no dispare contra una fila que ya no está en la barra.
+
 ## [2.20.0] - 2026-09-06
 
 > **Release v2.20.0 — `Craft.ProgressRing`: el medidor de `Progress`, circular y legible a 16px
