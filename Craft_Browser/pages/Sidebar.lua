@@ -141,6 +141,24 @@ CraftBrowserPages["Sidebar"] = {
         })
         y = y + 192
 
+        -- ── 5b. Tooltip por entrada (FR-089) ─────────────────────────────────
+        -- La fila gris SIN explicacion se lee como una fila rota. Con `tooltip` la
+        -- misma fila dice por que esta gris — y sigue sin hover accent y sin clic.
+        y = addLabel("Tooltip (FR-089) — hover: la gris explica que aun no existe; sin plate ni clic", y)
+        local c5b = newContainer(220, 152, y)
+        newSidebar(c5b, {
+            width = 220, activeItem = "t-list",
+            items = {
+                { id="t-list", label="Mi lista",  icon="list" },
+                { id="t-help", label="Ayuda",     icon="circle-help",
+                  tooltip = "Como funciona la lista" },
+                { id="t-boss", label="Por jefe",  icon="skull", disabled = true,
+                  tooltip = "Proximamente" },
+                { id="t-raid", label="Raid",      icon="users", disabled = true },
+            },
+        })
+        y = y + 164
+
         -- ── 6. Árbol colapsable (FR-008) + API de expansión (FR-010) ─────────
         y = addLabel("Árbol (FR-008) — chevron 16px al final (FR-049), guías, sub-item activo regular (FR-047)", y)
         local c6 = newContainer(240, 260, y)
