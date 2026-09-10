@@ -27,6 +27,7 @@ dofile("Craft/theme/Presets.lua")
 dofile("Craft/theme/Theme.lua")
 dofile("Craft/icons/Atlas.lua")
 dofile("Craft/icons/Icons.lua")
+dofile("Craft/components/Tooltip.lua")   -- Sidebar attaches it for per-item tooltips (FR-089)
 dofile("Craft/components/Sidebar.lua")
 
 local Craft = LibStub("Craft-2.0")
@@ -283,6 +284,107 @@ describe("Craft.Sidebar — expansion state (FR-010)", function()
             local sep, header = sb._sections[3], sb._sections[4]
             local sepBottom = topY(sep) + sep.frame:GetHeight()
             assert.equals(8, topY(header) - sepBottom)
+        end)
+    end)
+
+    -- ── Per-item tooltip (FR-089) ─────────────────────────────────────────
+    -- A greyed entry with no explanation reads as a broken one. The tooltip is the
+    -- one line that separates "this does not work" from "this does not exist yet",
+    -- and only the component can hand a disabled row the hover it needs for it.
+    describe("tooltip por entrada (FR-089)", function()
+        local function tipItems()
+            return {
+                { id = "list",  label = "Mi lista" },
+                { id = "boss",  label = "Por jefe", disabled = true, tooltip = "Proximamente" },
+                { id = "raid",  label = "Raid",     disabled = true },
+                { id = "help",  label = "Ayuda",    tooltip = "Como funciona" },
+            }
+        end
+
+        local function rowOf(sb, id)
+            return sb._itemFrames[id]
+        end
+
+        -- The Tooltip singleton is a named child of UIParent (the mock does not
+        -- register frame names in _G, so we look it up by _name).
+        local function tipFrame()
+            for _, child in ipairs(UIParent._children) do
+                if child._name == "CraftTooltipFrame" then return child end
+            end
+        end
+        local function tipShown()
+            local f = tipFrame()
+            return (f and f:IsShown()) and true or false
+        end
+        -- What the singleton is currently saying. The fade-out is a tween the mock
+        -- never advances, so IsShown() lingers after a Hide(); the TEXT is the honest
+        -- witness of "did THIS row get to speak?".
+        local function tipText()
+            local f = tipFrame()
+            return f and f._text:GetText() or nil
+        end
+
+        it("guarda el tooltip en la entrada y lo engancha al frame", function()
+            local sb = newSidebar(tipItems())
+            assert.equals("Proximamente", rowOf(sb, "boss").tooltip)
+            assert.equals("Como funciona", rowOf(sb, "help").tooltip)
+            assert.is_nil(rowOf(sb, "raid").tooltip)
+            assert.is_nil(rowOf(sb, "list").tooltip)
+        end)
+
+        it("una fila disabled CON tooltip recibe raton (solo para el hover)", function()
+            local sb = newSidebar(tipItems())
+            assert.is_true(rowOf(sb, "boss").frame:IsMouseEnabled())
+        end)
+
+        it("una fila disabled SIN tooltip sigue sin raton (FR-048 intacto)", function()
+            local sb = newSidebar(tipItems())
+            assert.is_false(rowOf(sb, "raid").frame:IsMouseEnabled())
+        end)
+
+        it("la fila disabled con tooltip sigue sin OnClick ni OnEnter propios", function()
+            local sb = newSidebar(tipItems())
+            local e = rowOf(sb, "boss")
+            -- Sin OnClick: no se puede seleccionar. Sin OnEnter propio: el plate no
+            -- se enciende — el unico OnEnter que existe es el hook del tooltip.
+            assert.is_nil(e.frame:GetScript("OnClick"))
+            local before = { e.bg:GetColorTexture() }
+            e.frame:_fire("OnEnter")
+            local after = { e.bg:GetColorTexture() }
+            assert.equals(before[4], after[4])   -- alpha del plate: sigue transparente
+        end)
+
+        it("el tooltip se muestra al hover de una fila disabled", function()
+            local sb = newSidebar(tipItems())
+            local e = rowOf(sb, "boss")
+            e.frame:_fire("OnEnter")
+            C_Timer._flush()                       -- vence el retardo de 300ms
+            assert.is_true(tipShown())
+        end)
+
+        it("una entrada normal con tooltip conserva su hover accent", function()
+            local sb = newSidebar(tipItems())
+            local e = rowOf(sb, "help")
+            local t = Craft.Theme.get()
+            e.frame:_fire("OnEnter")
+            local r, g, b, a = e.bg:GetColorTexture()
+            assert.near(t.sidebarAccent.r, r, 1e-6)
+            assert.near(t.sidebarAccent.g, g, 1e-6)
+            assert.near(t.sidebarAccent.b, b, 1e-6)
+            assert.near(1, a, 1e-6)
+        end)
+
+        it("SetItems desengancha el tooltip de las filas que descarta", function()
+            local sb = newSidebar({
+                { id = "boss", label = "Por jefe", disabled = true, tooltip = "TIP-VIEJO" },
+            })
+            local old = rowOf(sb, "boss")
+            sb:SetItems({ { id = "list", label = "Mi lista" } })
+            -- La fila vieja quedo huerfana: su hover ya no puede sacar el tooltip, ni
+            -- dejar encolado un show diferido contra una fila que ya no esta en la barra.
+            old.frame:_fire("OnEnter")
+            C_Timer._flush()
+            assert.is_false(tipText() == "TIP-VIEJO")
         end)
     end)
 

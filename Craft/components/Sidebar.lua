@@ -556,7 +556,8 @@ end
 
 -- ─── AddItem ──────────────────────────────────────────────────────────────────
 -- Adds a menu item. itemConfig: {id, label, icon, section, onClick, collapsible,
--- defaultOpen, children, disabled}. `depth`/`parentEntry` are internal (tree recursion).
+-- defaultOpen, children, disabled, tooltip}. `depth`/`parentEntry` are internal
+-- (tree recursion).
 -- Returns the item entry. Content x-positions are set in _positionRow (layout time).
 function Sidebar:AddItem(itemConfig, depth, parentEntry)
     local t  = self._t
@@ -569,6 +570,10 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
     local iconName    = itemConfig.icon
     local onClick     = itemConfig.onClick
     local disabled    = itemConfig.disabled and true or false
+    -- FR-089: hover label for the row, same name and same shape as Craft.Button
+    -- (FR-020) and Craft.Menu (FR-084) — a plain string. Anything else is ignored
+    -- rather than half-rendered, so a consumer finds out at once.
+    local hasTip      = type(itemConfig.tooltip) == "string"
     local collapsible = itemConfig.collapsible
         or (itemConfig.children ~= nil and #itemConfig.children > 0)
 
@@ -618,6 +623,7 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
         parent      = parentEntry,
         disabled    = disabled,
         collapsible = collapsible,
+        tooltip     = hasTip and itemConfig.tooltip or nil,
         _open       = itemConfig.defaultOpen ~= false,  -- default open
     }
 
@@ -653,7 +659,17 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
     if disabled then
         -- FR-048: disabled:pointer-events-none — no hover/click at all (the chevron
         -- Button included). No scripts registered; visuals come from _colorItem.
-        itemFrame:EnableMouse(false)
+        --
+        -- FR-089 splits the two "pointer events" that used to travel together. A row
+        -- with a `tooltip` keeps the MOUSE ON so it can still receive OnEnter and
+        -- explain ITSELF — "Coming soon" under a greyed entry is precisely the case
+        -- that needs a tooltip, and a grey row with no explanation reads as a broken
+        -- one. Click and hover-recolour stay gone regardless: this branch registers
+        -- no OnClick and no OnEnter, so the only thing listening is the tooltip hook
+        -- below. Same policy as Craft.Button (FR-020) and Craft.Menu (FR-084).
+        -- Without a tooltip nothing changes — the row has no effective mouse, exactly
+        -- as FR-048 asked.
+        itemFrame:EnableMouse(hasTip)
         if entry.chevBtn then entry.chevBtn:EnableMouse(false) end
     else
         -- Hover (skip the active item — it keeps the accent permanently)
@@ -677,6 +693,15 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
             if onClick then onClick(id, itemConfig) end
             if self._cfg.onSelect then self._cfg.onSelect(id) end
         end)
+    end
+
+    -- Tooltip (FR-089). Craft.Tooltip.Attach hooks with HookScript, so it stacks on
+    -- top of whatever the branch above registered instead of replacing it — and on a
+    -- disabled row, where there is nothing, it is the only listener. Anchored to the
+    -- row's RIGHT so the tip lands outside the bar instead of covering the rows above
+    -- and below it (the same choice Craft.Menu makes for its rows, FR-067).
+    if hasTip then
+        Craft.Tooltip.Attach(itemFrame, { text = itemConfig.tooltip, side = "right" })
     end
 
     table.insert(self._sections, entry)
@@ -834,6 +859,10 @@ function Sidebar:SetItems(items, opts)
     local prev     = preserve and self:GetExpandedState() or nil
 
     for _, e in ipairs(self._sections) do
+        -- FR-089: the hook dies with the row it belonged to. These frames are
+        -- orphaned here, and a delayed show already queued would otherwise fire
+        -- against a row that is no longer part of the bar.
+        if e.tooltip and e.frame then Craft.Tooltip.Detach(e.frame) end
         if e.frame then e.frame:Hide(); e.frame:ClearAllPoints() end
     end
     self._sections   = {}
@@ -939,6 +968,9 @@ end
 function Sidebar:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)  -- cut the items bind (ghost updates on reuse)
+    for _, e in ipairs(self._sections) do   -- FR-089: cancel any pending tooltip
+        if e.tooltip and e.frame then Craft.Tooltip.Detach(e.frame) end
+    end
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
