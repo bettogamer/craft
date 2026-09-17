@@ -177,3 +177,81 @@ describe("Craft.DragList rebuild", function()
         assert.is_true(dl:GetFrame():GetHeight() < h3)
     end)
 end)
+
+-- ─── Width follows the frame (FR-090) ─────────────────────────────────────────
+-- A DragList inside a resizable Window has to widen its rows in place: the pool and
+-- the drag state must survive, and renderRow must NOT run again for a resize.
+describe("Craft.DragList width (FR-090)", function()
+
+    it("SetWidth resizes the frame and every visible row", function()
+        local dl = newDL({ items = { "A", "B", "C" }, width = 300 })
+        assert.equals(300, dl:GetWidth())
+
+        dl:SetWidth(460)
+
+        assert.equals(460, dl:GetWidth())
+        assert.equals(460, dl:GetFrame():GetWidth())
+        for _, row in ipairs(dl._order) do
+            assert.equals(460, row:GetWidth())
+        end
+    end)
+
+    it("does not re-run renderRow for a width change", function()
+        local renders = 0
+        local dl = newDL({
+            items     = { "A", "B" },
+            width     = 300,
+            renderRow = function() renders = renders + 1 end,
+        })
+        assert.equals(2, renders)
+
+        dl:SetWidth(400)
+        dl:SetWidth(500)
+
+        assert.equals(2, renders)   -- content only got wider; nothing was re-rendered
+    end)
+
+    it("keeps the pool and the row identities across a resize", function()
+        local dl = newDL({ items = { "A", "B" }, width = 300 })
+        local first, second = dl._rows[1], dl._rows[2]
+        dl:SetWidth(380)
+        assert.equals(first,  dl._rows[1])
+        assert.equals(second, dl._rows[2])
+        assert.equals(2, #dl._rows)
+    end)
+
+    it("rows built after a resize use the new width", function()
+        local dl = newDL({ items = { "A" }, width = 300 })
+        dl:SetWidth(420)
+        dl:SetItems({ "A", "B", "C" })
+        assert.equals(420, dl._rows[3]:GetWidth())
+    end)
+
+    it("ignores a non-positive width and a no-op resize", function()
+        local dl = newDL({ items = { "A" }, width = 300 })
+        dl:SetWidth(0)
+        dl:SetWidth(nil)
+        assert.equals(300, dl:GetWidth())
+        assert.equals(300, dl._order[1]:GetWidth())
+    end)
+
+    it("follows the frame when the layout resizes it (anchored both sides)", function()
+        -- No SetWidth call: the consumer anchored the list LEFT+RIGHT and WoW reports
+        -- the new size through OnSizeChanged.
+        local dl = newDL({ items = { "A", "B" }, width = 300 })
+        dl:GetFrame():_fire("OnSizeChanged", 512, 76)
+        assert.equals(512, dl:GetWidth())
+        assert.equals(512, dl._order[1]:GetWidth())
+    end)
+
+    it("a height-only OnSizeChanged leaves the rows alone", function()
+        local dl = newDL({ items = { "A", "B" }, width = 300 })
+        local touched = 0
+        local row = dl._order[1]
+        local real = row.SetWidth
+        row.SetWidth = function(...) touched = touched + 1; return real(...) end
+        dl:GetFrame():_fire("OnSizeChanged", 300, 999)   -- _relayout fires this shape
+        row.SetWidth = real
+        assert.equals(0, touched)
+    end)
+end)

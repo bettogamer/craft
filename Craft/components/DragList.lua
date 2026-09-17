@@ -61,6 +61,12 @@ function DragList:Create(parent, config)
     self.frame = CreateFrame("Frame", nil, parent)
     self.frame:SetWidth(self._cfg.width)
 
+    -- FR-090: `_cfg.width` is the single source of truth for the row width, and the
+    -- frame is what can change it — by SetWidth, or by a layout that anchors the list
+    -- on both sides inside a resizable Window. Either way the rows follow from here,
+    -- so a width change never re-runs renderRow (the content only gets wider).
+    self.frame:SetScript("OnSizeChanged", function(_, w) self:_applyWidth(w) end)
+
     -- One OnUpdate closure for the whole list (installed only while dragging)
     self._onUpdate = function() self:_onDragUpdate() end
 
@@ -185,6 +191,20 @@ function DragList:_build()
     end
 
     self:_relayout()
+end
+
+-- ─── Width ────────────────────────────────────────────────────────────────────
+-- Pushes a new width onto the rows already built. Only the row frames resize: their
+-- `content` is anchored to both ends of the row, so whatever the consumer painted in
+-- it follows without a re-render. The equality guard makes this cheap enough to sit
+-- on OnSizeChanged, which also fires for every height change made by _relayout.
+function DragList:_applyWidth(w)
+    w = w or (self.frame and self.frame:GetWidth()) or 0
+    if w <= 0 or w == self._cfg.width then return end
+    self._cfg.width = w
+    for _, row in ipairs(self._order) do
+        row:SetWidth(w)
+    end
 end
 
 -- ─── Layout ───────────────────────────────────────────────────────────────────
@@ -312,6 +332,18 @@ end
 
 function DragList:GetItems()
     return self._items
+end
+
+-- FR-090: resize the list in place — rows included — without losing the pool or the
+-- drag state. Safe to call on every frame of a window resize.
+function DragList:SetWidth(w)
+    if not w or w <= 0 then return end
+    self.frame:SetWidth(w)
+    self:_applyWidth(w)   -- WoW defers OnSizeChanged to the layout pass; apply now
+end
+
+function DragList:GetWidth()
+    return self._cfg.width
 end
 
 function DragList:SetEnabled(enabled)
