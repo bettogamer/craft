@@ -110,6 +110,58 @@ CraftBrowserPages["DragList"] = {
         table.insert(comps, refresh)
         y = y + (#pool * 36 + (#pool - 1) * 4) + 20
 
+        -- ── FR-090: SetWidth ─────────────────────────────────────────────────
+        -- The case SMRT hit: a list inside a resizable window. The buttons stand in
+        -- for the resize — the rows widen in place, the pool and the drag survive,
+        -- and renderRow does NOT run again (the counter below only moves on Refresh).
+        y = addLabel("FR-090: SetWidth resizes the rows in place — drag still works after.", y)
+        local renders = 0
+        local dl4 = Craft.DragList:Create(parent, {
+            width = 240,
+            items = { "Uno", "Dos", "Tres" },
+            renderRow = function(content, item)
+                renders = renders + 1
+                local fs = content._fs
+                if not fs then
+                    fs = content:CreateFontString(nil, "OVERLAY")
+                    fs:SetPoint("LEFT", content, "LEFT", 0, 0)
+                    content._fs = fs
+                end
+                fs:SetFont(t.font, 12, "")
+                fs:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
+                fs:SetText(item)
+            end,
+        })
+        dl4:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(y + 4))
+        table.insert(comps, dl4)
+
+        local counter = Craft.Label:Create(parent, {
+            text  = "renderRow calls: " .. renders,
+            color = { r=t.mutedForeground.r, g=t.mutedForeground.g, b=t.mutedForeground.b, a=1 },
+        })
+        counter:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 440, -(y + 72))
+        table.insert(comps, counter)
+
+        local function resize(w)
+            dl4:SetWidth(w)
+            counter:SetText("renderRow calls: " .. renders)
+        end
+
+        local narrow = Craft.Button:Create(parent, {
+            text = "240px", variant = "outline", size = "sm",
+            onClick = function() resize(240) end,
+        })
+        narrow:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 440, -(y + 4))
+        table.insert(comps, narrow)
+
+        local wide = Craft.Button:Create(parent, {
+            text = "420px", variant = "outline", size = "sm",
+            onClick = function() resize(420) end,
+        })
+        wide:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 440, -(y + 36))
+        table.insert(comps, wide)
+        y = y + (3 * 36 + 2 * 4) + 20
+
         return {
             height  = y + 24,
             cleanup = function()
