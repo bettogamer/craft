@@ -6,6 +6,64 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.23.0] - 2026-09-17
+
+> **Release v2.23.0 — dónde acaba el tema y empieza la instancia.** Un solo FR, otra vez de
+> SMRT usando la librería en serio: su panel de la nota de banda es texto sobre el mundo 3D, y
+> `Craft.Label` no le dejaba elegir ni la fuente ni el contorno. El tamaño sí; la familia y las
+> flags de `SetFont`, no.
+>
+> **La decisión de diseño es la línea, no la API.** El FR dejaba abierto si la familia debe
+> mandarla el tema — «que es defendible en una librería de diseño», decía — y la respuesta es
+> que no, porque en shadcn la tipografía es token del tema **y** utilidad de instancia
+> (`className="font-mono text-base"`). Una familia por label no es una divergencia: es el mismo
+> modelo composición-sobre-tema que ya justificaba `weight` y `size` aquí, y que el propio spec
+> del componente llamaba «primitivas de estilo, no variantes semánticas». Lo que **sí** es
+> divergencia es el contorno, y ya estaba documentada en `design-reference.md §9` desde
+> ADR-0015 Fase 3; lo único que cambia es su alcance.
+>
+> Ese alcance importa: ADR-0015 §3 descartó el outline por-rol dando el caso HUD por cubierto
+> con el flag global `t.fontFlags`, y resulta que no lo cubre. El panel de la nota está sobre el
+> mundo, pero el resto de la UI del consumidor son paneles normales — con un único flag global,
+> darle contorno a la nota se lo pone a todo. Sigue sin ser un eje nuevo de tema: es un override
+> de instancia en un componente, y el default no se mueve (sin `font` manda el tema, sin `flags`
+> manda el token global).
+>
+> De regalo, una red que no pedía nadie: `applyFont` **cae a la fuente del tema si `SetFont`
+> devuelve `false`**. Una ruta ajena que no carga —LibSharedMedia apuntando a un TTF que el
+> usuario borró— deja el `FontString` *sin fuente*, o sea texto invisible sin un solo error Lua.
+> Ese fallo mudo es peor que ignorar la preferencia, y es la misma familia de problema que la
+> regla de rutas ajenas del bug #6.
+
+### Añadido
+
+- **`Craft.Label`: familia, tamaño y contorno por instancia (FR-092).** `config.font` (ruta TTF,
+  lo que devuelve `LSM:Fetch("font", name)`) y `config.flags` (`""`|`"OUTLINE"`|`"THICKOUTLINE"`|
+  `"MONOCHROME"`) se suman a `weight`/`size`, y como ellas se resuelven **dentro de
+  `_applyTheme`**: sobreviven a un cambio de tema y al re-medido de la carga async de Inter.
+  `nil` = lo del tema, así que el default no cambia. Una familia explícita **gana sobre
+  `weight`** (el path ya nombra el archivo y con él su peso), y `flags = ""` es una decisión
+  explícita, no ausencia: quita el contorno aunque el tema lo ponga.
+- **`Label:SetFontOptions({ font, size, flags, weight })` (FR-092).** Cambia los cuatro en vivo
+  sin destruir y recrear el Label. La tabla es el **estado completo** de fuente, no un parche:
+  la clave ausente vuelve al tema y sin tabla se resetean las cuatro — la única forma de decir
+  «vuelve al default» sin un centinela, porque Lua no distingue clave ausente de `nil`
+  explícito. Re-aplica vía `_applyTheme`, así que re-mide (el alto sigue al texto) y restaura
+  el color.
+
+### Cambiado
+
+- **`Craft.Theme.applyFont(fs, path, size, flags?)` acepta flags por llamada (FR-092).** El
+  chokepoint de fuentes (ADR-0015 Fase 3) gana un 4º arg opcional en vez de que el Label llame
+  a `SetFont` a pelo: `nil` hereda el token global `t.fontFlags` — el comportamiento de los 32
+  call-sites migrados en su día — y una cadena manda sobre él. Existe porque el caso real es
+  texto sobre el mundo 3D (la nota de banda de SMRT): ahí hace falta contorno en **ese** panel,
+  no en toda la UI del consumidor, que es lo único que permitía el flag global.
+- **`applyFont` cae a la fuente del tema si `SetFont` devuelve `false` (FR-092).** Una ruta
+  ajena que no carga (LSM apuntando a un TTF que el usuario borró) deja el `FontString` *sin
+  fuente*, es decir texto invisible. Un fallo mudo es peor que ignorar la preferencia. Mismo
+  espíritu que la regla de rutas ajenas del bug #6 de `CLAUDE.md`.
+
 ## [2.22.0] - 2026-09-16
 
 > **Release v2.22.0 — dos huecos que SMRT encontró usando la librería en serio, y que se tapan
