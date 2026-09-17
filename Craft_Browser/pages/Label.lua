@@ -112,6 +112,76 @@ CraftBrowserPages["Label"] = {
         table.insert(comps, flowSlider)
         y = y + 16
 
+        -- ── Font family / size / outline (FR-092) ────────────────────────────
+        -- The case this exists for is text painted over the 3D world (a raid-note
+        -- panel), where the theme font with no outline competes with the scenery.
+        -- The bands below stand in for that: the same string crosses a dark, a
+        -- mid and a light strip, so the outline is either doing its job or not.
+        y = addLabel("Font, size and outline per label (FR-092) — over a busy background", y)
+
+        local stage = CreateFrame("Frame", nil, parent)
+        stage:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        stage:SetSize(300, 44)
+        for i, shade in ipairs({ 0.06, 0.45, 0.78 }) do
+            local band = stage:CreateTexture(nil, "BACKGROUND")
+            band:SetColorTexture(shade, shade * 0.9, shade * 0.8, 1)
+            band:SetPoint("TOPLEFT",  stage, "TOPLEFT",  (i - 1) * 100, 0)
+            band:SetSize(100, 44)
+        end
+        table.insert(comps, { Destroy = function() stage:Hide() end })
+
+        local lblWorld = Craft.Label:Create(stage, {
+            text  = "Raid note over the world",
+            flags = "OUTLINE",
+            color = { r = 1, g = 1, b = 1, a = 1 },
+        })
+        lblWorld:GetFrame():SetPoint("LEFT", stage, "LEFT", 8, 0)
+        table.insert(comps, lblWorld)
+
+        -- One state, one setter: SetFontOptions takes the COMPLETE font state, so
+        -- the three controls below write into the same table and re-apply it —
+        -- no destroy + re-create per tweak (which is what the consumer did before).
+        local fontState = { flags = "OUTLINE" }
+        local function applyFontState() lblWorld:SetFontOptions(fontState) end
+
+        local tgFlags = Craft.ToggleGroup:Create(parent, {
+            value = "OUTLINE",
+            options = {
+                { value = "",             label = "None" },
+                { value = "OUTLINE",      label = "Outline" },
+                { value = "THICKOUTLINE", label = "Thick" },
+            },
+            onChange = function(v) fontState.flags = v; applyFontState() end,
+        })
+        tgFlags:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 330, -y)
+        table.insert(comps, tgFlags)
+
+        -- A family from OUTSIDE the theme: this is the slot a consumer fills with
+        -- LibSharedMedia (`LSM:Fetch("font", name)`); the Browser has no LSM, so
+        -- it uses a font that ships with the client.
+        local tgFamily = Craft.ToggleGroup:Create(parent, {
+            value = "theme",
+            options = {
+                { value = "theme", label = "Theme font" },
+                { value = "friz",  label = "Friz Quadrata" },
+            },
+            onChange = function(v)
+                fontState.font = (v == "friz") and "Fonts\\FRIZQT__.TTF" or nil
+                applyFontState()
+            end,
+        })
+        tgFamily:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 330, -(y + 40))
+        table.insert(comps, tgFamily)
+
+        local sizeSlider = Craft.Slider:Create(parent, {
+            min = 10, max = 24, step = 1, value = t.fontSize or 12, width = 160,
+            label = "size", showValue = true,
+            onChange = function(v) fontState.size = v; applyFontState() end,
+        })
+        sizeSlider:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 330, -(y + 80))
+        table.insert(comps, sizeSlider)
+        y = y + 124
+
         return {
             height  = y + 24,
             cleanup = function()
