@@ -84,6 +84,8 @@ Las variantes `heading`, `caption`, `muted` del spec anterior **no existen en el
 | `onClick`  | function | `nil`    | Callback `function(self)`. Activa cursor hand en hover y color `t.primary` en hover.     |
 | `weight`   | string   | `nil`    | Peso de fuente: `"normal"` (default), `"medium"` (`t.fontMedium`), `"bold"` (`t.fontBold`). Resuelto DENTRO de `_applyTheme` → sobrevive a cambios de tema. |
 | `size`     | number   | `nil`    | Tamaño en px. Default = `t.fontSize` (12). Persiste igual que `weight`.                    |
+| `font`     | string   | `nil`    | Ruta de un TTF (lo que devuelve `LSM:Fetch("font", name)`). `nil` = la familia del tema. **Gana sobre `weight`** (el path ya nombra el archivo). Resuelto en `_applyTheme` → sobrevive a cambios de tema (FR-092). |
+| `flags`    | string   | `nil`    | Flags de `SetFont`: `""`\|`"OUTLINE"`\|`"THICKOUTLINE"`\|`"MONOCHROME"` (y combinaciones). `nil` = hereda `t.fontFlags`; `""` es una decisión explícita (quita el contorno aunque el tema lo ponga) (FR-092). |
 
 ## API pública
 
@@ -92,12 +94,43 @@ Las variantes `heading`, `caption`, `muted` del spec anterior **no existen en el
 | `SetText(text)`  | `string → void`  | Cambia el texto. Respeta el `maxWidth` si está configurado.                       |
 | `SetWidth(w)`    | `number → void`  | Re-fluye la caja (FR-071). En modo `wrap` cambia el ancho y re-mide el alto; en modo hug impone el cap de elide (y apaga el word-wrap la primera vez). Pensado para el `OnSizeChanged` del contenedor. |
 | `SetColor(color)`| `table → void`   | Cambia el color del texto `{r,g,b,a}`. `nil` restaura el comportamiento heredado. |
+| `SetFontOptions(opts)` | `table? → void` | Cambia familia/tamaño/contorno/peso en vivo, sin destruir y recrear el Label (FR-092). La tabla es el **estado completo** de fuente (`{font, size, flags, weight}`), no un parche: la clave ausente vuelve al tema, y sin tabla se resetean las cuatro. Re-aplica vía `_applyTheme` ⇒ re-mide (el alto sigue al texto) y restaura el color. |
 | `SetEnabled(b)`  | `boolean → void` | Habilita/deshabilita: `SetAlpha(1/0.5)` en el frame (`disabled:opacity-50`).      |
 | `GetFrame()`     | `→ Frame`        | Devuelve el `Frame` raíz para posicionamiento externo.                            |
 
 ## Notas de implementación
 
 **Sin variantes semánticas**: Lyra CSS define Label como texto `text-xs` (`12px`) puro, sin variantes `heading`, `caption` o `muted`. El dev controla el color externamente (vía `config.color`) o lo hereda del contexto. `weight`/`size` NO son variantes semánticas: son primitivas de estilo que el consumidor combina (p. ej. el header del Browser usa `weight="bold"` + `size=t.fontSizeLg`). **Regla**: peso y tamaño deben pasarse por config —resueltos en `_applyTheme`— y NUNCA pokeando `label._text:SetFont(...)` después de `Create`, porque el siguiente `_applyTheme` (cambio de tema/fuente en runtime) lo pisaría con regular/12 (bug histórico del header del Browser).
+
+**Familia y contorno por instancia (FR-092)**: `font` y `flags` son la misma categoría
+que `weight`/`size` — primitivas de estilo que el consumidor compone, **no** variantes
+semánticas — y se resuelven en `_applyTheme` por el mismo motivo. El caso real es un panel
+de texto sobre el mundo 3D (nota de banda): ahí el consumidor necesita elegir fuente
+(LibSharedMedia, como NSRT/MRT/WeakAuras) y **contorno** para que el texto se lea sobre
+cualquier escenario, sin ponerle outline a toda su UI — que es lo único que permitía el
+token global `t.fontFlags` (ADR-0015 Fase 3). El default no cambia: sin `font` manda el
+tema, sin `flags` manda el token global. La aplicación sigue pasando por el chokepoint
+`Craft.Theme.applyFont(fs, path, size, flags)`, que además **cae a la fuente del tema si
+`SetFont` devuelve `false`** — una ruta ajena que no carga deja el FontString sin fuente,
+es decir texto invisible, y un fallo mudo es peor que ignorar la preferencia.
+
+Craft es LSM-agnóstico (ADR-0015 Fase 2): el consumidor pasa el path, no el nombre.
+
+⚠️ **Limitación conocida — la sonda de fuentes solo vigila los TTF del tema** (bug #4 de
+`CLAUDE.md`): una familia propia pasada por `font` no entra en el warm-up ni en la sonda por
+archivo, así que en el primerísimo arranque podría medirse antes de que ese TTF asiente. En la
+práctica se auto-cura, porque cada asentamiento de un TTF del tema re-dispara `_applyTheme` de
+**todos** los listeners y con él este `_recalcSize`; el caso residual es un TTF propio que
+asiente estrictamente después del último del tema. Si aparece, el consumidor fuerza el
+re-medido con `SetFontOptions` (mismo estado) desde su propio evento.
+
+```lua
+local note = Craft.Label:Create(panel, { text = txt, width = 260, wrap = true,
+                                         font = LSM:Fetch("font", db.font),
+                                         size = db.fontSize, flags = db.outline })
+-- al cambiar cualquiera de los tres en la página de opciones:
+note:SetFontOptions({ font = LSM:Fetch("font", db.font), size = db.fontSize, flags = db.outline })
+```
 
 **Solo texto (sin icon slot)**: el `gap-2` del CSS de Lyra es el espaciado flex para cuando el `<Label>` envuelve un ícono u otro hijo. Craft.Label es un componente de texto-hoja: no soporta íconos embebidos. Si se necesita ícono + label, se componen externamente.
 
