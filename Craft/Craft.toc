@@ -48,6 +48,8 @@ layout\Flex.lua
 layout\Grid.lua
 
 # Components
+# ScrollBar first: the shared rail that Scroll and Textarea both build on (FR-091)
+components\ScrollBar.lua
 components\Avatar.lua
 components\Badge.lua
 components\Button.lua

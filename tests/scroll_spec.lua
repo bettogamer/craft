@@ -30,6 +30,7 @@ dofile("Craft/theme/Presets.lua")
 dofile("Craft/theme/Theme.lua")
 dofile("Craft/icons/Atlas.lua")
 dofile("Craft/icons/Icons.lua")
+dofile("Craft/components/ScrollBar.lua")
 dofile("Craft/components/Scroll.lua")
 dofile("Craft/components/Window.lua")
 
@@ -123,7 +124,7 @@ describe("Craft.Scroll — reserved corner", function()
         s:_updateScrollbar()
         s._scrollbar.SetPoint = real
         assert.equals(0, calls)
-        assert.equals(18, s._cornerInsetApplied)
+        assert.equals(18, s._bar._cornerInsetApplied)   -- the rail owns the reserve since FR-091
     end)
 
     it("thumb travel is computed against the shortened track", function()

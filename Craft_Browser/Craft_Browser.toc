@@ -50,6 +50,7 @@ libs\Craft\icons\Atlas.lua
 libs\Craft\icons\Icons.lua
 libs\Craft\layout\Flex.lua
 libs\Craft\layout\Grid.lua
+libs\Craft\components\ScrollBar.lua
 libs\Craft\components\Avatar.lua
 libs\Craft\components\Badge.lua
 libs\Craft\components\Button.lua
