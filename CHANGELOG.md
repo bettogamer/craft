@@ -6,6 +6,72 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.22.0] - 2026-09-16
+
+> **Release v2.22.0 — dos huecos que SMRT encontró usando la librería en serio, y que se tapan
+> con piezas que ya existían.** Ninguno de los dos añade un componente de consumidor: uno es un
+> `SetWidth` que nunca se escribió, y el otro es la barra de desplazamiento de `Craft.Scroll`
+> puesta donde ya hacía falta. Los dos son, además, la misma clase de hueco — algo que la
+> librería **ya sabía hacer en otro sitio** y que el consumidor no tenía forma de pedir sin
+> meter la mano en `_cfg` o en `_scroll`, que es justo lo que la regla de vendoreado prohíbe.
+>
+> **Lo interesante es cómo se implementó FR-091, porque el FR lo pedía explícitamente:**
+> reutilizar el riel, no escribir un segundo. Así que el riel sale de `Scroll.lua` a
+> `Craft.ScrollBar` y ahora los dos componentes pintan **el mismo**: mismo track, mismo pulgar
+> de 6px con sus estados secondary/accent/primary, mismo auto-ocultado, mismo manejo de la
+> esquina que reserva un `Craft.Window` redimensionable. Una barra de desplazamiento que se ve
+> distinta según dónde estés es exactamente la clase de deriva que aleja a una librería de su
+> origen — y el norte de este proyecto es que Craft se vea como shadcn, no como lo que cada
+> componente fue improvisando. `Craft.Scroll` no cambia por fuera: sus campos privados pasan a
+> ser alias de las regiones del riel y su spec de esquina reservada sigue verde sin tocar una
+> sola aserción.
+>
+> La decisión de diseño que conviene conocer, porque no la pedía ningún FR: **el Textarea
+> reserva los 8px del riel siempre**, haya desbordamiento o no. El ancho del viewport es el
+> ancho de wrap del `EditBox`, así que un riel que apareciese y desapareciese cambiaría el wrap,
+> que cambia el alto del texto, que vuelve a conmutar el riel — un texto justo en la frontera
+> oscilaría indefinidamente. `Craft.Scroll` ya tomaba esa decisión; ahora las dos coinciden.
+
+### Añadido
+
+- **`Craft.ScrollBar` — el riel compartido (FR-091).** El track, el pulgar arrastrable, el
+  auto-ocultado y el manejo de la esquina reservada por `Craft.Window` salen de `Scroll.lua`
+  a su propio módulo. **Es una pieza interna**, no un componente de consumidor: no crea el
+  viewport ni el scroll child, conduce un `ScrollFrame` que le da su dueño y lee la altura del
+  contenido por un callback. `Craft.Scroll` queda igual por fuera —mismos campos privados,
+  mismos métodos, mismo comportamiento de esquina— y `Craft.Textarea` estrena barra sin una
+  segunda implementación. `Craft.Menu` mantiene la suya (FR-086), que es otra geometría.
+
+- **`Craft.Textarea` — barra de desplazamiento y API de scroll (FR-091).** Un editor de notas de
+  banda con 200 líneas dentro no decía **que había más texto**: la rueda y el seguimiento del
+  cursor sí desplazaban, pero nada indicaba cuánto quedaba ni dónde estabas. Ahora el campo
+  monta un `Craft.ScrollBar` alineado con el área de texto (dentro del borde, a la altura del
+  `py-2`) que aparece sólo cuando el texto no cabe. Se suman `ScrollToTop()`,
+  `ScrollToBottom()`, `SetScrollOffset(n)` y `GetScrollOffset()`, con los mismos nombres que
+  en `Craft.Scroll`. El ancho del riel se **reserva siempre**, también sin desbordamiento: un
+  riel que aparece y desaparece cambiaría el ancho de wrap, que cambia el alto del texto, que
+  vuelve a conmutar el riel — un texto justo en la frontera oscilaría sin parar.
+
+- **`Craft.DragList` — `SetWidth(w)` / `GetWidth()` (FR-090).** La lista leía `config.width`
+  una sola vez al crearse, así que dentro de una ventana redimensionable el contenedor se
+  estiraba y las filas se quedaban con el ancho viejo; no había forma pública de cambiarlo y
+  `_cfg` es privado. `SetWidth` redimensiona las filas **en el sitio**: el pool (FR-079) y el
+  arrastre en curso sobreviven, y **`renderRow` no se vuelve a llamar** — el `content` de la
+  fila está anclado a los dos extremos, así que sólo se ensancha. La lista también sigue al
+  frame por `OnSizeChanged`, para el caso de estar anclada por ambos lados.
+
+### Cambiado
+
+- **`Craft.Textarea:SetValue` vuelve al principio del texto (FR-091).** Cargar otro texto es
+  empezar otro documento. Antes el `ScrollFrame` conservaba el desplazamiento anterior: venías
+  del final de una nota larga y la nota nueva aparecía por la mitad, o en blanco si era más
+  corta que el offset. Quien necesite el comportamiento anterior guarda el offset y lo repone
+  con `SetScrollOffset`.
+
+- **`Craft.Textarea` reserva 8px a la derecha del área de texto** para el riel (ver arriba). El
+  `px-2.5` del original se mantiene: lo que cambia es que el texto ahora termina antes de la
+  barra en vez de debajo de ella.
+
 ## [2.21.0] - 2026-09-10
 
 > **Release v2.21.0 — dos peticiones de Bis sobre piezas que ya existían, y la línea que separa
