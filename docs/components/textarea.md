@@ -39,8 +39,9 @@ si se quiere el auto-grow más adelante.
 textarea.frame        (Frame — borde + fondo, alto = height)
 ├── _borderT/B/L/R     (Texture — 1px cada una, t.input; t.ring en focus)
 ├── _bg                (Texture — inset 1px, input/30)
-├── _scroll            (ScrollFrame — inset px-2.5/py-2)
+├── _scroll            (ScrollFrame — inset px-2.5/py-2 + 8px del riel a la derecha)
 │   └── _edit          (EditBox multilínea — scroll child, ancho = scroll)
+├── _bar               (Craft.ScrollBar — riel 8px, dentro del borde, alineado al py-2)
 └── _placeholder       (FontString — visible si vacío y sin foco)
 ```
 
@@ -93,8 +94,39 @@ textarea.frame        (Frame — borde + fondo, alto = height)
 | `SetError(bool)` | Activa/desactiva el borde error |
 | `SetPlaceholder(text)` | Cambia el placeholder |
 | `SetEnabled(bool)` | Habilita/deshabilita |
+| `ScrollToTop()` | Vuelve a la primera línea |
+| `ScrollToBottom()` | Va al final del texto |
+| `SetScrollOffset(n)` / `GetScrollOffset()` | Offset vertical en px (clamped al rango) |
 | `GetEditBox()` | EditBox nativo (para `SetCursorPosition`, etc.) |
 | `GetFrame()` | Frame raíz |
+
+> `SetValue(text)` **vuelve arriba** (FR-091): cargar otro texto es empezar otro documento.
+> Antes el `ScrollFrame` conservaba el offset anterior y una nota nueva podía abrirse por la
+> mitad — o en blanco, si era más corta que el offset. Para conservar la posición: guardar
+> `GetScrollOffset()` antes y reponerlo con `SetScrollOffset` después.
+
+## Barra de desplazamiento (FR-091)
+
+El riel es un **`Craft.ScrollBar`** — el mismo componente que pinta la barra de `Craft.Scroll`,
+extraído a su propio módulo justo para esto (ver `docs/components/scroll.md` §*Riel compartido*).
+Mismo track `t.secondary` a 0.30, mismo pulgar de 6px con mínimo 32px y sus estados
+secondary/accent/primary, y mismo auto-ocultado: sin desbordamiento **no hay riel**.
+
+Diferencia con `Craft.Scroll`: aquí el riel se ancla **dentro** del campo — 1px de inset a la
+derecha (el borde) y `py-2` arriba y abajo, de forma que el track coincide con el área de texto
+visible y el recorrido del pulgar mapea lo que se ve.
+
+| Elemento | Valor |
+|---|---|
+| Ancho reservado | 8px (`Craft.ScrollBar.WIDTH`), **siempre** |
+| Inset derecho del riel | 1px (borde) |
+| Inset vertical del riel | 8px (`py-2`) |
+| Alto del contenido | `_edit:GetHeight()` (WoW auto-dimensiona el EditBox multilínea), con el rango de scroll como respaldo mientras el alto no ha asentado |
+
+> **Por qué el ancho se reserva siempre**, y no sólo cuando la barra está visible: el ancho del
+> viewport es el ancho de wrap del `EditBox`. Si el riel apareciese y desapareciese, el wrap
+> cambiaría, el alto del texto cambiaría, y eso volvería a conmutar el riel — un texto justo en
+> la frontera oscilaría indefinidamente. Es la misma decisión que toma `Craft.Scroll`.
 
 ## Notas de implementación
 

@@ -91,8 +91,30 @@ Consecuencia para el consumidor: **`renderRow` se ejecuta más de una vez sobre 
 |---|---|
 | `SetItems(items)` | Reconstruye la lista con nuevos datos |
 | `GetItems()` | Items en el orden actual |
+| `SetWidth(w)` / `GetWidth()` | Cambia el ancho de la lista **y de sus filas**, en el sitio |
 | `SetEnabled(bool)` | Habilita/deshabilita el arrastre |
 | `GetFrame()` | Frame raíz |
+
+## Ancho dinámico (FR-090)
+
+`config.width` es sólo el ancho **inicial**. La lista vive a menudo dentro de un
+`Craft.Window` redimensionable, cuyas páginas se remaquetan en cada cambio de ancho, así que
+hay dos formas de seguirlo y las dos funcionan:
+
+1. **`SetWidth(w)`** — el camino explícito. Redimensiona el frame y todas las filas visibles.
+2. **Anclar la lista por los dos lados** — `OnSizeChanged` del frame raíz aplica el ancho nuevo
+   solo.
+
+Las dos desembocan en `_applyWidth`, que es donde `_cfg.width` (la única fuente de verdad del
+ancho de fila) se actualiza. Garantías:
+
+- **`renderRow` NO se vuelve a llamar** por un cambio de ancho. El `content` de la fila está
+  anclado a los dos extremos (`grip TOPRIGHT` → `row BOTTOMRIGHT`), así que lo que el consumidor
+  pintó se ensancha solo. Recrear filas perdería el estado de arrastre y el pool de FR-079.
+- **Barato en bucle**: un guard de igualdad descarta el `OnSizeChanged` que dispara cada cambio
+  de ALTO (`_relayout` la ajusta en cada reorden), así que es seguro llamarlo en cada frame
+  mientras se arrastra la esquina de una ventana.
+- Las filas que se creen después heredan el ancho vigente, no el de `config`.
 
 ## Notas de implementación
 

@@ -125,6 +125,37 @@ El scrollbar completo se oculta (`Hide()`) si el contenido no excede el área vi
 | `GetScrollOffset()`       | Retorna el offset vertical actual (`GetVerticalScroll()`)                        |
 | `GetFrame()`              | Retorna el frame root del componente                                              |
 
+## Riel compartido (`Craft.ScrollBar`)
+
+Desde FR-091 el riel —track, pulgar arrastrable, auto-ocultado y el manejo de la esquina
+reservada— vive en **`Craft/components/ScrollBar.lua`**, no en `Scroll.lua`. El motivo es
+`Craft.Textarea`: pedía la misma barra sobre su `ScrollFrame` interno, y una segunda
+implementación acabaría divergiendo. `Craft.Scroll` conserva su API, sus campos privados
+(`_scrollbar`, `_scrollThumb`, `_track`, `_thumbTex` son alias de las regiones del riel) y su
+comportamiento; lo único que cambió es quién dibuja.
+
+`Craft.ScrollBar` es **interno**: no lo crea un consumidor. No posee el viewport, ni el scroll
+child, ni la rueda — conduce un `ScrollFrame` que le da su dueño y lee el alto del contenido
+por un callback. Contrato con el dueño:
+
+| Obligación del dueño | Por qué |
+|---|---|
+| Reservar `Craft.ScrollBar.WIDTH` (8px) a la derecha del viewport, **siempre** | Un riel que aparece y desaparece cambiaría el ancho útil; en `Textarea` eso cambia el wrap, el alto del texto y vuelve a conmutar el riel |
+| Llamar `bar:Update()` al cambiar offset, alto de contenido o tamaño del viewport | El riel no observa el contenido, lo consulta |
+| Llamar `bar:Destroy()` desde su propio `Destroy()` | El riel registra **su propio** listener de tema |
+
+| Config | Descripción |
+|---|---|
+| `scrollFrame` | El `ScrollFrame` que conduce (requerido) |
+| `content` | `fn() → alto del contenido en px` (requerido) |
+| `anchorTo` | Frame cuyo borde derecho hospeda el riel y cuya esquina decide la reserva (default: `parent`) |
+| `insetTop` / `insetBottom` / `insetRight` | Offsets desde `anchorTo`. `Scroll` va a ras (todos 0); `Textarea` insetea por su borde y su `py-2` |
+
+Métodos: `Update()`, `GetMaxScroll()`, `Destroy()`.
+
+`Craft.Menu` mantiene su propio riel (FR-086): es otra geometría (panel flotante con filas
+pooleadas) y no comparte este código.
+
 ## Notas de implementación
 
 - **ScrollFrame nativo**: usar `CreateFrame("ScrollFrame", nil, parent)`. La API nativa provee `SetScrollChild(frame)`, `GetVerticalScroll()`, `SetVerticalScroll(n)`, `GetVerticalScrollRange()`, `GetHorizontalScroll()`, `SetHorizontalScroll(n)`, `GetHorizontalScrollRange()`.
