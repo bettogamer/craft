@@ -306,6 +306,13 @@ local function makeFrame(frameType, name, parent)
         self._focused = false
         self:_fire("OnEditFocusLost")
     end
+    -- Caret position. Modelled (rather than a no-op) so a spec can assert that a
+    -- component scrolled its viewport WITHOUT moving the caret — the difference
+    -- between Craft.Textarea:ScrollToTop() and the SetCursorPosition(0) workaround
+    -- consumers were using before FR-091.
+    f._cursor = 0
+    function f:SetCursorPosition(n)       self._cursor = n or 0 end
+    function f:GetCursorPosition()        return self._cursor end
 
     -- ScrollFrame methods
     f._vScroll = 0
