@@ -231,10 +231,25 @@ end
 -- llamaba `fs:SetFont(path, size)` disperso; centralizar aquí permite el outline
 -- (y cualquier flag futuro) sin tocar 40+ sitios. Pasa siempre el 3er arg, que el
 -- EditBox REQUIERE y el FontString acepta.
+--
+-- `flags` (4º arg, opcional, FR-092) permite a UN elemento apartarse del flag
+-- global: `nil` = hereda `t.fontFlags` (el caso de los 32 call-sites migrados en
+-- la Fase 3), y una cadena — incluida `""` — MANDA sobre el tema. Existe para el
+-- texto sobre el mundo 3D, donde el consumidor necesita contorno en ese panel sin
+-- ponérselo a toda su UI; el default sigue siendo el token global.
 
-function T.applyFont(fs, path, size)
+function T.applyFont(fs, path, size, flags)
     local t = T._resolved or T.get()
-    fs:SetFont(path, size, t.fontFlags or "")
+    local f = flags or t.fontFlags or ""
+
+    -- Una ruta AJENA (LibSharedMedia, un TTF que el usuario borró) puede no
+    -- cargar: `SetFont` devuelve false y el FontString se queda SIN fuente, es
+    -- decir invisible — un fallo mudo peor que ignorar la preferencia. Se cae a
+    -- la fuente del tema. `== false` a propósito: un cliente/mock que no
+    -- devuelva nada no debe disparar el fallback.
+    if fs:SetFont(path, size, f) == false and path ~= t.font then
+        fs:SetFont(t.font, size, f)
+    end
 end
 
 -- ─── getPresets() ──────────────────────────────────────────────────────────

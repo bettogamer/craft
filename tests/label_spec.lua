@@ -59,6 +59,90 @@ describe("Craft.Label", function()
         Craft.Theme.use("lyra-dark")   -- restaura para otros tests
     end)
 
+    -- ─── FR-092: familia y flags por instancia ──────────────────────────────
+
+    it("config.font manda sobre la familia del tema", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Hi", font = "Fonts\\FRIZQT__.TTF" })
+        assert.equals("Fonts\\FRIZQT__.TTF", fontOf(lbl))
+    end)
+
+    it("config.font gana sobre weight (el path ya nombra el archivo)", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, {
+            text = "Hi", font = "Fonts\\FRIZQT__.TTF", weight = "bold" })
+        assert.equals("Fonts\\FRIZQT__.TTF", fontOf(lbl))
+    end)
+
+    it("config.font sobrevive un cambio de tema (se resuelve en _applyTheme)", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Hi", font = "Fonts\\FRIZQT__.TTF" })
+        Craft.Theme.use(Craft.Theme.build({ font = "geist" }))
+        assert.equals("Fonts\\FRIZQT__.TTF", fontOf(lbl))
+        Craft.Theme.use("lyra-dark")
+    end)
+
+    it("config.flags pone contorno sin tocar el tema", function()
+        Craft.Theme.use("lyra-dark")   -- t.fontFlags = ""
+        local lbl = Craft.Label:Create(UIParent, { text = "Hi", flags = "OUTLINE" })
+        assert.equals("OUTLINE", select(3, lbl._text:GetFont()))
+    end)
+
+    -- "" es una decisión explícita (truthy en Lua), no "sin valor": un label
+    -- dentro de un tema con outline global puede quedarse sin él.
+    it('config.flags = "" manda sobre el fontFlags global del tema', function()
+        Craft.Theme.use(Craft.Theme.build({ overrides = { fontFlags = "THICKOUTLINE" } }))
+        local lbl = Craft.Label:Create(UIParent, { text = "Hi", flags = "" })
+        assert.equals("", select(3, lbl._text:GetFont()))
+        Craft.Theme.use("lyra-dark")
+    end)
+
+    it("config.flags sobrevive un cambio de tema", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Hi", flags = "OUTLINE" })
+        Craft.Theme.use(Craft.Theme.build({ font = "geist" }))
+        assert.equals("OUTLINE", select(3, lbl._text:GetFont()))
+        Craft.Theme.use("lyra-dark")
+    end)
+
+    it("SetFontOptions cambia familia/tamaño/contorno en vivo y re-mide", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Hello" })
+        lbl:SetFontOptions({ font = "Fonts\\FRIZQT__.TTF", size = 18, flags = "THICKOUTLINE" })
+
+        local font, size, flags = lbl._text:GetFont()
+        assert.equals("Fonts\\FRIZQT__.TTF", font)
+        assert.equals(18, size)
+        assert.equals("THICKOUTLINE", flags)
+        -- _applyTheme → _recalcSize: el frame sigue abrazando al texto
+        assert.equals(#"Hello" * 7, lbl.frame:GetWidth())
+    end)
+
+    it("SetFontOptions sin tabla devuelve las cuatro al tema", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, {
+            text = "Hi", font = "Fonts\\FRIZQT__.TTF", size = 18, flags = "OUTLINE", weight = "bold" })
+        lbl:SetFontOptions()
+
+        local font, size, flags = lbl._text:GetFont()
+        assert.is_not_nil(font:match("Inter%-Regular%.ttf$"))
+        assert.equals(Craft.Theme.get().fontSize, size)
+        assert.equals("", flags)
+    end)
+
+    it("SetFontOptions sobrevive un cambio de tema posterior", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Hi" })
+        lbl:SetFontOptions({ size = 20, flags = "OUTLINE" })
+        Craft.Theme.use(Craft.Theme.build({ font = "geist" }))
+
+        local font, size, flags = lbl._text:GetFont()
+        assert.is_not_nil(font:match("Geist%-Regular%.ttf$"))  -- familia: la del tema nuevo
+        assert.equals(20, size)                                 -- override intacto
+        assert.equals("OUTLINE", flags)
+        Craft.Theme.use("lyra-dark")
+    end)
+
     -- ─── FR-024: el frame abraza al texto (natural sizing) ──────────────────
 
     it("el frame raíz abraza al texto tras Create (FR-024)", function()

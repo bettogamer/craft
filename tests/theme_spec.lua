@@ -183,6 +183,39 @@ describe("Theme axes (ADR-0014)", function()
         assert.equals("", select(3, fs2:GetFont()))  -- default vuelve a sin outline
     end)
 
+    -- FR-092: un elemento suelto (texto sobre el mundo 3D) puede apartarse del
+    -- flag global sin que el consumidor se lo ponga a toda su UI.
+    it("applyFont: el 4º arg manda sobre el fontFlags del tema (FR-092)", function()
+        Craft.Theme.use("lyra-dark")   -- t.fontFlags = ""
+        local fs = UIParent:CreateFontString(nil, "OVERLAY")
+        Craft.Theme.applyFont(fs, "x.ttf", 12, "OUTLINE")
+        assert.equals("OUTLINE", select(3, fs:GetFont()))
+
+        Craft.Theme.use(Craft.Theme.build({ overrides = { fontFlags = "THICKOUTLINE" } }))
+        local fs2 = UIParent:CreateFontString(nil, "OVERLAY")
+        Craft.Theme.applyFont(fs2, "x.ttf", 12, "")   -- "" es explícito, no "sin valor"
+        assert.equals("", select(3, fs2:GetFont()))
+
+        local fs3 = UIParent:CreateFontString(nil, "OVERLAY")
+        Craft.Theme.applyFont(fs3, "x.ttf", 12)       -- sin 4º arg: hereda el global
+        assert.equals("THICKOUTLINE", select(3, fs3:GetFont()))
+        Craft.Theme.use("lyra-dark")
+    end)
+
+    -- Una ruta ajena (LSM, TTF borrado) que no carga dejaría el FontString SIN
+    -- fuente = texto invisible. applyFont cae a la del tema.
+    it("applyFont cae a la fuente del tema si SetFont devuelve false (FR-092)", function()
+        Craft.Theme.use("lyra-dark")
+        local fs = UIParent:CreateFontString(nil, "OVERLAY")
+        local real = fs.SetFont
+        fs.SetFont = function(s, path, size, flags)
+            real(s, path, size, flags)
+            return path ~= "missing.ttf"        -- el cliente rechaza la ruta rota
+        end
+        Craft.Theme.applyFont(fs, "missing.ttf", 12)
+        assert.equals(Craft.Theme.get().font, (fs:GetFont()))
+    end)
+
     it("un eje desconocido cae al default sin romper", function()
         assert.has_no_errors(function()
             local t = Craft.Theme.build({ base = "does-not-exist", accent = "nope" })

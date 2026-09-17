@@ -24,6 +24,8 @@ function Label:Create(parent, config)
         onClick  = config.onClick,         -- function(self) or nil
         weight   = config.weight,          -- "normal"|"medium"|"bold", nil = normal (t.font)
         size     = config.size,            -- px override, nil = t.fontSize (12)
+        font     = config.font,            -- TTF path override (LSM), nil = theme family (FR-092)
+        flags    = config.flags,           -- SetFont flags ("OUTLINE"…), nil = t.fontFlags (FR-092)
     }
 
     -- Lyra spec: if onClick or maxWidth are present, a Frame parent is needed
@@ -106,10 +108,20 @@ function Label:_applyTheme(t)
     -- survive a theme change — un `_applyTheme` posterior (p. ej. al cambiar de
     -- fuente en runtime) re-resuelve el peso en vez de pisarlo con regular/12.
     -- text-xs = t.fontSize (12px), leading-none.
-    local font = t.font
-    if     self._cfg.weight == "bold"   then font = t.fontBold   or t.font
-    elseif self._cfg.weight == "medium" then font = t.fontMedium or t.font end
-    Craft.Theme.applyFont(self._text, font, self._cfg.size or t.fontSize or 12)
+    --
+    -- FR-092: `font` (familia) y `flags` (contorno) son la misma categoría que
+    -- `weight`/`size` — primitivas que el consumidor compone, NO variantes
+    -- semánticas — y por eso se resuelven aquí y no se pokean tras Create. Una
+    -- familia explícita GANA sobre `weight`: el path ya nombra el archivo (y con
+    -- él su peso), así que no hay familia del tema de la que derivar el bold.
+    local font = self._cfg.font
+    if not font then
+        font = t.font
+        if     self._cfg.weight == "bold"   then font = t.fontBold   or t.font
+        elseif self._cfg.weight == "medium" then font = t.fontMedium or t.font end
+    end
+    Craft.Theme.applyFont(self._text, font,
+                          self._cfg.size or t.fontSize or 12, self._cfg.flags)
 
     -- Re-measure AFTER applyFont — MANDATORY here (CLAUDE.md bug #4): the Inter
     -- TTF loads async on the very first boot, so the theme font-probe re-fires
@@ -205,6 +217,29 @@ function Label:SetWidth(w)
         self._cfg.maxWidth = w
     end
     self:_recalcSize()
+end
+
+-- Changes font family / size / flags / weight in place (FR-092), so a consumer
+-- with a "Font + Size + Outline" options page doesn't have to destroy and re-create
+-- the label on every tweak.
+--
+-- The table is the COMPLETE font state, not a patch: a key that is absent falls
+-- back to the theme, which is the only way to say "back to the default" without a
+-- sentinel value (Lua cannot tell an absent key from an explicit nil). Passing no
+-- table at all resets the four of them.
+--
+--   lbl:SetFontOptions({ font = LSM:Fetch("font", name), size = 14, flags = "OUTLINE" })
+--   lbl:SetFontOptions()   -- back to the theme
+--
+-- Re-applies through _applyTheme, so it re-measures (the panel height follows the
+-- text) and restores the color, exactly like a theme switch.
+function Label:SetFontOptions(opts)
+    opts = opts or {}
+    self._cfg.font   = opts.font
+    self._cfg.size   = opts.size
+    self._cfg.flags  = opts.flags
+    self._cfg.weight = opts.weight
+    self:_applyTheme(self._t or Craft.Theme.get())
 end
 
 -- Returns the natural (untruncated) width of the current text in px.
