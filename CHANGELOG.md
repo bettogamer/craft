@@ -6,6 +6,39 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.25.0] - 2026-09-18
+
+> **Release v2.25.0 — cuatro FR de SMRT, sin inventar nada que shadcn no tenga.** Una página de
+> notas por jefe necesitaba enseñar la cara del jefe (en una cabecera y en la lista de la
+> barra lateral), un selector a todo el ancho y un footer que se encoge a iconos.
+>
+> **La pieza a vigilar es el tamaño grande del avatar.** El FR pedía `size = "xl"`, pero shadcn
+> no tiene ese preset: el avatar de cabecera de tarjeta es `className="size-14"` sobre el mismo
+> componente. Así que `size` acepta px y `"xl"` sigue cayendo a `default`. Por la misma regla,
+> el retrato en la Sidebar no es una prop nueva del ítem sino un `Craft.Avatar` compuesto
+> dentro, como el `<Avatar>` del NavUser de shadcn, y el `ToggleGroup` a todo el ancho es
+> `w-full` + `flex-1`: partes iguales.
+
+### Añadido
+
+- **`Craft.Avatar`: retrato de criatura por `creatureDisplayID` (FR-094).** Nueva fuente
+  `SetCreatureDisplay(displayID)` / `config.creatureDisplayID`, excluyente con `unit`/`atlas`/
+  `image`, para lo que no es una unidad del mundo (un jefe del Diario). Bajo `pcall`: si falla,
+  iniciales. También en los items de `AvatarGroup`.
+- **`Craft.Avatar`: `size` numérico en px (FR-094)**, el equivalente de `className="size-14"`.
+  shadcn no tiene un preset `xl` y Craft tampoco lo inventa. Vale también para `AvatarGroup`.
+- **`Craft.Sidebar`: `itemConfig.avatar` (FR-095).** La fila monta un `Craft.Avatar` en el hueco
+  del icono, como el `<Avatar>` que shadcn compone dentro del `SidebarMenuButton`. Por defecto
+  mide 16 px, gana a `icon` y no lo tiñen el hover ni el active.
+- **`Craft.ToggleGroup`: `config.width` / `SetWidth(w)` (FR-096)**, el `w-full` con segmentos
+  `flex-1` a partes iguales. Un label que no cabe se elide, no envuelve.
+
+### Corregido
+
+- **`Craft.Button:SetSize`: de un tamaño de icono a uno con texto, el ancho se quedaba en el del
+  icono (FR-097).** El guard de Flex tomaba el cuadrado de 28 px por un ancho impuesto desde
+  fuera y no recalculaba.
+
 ## [2.24.0] - 2026-09-17
 
 > **Release v2.24.0 — lo que acaba de pasar tiene por fin dónde decirse.** Un FR de SMRT con un
