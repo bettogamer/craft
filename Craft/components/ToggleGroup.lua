@@ -9,6 +9,8 @@
 --   => each segment is its OWN bordered box (border-input), separated by a 4px gap; the
 --   active segment (and any hovered segment) fills with bg-muted. Text is foreground always
 --   (on/off buttons differ only by data-state). Single selection.
+-- Full width (FR-096): `<ToggleGroup className="w-full">` with `flex-1` on each item —
+--   flex: 1 1 0%, so the segments split the width EQUALLY whatever their labels.
 
 local Craft = LibStub("Craft-2.0")
 local Weave = LibStub("Weave-1.0")
@@ -37,6 +39,7 @@ function ToggleGroup:Create(parent, config)
         options  = config.options or {},
         disabled = config.disabled or false,
         onChange = config.onChange,
+        width    = config.width,   -- nil = w-fit; a number = w-full, flex-1 segments (FR-096)
     }
     self._value = config.value
     self._segs  = {}   -- pooled segment bundles (reused across rebuilds)
@@ -104,6 +107,10 @@ function ToggleGroup:_makeSegment(initialOn)
 
     local fs = btn:CreateFontString(nil, "OVERLAY")
     fs:SetJustifyH("CENTER")
+    -- Single line, decided explicitly (CLAUDE.md bug #2b): with `width` a label may get
+    -- a bounded width in _layout, and then it must elide, never wrap onto a 2nd line.
+    fs:SetWordWrap(false)
+    fs:SetNonSpaceWrap(false)
 
     local iconTex = btn:CreateTexture(nil, "ARTWORK")
     iconTex:SetSize(ICON_SZ, ICON_SZ)
@@ -222,17 +229,39 @@ function ToggleGroup:_buildItems()
 end
 
 -- ─── Layout (positions + widths) ──────────────────────────────────────────────
+-- Natural (unbounded) width of a label. A FontString with a bounded width reports
+-- the ELIDED width from GetStringWidth, so re-measuring after a narrow layout would
+-- ratchet down; GetUnboundedStringWidth ignores the bound (fallback: clients without it).
+local function naturalWidth(fs)
+    if fs.GetUnboundedStringWidth then return fs:GetUnboundedStringWidth() end
+    return fs:GetStringWidth()
+end
+
 function ToggleGroup:_layout()
+    local n     = self._count
+    local fullW = self._cfg.width
+    -- w-full: flex-1 segments (flex-basis 0) → equal shares of the width minus the gaps.
+    local share = (fullW and n > 0) and math.max(0, (fullW - GAP * (n - 1)) / n) or nil
+
     local x = 0
-    for i = 1, self._count do
+    for i = 1, n do
         local seg = self._segs[i]
-        local labelW = seg.fs:GetStringWidth()
+        local labelW = naturalWidth(seg.fs)
         local iconW  = seg.icon and (ICON_SZ + ICON_GAP) or 0
-        local w = math.max(MIN_W, PAD_H * 2 + iconW + labelW)
+        local w = share or math.max(MIN_W, PAD_H * 2 + iconW + labelW)
 
         seg.btn:ClearAllPoints()
         seg.btn:SetPoint("TOPLEFT", self.frame, "TOPLEFT", x, 0)
         seg.btn:SetSize(w, H)
+
+        -- Label: natural width, or capped to what's left of the share (it elides —
+        -- word wrap is off). SetWidth(0) returns the FontString to auto-size.
+        local room = w - PAD_H * 2 - iconW
+        if share and labelW > room then
+            seg.fs:SetWidth(math.max(1, room))
+        else
+            seg.fs:SetWidth(0)
+        end
 
         -- center the icon+label combo
         seg.fs:ClearAllPoints()
@@ -246,7 +275,8 @@ function ToggleGroup:_layout()
         x = x + w + GAP
     end
 
-    self.frame:SetWidth(math.max(0, x - GAP))   -- drop trailing gap; w-fit
+    -- w-full keeps the given width even with no segments; w-fit drops the trailing gap.
+    self.frame:SetWidth(fullW or math.max(0, x - GAP))
     self.frame:SetHeight(H)
 end
 
@@ -344,6 +374,14 @@ function ToggleGroup:SetOptions(opts)
     self._cfg.options = opts or {}
     self:_buildItems()
     if self._t then self:_applyTheme(self._t) end
+end
+
+-- SetWidth(w): w-full with flex-1 segments (FR-096) — re-callable when the container
+-- changes width. SetWidth(nil) goes back to w-fit (each segment sized by its label).
+-- Re-lays out in place: no theme pass needed, the labels are already measured.
+function ToggleGroup:SetWidth(w)
+    self._cfg.width = w
+    self:_layout()
 end
 
 function ToggleGroup:GetValue()

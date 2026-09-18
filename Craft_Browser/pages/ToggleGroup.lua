@@ -48,6 +48,44 @@ CraftBrowserPages["ToggleGroup"] = {
         table.insert(comps, sc2)
         y = y + 32 + 16
 
+        -- Full width (FR-096): className="w-full" + flex-1 items → equal shares.
+        -- In-game: the three segments are the SAME width whatever their label; in
+        -- the narrow one the long label elides with "…" on ONE line (no wrap).
+        y = addLabel("w-full (FR-096) — width = 360, flex-1 segments share it equally.", y)
+        local full = Craft.ToggleGroup:Create(parent, {
+            value = "shared", width = 360,
+            options = {
+                { value = "shared",   label = "Compartidas" },
+                { value = "personal", label = "Personales" },
+                { value = "all",      label = "Todas" },
+            },
+        })
+        full:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(y + 4))
+        table.insert(comps, full)
+        y = y + 32 + 16
+
+        y = addLabel("Narrow (width = 150) — the label that doesn't fit its share elides. Resize live:", y)
+        local narrow = Craft.ToggleGroup:Create(parent, {
+            value = "a", width = 150,
+            options = {
+                { value = "a", label = "Compartidas" },
+                { value = "b", label = "Personales" },
+            },
+        })
+        narrow:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(y + 4))
+        table.insert(comps, narrow)
+        local widths, wi = { 150, 240, 360 }, 1
+        local resize = Craft.Button:Create(parent, {
+            text = "SetWidth", variant = "outline", size = "sm",
+            onClick = function()
+                wi = wi % #widths + 1
+                narrow:SetWidth(widths[wi])
+            end,
+        })
+        resize:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16 + 360 + 16, -(y + 6))
+        table.insert(comps, resize)
+        y = y + 32 + 16
+
         -- Disabled
         y = addLabel("Disabled.", y)
         local sc3 = Craft.ToggleGroup:Create(parent, {

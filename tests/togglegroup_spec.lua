@@ -165,4 +165,50 @@ describe("Craft.ToggleGroup — tooltip (FR-020)", function()
         assert.has_no_errors(function() tg:Destroy() end)
     end)
 
+    -- ── FR-096: w-full, flex-1 segments ─────────────────────────────────────
+    describe("width (FR-096)", function()
+        local OPTS = { { value="a", label="Shared" }, { value="b", label="Personal notes" } }
+
+        it("without width the group is w-fit (sum of labels + gaps)", function()
+            local tg = newTG({ options = OPTS })
+            local w1 = tg._segs[1].btn:GetWidth()
+            local w2 = tg._segs[2].btn:GetWidth()
+            assert.is_true(w1 < w2)
+            assert.equals(w1 + 4 + w2, tg:GetFrame():GetWidth())
+        end)
+
+        it("config.width splits the width equally between segments", function()
+            local tg = newTG({ options = OPTS, width = 180 })
+            assert.equals(180, tg:GetFrame():GetWidth())
+            assert.equals(88, tg._segs[1].btn:GetWidth())   -- (180 - 4) / 2
+            assert.equals(88, tg._segs[2].btn:GetWidth())
+            local _, _, _, x = tg._segs[2].btn:GetPoint(1)
+            assert.equals(92, x)
+        end)
+
+        it("a label wider than its share is bounded (elides) and never wraps", function()
+            local tg = newTG({ options = OPTS, width = 120 })   -- share 58, room 38
+            local fs = tg._segs[2].fs
+            assert.equals(38, fs:GetWidth())
+            assert.is_false(fs._wordWrap)
+        end)
+
+        it("SetWidth() re-lays out; SetWidth(nil) returns to w-fit", function()
+            local tg = newTG({ options = OPTS })
+            local fitW = tg:GetFrame():GetWidth()
+            tg:SetWidth(300)
+            assert.equals(300, tg:GetFrame():GetWidth())
+            assert.equals(148, tg._segs[1].btn:GetWidth())
+            tg:SetWidth(nil)
+            assert.equals(fitW, tg:GetFrame():GetWidth())
+        end)
+
+        it("width survives SetOptions (re-shared among the new count)", function()
+            local tg = newTG({ options = OPTS, width = 180 })
+            tg:SetOptions({ { value="a", label="A" }, { value="b", label="B" }, { value="c", label="C" } })
+            assert.equals(180, tg:GetFrame():GetWidth())
+            assert.equals(172 / 3, tg._segs[3].btn:GetWidth())
+        end)
+    end)
+
 end)
