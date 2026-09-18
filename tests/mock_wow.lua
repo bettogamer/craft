@@ -389,6 +389,17 @@ function SetPortraitTexture(texture, unit)
     end
 end
 
+-- SetPortraitTextureFromCreatureDisplayID(texture, displayID): retrato de una criatura
+-- que no es una unidad del mundo (jefe del Diario — Craft.Avatar SetCreatureDisplay,
+-- FR-094). Un displayID no numérico lanza, como haría el cliente con basura: así los
+-- specs ejercitan el pcall del componente.
+function SetPortraitTextureFromCreatureDisplayID(texture, displayID)
+    if type(displayID) ~= "number" then
+        error("Usage: SetPortraitTextureFromCreatureDisplayID(texture, displayID)", 2)
+    end
+    texture:SetTexture("MockCreature:" .. displayID)
+end
+
 -- C_Texture.GetAtlasInfo(name): registro de atlas "existentes". Devuelve nil para
 -- uno desconocido, que es exactamente el criterio con el que Craft.Avatar decide
 -- caer al fallback de iniciales en vez de pintar un círculo vacío (FR-064).

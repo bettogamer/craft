@@ -1,6 +1,7 @@
 -- Avatar.lua — Craft.Avatar + Craft.AvatarGroup: retrato circular con fallback de iniciales
 -- Spec: docs/components/avatar.md   ·   FR: docs/requests/FR-062-avatar-avatargroup.md
 --                                           docs/requests/FR-064-avatar-atlas-texcoord.md
+--                                           docs/requests/FR-094-avatar-retrato-de-criatura-y-tamano-xl.md
 -- Design: shadcn Lyra — CSS real de `shadcn-pages/Profile - shadcn_ui.mhtml`:
 --   .cn-avatar               { width:32px; height:32px; border-radius:9999px }
 --   .cn-avatar[data-size=lg] { 40px }   ·   [data-size=sm] { 24px }
@@ -33,8 +34,19 @@ local SIZES = {
     default = 32,   -- spacing*8
     lg      = 40,   -- spacing*10
 }
+-- resolveSize(size): el `data-size` de shadcn (sm/default/lg) o un NÚMERO en px, el
+-- equivalente de `className="size-14"` — shadcn no tiene más presets y un avatar de
+-- cabecera de tarjeta se hace así sobre el mismo componente (FR-094). Devuelve la
+-- clave normalizada y los px; cualquier otra cosa cae a "default".
+local function resolveSize(size)
+    if type(size) == "number" and size > 0 then return size, size end
+    if SIZES[size] then return size, SIZES[size] end
+    return "default", SIZES.default
+end
+
 -- Lyra no fija el tamaño de las iniciales en .cn-avatar-fallback (lo hereda del
--- contenedor) → adaptación Craft: text-xs en los tres tamaños, igual que el
+-- contenedor) → adaptación Craft: text-xs en todos los tamaños (también en uno
+-- numérico: `size-14` no toca el texto del AvatarFallback), igual que el
 -- .cn-avatar-group-count (que Lyra SÍ fija a text-xs; vega/nova usan text-sm).
 local FONT_SIZE = 12
 local RING      = 2   -- ring-2 ring-background: solo dentro de un AvatarGroup
@@ -56,10 +68,12 @@ function Avatar:Create(parent, config)
     local self = setmetatable({}, Avatar)
 
     config = config or {}
+    local sizeKey, sizePx = resolveSize(config.size)
     self._cfg = {
-        size        = SIZES[config.size] and config.size or "default",
+        size        = sizeKey,
         image       = config.image,
         unit        = config.unit,
+        creatureDisplayID = config.creatureDisplayID,
         atlas       = config.atlas,
         crop        = config.crop or 0,
         texCoord    = config.texCoord,
@@ -67,7 +81,7 @@ function Avatar:Create(parent, config)
         desaturated = config.desaturated or false,
         ring        = config.ring or false,
     }
-    self._size = SIZES[self._cfg.size]
+    self._size = sizePx
 
     self.frame = CreateFrame("Frame", nil, parent)
     self.frame:SetSize(self._size, self._size)
@@ -106,11 +120,14 @@ function Avatar:Create(parent, config)
     self:_applyTheme(Craft.Theme.get())
     self._text:SetText(self._cfg.fallback)   -- después de applyFont (AGENTS §9)
 
-    -- Fuente del retrato: TRES excluyentes. Si el config trae varias, la precedencia
-    -- es `unit` (retrato 3D del personaje) > `atlas` (arte del propio cliente) >
-    -- `image` (ruta de textura); sin ninguna se muestran las iniciales.
+    -- Fuente del retrato: CUATRO excluyentes. Si el config trae varias, la precedencia
+    -- es `unit` (retrato 3D del personaje) > `creatureDisplayID` (retrato de una
+    -- criatura, p. ej. un jefe) > `atlas` (arte del propio cliente) > `image` (ruta de
+    -- textura); sin ninguna se muestran las iniciales.
     if self._cfg.unit then
         self:SetPortraitUnit(self._cfg.unit)
+    elseif self._cfg.creatureDisplayID then
+        self:SetCreatureDisplay(self._cfg.creatureDisplayID)
     elseif self._cfg.atlas then
         self:SetAtlas(self._cfg.atlas)
     else
@@ -231,6 +248,7 @@ function Avatar:SetImage(path)
     if path then
         self._cfg.unit  = nil         -- fuentes mutuamente excluyentes: gana la última
         self._cfg.atlas = nil
+        self._cfg.creatureDisplayID = nil
         self._source    = "image"
         self:_ensureImageMask()
         -- ⚠️ SIN filterMode, NUNCA. Pedir "TRILINEAR" sobre una ruta del caller
@@ -259,9 +277,43 @@ function Avatar:SetPortraitUnit(unit)
     if unit and SetPortraitTexture then
         self._cfg.image = nil
         self._cfg.atlas = nil
+        self._cfg.creatureDisplayID = nil
         self._source    = "unit"
         self:_ensureImageMask()
         SetPortraitTexture(self._image, unit)
+        self:_showTexture(true)
+    else
+        self._source = nil
+        self:_showTexture(false)
+    end
+end
+
+-- SetCreatureDisplay(displayID): retrato de una CRIATURA que no es una unidad del
+-- mundo — el caso es un jefe del Diario de mazmorras, cuyo displayID da
+-- `select(4, EJ_GetCreatureInfo(1, journalEncounterID))` sin selección previa (FR-094).
+-- `nil`, o una llamada que falle, vuelve al fallback de iniciales.
+--
+-- Bajo `pcall`: el displayID viene del consumidor (y del cliente), y un valor basura
+-- no debe romper la UI — mejor las iniciales. Taint 12.1: la API es
+-- `SecretArguments: AllowedWhenUntainted` (sumidero que acepta secrets), así que
+-- aquí NO se inspecciona el argumento: se le pasa tal cual.
+--
+-- La textura la rellena el cliente de forma ASÍNCRONA (el modelo se rasteriza
+-- cuando está cargado): hasta entonces se ve el círculo t.muted, sin iniciales. El
+-- componente no lo anima (shadcn tampoco hace fade en el AvatarImage) ni pone
+-- timers: Craft es presentacional y sin eventos (ver SetPortraitUnit).
+function Avatar:SetCreatureDisplay(displayID)
+    self._cfg.creatureDisplayID = displayID
+    local ok = false
+    if displayID ~= nil and SetPortraitTextureFromCreatureDisplayID then
+        self._cfg.image = nil         -- fuentes mutuamente excluyentes: gana la última
+        self._cfg.unit  = nil
+        self._cfg.atlas = nil
+        self:_ensureImageMask()
+        ok = pcall(SetPortraitTextureFromCreatureDisplayID, self._image, displayID)
+    end
+    if ok then
+        self._source = "creature"
         self:_showTexture(true)
     else
         self._source = nil
@@ -281,6 +333,7 @@ function Avatar:SetAtlas(name)
     if name then
         self._cfg.image = nil         -- fuentes mutuamente excluyentes: gana la última
         self._cfg.unit  = nil
+        self._cfg.creatureDisplayID = nil
     end
 
     if name and self._image.SetAtlas and atlasExists(name) then
@@ -395,14 +448,15 @@ function AvatarGroup:Create(parent, config)
     local self = setmetatable({}, AvatarGroup)
 
     config = config or {}
+    local sizeKey, sizePx = resolveSize(config.size)
     self._cfg = {
-        size        = SIZES[config.size] and config.size or "default",
+        size        = sizeKey,
         max         = config.max,
         overlap     = config.overlap or OVERLAP,
         desaturated = config.desaturated or false,
         crop        = config.crop or 0,   -- default del grupo; cada item puede pisarlo
     }
-    self._size  = SIZES[self._cfg.size]
+    self._size  = sizePx
     self._pool  = {}   -- avatares reutilizados por índice (AGENTS §5: nunca recrear)
     self._items = {}
     self._count = 0
@@ -453,6 +507,8 @@ function AvatarGroup:SetItems(items)
             av:SetTexCoord(tc and tc[1], tc and tc[2], tc and tc[3], tc and tc[4])
             if item.unit then
                 av:SetPortraitUnit(item.unit)
+            elseif item.creatureDisplayID then
+                av:SetCreatureDisplay(item.creatureDisplayID)
             elseif item.atlas then
                 av:SetAtlas(item.atlas)
             else

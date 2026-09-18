@@ -120,9 +120,10 @@ gana la última. Si el `config` trae varias, la precedencia en `Create` es
 
 | Clave         | Tipo    | Default     | Descripción                                                     |
 |---------------|---------|-------------|-----------------------------------------------------------------|
-| `size`        | string  | `"default"` | `"sm"` (24) \| `"default"` (32) \| `"lg"` (40).                 |
+| `size`        | string \| number | `"default"` | `"sm"` (24) \| `"default"` (32) \| `"lg"` (40), los `data-size` de shadcn. **O un número en px** (FR-094): el equivalente de `className="size-14"` (`size = 56`). shadcn no tiene más presets, así que Craft tampoco (`"xl"` cae a `default`). Las iniciales siguen en text-xs. |
 | `image`       | string  | `nil`       | Ruta de textura **LOCAL** del addon (o del cliente). Sin ella se usa `fallback`. |
 | `unit`        | string  | `nil`       | Unidad WoW (`"player"`, `"target"`, …) → **retrato del personaje** vía `SetPortraitTexture`. Es el equivalente WoW del `AvatarImage` remoto de shadcn. Excluyente con `image`/`atlas`: gana la última fuente asignada. |
+| `creatureDisplayID` | number | `nil` | **Retrato de una criatura** que no es una unidad del mundo (FR-094), p. ej. un jefe: `select(4, EJ_GetCreatureInfo(1, journalEncounterID))`. Vía `SetPortraitTextureFromCreatureDisplayID` bajo `pcall`: si falla, iniciales. Precedencia en el config: `unit` > `creatureDisplayID` > `atlas` > `image`. |
 | `atlas`       | string  | `nil`       | **Atlas del cliente** (`"classicon-mage"`, …) → arte del juego para lo que **no está en el mundo** (un personaje offline no tiene unidad que retratar). Se **valida** con `C_Texture.GetAtlasInfo`: si no existe, iniciales. Excluyente con `image`/`unit`. **`crop`/`texCoord` no aplican** (el atlas fija sus texcoords). |
 | `crop`        | number  | `0`         | Recorte por lado (fracción 0..0.5) vía `SetTexCoord`. **`0.08` para `Interface\Icons\*`**: el bisel de item va horneado en el BLP y sin recorte se ve dentro del círculo. Los retratos de `unit` vienen a sangre → `0`. |
 | `texCoord`    | table   | `nil`       | Texcoords **explícitos** `{ l, r, t, b }` para celdas **asimétricas** de un sheet del cliente (p. ej. `CLASS_ICON_TCOORDS[class]` sobre `UI-CHARACTERCREATE-CLASSES`), que el inset simétrico de `crop` no puede expresar. **Pisa a `crop`**; ignorado en modo `atlas`. |
@@ -134,8 +135,8 @@ gana la última. Si el `config` trae varias, la precedencia en `Create` es
 
 | Clave         | Tipo             | Default     | Descripción                                                    |
 |---------------|------------------|-------------|----------------------------------------------------------------|
-| `items`       | table \| señal   | `{}`        | Lista de `{ fallback, image, unit, atlas, crop, texCoord, desaturated }` (mismas claves que el Avatar suelto). Prop de LISTA reactiva (ADR-0013), one-way. |
-| `size`        | string           | `"default"` | Aplica a todos los avatares y a la burbuja.                    |
+| `items`       | table \| señal   | `{}`        | Lista de `{ fallback, image, unit, creatureDisplayID, atlas, crop, texCoord, desaturated }` (mismas claves que el Avatar suelto). Prop de LISTA reactiva (ADR-0013), one-way. |
+| `size`        | string \| number | `"default"` | Aplica a todos los avatares y a la burbuja. Numérico = px, como en el Avatar suelto. |
 | `max`         | number           | `nil`       | Si `#items > max`, muestra `max` avatares + burbuja `+N`.      |
 | `overlap`     | number           | `8`         | Px de solape (`-space-x-2`).                                   |
 | `desaturated` | boolean          | `false`     | Default del grupo; cada item puede sobreescribirlo.            |
@@ -149,6 +150,7 @@ gana la última. Si el `config` trae varias, la precedencia en `Create` es
 |--------------------------|------------------|--------------------------------------------------------------------|
 | `SetImage(path)`         | `string? → void` | Cambia el retrato por una ruta de textura; `nil` vuelve al fallback de iniciales. Anula `unit`/`atlas`. |
 | `SetPortraitUnit(unit)`  | `string? → void` | Retrato del personaje de esa unidad; `nil` vuelve al fallback. Anula `image`/`atlas`. **No se auto-refresca** (ver abajo). |
+| `SetCreatureDisplay(id)` | `number? → void` | Retrato de la criatura con ese displayID (FR-094); `nil` o una llamada que falle vuelve al fallback. Anula `image`/`unit`/`atlas`. **Asíncrono en el cliente** (ver abajo). |
 | `SetAtlas(name)`         | `string? → void` | Arte del cliente por nombre de atlas; `nil` **o un atlas inexistente** vuelve al fallback. Anula `image`/`unit`. |
 | `SetCrop(inset)`         | `number? → void` | Recorte por lado (fracción). Se re-aplica solo tras cada cambio de textura. Sin efecto si hay `texCoord` o en modo atlas. |
 | `SetTexCoord(l, r, t, b)`| `number⁴? → void`| Texcoords explícitos (celda asimétrica de un sheet). `SetTexCoord(nil)` devuelve el mando a `crop`. Sin efecto en modo atlas. |
@@ -194,6 +196,15 @@ parecido al `<AvatarImage src="…">` de shadcn que permite el cliente (no hay f
 retrato **no se auto-refresca**: si el consumidor quiere que siga vivo tras cambios de zona,
 debe re-llamar a `SetPortraitUnit` en `UNIT_PORTRAIT_UPDATE` (con `arg1 == unit`) y
 `PORTRAITS_UPDATED`. La página de demo del Browser lo hace y sirve de ejemplo.
+
+**Retrato de criatura (`creatureDisplayID`, FR-094)**: para lo que tiene cara pero no es una
+unidad del mundo (un jefe del Diario, que el cliente da sin selección previa con
+`select(4, EJ_GetCreatureInfo(1, journalEncounterID))`). La llamada va **bajo `pcall`**: el
+displayID viene del consumidor y un valor basura debe dar iniciales, no un error. El argumento
+no se inspecciona: `SetPortraitTextureFromCreatureDisplayID` es sumidero
+`AllowedWhenUntainted` (acepta secrets). El cliente rasteriza el modelo **de forma asíncrona**:
+hasta que llega se ve el círculo `t.muted`. No se absorbe con un fade (shadcn no anima el
+`AvatarImage`) ni con timers (Craft no registra eventos).
 
 **Atlas del cliente (`atlas`) — la fuente para lo que no está en el mundo**: un personaje
 offline no tiene unidad que retratar y su arte de clase/raza **no es una ruta plana**, sino

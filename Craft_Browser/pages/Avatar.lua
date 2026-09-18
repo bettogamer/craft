@@ -138,6 +138,43 @@ CraftBrowserPages["Avatar"] = {
         table.insert(comps, grayBtn)
         y = y + 56
 
+        -- ── Retrato de criatura + tamaño numérico (FR-094) ───────────────────
+        -- Un jefe del Diario no es una unidad del mundo: se retrata por displayID,
+        -- 4º retorno de EJ_GetCreatureInfo SIN selección previa del Diario (198 =
+        -- Ragnaros, Tierras de Fuego). El tamaño grande es `size = 56`, el
+        -- `className="size-14"` de shadcn (no hay preset xl).
+        -- In-game: el busto sale recortado en círculo; puede tardar un instante en
+        -- aparecer (el cliente lo rasteriza async: mientras, círculo t.muted); el
+        -- displayID basura cae a la inicial sin error.
+        local okEJ, _, _, _, ragDisplay = pcall(EJ_GetCreatureInfo, 1, 198)
+        if not okEJ then ragDisplay = nil end
+
+        y = addLabel("creatureDisplayID — a boss portrait (EJ) · size = 56 (className size-14), card header", y)
+        place(Craft.Avatar:Create(parent, { size = 56, fallback = "R",
+                                            creatureDisplayID = ragDisplay }), 16, y)
+        local lines = {
+            { "Posiciones fase 2", t.foreground },
+            { "Tierras de Fuego — Ragnaros", t.mutedForeground },
+            { "Heroico", t.mutedForeground },
+        }
+        for i, ln in ipairs(lines) do
+            local c = ln[2]
+            local lbl = Craft.Label:Create(parent, { text = ln[1],
+                color = { r = c.r, g = c.g, b = c.b, a = 1 } })
+            lbl:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16 + 56 + 12, -(y + 4 + (i - 1) * 18))
+            lbl:GetFrame():SetHeight(14)
+            table.insert(comps, lbl)
+        end
+        y = y + 56 + 16
+
+        y = addLabel("Numeric sizes 48 · 56 · 64 — initials stay text-xs · bogus displayID → initials", y)
+        place(Craft.Avatar:Create(parent, { size = 48, fallback = "48" }), 16, y)
+        place(Craft.Avatar:Create(parent, { size = 56, fallback = "56" }), 76, y)
+        place(Craft.Avatar:Create(parent, { size = 64, fallback = "64" }), 144, y)
+        place(Craft.Avatar:Create(parent, { size = 56, fallback = "??",
+                                            creatureDisplayID = "bogus" }), 220, y)
+        y = y + 64 + 16
+
         -- ── Atlas del cliente (FR-064) ────────────────────────────────────────
         -- La fuente para lo que NO está en el mundo: un personaje offline no tiene
         -- unidad que retratar y su arte de clase vive en un ATLAS, no en una ruta

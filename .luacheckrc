@@ -35,6 +35,7 @@ globals = {
     "CLASS_ICON_TCOORDS",
     -- Retrato 3D del personaje (Craft.Avatar `unit` / SetPortraitUnit — FR-062)
     "SetPortraitTexture",
+    "SetPortraitTextureFromCreatureDisplayID",   -- Avatar:SetCreatureDisplay (FR-094)
     -- C_Texture.GetAtlasInfo: valida un atlas antes de pintarlo (Craft.Avatar
     -- `atlas` / SetAtlas — FR-064). Se lee con guarda: puede no existir.
     "C_Texture",
