@@ -6,6 +6,40 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.24.0] - 2026-09-17
+
+> **Release v2.24.0 — lo que acaba de pasar tiene por fin dónde decirse.** Un FR de SMRT con un
+> diagnóstico limpio: un addon produce mensajes de **estado** (lo que algo *es*) y de **evento**
+> (lo que una acción *acaba de hacer*), y la librería solo sabía pintar los primeros. El evento
+> acababa metido en la etiqueta del estado, borrándola, o mandado al chat, lejos de la ventana
+> que el usuario estaba mirando.
+>
+> **El norte es sonner, no el `toast` de Radix**, que shadcn ha deprecado a su favor. La API es
+> la de `toast()` —atajos por tipo, `id` para actualizar en sitio, `action`/`cancel`— y los
+> números son los suyos: 356 px, 3 visibles, 4 s, las transiciones de `.4s` que hacen entrar,
+> apilarse, expandirse al hover y salir a las tarjetas. Donde el FR proponía otra cosa (dedupe
+> por texto idéntico, ~5 s) manda sonner, con la divergencia explicada en el propio FR.
+>
+> **La pieza propia es el contenedor.** En la web hay una sola pantalla; en WoW un addon vive en
+> su ventana, y un «copiada» tiene que salir donde está el ojo. Así que hay un toaster por
+> contenedor —el modelo de varios `<Toaster id>` de sonner—: sin nada es la pantalla entera, y un
+> `Craft.Window` tiene su propia pila, que se oculta con él, pausa sus relojes mientras está
+> cerrado y se estrecha cuando la ventana no da para 356 px.
+
+### Añadido
+
+- **`Craft.Toast`: avisos de evento con reloj, el `sonner` de shadcn (FR-093).** Módulo
+  singleton —el consumidor no ancla nada—: `Craft.Toast.Show(title, opts)` y los atajos
+  `Success/Info/Warning/Error/Loading`, con `description`, `icon`, `duration`, `action`/`cancel`,
+  `onDismiss`/`onAutoClose`, `container` (sin nada = toda la pantalla; un frame o un
+  `Craft.Window` = dentro de él, con su propia pila y posición) e `id` para actualizar en sitio (dedupe de sonner, y el «guardando…
+  → guardado» vía `handle:Update`). Pila de 3 visibles con las tarjetas de detrás escaladas, que
+  se expande al pasar el ratón y pausa los relojes; 6 posiciones (default `bottom-right`) con
+  `SetPosition`/`Configure`, globales o por contenedor. Animado con un `Weave.tween` por tarjeta que reproduce las
+  transiciones `.4s` de sonner (entrada, re-apilado, salida, spinner de `loading`). Capa nueva
+  `Craft.Strata.toast`: por encima de Window, Dialog y popovers. Números y colores de sonner +
+  Lyra (`.style-lyra .cn-toast { border-radius: 0 }`); spec `docs/components/toast.md`.
+
 ## [2.23.0] - 2026-09-17
 
 > **Release v2.23.0 — dónde acaba el tema y empieza la instancia.** Un solo FR, otra vez de
