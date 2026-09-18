@@ -60,12 +60,14 @@ end
 --   FULLSCREEN             modalOverlay  (Craft.Dialog backdrop — above any Window)
 --   FULLSCREEN_DIALOG      modal         (Craft.Dialog frame — above its own backdrop)
 --   TOOLTIP                popover       (Select/Combobox/Menu/Popover/Tooltip panels)
+--   TOOLTIP (high level)   toast         (Craft.Toast — above popovers via frame level, FR-093)
 Craft.Strata = {
     content      = "MEDIUM",             -- default in-page content (Panels inherit their parent)
     page         = "DIALOG",             -- Craft.Window — the addon's main frame / "page"
     modalOverlay = "FULLSCREEN",         -- Craft.Dialog backdrop (above any Window, below its frame)
     modal        = "FULLSCREEN_DIALOG",  -- Craft.Dialog frame (above its own backdrop + any Window)
     popover      = "TOOLTIP",            -- Select/Combobox/Menu/Popover/Tooltip panels (topmost)
+    toast        = "TOOLTIP",            -- Craft.Toast; sits over popovers by frame level (sonner z-index max)
 }
 
 -- mediaPath: absolute WoW path to Craft/media/. Changes when Craft is embedded in another addon.

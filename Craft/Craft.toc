@@ -74,6 +74,7 @@ components\Separator.lua
 components\Sidebar.lua
 components\Slider.lua
 components\Switch.lua
+components\Toast.lua
 components\Scroll.lua
 components\Section.lua
 components\Toggle.lua
