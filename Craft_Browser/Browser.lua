@@ -228,6 +228,7 @@ function CB._build()
     _nav:AddItem({ id="ProgressRing", label="Progress Ring",
                    onClick=function() CB.Navigate("ProgressRing") end })
     _nav:AddItem({ id="Theme",     label="Theme",     onClick=function() CB.Navigate("Theme")     end })
+    _nav:AddItem({ id="Toast",     label="Toast",     onClick=function() CB.Navigate("Toast")     end })
     _nav:AddItem({ id="Tooltip",   label="Tooltip",   onClick=function() CB.Navigate("Tooltip")   end })
     _nav:AddSection("Integration")
     _nav:AddItem({ id="Reactive",  label="Reactive",  onClick=function() CB.Navigate("Reactive")  end })

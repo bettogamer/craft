@@ -78,6 +78,7 @@ libs\Craft\components\ToggleGroup.lua
 libs\Craft\components\Sidebar.lua
 libs\Craft\components\Slider.lua
 libs\Craft\components\Switch.lua
+libs\Craft\components\Toast.lua
 libs\Craft\components\Textarea.lua
 libs\Craft\components\Tabs.lua
 libs\Craft\components\Tooltip.lua
@@ -118,6 +119,7 @@ pages\Switch.lua
 pages\Textarea.lua
 pages\Tabs.lua
 pages\Theme.lua
+pages\Toast.lua
 pages\Reactive.lua
 pages\Async.lua
 pages\Tooltip.lua
