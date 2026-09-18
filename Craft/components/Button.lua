@@ -149,8 +149,11 @@ function Button:_applySize()
     self._size = s
 
     if s.w then
-        -- Icon-only: fixed square frame
+        -- Icon-only: fixed square frame. The width is OURS, so record it as the
+        -- intrinsic one: otherwise, back on a text size, _recalcWidth's Flex guard
+        -- reads the icon square as an external width and keeps it (FR-097).
         self.frame:SetSize(s.w, s.h)
+        self._intrinsicWidth = s.w
     else
         self.frame:SetHeight(s.h)
         -- Width is recalculated in _recalcWidth once the text is known

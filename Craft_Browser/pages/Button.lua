@@ -130,6 +130,26 @@ CraftBrowserPages["Button"] = {
         })
         y = addRow({ toneBtn }, y)
 
+        -- FR-097: the SMRT footer that collapses to icons when the window narrows.
+        -- In-game: back from icon-sm the button re-grows to fit "Activate" (it used
+        -- to stay 28px wide with the text spilling out).
+        y = addLabel("SetSize icon-sm ⇄ sm (FR-097) — the width follows the text again", y)
+        local compact = false
+        local shrinkBtn
+        local target = Craft.Button:Create(parent, { text = "Activate", icon = "eye", size = "sm" })
+        shrinkBtn = Craft.Button:Create(parent, {
+            text = "Toggle compact", variant = "outline", size = "sm",
+            onClick = function()
+                compact = not compact
+                if compact then
+                    target:SetText(""); target:SetSize("icon-sm")
+                else
+                    target:SetSize("sm"); target:SetText("Activate")
+                end
+            end,
+        })
+        y = addRow({ shrinkBtn, target }, y)
+
         return {
             height  = y + 24,
             cleanup = function()

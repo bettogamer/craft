@@ -247,6 +247,25 @@ describe("Craft.Button", function()
             btn:SetSize("xs")
             assert.equals(24, btn:GetFrame():GetHeight())
         end)
+
+        -- FR-097: the icon square used to be mistaken for an external (Flex) width.
+        it("icon-sm → sm re-measures the width from the text", function()
+            local btn = newBtn({ size="sm", text="Activate", icon="eye" })
+            local textW = btn:GetFrame():GetWidth()
+            btn:SetText("")
+            btn:SetSize("icon-sm")
+            assert.equals(28, btn:GetFrame():GetWidth())
+            btn:SetSize("sm")
+            btn:SetText("Activate")
+            assert.equals(textW, btn:GetFrame():GetWidth())
+        end)
+
+        it("a width imposed from outside on a text size is still respected", function()
+            local btn = newBtn({ size="sm", text="Activate" })
+            btn:GetFrame():SetWidth(200)
+            btn:SetText("Go")
+            assert.equals(200, btn:GetFrame():GetWidth())
+        end)
     end)
 
     -- ── onClick ───────────────────────────────────────────────────────────
