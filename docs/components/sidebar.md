@@ -213,6 +213,7 @@ items = {
 | `items[i].id` | string | — | Identificador único del item |
 | `items[i].label` | string | — | Texto visible del item |
 | `items[i].icon` | string | nil | Nombre del ícono para `Craft.Icons.Get(name)`; nil = sin ícono |
+| `items[i].avatar` | table | nil | (FR-095) Un `Craft.Avatar` en el hueco del icono, como el `<Avatar>` que shadcn compone dentro de `SidebarMenuButton` (NavUser). La tabla es el config del Avatar (`unit` \| `creatureDisplayID` \| `atlas` \| `image`, `fallback`, `size`, `crop`, `texCoord`, `desaturated`) y se copia. `size` por defecto 16 (el hueco `size-4`); el label se corre a `size + 8`. Gana a `icon`. El hover/active **no lo tiñe**; `disabled` lo baja al 50 % (`opacity-50` del botón entero). `SetItems`/`Destroy` lo destruyen |
 | `items[i].section` | string | nil | (grupos planos, depth 0) Label de la sección; nil = sin sección |
 | `items[i].onClick` | function | nil | Callback `fn(id, itemConfig)` al hacer click en el item |
 | `items[i].children` | array | nil | (árbol) Sub-items anidados — hace al item una rama colapsable |

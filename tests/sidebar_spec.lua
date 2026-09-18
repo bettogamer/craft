@@ -28,6 +28,8 @@ dofile("Craft/theme/Theme.lua")
 dofile("Craft/icons/Atlas.lua")
 dofile("Craft/icons/Icons.lua")
 dofile("Craft/components/Tooltip.lua")   -- Sidebar attaches it for per-item tooltips (FR-089)
+dofile("Craft/theme/Shapes.lua")
+dofile("Craft/components/Avatar.lua")    -- FR-095: item avatar
 dofile("Craft/components/Sidebar.lua")
 
 local Craft = LibStub("Craft-2.0")
@@ -406,5 +408,72 @@ describe("Craft.Sidebar — expansion state (FR-010)", function()
             assert.is_true(sb._sbarFrame:IsShown())
             assert.is_true(sb._sbarThumb:IsShown())
         end)
+    end)
+end)
+
+-- ── FR-095: an item can carry a Craft.Avatar instead of a lucide icon ─────────
+describe("Craft.Sidebar item avatar (FR-095)", function()
+    local function newSb(items)
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems(items)
+        return sb
+    end
+
+    it("avatar mounts a Craft.Avatar in the icon slot (16px by default)", function()
+        local sb = newSb({ { id = "boss", label = "Plexus Sentinel",
+                             avatar = { creatureDisplayID = 123, fallback = "P" } } })
+        local e = sb._itemFrames.boss
+        assert.is_not_nil(e.avatar)
+        assert.equals(16, e.avatar:GetFrame():GetWidth())
+        assert.equals("MockCreature:123", e.avatar._image:GetTexture())
+        assert.is_false(e.hasIcon)
+        sb:Destroy()
+    end)
+
+    it("the label moves past the avatar slot (its size + gap-2)", function()
+        local sb = newSb({ { id = "a", label = "A", avatar = { fallback = "A", size = 24 } } })
+        local _, _, _, x = sb._itemFrames.a.labelFs:GetPoint(1)
+        assert.equals(8 + 24 + 8, x)
+        sb:Destroy()
+    end)
+
+    it("avatar wins over icon", function()
+        local sb = newSb({ { id = "a", label = "A", icon = "house", avatar = { fallback = "A" } } })
+        assert.is_false(sb._itemFrames.a.hasIcon)
+        assert.is_false(sb._itemFrames.a.iconTex:IsShown())
+        sb:Destroy()
+    end)
+
+    it("hover/active never tint the avatar", function()
+        local sb = newSb({ { id = "a", label = "A", avatar = { image = "Interface\\Icons\\Temp" } } })
+        local e = sb._itemFrames.a
+        e.frame:_fire("OnEnter")
+        sb:SetActiveItem("a")
+        local r, g, b = e.avatar._image:GetVertexColor()   -- untouched mock default
+        assert.equals(1, r); assert.equals(1, g); assert.equals(1, b)
+        sb:Destroy()
+    end)
+
+    it("a disabled row dims its avatar to 50%", function()
+        local sb = newSb({ { id = "a", label = "A", disabled = true, avatar = { fallback = "A" } } })
+        assert.equals(0.5, sb._itemFrames.a.avatar:GetFrame():GetAlpha())
+        sb:Destroy()
+    end)
+
+    it("the consumer's avatar table is not mutated", function()
+        local spec = { fallback = "A" }
+        local sb = newSb({ { id = "a", label = "A", avatar = spec } })
+        assert.is_nil(spec.size)
+        sb:Destroy()
+    end)
+
+    it("SetItems and Destroy destroy the row avatars", function()
+        local sb = newSb({ { id = "a", label = "A", avatar = { fallback = "A" } } })
+        local av = sb._itemFrames.a.avatar
+        sb:SetItems({ { id = "b", label = "B", avatar = { fallback = "B" } } })
+        assert.is_nil(av.frame)
+        local av2 = sb._itemFrames.b.avatar
+        sb:Destroy()
+        assert.is_nil(av2.frame)
     end)
 end)

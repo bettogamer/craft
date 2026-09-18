@@ -555,7 +555,7 @@ function Sidebar:AddSection(label)
 end
 
 -- ─── AddItem ──────────────────────────────────────────────────────────────────
--- Adds a menu item. itemConfig: {id, label, icon, section, onClick, collapsible,
+-- Adds a menu item. itemConfig: {id, label, icon, avatar, section, onClick, collapsible,
 -- defaultOpen, children, disabled, tooltip}. `depth`/`parentEntry` are internal
 -- (tree recursion).
 -- Returns the item entry. Content x-positions are set in _positionRow (layout time).
@@ -593,7 +593,10 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
     -- Icon — shown only if the atlas has it. Position set in _positionRow.
     local iconTex = itemFrame:CreateTexture(nil, "ARTWORK")
     iconTex:SetSize(ICON_SIZE, ICON_SIZE)
-    local hasIcon = iconName ~= nil and Craft.Icons.Has(iconName)
+    -- FR-095: `avatar` = a Craft.Avatar in the icon slot — shadcn composes an <Avatar>
+    -- inside SidebarMenuButton (NavUser). Excludes `icon` (the avatar wins).
+    local avatar = self:_makeRowAvatar(itemFrame, itemConfig.avatar)
+    local hasIcon = not avatar and iconName ~= nil and Craft.Icons.Has(iconName)
     if hasIcon then
         Craft.Icons.Apply(iconTex, iconName, ICON_SIZE)
         iconTex:Show()
@@ -619,6 +622,7 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
         labelFs     = labelFs,
         iconTex     = iconTex,
         hasIcon     = hasIcon,
+        avatar      = avatar,
         depth       = depth,
         parent      = parentEntry,
         disabled    = disabled,
@@ -671,6 +675,9 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
         -- as FR-048 asked.
         itemFrame:EnableMouse(hasTip)
         if entry.chevBtn then entry.chevBtn:EnableMouse(false) end
+        -- disabled:opacity-50 dims the whole button, the avatar included (it is
+        -- never TINTED: _colorItem only recolours the lucide icon).
+        if avatar then avatar:GetFrame():SetAlpha(DISABLED_ALPHA) end
     else
         -- Hover (skip the active item — it keeps the accent permanently)
         itemFrame:SetScript("OnEnter", function()
@@ -709,6 +716,28 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
     return entry
 end
 
+-- ─── _makeRowAvatar (FR-095) ────────────────────────────────────────────────────
+-- Builds the row's Craft.Avatar from itemConfig.avatar = { unit | creatureDisplayID |
+-- atlas | image, fallback, size, crop, texCoord, desaturated } — the Avatar's own
+-- config, copied (the consumer's table is never mutated). `size` defaults to the icon
+-- slot (ICON_SIZE, the [&_svg]:size-4 box); any Avatar size is accepted. The avatar
+-- has no mouse, so clicks and hover reach the row Button underneath. Returns nil when
+-- there is no avatar (or no Craft.Avatar in this build).
+function Sidebar:_makeRowAvatar(itemFrame, spec)
+    if type(spec) ~= "table" or not Craft.Avatar then return nil end
+    local cfg = {}
+    for k, v in pairs(spec) do cfg[k] = v end
+    cfg.size = cfg.size or ICON_SIZE
+    return Craft.Avatar:Create(itemFrame, cfg)
+end
+
+-- Destroys the row avatars (their theme listeners) before the rows are dropped.
+function Sidebar:_destroyRowAvatars()
+    for _, e in ipairs(self._sections) do
+        if e.avatar then e.avatar:Destroy(); e.avatar = nil end
+    end
+end
+
 -- ─── _positionRow ──────────────────────────────────────────────────────────────
 -- Sets the horizontal positions of a row's icon/label (indented by tree depth),
 -- the trailing chevron (branches), and the per-level vertical guide lines.
@@ -720,7 +749,16 @@ function Sidebar:_positionRow(entry)
     entry.iconTex:ClearAllPoints()
     entry.iconTex:SetPoint("LEFT", entry.frame, "LEFT", baseX, 0)
 
-    local labelX = baseX + (entry.hasIcon and (ICON_SIZE + ITEM_GAP) or 0)
+    local slotW = 0
+    if entry.avatar then
+        local af = entry.avatar:GetFrame()
+        af:ClearAllPoints()
+        af:SetPoint("LEFT", entry.frame, "LEFT", baseX, 0)
+        slotW = af:GetWidth() + ITEM_GAP
+    elseif entry.hasIcon then
+        slotW = ICON_SIZE + ITEM_GAP
+    end
+    local labelX = baseX + slotW
     entry.labelFs:ClearAllPoints()
     entry.labelFs:SetPoint("LEFT", entry.frame, "LEFT", labelX, 0)
 
@@ -858,6 +896,7 @@ function Sidebar:SetItems(items, opts)
     local preserve = (opts == nil) or (opts.preserveExpansion ~= false)
     local prev     = preserve and self:GetExpandedState() or nil
 
+    self:_destroyRowAvatars()   -- FR-095: the rows are dropped; their avatars too
     for _, e in ipairs(self._sections) do
         -- FR-089: the hook dies with the row it belonged to. These frames are
         -- orphaned here, and a delayed show already queued would otherwise fire
@@ -971,6 +1010,7 @@ function Sidebar:Destroy()
     for _, e in ipairs(self._sections) do   -- FR-089: cancel any pending tooltip
         if e.tooltip and e.frame then Craft.Tooltip.Detach(e.frame) end
     end
+    self:_destroyRowAvatars()
     Craft.Theme.unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil

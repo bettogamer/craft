@@ -159,6 +159,35 @@ CraftBrowserPages["Sidebar"] = {
         })
         y = y + 164
 
+        -- ── 5c. Avatar por ítem (FR-095) ─────────────────────────────────────
+        -- El caso de SMRT: la rama es el jefe (retrato del Diario) y las hojas sus
+        -- notas. displayID sin selección previa del Diario: 4º retorno de
+        -- EJ_GetCreatureInfo (198 = Ragnaros, Tierras de Fuego). Si el cliente no lo
+        -- da, la rama cae a la inicial.
+        -- In-game: el retrato NO se tiñe al hover/active; la fila gris lo baja al 50 %.
+        local function bossDisplay(journalID)
+            local ok, _, _, _, displayID = pcall(EJ_GetCreatureInfo, 1, journalID)
+            return ok and displayID or nil
+        end
+        y = addLabel("Avatar (FR-095) — retrato de jefe en la rama, del jugador en la hoja; sin tinte al hover", y)
+        local c5c = newContainer(220, 200, y)
+        newSidebar(c5c, {
+            width = 220, activeItem = "a-n1",
+            items = {
+                { id="a-rag", label="Ragnaros", collapsible = true,
+                  avatar = { creatureDisplayID = bossDisplay(198), fallback = "R" },
+                  children = {
+                      { id="a-n1", label="Posiciones fase 2" },
+                      { id="a-n2", label="Cooldowns" },
+                  } },
+                { id="a-none", label="Jefe sin retrato", avatar = { fallback = "J" } },
+                { id="a-me",   label="Personal",         avatar = { unit = "player", fallback = "P" } },
+                { id="a-off",  label="Deshabilitado",    disabled = true,
+                  avatar = { unit = "player", fallback = "P" } },
+            },
+        })
+        y = y + 212
+
         -- ── 6. Árbol colapsable (FR-008) + API de expansión (FR-010) ─────────
         y = addLabel("Árbol (FR-008) — chevron 16px al final (FR-049), guías, sub-item activo regular (FR-047)", y)
         local c6 = newContainer(240, 260, y)
