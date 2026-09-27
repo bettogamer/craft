@@ -6,6 +6,39 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.26.0] - 2026-09-27
+
+> **Release v2.26.0 — dos FR de SMRT y el badge en píldora.** SMRT necesitaba el doble clic
+> en su lista de notas y una `Craft.Section` que pintara dentro de una ventana creada oculta;
+> el badge recupera la forma `rounded-full` del badge base de shadcn como opción.
+>
+> **La pieza a vigilar es FR-099.** La causa no se pudo reproducir fuera del cliente: el fix
+> quita el par de anclas `TOPLEFT`+`TOPRIGHT` (familia del bug #2) y filtra medidas no
+> finitas. Confirmarlo con el botón «FR-099: open repro window» de la página Section del
+> Browser antes de retirar el plegable propio de SMRT. Cambio visible: el frame de
+> `SetContent` recibe `SetWidth(anchoSección)` en vez de heredar el ancho por anclas.
+
+### Añadido
+
+- **`Craft.Sidebar`: doble clic sobre un item (FR-098).** `config.onDoubleClick(id)` e
+  `itemConfig.onDoubleClick(id, itemConfig)`, sobre el `OnDoubleClick` del botón de la fila: el
+  primer clic sigue siendo `onSelect`, así que la fila ya está seleccionada. Ramas y filas
+  deshabilitadas no lo disparan; sin callback no se registra nada y el segundo clic sigue
+  llegando como `OnClick`.
+- **`Craft.Badge`: `pill = true` (forma de píldora).** El `rounded-full` del badge base de
+  shadcn, que Lyra pisa a `rounded-none`. 3-slice con tapas enmascaradas por `shape_circle`
+  (ADR-0018), sin solapes para no doblar el tinte de los rellenos translúcidos; degrada a
+  cuadrado sin máscaras.
+
+### Corregido
+
+- **`Craft.Section`: el header se quedaba sin rect y no pintaba nada (FR-099).** Con el ancho
+  dado después de `SetContent` y la ventana aún oculta, el header anclado `TOPLEFT`+`TOPRIGHT`
+  no tenía rect: ni título, ni chevron, ni contenido. Header, content y child pasan a ancla
+  única + ancho explícito propagado desde el `OnSizeChanged`/`OnShow` del frame de la sección, y
+  toda medida se filtra por finita. **Cambio visible para el consumidor:** el child recibe
+  `SetWidth(anchoSección)` en lugar de heredar el ancho por anclas.
+
 ## [2.25.0] - 2026-09-18
 
 > **Release v2.25.0 — cuatro FR de SMRT, sin inventar nada que shadcn no tenga.** Una página de
