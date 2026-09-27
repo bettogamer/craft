@@ -216,6 +216,7 @@ items = {
 | `items[i].avatar` | table | nil | (FR-095) Un `Craft.Avatar` en el hueco del icono, como el `<Avatar>` que shadcn compone dentro de `SidebarMenuButton` (NavUser). La tabla es el config del Avatar (`unit` \| `creatureDisplayID` \| `atlas` \| `image`, `fallback`, `size`, `crop`, `texCoord`, `desaturated`) y se copia. `size` por defecto 16 (el hueco `size-4`); el label se corre a `size + 8`. Gana a `icon`. El hover/active **no lo tiñe**; `disabled` lo baja al 50 % (`opacity-50` del botón entero). `SetItems`/`Destroy` lo destruyen |
 | `items[i].section` | string | nil | (grupos planos, depth 0) Label de la sección; nil = sin sección |
 | `items[i].onClick` | function | nil | Callback `fn(id, itemConfig)` al hacer click en el item |
+| `items[i].onDoubleClick` | function | nil | (FR-098) Callback `fn(id, itemConfig)` en el segundo clic de un doble clic. No en ramas ni filas `disabled` |
 | `items[i].children` | array | nil | (árbol) Sub-items anidados — hace al item una rama colapsable |
 | `items[i].collapsible` | boolean | auto | true si tiene `children`; fuerza rama colapsable |
 | `items[i].defaultOpen` | boolean | true | Estado inicial expandido de la rama |
@@ -223,6 +224,7 @@ items = {
 | `items[i].tooltip` | string | nil | (FR-089) Etiqueta al hover de la fila, mismo nombre y forma que en `Craft.Button` (FR-020) y `Craft.Menu` (FR-084). Vale también —y sobre todo— en filas `disabled`. Un valor que no sea string se ignora |
 | `activeItem` | string | nil | Id del item activo al crear el componente |
 | `onSelect` | function | nil | Callback `fn(id)` al seleccionar cualquier item |
+| `onDoubleClick` | function | nil | (FR-098) Callback `fn(id)` al hacer doble clic en un item hoja. Es el `OnDoubleClick` del cliente: el primer clic ya disparó `onSelect` (la fila está seleccionada) y el segundo llega aquí **en vez de** como `OnClick`. Ramas (`collapsible`) y `disabled` no lo disparan. El script solo se registra si hay algún `onDoubleClick` (global o del item): sin él, el segundo clic sigue siendo un `OnClick` como antes |
 
 > `_header` y `_footer` no tienen parámetros de config — se obtienen vía `GetHeader()`/`GetFooter()` y el dev los configura directamente.
 

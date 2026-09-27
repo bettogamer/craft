@@ -477,3 +477,53 @@ describe("Craft.Sidebar item avatar (FR-095)", function()
         assert.is_nil(av2.frame)
     end)
 end)
+
+describe("Craft.Sidebar double click (FR-098)", function()
+    it("onDoubleClick fires with the id, after onSelect already selected the row", function()
+        local log = {}
+        local sb = Craft.Sidebar:Create(UIParent, {
+            width = 200,
+            onSelect      = function(id) log[#log + 1] = "select:" .. id end,
+            onDoubleClick = function(id) log[#log + 1] = "double:" .. id end,
+        })
+        sb:SetItems({ { id = "n1", label = "Note 1" } })
+        local f = sb._itemFrames.n1.frame
+        f:_fire("OnClick")          -- the client: 1st click = OnClick ...
+        f:_fire("OnDoubleClick")    -- ... 2nd click = OnDoubleClick (instead of OnClick)
+        assert.equals(2, #log)
+        assert.equals("select:n1", log[1])
+        assert.equals("double:n1", log[2])
+        assert.equals("n1", sb._cfg.activeItem)
+        sb:Destroy()
+    end)
+
+    it("itemConfig.onDoubleClick gets (id, itemConfig), like onClick", function()
+        local got
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems({ { id = "n1", label = "Note 1",
+                        onDoubleClick = function(id, cfg) got = { id, cfg.label } end } })
+        sb._itemFrames.n1.frame:_fire("OnDoubleClick")
+        assert.equals("n1", got[1])
+        assert.equals("Note 1", got[2])
+        sb:Destroy()
+    end)
+
+    it("branch (collapsible) and disabled rows don't take it", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, onDoubleClick = function() end })
+        sb:SetItems({
+            { id = "b", label = "Branch", children = { { id = "c", label = "Child" } } },
+            { id = "off", label = "Off", disabled = true },
+        })
+        assert.is_nil(sb._itemFrames.b.frame:GetScript("OnDoubleClick"))
+        assert.is_nil(sb._itemFrames.off.frame:GetScript("OnDoubleClick"))
+        assert.is_not_nil(sb._itemFrames.c.frame:GetScript("OnDoubleClick"))
+        sb:Destroy()
+    end)
+
+    it("no listener -> no OnDoubleClick script (2nd click stays a plain OnClick)", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems({ { id = "n1", label = "Note 1" } })
+        assert.is_nil(sb._itemFrames.n1.frame:GetScript("OnDoubleClick"))
+        sb:Destroy()
+    end)
+end)

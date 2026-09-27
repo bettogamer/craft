@@ -189,12 +189,14 @@ CraftBrowserPages["Sidebar"] = {
         y = y + 212
 
         -- ── 6. Árbol colapsable (FR-008) + API de expansión (FR-010) ─────────
-        y = addLabel("Árbol (FR-008) — chevron 16px al final (FR-049), guías, sub-item activo regular (FR-047)", y)
+        y = addLabel("Árbol (FR-008) — chevron al final (FR-049), guías, sub-item regular (FR-047); "
+            .. "doble clic en hoja → chat (FR-098)", y)
         local c6 = newContainer(240, 260, y)
         local tree = newSidebar(c6, {
             width      = 240,
             activeItem = "aura1",
             onSelect   = function(id) print("Sidebar onSelect:", id) end,
+            onDoubleClick = function(id) print("Sidebar onDoubleClick:", id) end,   -- FR-098
             items = {
                 { id="pack1", label="Manaforge Omega", icon="folder", collapsible=true, defaultOpen=true,
                   children = {

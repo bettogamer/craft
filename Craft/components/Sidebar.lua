@@ -64,6 +64,7 @@ function Sidebar:Create(parent, config)
         size       = config.size       or "default",
         width      = config.width,
         onSelect   = config.onSelect,
+        onDoubleClick = config.onDoubleClick,  -- FR-098
     }
     self._hasTree  = false  -- true once any collapsible (tree) item is added
     self._building = false  -- defers _rebuildLayout() during bulk add
@@ -555,7 +556,7 @@ function Sidebar:AddSection(label)
 end
 
 -- ─── AddItem ──────────────────────────────────────────────────────────────────
--- Adds a menu item. itemConfig: {id, label, icon, avatar, section, onClick, collapsible,
+-- Adds a menu item. itemConfig: {id, label, icon, avatar, section, onClick, onDoubleClick, collapsible,
 -- defaultOpen, children, disabled, tooltip}. `depth`/`parentEntry` are internal
 -- (tree recursion).
 -- Returns the item entry. Content x-positions are set in _positionRow (layout time).
@@ -700,6 +701,20 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
             if onClick then onClick(id, itemConfig) end
             if self._cfg.onSelect then self._cfg.onSelect(id) end
         end)
+
+        -- Double click = "open / use" (FR-098). The client fires OnClick for the first
+        -- click and OnDoubleClick INSTEAD of OnClick for the second, so the row is
+        -- already selected when this runs. Branch rows (collapsible) don't take it:
+        -- their gesture is expand/collapse, not open. Only registered when someone
+        -- listens: with no OnDoubleClick script the client keeps delivering the second
+        -- click as a plain OnClick, so sidebars that don't opt in behave as before.
+        local onDoubleClick = itemConfig.onDoubleClick
+        if not collapsible and (onDoubleClick or self._cfg.onDoubleClick) then
+            itemFrame:SetScript("OnDoubleClick", function()
+                if onDoubleClick then onDoubleClick(id, itemConfig) end
+                if self._cfg.onDoubleClick then self._cfg.onDoubleClick(id) end
+            end)
+        end
     end
 
     -- Tooltip (FR-089). Craft.Tooltip.Attach hooks with HookScript, so it stacks on
