@@ -50,6 +50,22 @@ criterio caro (sonnet) de mecánica barata (haiku); el CSS Lyra NO es fetcheable
   fallback inmediato, invócalos vía `general-purpose` diciéndole que lea `.claude/agents/<x>.md` y
   actúe según ese contrato.
 
+## Regla: todo cambio lleva demo en Craft_Browser + deploy antes de pedir prueba
+
+_(Pedido del owner, 2026-09-27.)_
+
+- **Todo cambio en Craft tiene su ejemplo en `Craft_Browser/pages/`** en el mismo trabajo,
+  nunca "después": prop o variante nueva → una fila en la página del componente; callback
+  nuevo → la demo lo imprime en el chat; bugfix → un repro de la secuencia del FR (p. ej. el
+  botón "FR-099: open repro window" de `pages/Section.lua`). Componente nuevo → página nueva
+  + **los dos `.toc`** (ver memoria "Los DOS .toc").
+- **Antes de pedirle al owner que pruebe algo in-game, ejecutar SIEMPRE el deploy**:
+  `powershell -ExecutionPolicy Bypass -File scripts/deploy-local.ps1`. `Craft_Browser/libs/`
+  está gitignored: sin deploy el Browser corre el Craft viejo y la prueba no vale.
+- **Ojo al empate de build:** si un consumidor instalado (SMRT, Bis, Coffer…) lleva vendoreado
+  el mismo `CRAFT_BUILD` que dev y carga antes, gana su copia. Bump LOCAL temporal
+  (+1) → deploy → prueba → revertir el bump antes del release (coreografía en la memoria).
+
 ## Git — reglas del estándar (obligatorias)
 
 - **Sin trailers de co-autoría de IA ni atribuciones de herramientas, NUNCA** — nada de
