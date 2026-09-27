@@ -159,3 +159,64 @@ describe("Craft.Section hover underline (FR-045)", function()
         assert.equals(not before, s:IsExpanded())
     end)
 end)
+
+-- ─── Header without a rect (FR-099) ──────────────────────────────────────────
+
+describe("Craft.Section width propagation (FR-099)", function()
+
+    it("header and content use a SINGLE anchor (no TOPLEFT+TOPRIGHT pair)", function()
+        local s = Craft.Section:Create(newContainer(), { title = "Modules" })
+        assert.equals(1, s._header:GetNumPoints())
+        assert.equals("TOPLEFT", s._header._points[1][1])
+        assert.equals(1, s._content:GetNumPoints())
+    end)
+
+    it("SetWidth AFTER SetContent pushes the width to header, content and child", function()
+        local s = Craft.Section:Create(newContainer(), { title = "Modules", divider = false })
+        local body = CreateFrame("Frame")
+        body:SetHeight(48)
+        s:SetContent(body)
+        assert.equals(1, body:GetNumPoints())
+        s:GetFrame():SetWidth(388)
+        s:GetFrame():_fire("OnSizeChanged", 388, 36)   -- the client fires this on SetWidth
+        assert.equals(388, s._header:GetWidth())
+        assert.equals(388, s._content:GetWidth())
+        assert.equals(388, body:GetWidth())
+        assert.equals(388 - CHEVRON_SZ - CHEVRON_GAP, s._title:GetWidth())
+        assert.equals(HEADER_MIN, s._header:GetHeight())
+    end)
+
+    it("a width that is already known when the child arrives is applied to it", function()
+        local s = Craft.Section:Create(newContainer(), { title = "Modules" })
+        s:GetFrame():SetWidth(300)
+        s:GetFrame():_fire("OnSizeChanged", 300, 36)
+        local body = CreateFrame("Frame")
+        body:SetHeight(20)
+        s:SetContent(body)
+        assert.equals(300, body:GetWidth())
+    end)
+
+    it("OnShow re-syncs a width set while hidden", function()
+        local s = Craft.Section:Create(newContainer(), { title = "Modules" })
+        s:GetFrame():SetWidth(250)              -- no OnSizeChanged (hidden ancestor)
+        s:GetFrame():_fire("OnShow")
+        assert.equals(250, s._header:GetWidth())
+    end)
+
+    it("ignores non-finite widths/heights (NaN never reaches SetWidth/SetHeight)", function()
+        local s = Craft.Section:Create(newContainer(), { title = "Modules" })
+        local nan = 0 / 0
+        s:GetFrame():_fire("OnSizeChanged", nan, nan)
+        s:GetFrame():_fire("OnSizeChanged", math.huge, 36)
+        assert.equals(0, s._header:GetWidth())
+        assert.equals(HEADER_MIN, s._header:GetHeight())
+        assert.equals(HEADER_MIN, s._headerH())
+
+        -- a NaN string height falls back to the single-line floor
+        s:GetFrame():SetWidth(300)
+        s._title.GetStringHeight = function() return nan end
+        s:GetFrame():_fire("OnSizeChanged", 300, 36)
+        assert.equals(HEADER_MIN, s._header:GetHeight())
+        assert.equals(HEADER_MIN, s._headerH())
+    end)
+end)

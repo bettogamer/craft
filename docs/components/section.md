@@ -47,7 +47,7 @@ section.frame            (Frame — alto = header + (content si expandido) )
 │   ├── _title           (FontString — text-xs font-medium, TOPLEFT, word-wrap; ancho = header − chevron − 8)
 │   └── _chevron         (Texture 16px — chevron-down (base) que rota 0°→180° al expandir, muted-fg; TOPRIGHT items-start)
 ├── _content             (Frame — bajo el header; alto = childH + pb-2.5; oculto si colapsado)
-│   └── [child]          (frame del consumidor vía SetContent)
+│   └── [child]          (frame del consumidor vía SetContent; ancla ÚNICA TOPLEFT + ancho explícito, FR-099)
 └── _border              (Texture 1px — not-last:border-b, t.border; opcional vía `divider`)
 ```
 
@@ -115,4 +115,12 @@ section.frame            (Frame — alto = header + (content si expandido) )
   (`BOTTOMLEFT` del FontString); CSS subrayaría todas. Estos triggers son de una línea en la
   práctica; el subrayado por-línea queda fuera de alcance salvo demanda.
 - **font-medium**: Craft solo trae Regular + Bold; se usa `t.fontBold` como aproximación.
+- **Anchos (FR-099):** header, content y child llevan **un solo ancla** (`TOPLEFT`) y un ancho
+  **explícito** que empuja `_syncWidth` desde el `OnSizeChanged` del frame de la sección (y en
+  `OnShow`, `SetContent` y `_applyTheme`). Con el par `TOPLEFT`+`TOPRIGHT` —el consumidor da el
+  ancho tras `Create`/`SetContent` con la ventana aún oculta— el header se quedaba **sin rect**
+  in-game: la sección ocupaba su sitio y respondía al clic pero no pintaba título, chevron ni
+  contenido (misma familia que el bug #2 de CLAUDE.md). Todo valor que llega a
+  `SetWidth`/`SetHeight` pasa por `finite()` (un NaN atraviesa `<= 0` y `< HEADER_MIN`).
+  Consecuencia: el child recibe `SetWidth(anchoSección)` en vez de heredarlo por anclas.
 - El contenido oculto usa `SetHeight(0.001)` (no 0) para evitar degeneración de anclas en WoW.

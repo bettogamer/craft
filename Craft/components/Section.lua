@@ -49,10 +49,15 @@ function Section:Create(parent, config)
     -- Height is dynamic (FR-044): HEADER_MIN is the single-line floor; a long title
     -- wraps and the header grows to fit it (measured in _remeasureHeader). shadcn's
     -- trigger is `items-start` height-auto, so title + chevron are top-aligned.
+    -- FR-099: SINGLE anchor + explicit width, pushed from the section frame's
+    -- OnSizeChanged (_syncWidth). Two top anchors (TOPLEFT+TOPRIGHT) on a frame that
+    -- gets its width only after Create (SetWidth after SetContent, parent still hidden)
+    -- left the header — and everything anchored to it — without a rect in-game: no
+    -- title, no chevron, no body, while the section frame itself had one. Same family
+    -- as CLAUDE.md bug #2.
     self._header = CreateFrame("Button", nil, self.frame)
     self._header:SetHeight(HEADER_MIN)
-    self._header:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
-    self._header:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
+    self._header:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 0, 0)
 
     self._title = self._header:CreateFontString(nil, "OVERLAY")
     self._title:SetPoint("TOPLEFT", self._header, "TOPLEFT", 0, -PAD_V)
@@ -79,8 +84,14 @@ function Section:Create(parent, config)
 
     -- ── Content area (holds the child frame) ──────────────────────────────────
     self._content = CreateFrame("Frame", nil, self.frame)
-    self._content:SetPoint("TOPLEFT",  self._header, "BOTTOMLEFT",  0, 0)
-    self._content:SetPoint("TOPRIGHT", self._header, "BOTTOMRIGHT", 0, 0)
+    self._content:SetPoint("TOPLEFT", self._header, "BOTTOMLEFT", 0, 0)
+
+    -- FR-099: the section frame's width is the single source for header/content/child
+    -- widths. OnSizeChanged also fires on every height tick of the expand animation,
+    -- so _syncWidth cuts on an unchanged width. OnShow re-syncs for the case where the
+    -- width was set while an ancestor was hidden.
+    self.frame:SetScript("OnSizeChanged", function(_, w) self:_syncWidth(w) end)
+    self.frame:SetScript("OnShow", function() self:_syncWidth() end)
 
     -- ── Bottom divider (not-last:border-b) ────────────────────────────────────
     self._border = self.frame:CreateTexture(nil, "BORDER")
@@ -165,14 +176,36 @@ function Section:SetContent(frame)
     if frame then
         frame:SetParent(self._content)
         frame:ClearAllPoints()
-        frame:SetPoint("TOPLEFT",  self._content, "TOPLEFT",  0, 0)
-        frame:SetPoint("TOPRIGHT", self._content, "TOPRIGHT", 0, 0)
+        frame:SetPoint("TOPLEFT", self._content, "TOPLEFT", 0, 0)
     end
     self:_relayout()
+    self:_syncWidth(nil, true)   -- the child takes its width explicitly (single anchor)
 end
 
 function Section:GetContent()
     return self._content
+end
+
+-- ─── Width propagation (FR-099) ───────────────────────────────────────────────
+-- A finite, positive number or nil (NaN fails `n == n`, ±inf fails the bound).
+local function finite(n)
+    if type(n) ~= "number" or n ~= n or n <= 0 or n >= math.huge then return nil end
+    return n
+end
+
+-- Push the section frame's width down to header, content and child. `w` is the
+-- OnSizeChanged argument when available (reading it avoids a lazy GetWidth during the
+-- layout pass); falls back to GetWidth. `force` re-applies even if unchanged (new child).
+function Section:_syncWidth(w, force)
+    if not self.frame then return end
+    w = finite(w) or finite(self.frame:GetWidth())
+    if not w then return end                              -- width not assigned yet
+    if not force and self._syncedW and math.abs(self._syncedW - w) < 0.01 then return end
+    self._syncedW = w
+    self._header:SetWidth(w)
+    self._content:SetWidth(w)
+    if self._child then self._child:SetWidth(w) end
+    self:_remeasureHeader()
 end
 
 -- ─── Header measure (FR-044: title wrap → dynamic header height) ───────────────
@@ -183,14 +216,16 @@ end
 -- change (a late-loading font, CLAUDE.md bug #4, re-measures once the glyphs arrive).
 function Section:_remeasureHeader()
     if not self._header then return end
-    local headerW = self._header:GetWidth() or 0
-    if headerW <= 0 then return end                       -- width not assigned yet
+    -- FR-099: every value that reaches SetWidth/SetHeight is checked finite — a NaN
+    -- slips through `<= 0` / `< HEADER_MIN` tests and leaves the frame without a rect.
+    local headerW = finite(self._header:GetWidth())
+    if not headerW then return end                        -- width not assigned yet
 
     local titleW = headerW - CHEVRON_SZ - CHEVRON_GAP
     if titleW < 1 then titleW = 1 end
     self._title:SetWidth(titleW)
 
-    local titleH  = self._title:GetStringHeight() or 0
+    local titleH  = finite(self._title:GetStringHeight()) or LINE_H
     local headerH = PAD_V * 2 + titleH
     if headerH < HEADER_MIN then headerH = HEADER_MIN end
 
@@ -315,6 +350,7 @@ function Section:_applyTheme(t)
     self._border:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
 
     self:_refreshChevron()
+    self:_syncWidth(nil, true) -- FR-099: width may already be known (anchored parent)
     self:_remeasureHeader()   -- FR-044: re-measure header after (re)applying font/text
     self:_relayout()
 end

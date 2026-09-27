@@ -73,10 +73,44 @@ CraftBrowserPages["Section"] = {
 
         reflow()
 
+        -- ── FR-099 repro: SMRT's exact sequence. The window is created HIDDEN, the
+        -- section gets its width AFTER SetContent. Before the fix the header had no
+        -- rect: the section took its space and toggled on click but painted nothing.
+        local reproWin
+        local reproBtn = Craft.Button:Create(parent, {
+            text = "FR-099: open repro window", variant = "outline", size = "sm",
+            onClick = function()
+                if reproWin then reproWin:Destroy(); reproWin = nil end
+                reproWin = Craft.Window:Create(UIParent, { title = "Edit mode", width = 420,
+                    height = 150, resizable = false })
+                local content = reproWin:GetContent()
+                local status = Craft.Label:Create(content, {
+                    text = "The section below must show its title and chevron.",
+                    width = 388, wrap = true })
+                status:GetFrame():SetPoint("TOPLEFT", content, "TOPLEFT", 16, -16)
+                local section = Craft.Section:Create(content, { title = "Modules", divider = false })
+                section:GetFrame():SetPoint("TOPLEFT", status:GetFrame(), "BOTTOMLEFT", 0, -8)
+                local body = CreateFrame("Frame", nil, content)
+                body:SetHeight(48)
+                local fs = body:CreateFontString(nil, "OVERLAY")
+                fs:SetFont(t.font, 12, "")
+                fs:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+                fs:SetPoint("TOPLEFT", body, "TOPLEFT", 0, 0)
+                fs:SetText("Body content (48px).")
+                section:SetContent(body)
+                section:GetFrame():SetWidth(388)   -- width AFTER SetContent, window still hidden
+                reproWin:Show()
+            end,
+        })
+        reproBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(totalH + 8))
+        table.insert(comps, reproBtn)
+        totalH = totalH + 40
+
         return {
             height  = totalH + 24,
             cleanup = function()
                 for _, c in ipairs(comps) do if c.Destroy then c:Destroy() end end
+                if reproWin then reproWin:Destroy(); reproWin = nil end
             end,
         }
     end,
