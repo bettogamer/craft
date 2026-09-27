@@ -12,6 +12,13 @@
 -- `selectable` (toggle-chip; selected fill = t.muted, the SAME token as Toggle's
 -- data-[state=on] — family precedent, chips are toggles). Cross-container drag
 -- (FR-026 §drag) is deliberately NOT here — separate FR.
+--
+-- `pill = true` restores shadcn's BASE badge shape (`rounded-full`, which Lyra
+-- overrides to rounded-none). Built as a 3-slice per surface (border + fill): two
+-- half-width caps clipped by the prefab circle mask (ADR-0018, one mask per
+-- destination in its own draw layer — CLAUDE.md bug #5/#6) plus a centre rect.
+-- The slices never overlap, so a translucent fill (destructive/20) doesn't double
+-- its tint at the joins. No CreateMaskTexture / no shapes → stays square.
 
 local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
@@ -27,6 +34,11 @@ local GAP       = 4    -- gap-1
 local ICON_SIZE = 12   -- [&>svg]:size-3!
 local X_SIZE    = 12   -- ✕ glyph (inline-end icon slot)
 local FONT_SIZE = 12   -- text-xs
+-- shape_circle.tga draws its disc inside a 2px gutter of a 64px file
+-- (scripts/export-shapes.py GUTTER), so the mask is scaled up by 64/60 to make the
+-- DISC — not the file — match the cap diameter; otherwise the caps sit ~0.6px inside
+-- the centre rect and the join shows a notch.
+local CIRCLE_FILL = 60 / 64
 
 local VARIANTS = { default = true, secondary = true, outline = true, destructive = true }
 
@@ -43,6 +55,7 @@ function Badge:Create(parent, config)
         onRemove         = config.onRemove,
         selectable       = config.selectable or false,
         onSelectedChange = config.onSelectedChange,
+        pill             = config.pill and true or false,   -- rounded-full (shadcn base)
     }
     self._selected = false   -- applied below via the reactive bind (literal or signal)
 
@@ -59,8 +72,9 @@ function Badge:Create(parent, config)
 
     -- 1px border (transparent except outline); fill inset 1px.
     self._border = self.frame:CreateTexture(nil, "BACKGROUND")
-    self._border:SetAllPoints(self.frame)
-    self._bg = self.frame:CreateTexture(nil, "BACKGROUND")
+    self._border:SetAllPoints(self.frame)   -- pill mode re-anchors it (_layoutPill)
+    self._bg = self.frame:CreateTexture(nil, "BACKGROUND", nil, 1)   -- over the border
+    if self._cfg.pill then self:_buildPill() end
 
     if self._cfg.icon then
         self._icon = self.frame:CreateTexture(nil, "ARTWORK")
@@ -146,18 +160,89 @@ function Badge:_paint()
     local fill, fillA, fg, border = self:_colors(t)
 
     if border then
-        self._border:SetColorTexture(border.r, border.g, border.b, border.a or 1)
+        self:_fillSurface("border", border.r, border.g, border.b, border.a or 1)
     else
-        self._border:SetColorTexture(0, 0, 0, 0)
+        self:_fillSurface("border", 0, 0, 0, 0)
     end
     if fill then
-        self._bg:SetColorTexture(fill.r, fill.g, fill.b, fillA)
+        self:_fillSurface("bg", fill.r, fill.g, fill.b, fillA)
     else
-        self._bg:SetColorTexture(0, 0, 0, 0)
+        self:_fillSurface("bg", 0, 0, 0, 0)
     end
     self._label:SetTextColor(fg.r, fg.g, fg.b)
     if self._icon then self._icon:SetVertexColor(fg.r, fg.g, fg.b, 1) end
     self:_paintX(0.7)
+end
+
+-- Paints one surface ("border" | "bg"): the centre texture plus, in pill mode,
+-- its two masked caps.
+function Badge:_fillSurface(name, r, g, b, a)
+    local key = "_" .. name
+    self[key]:SetColorTexture(r, g, b, a)
+    local caps = self._pill and self._pill[name]
+    if caps then
+        caps.left:SetColorTexture(r, g, b, a)
+        caps.right:SetColorTexture(r, g, b, a)
+    end
+end
+
+-- ─── Pill (rounded-full) ────────────────────────────────────────────────────
+-- Creates the caps + their masks once. Sizes are nominal here (the rule: a region
+-- has its size BEFORE a mask is anchored to it); _layoutPill sets the real ones.
+function Badge:_buildPill()
+    local Shapes = Craft.Shapes
+    local file = Shapes and Shapes._file and Shapes.Get("circle")
+    if not file or not self.frame.CreateMaskTexture then return end   -- degrade: square
+    local path = Craft.mediaPath .. file
+
+    local function cap(sublevel)
+        local tex = self.frame:CreateTexture(nil, "BACKGROUND", nil, sublevel)
+        tex:SetSize(H / 2, H)
+        local mask = self.frame:CreateMaskTexture(nil, "BACKGROUND")   -- same layer as tex
+        mask:SetTexture(path, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE", "TRILINEAR")
+        mask:SetSize(H, H)
+        tex:AddMaskTexture(mask)
+        return tex, mask
+    end
+
+    local pill = {}
+    for _, name in ipairs({ "border", "bg" }) do
+        local sub = (name == "bg") and 1 or 0
+        local l, lm = cap(sub)
+        local r, rm = cap(sub)
+        pill[name] = { left = l, leftMask = lm, right = r, rightMask = rm }
+    end
+    self._pill = pill
+end
+
+-- Lays out both surfaces. The border spans the full 20px (radius H/2); the fill is
+-- inset px1 (radius H/2 - px1). Both circles share the same centre, H/2 in from
+-- each end, so the masks anchor on that centre.
+function Badge:_layoutPill(px1)
+    local R = H / 2
+    local f = self.frame
+    local function place(caps, centre, inset)
+        local d = H - 2 * inset            -- this surface's diameter
+        local capW = R - inset
+        local maskD = d / CIRCLE_FILL
+        caps.left:ClearAllPoints()
+        caps.left:SetSize(capW, d)
+        caps.left:SetPoint("TOPLEFT", f, "TOPLEFT", inset, -inset)
+        caps.right:ClearAllPoints()
+        caps.right:SetSize(capW, d)
+        caps.right:SetPoint("TOPRIGHT", f, "TOPRIGHT", -inset, -inset)
+        caps.leftMask:ClearAllPoints()
+        caps.leftMask:SetSize(maskD, maskD)
+        caps.leftMask:SetPoint("CENTER", f, "LEFT", R, 0)
+        caps.rightMask:ClearAllPoints()
+        caps.rightMask:SetSize(maskD, maskD)
+        caps.rightMask:SetPoint("CENTER", f, "RIGHT", -R, 0)
+        centre:ClearAllPoints()
+        centre:SetPoint("TOPLEFT",     f, "TOPLEFT",     R,  -inset)
+        centre:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -R,  inset)
+    end
+    place(self._pill.border, self._border, 0)
+    place(self._pill.bg,     self._bg,     px1)
 end
 
 function Badge:_paintX(alpha)
@@ -175,9 +260,13 @@ function Badge:_applyTheme(t)
     Craft.Theme.applyFont(self._label, t.fontMedium or t.font, FONT_SIZE)
 
     local px1 = Craft.Theme.px(1, self.frame)
-    self._bg:ClearAllPoints()
-    self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     px1,  -px1)
-    self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1,  px1)
+    if self._pill then
+        self:_layoutPill(px1)
+    else
+        self._bg:ClearAllPoints()
+        self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     px1,  -px1)
+        self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1,  px1)
+    end
 
     self:_paint()
 

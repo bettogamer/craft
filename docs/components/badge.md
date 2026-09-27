@@ -86,6 +86,18 @@ Ver tablas de arriba — todos `t.*`, cero hardcodes. El fill selected = `t.mute
 | `selectable` | boolean | `false` | Rol toggle-chip: click alterna `selected`. |
 | `selected` | boolean/signal | `false` | Estado del chip. Señal escribible = two-way (ADR-0013). |
 | `onSelectedChange` | function | `nil` | `function(selected, self)` — SOLO clicks del usuario (paridad Toggle). |
+| `pill` | boolean | `false` | Esquinas redondeadas completas: el `rounded-full` del badge **base** de shadcn, que Lyra pisa con `rounded-none`. Solo en `Create`. |
+
+### `pill` — forma de píldora
+
+El badge de shadcn es `rounded-full`; el estilo Lyra lo sobreescribe a `rounded-none` y por eso
+el default de Craft es cuadrado. `pill = true` devuelve la forma base sin tocar colores, alto ni
+paddings. Se construye como **3-slice por superficie** (borde y relleno): dos tapas de medio alto
+de ancho recortadas por la máscara prefab `shape_circle` (ADR-0018; una `MaskTexture` por
+destino y en su misma capa, bugs #5/#6 de CLAUDE.md) más un rect central. Las piezas **no se
+solapan**, así que un relleno translúcido (`destructive/20`) no duplica el tinte en las uniones.
+La máscara se escala `64/60` para que el DISCO (no el archivo, que lleva 2px de gutter) mida el
+alto de la tapa. Sin `Craft.Shapes` o sin `CreateMaskTexture` degrada a cuadrado sin error.
 
 Sin `size`: `.cn-badge` es single-size (h-5) en Lyra — el `size` del FR-026 no existe
 en el CSS fuente y se descartó (misma política que Label).

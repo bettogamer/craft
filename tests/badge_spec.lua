@@ -27,6 +27,7 @@ dofile("Craft/theme/Presets.lua")
 dofile("Craft/theme/Theme.lua")
 dofile("Craft/icons/Atlas.lua")
 dofile("Craft/icons/Icons.lua")
+dofile("Craft/theme/Shapes.lua")
 dofile("Craft/components/Badge.lua")
 
 local Craft = LibStub("Craft-2.0")
@@ -236,5 +237,69 @@ describe("Craft.Badge API", function()
         b:Destroy()
         assert.is_nil(b.frame)
         b:Destroy()                                         -- no error
+    end)
+end)
+
+-- ─── pill = rounded-full (shadcn base shape) ─────────────────────────────────
+
+describe("Craft.Badge pill", function()
+
+    it("is square by default (Lyra rounded-none): no caps, no masks", function()
+        local b = Craft.Badge:Create(UIParent, { text = "New" })
+        assert.is_nil(b._pill)
+        b:Destroy()
+    end)
+
+    it("pill = true builds masked caps for border and fill, one mask each", function()
+        local b = Craft.Badge:Create(UIParent, { text = "New", pill = true })
+        assert.is_not_nil(b._pill)
+        for _, name in ipairs({ "border", "bg" }) do
+            local caps = b._pill[name]
+            assert.equals(1, #caps.left._masks)
+            assert.equals(caps.leftMask, caps.left._masks[1])
+            assert.equals(1, #caps.right._masks)
+            assert.equals(caps.rightMask, caps.right._masks[1])
+            assert.is_not_nil(tostring(caps.leftMask:GetTexture()):find("shape_circle.tga", 1, true))
+        end
+        b:Destroy()
+    end)
+
+    it("caps are half the height wide; the centre spans between them (no overlap)", function()
+        local b = Craft.Badge:Create(UIParent, { text = "New", pill = true })
+        local c = b._pill.border
+        assert.equals(10, c.left:GetWidth())
+        assert.equals(20, c.left:GetHeight())
+        local p = b._border._pointsByAnchor
+        assert.equals(10,  p.TOPLEFT[4])
+        assert.equals(-10, p.BOTTOMRIGHT[4])
+        b:Destroy()
+    end)
+
+    it("caps take the variant colour with the centre (destructive/20 tint)", function()
+        local t = Craft.Theme.get()
+        local b = Craft.Badge:Create(UIParent, { text = "Error", variant = "destructive", pill = true })
+        local r, g, bl, a = b._pill.bg.left:GetColorTexture()
+        assert.equals(t.destructive.r, r)
+        assert.equals(t.destructive.g, g)
+        assert.equals(t.destructive.b, bl)
+        assert.equals(0.20, a)
+        local _, _, _, ca = b._bg:GetColorTexture()
+        local _, _, _, ra = b._pill.bg.right:GetColorTexture()
+        assert.equals(ca, ra)
+        b:Destroy()
+    end)
+
+    it("stays square (no error) when the client has no CreateMaskTexture", function()
+        local realCreate = CreateFrame
+        CreateFrame = function(...)
+            local f = realCreate(...)
+            f.CreateMaskTexture = nil
+            return f
+        end
+        local ok, b = pcall(Craft.Badge.Create, Craft.Badge, UIParent, { text = "New", pill = true })
+        CreateFrame = realCreate
+        assert.is_true(ok)
+        assert.is_nil(b._pill)
+        b:Destroy()
     end)
 end)

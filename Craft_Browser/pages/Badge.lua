@@ -40,6 +40,19 @@ CraftBrowserPages["Badge"] = {
         }, y)
         y = y + 8
 
+        -- Pill: shadcn base badge shape (rounded-full), which Lyra overrides to square
+        y = addLabel("Pill — rounded-full (shadcn base shape)", y)
+        y = addRow({
+            Craft.Badge:Create(parent, { text = "Default",     pill = true }),
+            Craft.Badge:Create(parent, { text = "Secondary",   variant = "secondary",   pill = true }),
+            Craft.Badge:Create(parent, { text = "Outline",     variant = "outline",     pill = true }),
+            Craft.Badge:Create(parent, { text = "Destructive", variant = "destructive", pill = true }),
+            Craft.Badge:Create(parent, { text = "Banco", icon = "landmark", variant = "secondary", pill = true }),
+            Craft.Badge:Create(parent, { text = "Tipo: Pociones", variant = "secondary", pill = true,
+                removable = true, onRemove = function(self) self:GetFrame():Hide() end }),
+        }, y)
+        y = y + 8
+
         -- With icon (inline-start, 12px, tinted with the variant text colour)
         y = addLabel("With icon", y)
         y = addRow({
