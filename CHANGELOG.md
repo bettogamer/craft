@@ -6,6 +6,32 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.27.0] - 2026-09-28
+
+> **Release v2.27.0 — dos FR de SMRT (módulo Timeline) y las fuentes Betto.** `Craft.Scroll`
+> desplaza en horizontal y en los dos ejes, espejo del `<ScrollBar orientation="horizontal" />`
+> de shadcn ScrollArea; el tooltip puede apartarse del outline global del tema.
+>
+> **Sin cambio para consumidores existentes:** sin `orientation`, Scroll se comporta como
+> antes (incluido `onScroll(offsetY)`). **Primer release con TTF commiteados**: BettoSans y
+> BettoGeo no tienen origen público, viajan en el repo y el CI comprueba que estén.
+
+### Añadido
+
+- **`Craft.Scroll` / `Craft.ScrollBar`: desplazamiento horizontal y en dos ejes (FR-100).**
+  `orientation = "vertical"` (default, sin cambios) | `"horizontal"` | `"both"`, espejo del
+  `<ScrollBar orientation="horizontal" />` de shadcn ScrollArea. Riel horizontal abajo con los
+  mismos tokens; en `"both"` la esquina 8×8 queda reservada. Rueda = vertical, Shift+rueda =
+  horizontal (en `"horizontal"` la rueda sola va de lado). Nuevos `SetHorizontalScroll`,
+  `GetHorizontalScroll`, `ScrollToLeft/Right`, `GetOrientation`, `GetContent` (alias). Con eje
+  X, `onScroll(offsetX, offsetY)`; en vertical sigue `onScroll(offsetY)`.
+- **`Craft.Tooltip`: `fontFlags` por tooltip (FR-101).** `Show`/`Attach` aceptan
+  `fontFlags` (`""` = sin contorno) para apartarse del outline global del tema; se
+  re-resuelve en cada `Show`, no se pega.
+- **Fuentes BettoSans y BettoGeo** en los ejes `font` y `headingFont` del tema
+  (`build{ font = "bettosans", headingFont = "bettogeo" }`), pesos 400/500/700. Los TTF
+  viajan commiteados (excepción en `.gitignore`); el CI comprueba que estén.
+
 ## [2.26.0] - 2026-09-27
 
 > **Release v2.26.0 — dos FR de SMRT y el badge en píldora.** SMRT necesitaba el doble clic
