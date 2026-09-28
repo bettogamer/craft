@@ -77,6 +77,7 @@ El cálculo de posición ocurre **cada vez** que el tooltip se muestra — no se
 | `delay`    | number   | `300`    | Milisegundos antes de que el tooltip aparezca tras OnEnter.              |
 | `maxWidth` | number   | `240`    | Ancho máximo en px antes de hacer wrap del texto.                        |
 | `side`     | string   | `nil`    | Lado forzado (`side` de shadcn): `"top"`\|`"bottom"`\|`"left"`\|`"right"`. `nil` = automático (arriba si cabe, si no abajo). Ver §Lado. |
+| `fontFlags`| string   | `nil`    | FR-101: flags de fuente SOLO para este tooltip (4.º arg de `Theme.applyFont`; `""` = sin contorno). `nil` = el `t.fontFlags` global del tema. Se re-resuelve en cada `Show`: no se "pega" al siguiente. |
 
 ## Notas de implementación
 

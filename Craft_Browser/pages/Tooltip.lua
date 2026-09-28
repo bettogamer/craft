@@ -54,12 +54,27 @@ CraftBrowserPages["Tooltip"] = {
         table.insert(comps, btn3)
         y = y + 48
 
+        -- FR-101: per-tooltip fontFlags. Turn on "Font outline" in the Theme page first:
+        -- the left one follows the theme (outlined), the right one opts out with "".
+        y = addLabel("FR-101 fontFlags — activa 'Font outline' en Theme y compara (hover)", y)
+        local btn4 = Craft.Button:Create(parent, { text="Theme flag", variant="secondary" })
+        btn4:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        Craft.Tooltip.Attach(btn4:GetFrame(), { text="Boss cast: Shadow Crash (theme outline)", side="top" })
+        table.insert(comps, btn4)
+        local btn5 = Craft.Button:Create(parent, { text="fontFlags = \"\"", variant="secondary" })
+        btn5:GetFrame():SetPoint("LEFT", btn4:GetFrame(), "RIGHT", 8, 0)
+        Craft.Tooltip.Attach(btn5:GetFrame(), { text="Boss cast: Shadow Crash (no outline)", side="top", fontFlags="" })
+        table.insert(comps, btn5)
+        y = y + 48
+
         return {
             height  = y + 24,
             cleanup = function()
                 Craft.Tooltip.Hide()
                 Craft.Tooltip.Detach(btn1:GetFrame())
                 Craft.Tooltip.Detach(btn2:GetFrame())
+                Craft.Tooltip.Detach(btn4:GetFrame())
+                Craft.Tooltip.Detach(btn5:GetFrame())
                 for _, c in ipairs(comps) do if c.Destroy then c:Destroy() end end
             end,
         }

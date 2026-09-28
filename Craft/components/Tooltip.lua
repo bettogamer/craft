@@ -18,6 +18,11 @@
 --   Craft.Tooltip.Detach(frame)
 --   Craft.Tooltip.Show(anchor, config)
 --   Craft.Tooltip.Hide()
+--
+-- config.fontFlags (FR-101): per-show override of the theme's global outline
+--   (t.fontFlags), passed as applyFont's 4th arg — "" = no outline. nil = theme flag.
+--   The tooltip is a singleton, so it is re-resolved on EVERY Show: a later Show
+--   without the option goes back to the theme flag (it never sticks).
 
 local Craft = LibStub("Craft-2.0")
 local Weave = LibStub("Weave-1.0")
@@ -37,6 +42,7 @@ local WRAP_SLACK = 2  -- px of text-box headroom so the zoom animation never re-
 -- ─── Singleton frame ───────────────────────────────────────────────────────
 local _tooltip       = nil   -- the shared Frame, created lazily
 local _visible       = nil   -- Weave.signal(false): internal show/hide state (fade driver)
+local _fontFlags     = nil   -- current Show's config.fontFlags (nil = theme flag, FR-101)
 
 local function _getTooltipFrame()
     if _tooltip then return _tooltip end
@@ -143,6 +149,8 @@ local function _getTooltipFrame()
     return _tooltip
 end
 
+TT._getFrame = _getTooltipFrame  -- internal (specs): the singleton frame
+
 -- ─── Internal theme application ────────────────────────────────────────────
 function TT._applyThemeToFrame(t)
     TT._t = t
@@ -163,7 +171,7 @@ function TT._applyThemeToFrame(t)
         _tooltip._bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
     end
 
-    Craft.Theme.applyFont(_tooltip._text, t.font, FONT_SIZE)
+    Craft.Theme.applyFont(_tooltip._text, t.font, FONT_SIZE, _fontFlags)
     _tooltip._text:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
 end
 
@@ -297,6 +305,11 @@ function TT.Show(anchor, config)
     -- to 1 before layout; the alpha tick right after _visible:set(true) re-applies
     -- the zoom (frame is still ~invisible then, so there is no visible pop-jump).
     _tooltip:SetScale(1)
+
+    -- FR-101: resolve the flag for THIS show before measuring (outline changes glyph
+    -- metrics). Assigned unconditionally so a previous show's override never sticks.
+    _fontFlags = config.fontFlags
+    TT._applyThemeToFrame(TT._t or Craft.Theme.get())
 
     _layoutTooltip(config)
     _positionTooltip(anchor, config.side)
