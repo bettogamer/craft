@@ -23,6 +23,16 @@ local FONT_B = Craft.mediaPath .. "Inter-Bold.ttf"
 local GEIST   = Craft.mediaPath .. "Geist-Regular.ttf"
 local GEIST_M = Craft.mediaPath .. "Geist-Medium.ttf"
 local GEIST_B = Craft.mediaPath .. "Geist-Bold.ttf"
+-- BettoSans / BettoGeo (familias propias del owner). A diferencia de Inter/Geist NO
+-- las baja el CI: viajan commiteadas (excepción en .gitignore). Solo se referencian
+-- los 3 pesos que usa el eje (400/500/700); el resto de pesos/itálicas del paquete
+-- queda en media/ para consumidores que los pidan por path (Label `font`, FR-092).
+local BSANS   = Craft.mediaPath .. "BettoSans-Regular.ttf"
+local BSANS_M = Craft.mediaPath .. "BettoSans-Medium.ttf"
+local BSANS_B = Craft.mediaPath .. "BettoSans-Bold.ttf"
+local BGEO    = Craft.mediaPath .. "BettoGeo-Regular.ttf"
+local BGEO_M  = Craft.mediaPath .. "BettoGeo-Medium.ttf"
+local BGEO_B  = Craft.mediaPath .. "BettoGeo-Bold.ttf"
 
 CraftThemeAxes = {}
 
@@ -226,6 +236,16 @@ CraftThemeAxes.font = {
         fontMedium              = GEIST_M,
         fontBold                = GEIST_B,
     },
+    bettosans = {
+        font                    = BSANS,
+        fontMedium              = BSANS_M,
+        fontBold                = BSANS_B,
+    },
+    bettogeo = {
+        font                    = BGEO,
+        fontMedium              = BGEO_M,
+        fontBold                = BGEO_B,
+    },
 }
 
 -- ─── Eje Heading Font (títulos) ──────────────────────────────────────────────────
@@ -236,6 +256,8 @@ CraftThemeAxes.font = {
 CraftThemeAxes.headingFont = {
     inter = { fontHeading = FONT_M },
     geist = { fontHeading = GEIST_M },
+    bettosans = { fontHeading = BSANS_M },
+    bettogeo  = { fontHeading = BGEO_M },
 }
 
 -- ─── compose(spec) → tabla de tokens plana ────────────────────────────────────

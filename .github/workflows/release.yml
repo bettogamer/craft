@@ -112,6 +112,11 @@ jobs:
           [ -f "Craft/media/Geist-Regular.ttf" ] || (echo "❌ Geist-Regular.ttf" && exit 1)
           [ -f "Craft/media/Geist-Medium.ttf"  ] || (echo "❌ Geist-Medium.ttf"  && exit 1)
           [ -f "Craft/media/Geist-Bold.ttf"    ] || (echo "❌ Geist-Bold.ttf"    && exit 1)
+          for fam in BettoSans BettoGeo; do
+            for w in Regular Medium Bold; do
+              [ -f "Craft/media/$fam-$w.ttf" ] || (echo "❌ $fam-$w.ttf (commiteada, no se descarga)" && exit 1)
+            done
+          done
           echo "✅ All assets present"
 
       # ─── Embeber Craft en Craft_Browser/libs/ ─────────────────────────────
