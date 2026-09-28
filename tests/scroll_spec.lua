@@ -160,3 +160,116 @@ describe("Craft.Window — corner reserve", function()
         assert.equals(want.bottom, got[4])
     end)
 end)
+
+describe("Craft.Scroll — orientation (FR-100)", function()
+
+    -- Like makeScroll: the mock does not resolve sizes from anchors, so the viewport
+    -- gets the size WoW's layout would give it (frame minus the reserved rails).
+    local function makeOriented(orientation, onScroll)
+        local host = makeHost(900, 400)
+        local s = Craft.Scroll:Create(host, {
+            width = 900, height = 400, orientation = orientation, onScroll = onScroll,
+        })
+        local hasV = orientation ~= "horizontal"
+        local hasH = orientation == "horizontal" or orientation == "both"
+        s._scrollFrame:SetWidth(hasV and 892 or 900)
+        s._scrollFrame:SetHeight(hasH and 392 or 400)
+        return s
+    end
+
+    it("no orientation = vertical, unchanged: one rail, no horizontal rail", function()
+        local s = Craft.Scroll:Create(makeHost(300, 200), { width = 300, height = 200 })
+        assert.equals("vertical", s:GetOrientation())
+        assert.is_not_nil(s._bar)
+        assert.is_nil(s._hbar)
+        local _, y = point(s._scrollFrame, "BOTTOMRIGHT")
+        assert.equals(0, y)                                 -- no bottom reserve
+    end)
+
+    it("unknown orientation falls back to vertical", function()
+        local s = Craft.Scroll:Create(makeHost(300, 200), { orientation = "diagonal" })
+        assert.equals("vertical", s:GetOrientation())
+    end)
+
+    it("horizontal: 1800px content in a 900px view reaches both ends", function()
+        local s = makeOriented("horizontal")
+        s:GetContent():SetWidth(1800)
+        s:_updateScrollbar()
+        assert.is_nil(s._bar)
+        assert.is_true(s._hbar.frame:IsShown())
+        s:ScrollToRight()
+        assert.equals(900, s:GetHorizontalScroll())
+        s:SetHorizontalScroll(5000)                         -- clamped
+        assert.equals(900, s:GetHorizontalScroll())
+        s:ScrollToLeft()
+        assert.equals(0, s:GetHorizontalScroll())
+    end)
+
+    it("horizontal: the plain wheel scrolls sideways", function()
+        local s = makeOriented("horizontal")
+        s:GetContent():SetWidth(1800)
+        s:_wheel(-1)
+        assert.equals(20, s:GetHorizontalScroll())
+        assert.equals(0, s:GetScrollOffset())
+    end)
+
+    it("horizontal: the child follows the viewport HEIGHT on resize", function()
+        local s = makeOriented("horizontal")
+        s._scrollFrame:GetScript("OnSizeChanged")(s._scrollFrame, 900, 250)
+        assert.equals(250, s:GetContent():GetHeight())
+    end)
+
+    it("resize clamps the X offset into the new range (no parked content)", function()
+        local s = makeOriented("horizontal")
+        s:GetContent():SetWidth(1800)
+        s:ScrollToRight()                                    -- 900
+        s._scrollFrame:SetWidth(1200)                        -- window grew
+        s._scrollFrame:GetScript("OnSizeChanged")(s._scrollFrame, 1200, 392)
+        assert.equals(600, s:GetHorizontalScroll())
+    end)
+
+    it("onScroll reports (offsetX, offsetY) for horizontal", function()
+        local gotX, gotY
+        local s = makeOriented("horizontal", function(x, y) gotX, gotY = x, y end)
+        s:GetContent():SetWidth(1800)
+        s:SetHorizontalScroll(300)
+        s._scrollFrame:GetScript("OnHorizontalScroll")(s._scrollFrame, 300)  -- WoW fires it
+        assert.equals(300, gotX)
+        assert.equals(0, gotY)
+    end)
+
+    it("both: two rails, each stopping short of the shared corner", function()
+        local s = makeOriented("both")
+        assert.is_not_nil(s._bar)
+        assert.is_not_nil(s._hbar)
+        assert.equals(8, s._bar._inset.bottom)
+        assert.equals(8, s._hbar._inset.right)
+        local x, y = point(s._scrollFrame, "BOTTOMRIGHT")
+        assert.equals(-8, x)
+        assert.equals(8, y)
+    end)
+
+    it("both: wheel = vertical, Shift+wheel = horizontal", function()
+        local s = makeOriented("both")
+        s:GetContent():SetSize(1800, 1200)
+        s:_updateScrollbar()
+        s:_wheel(-1)
+        assert.equals(20, s:GetScrollOffset())
+        assert.equals(0, s:GetHorizontalScroll())
+        local prev = IsShiftKeyDown
+        IsShiftKeyDown = function() return true end
+        s:_wheel(-1)
+        IsShiftKeyDown = prev
+        assert.equals(20, s:GetHorizontalScroll())
+        assert.equals(20, s:GetScrollOffset())
+    end)
+
+    it("vertical ignores Shift+wheel (behaviour unchanged)", function()
+        local s = makeScroll(makeHost(300, 200), 300, 200)
+        local prev = IsShiftKeyDown
+        IsShiftKeyDown = function() return true end
+        s:_wheel(-1)
+        IsShiftKeyDown = prev
+        assert.equals(20, s:GetScrollOffset())
+    end)
+end)

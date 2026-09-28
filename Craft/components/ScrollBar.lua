@@ -1,4 +1,4 @@
--- ScrollBar.lua  (Craft.ScrollBar — the shared vertical rail)
+-- ScrollBar.lua  (Craft.ScrollBar — the shared rail, vertical or horizontal)
 -- Spec: docs/components/scroll.md §"Riel compartido (Craft.ScrollBar)"
 -- Design: not a shadcn component of its own. This is the rail Craft.Scroll has always
 --   drawn (track + draggable thumb + auto-hide + reserved-corner handling), lifted out
@@ -16,6 +16,16 @@
 --   * call `bar:Update()` whenever the scroll offset, the content height or the
 --     viewport size changes;
 --   * call `bar:Destroy()` from its own Destroy().
+--
+-- Orientation (FR-100) mirrors shadcn's `<ScrollBar orientation="horizontal" />`:
+--   "vertical"   (default) rail on the RIGHT edge, drives GetVerticalScroll, content()
+--                returns the content HEIGHT. Behaviour unchanged.
+--   "horizontal" rail on the BOTTOM edge, same tokens and 8px thickness, drives
+--                GetHorizontalScroll, content() returns the content WIDTH. Its owner
+--                reserves ScrollBar.WIDTH px at the BOTTOM of the viewport instead.
+-- Internally everything is expressed along the rail's own axis ("length" = height for
+-- a vertical rail, width for a horizontal one); the vertical method names
+-- (_trackHeight, _calcThumbHeight) stay as the axis-neutral implementations.
 
 local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
@@ -47,9 +57,11 @@ local EDGE_TOL     = 4     -- px slack when deciding "flush with the corner"
 --   content      fn() → content height in px (required; the owner knows its child)
 --   anchorTo     frame whose right edge hosts the rail, and whose corner decides the
 --                reserve (default: `parent`)
---   insetTop / insetBottom / insetRight
+--   insetTop / insetBottom / insetRight / insetLeft
 --                px offsets from `anchorTo` — a Textarea insets by its padding and
---                border, a Scroll sits flush (all zero)
+--                border, a Scroll sits flush (all zero). A vertical rail ignores
+--                insetLeft; a horizontal one ignores insetTop.
+--   orientation  "vertical" (default) | "horizontal" (FR-100)
 function ScrollBar:Create(parent, config)
     local self = setmetatable({}, ScrollBar)
 
@@ -57,10 +69,12 @@ function ScrollBar:Create(parent, config)
     self._scrollFrame = config.scrollFrame
     self._content     = config.content or function() return 0 end
     self._anchor      = config.anchorTo or parent
+    self._horiz       = config.orientation == "horizontal"
     self._inset = {
         top    = config.insetTop    or 0,
         bottom = config.insetBottom or 0,
         right  = config.insetRight  or 0,
+        left   = config.insetLeft   or 0,
     }
 
     -- Rail container. Its bottom is re-anchored by _applyCornerInset when an ancestor
@@ -74,10 +88,15 @@ function ScrollBar:Create(parent, config)
     self.track:SetAllPoints(self.frame)
     -- colour applied in _applyTheme (t.secondary at low alpha)
 
-    -- Thumb: 6px wide Button, positioned dynamically
+    -- Thumb: 6px thick Button (across the rail), positioned dynamically along it
     self.thumb = CreateFrame("Button", nil, self.frame)
-    self.thumb:SetWidth(THUMB_W)
-    self.thumb:SetPoint("LEFT", self.frame, "LEFT", 1, 0)  -- 1px inset
+    if self._horiz then
+        self.thumb:SetHeight(THUMB_W)
+        self.thumb:SetPoint("TOP", self.frame, "TOP", 0, -1)  -- 1px inset
+    else
+        self.thumb:SetWidth(THUMB_W)
+        self.thumb:SetPoint("LEFT", self.frame, "LEFT", 1, 0)  -- 1px inset
+    end
 
     self.thumbTex = self.thumb:CreateTexture(nil, "BACKGROUND")
     self.thumbTex:SetAllPoints(self.thumb)
@@ -96,19 +115,21 @@ function ScrollBar:Create(parent, config)
             self.thumbTex:SetColorTexture(self._t.primary.r, self._t.primary.g, self._t.primary.b, 1)
         end
         -- ADR-0011: cursor px → UI units of THIS frame chain, never UIParent's
-        self._dragStartY      = select(2, GetCursorPosition()) / self.frame:GetEffectiveScale()
-        self._dragStartScroll = self._scrollFrame:GetVerticalScroll()
+        self._dragStartY      = self:_cursorAlong()
+        self._dragStartScroll = self:_getScroll()
         self.thumb:SetScript("OnUpdate", function()
             if not self._dragging then return end
-            local curY    = select(2, GetCursorPosition()) / self.frame:GetEffectiveScale()
-            local deltaY  = self._dragStartY - curY   -- positive = scrolled down
+            -- positive = travelled forward (down for a vertical rail, right for a
+            -- horizontal one; WoW's Y grows upwards, X rightwards)
+            local cur     = self:_cursorAlong()
+            local delta   = self._horiz and (cur - self._dragStartY) or (self._dragStartY - cur)
             local trackH  = self:_trackHeight()
             if trackH <= THUMB_MIN_H then return end
             local movable = trackH - self:_calcThumbHeight()
             if movable <= 0 then return end
             local range     = self:GetMaxScroll()
-            local newScroll = self._dragStartScroll + (deltaY / movable) * range
-            self._scrollFrame:SetVerticalScroll(math.max(0, math.min(range, newScroll)))
+            local newScroll = self._dragStartScroll + (delta / movable) * range
+            self:_setScroll(math.max(0, math.min(range, newScroll)))
             self:Update()
         end)
     end)
@@ -131,10 +152,35 @@ function ScrollBar:Create(parent, config)
     return self
 end
 
+-- ─── Axis helpers ──────────────────────────────────────────────────────────
+function ScrollBar:_getScroll()
+    if self._horiz then return self._scrollFrame:GetHorizontalScroll() or 0 end
+    return self._scrollFrame:GetVerticalScroll() or 0
+end
+
+function ScrollBar:_setScroll(v)
+    if self._horiz then self._scrollFrame:SetHorizontalScroll(v)
+    else                self._scrollFrame:SetVerticalScroll(v) end
+end
+
+function ScrollBar:_cursorAlong()
+    local x, y = GetCursorPosition()
+    return (self._horiz and x or y) / self.frame:GetEffectiveScale()
+end
+
 -- ─── Anchoring ─────────────────────────────────────────────────────────────
+-- The corner reserve always shortens the rail at the end that meets the bottom-right
+-- corner: the bottom of a vertical rail, the right of a horizontal one.
 function ScrollBar:_anchorRail(cornerInset)
     local a = self._anchor
     self.frame:ClearAllPoints()
+    if self._horiz then
+        self.frame:SetPoint("BOTTOMLEFT",  a, "BOTTOMLEFT",  self._inset.left, self._inset.bottom)
+        self.frame:SetPoint("BOTTOMRIGHT", a, "BOTTOMRIGHT",
+                            -(self._inset.right + cornerInset), self._inset.bottom)
+        self.frame:SetHeight(WIDTH)
+        return
+    end
     self.frame:SetPoint("TOPRIGHT",    a, "TOPRIGHT",    -self._inset.right, -self._inset.top)
     self.frame:SetPoint("BOTTOMRIGHT", a, "BOTTOMRIGHT", -self._inset.right,
                         self._inset.bottom + cornerInset)
@@ -174,16 +220,25 @@ function ScrollBar:_applyCornerInset()
     self:_anchorRail(inset)
 end
 
--- Track height, derived instead of read back: the rail is anchored top+bottom to its
--- host, so this equals the host's height minus the insets and the reserve — and stays
+-- Track length, derived instead of read back: the rail is anchored end to end on its
+-- host, so this equals the host's length minus the insets and the reserve — and stays
 -- correct in the same tick as a re-anchor, where frame:GetHeight() can still be stale.
+-- (Named for the vertical case; for a horizontal rail it is the track WIDTH.)
 function ScrollBar:_trackHeight()
-    local h = (self._anchor:GetHeight() or 0) - self._inset.top - self._inset.bottom
+    local h
+    if self._horiz then
+        h = (self._anchor:GetWidth() or 0) - self._inset.left - self._inset.right
+    else
+        h = (self._anchor:GetHeight() or 0) - self._inset.top - self._inset.bottom
+    end
     return math.max(0, h - (self._cornerInsetApplied or 0))
 end
 
+-- Viewport length along the rail's axis.
 function ScrollBar:_viewHeight()
-    return (self._scrollFrame and self._scrollFrame:GetHeight()) or 0
+    local sf = self._scrollFrame
+    if not sf then return 0 end
+    return (self._horiz and sf:GetWidth() or sf:GetHeight()) or 0
 end
 
 -- How far the viewport can travel: everything that does not fit.
@@ -221,18 +276,24 @@ function ScrollBar:Update()
     self.thumb:Show()
 
     local thumbH = self:_calcThumbHeight()
-    self.thumb:SetHeight(thumbH)
 
     local range = math.max(0, contentH - viewH)
-    local cur   = self._scrollFrame:GetVerticalScroll() or 0
+    local cur   = self:_getScroll()
     local ratio = range > 0 and (cur / range) or 0
     ratio = math.max(0, math.min(1, ratio))
 
-    local movable  = trackH - thumbH
-    local thumbTop = -(movable * ratio)   -- negative = offset from the top anchor
+    local movable = trackH - thumbH
+    local offset  = movable * ratio       -- distance from the rail's start
 
     self.thumb:ClearAllPoints()
-    self.thumb:SetPoint("TOP",  self.frame, "TOP",  0, thumbTop)
+    if self._horiz then
+        self.thumb:SetWidth(thumbH)
+        self.thumb:SetPoint("LEFT", self.frame, "LEFT", offset, 0)
+        self.thumb:SetPoint("TOP",  self.frame, "TOP",  0, -1)
+        return
+    end
+    self.thumb:SetHeight(thumbH)
+    self.thumb:SetPoint("TOP",  self.frame, "TOP",  0, -offset)   -- negative = below the top
     self.thumb:SetPoint("LEFT", self.frame, "LEFT", 1, 0)
 end
 

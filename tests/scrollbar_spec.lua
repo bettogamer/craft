@@ -115,3 +115,52 @@ describe("Craft.ScrollBar", function()
         assert.has_no_errors(function() bar:Destroy() end)   -- double-free guard
     end)
 end)
+
+describe("Craft.ScrollBar — horizontal (FR-100)", function()
+
+    local function makeHRig(hostW, viewW, contentW)
+        local host = CreateFrame("Frame", nil, UIParent)
+        host:SetWidth(hostW)
+        host:SetHeight(100)
+        local view = CreateFrame("ScrollFrame", nil, host)
+        view:SetWidth(viewW)
+        local content = contentW
+        local bar = Craft.ScrollBar:Create(host, {
+            scrollFrame = view,
+            anchorTo    = host,
+            orientation = "horizontal",
+            content     = function() return content end,
+        })
+        bar:Update()
+        return bar, view, function(w) content = w; bar:Update() end
+    end
+
+    it("measures range and track along X, not Y", function()
+        local bar = makeHRig(900, 900, 1800)
+        assert.is_true(bar.frame:IsShown())
+        assert.equals(900, bar:GetMaxScroll())
+        assert.equals(900, bar:_trackHeight())
+    end)
+
+    it("hides while the content fits the viewport width", function()
+        local bar, _, setContent = makeHRig(900, 900, 1800)
+        setContent(600)
+        assert.is_false(bar.frame:IsShown())
+    end)
+
+    it("thumb is sized by width and travels with the horizontal offset", function()
+        local bar, view = makeHRig(900, 900, 1800)
+        assert.equals(450, bar.thumb:GetWidth())            -- half the content visible
+        view:SetHorizontalScroll(900)                       -- far right
+        bar:Update()
+        local p = bar.thumb._pointsByAnchor and bar.thumb._pointsByAnchor["LEFT"]
+        assert.equals(450, p[4])                            -- movable = 900 - 450
+        assert.equals(0, view:GetVerticalScroll())          -- never touches Y
+    end)
+
+    it("sits on the bottom edge", function()
+        local bar = makeHRig(900, 900, 1800)
+        assert.is_not_nil(bar.frame._pointsByAnchor["BOTTOMLEFT"])
+        assert.is_nil(bar.frame._pointsByAnchor["TOPRIGHT"])
+    end)
+end)

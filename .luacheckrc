@@ -28,6 +28,7 @@ globals = {
     -- (FR-074) — deliberadamente fuera de esta lista para que luacheck cace su
     -- reintroducción. Usar el método de widget `region:IsMouseOver()`.
     "IsMouseButtonDown",
+    "IsShiftKeyDown",
     -- Player/class info (used by consumers to feed Craft.Theme; ADR-0015 demo)
     "UnitClass",
     "RAID_CLASS_COLORS",

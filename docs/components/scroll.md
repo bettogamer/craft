@@ -64,10 +64,26 @@ Antes de esto el riel corría por debajo del grip y ambos se dibujaban encima.
 
 ### Diferencias conocidas vs shadcn (fuera de MVP)
 
-shadcn `scroll-area` soporta scroll **horizontal**; Craft.Scroll es **solo vertical**.
-No hay `config.horizontal` ni riel horizontal (omisión de alcance MVP — ver
-`docs/design-reference.md` §9.1). Si el contenido necesita scroll horizontal, el dev lo
-gestiona externamente.
+~~Solo vertical~~ — **cerrado por FR-100**: `config.orientation` = `"vertical"` (default) |
+`"horizontal"` | `"both"`, espejo de `<ScrollBar orientation="horizontal" />` de shadcn
+ScrollArea. Ver §Orientación.
+
+### Orientación (FR-100)
+
+| `orientation` | Hijo forzado a…           | El dev fija…   | Rieles                         | Rueda                                   | `onScroll`   |
+|---------------|---------------------------|----------------|--------------------------------|-----------------------------------------|--------------|
+| `"vertical"`  | ancho del viewport        | alto           | derecha                        | vertical (Shift se ignora)              | `fn(y)`      |
+| `"horizontal"`| alto del viewport         | ancho          | abajo                          | lateral (sin Shift)                     | `fn(x, y)`   |
+| `"both"`      | nada                      | ancho y alto   | derecha + abajo, esquina 8×8   | vertical; **Shift+rueda** = lateral     | `fn(x, y)`   |
+
+- El viewport reserva `ScrollBar.WIDTH` (8px) en cada lado con riel, **siempre** (contrato
+  del riel). En `"both"` cada riel se detiene 8px antes de la esquina común.
+- Un resize del viewport recorta el offset X al nuevo rango (sin contenido "aparcado"
+  pasado el final).
+- `onScroll` mantiene `fn(offsetY)` en vertical por compatibilidad; los modos con eje X
+  informan `fn(offsetX, offsetY)`.
+- `ScrollToX(px, {animate})` del FR no se implementó (el FR lo marcaba opcional; Craft.Scroll
+  no anima ningún offset hoy): `SetHorizontalScroll(px)` cubre el caso.
 
 ### Dimensiones generales
 
@@ -111,7 +127,8 @@ El scrollbar completo se oculta (`Hide()`) si el contenido no excede el área vi
 |--------------|------------|-----------|--------------------------------------------------------------------------------|
 | `width`      | `number`   | requerido | Ancho total del componente en px                                               |
 | `height`     | `number`   | requerido | Alto total del componente en px                                                |
-| `onScroll`   | `function` | `nil`     | `fn(offsetV)` — se dispara al cambiar el scroll vertical                        |
+| `onScroll`   | `function` | `nil`     | vertical: `fn(offsetY)`; horizontal/both: `fn(offsetX, offsetY)` (FR-100)      |
+| `orientation`| `string`   | `"vertical"` | `"vertical"` \| `"horizontal"` \| `"both"` (FR-100). Desconocido → vertical |
 
 ## API pública
 
@@ -123,6 +140,13 @@ El scrollbar completo se oculta (`Hide()`) si el contenido no excede el área vi
 | `ScrollToBottom()`        | Establece scroll vertical al máximo (`childH − viewH`)                           |
 | `SetScrollOffset(n)`      | Establece el scroll vertical a `n` px desde el top                               |
 | `GetScrollOffset()`       | Retorna el offset vertical actual (`GetVerticalScroll()`)                        |
+| `GetContent()`            | Alias de `GetScrollChild()` (FR-100)                                              |
+| `GetOrientation()`        | `"vertical"` \| `"horizontal"` \| `"both"`                                        |
+| `SetHorizontalScroll(n)`  | Offset X a `n` px, recortado a `[0, childW − viewW]`. No-op en vertical (FR-100)  |
+| `GetHorizontalScroll()`   | Offset X actual                                                                   |
+| `ScrollToLeft()` / `ScrollToRight()` | Extremos del eje X (FR-100)                                             |
+
+Los métodos verticales (`ScrollToTop/Bottom`, `SetScrollOffset`) son no-op en `"horizontal"`.
 | `GetFrame()`              | Retorna el frame root del componente                                              |
 
 ## Riel compartido (`Craft.ScrollBar`)
