@@ -6,6 +6,24 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.28.0] - 2026-09-30
+
+> **Release v2.28.0 — `fontFlags` por componente (FR-102, SMRT).** Los componentes con texto
+> sobre superficie oscura pueden apartarse del outline global del tema, como ya hacían `Label`
+> y `Tooltip`.
+>
+> **Sin cambio para consumidores existentes:** sin la opción, cada componente usa el
+> `t.fontFlags` del tema igual que antes.
+
+### Añadido
+
+- **`fontFlags` por componente (FR-102, pedido de SMRT).** `Menu`, `Button`, `Badge`, `Input`,
+  `Window`, `Dialog` y `Empty` aceptan `config.fontFlags` en `Create`, y `Toast` en cada `Show`
+  (con default por toaster en `Configure`): el 4.º argumento de `Theme.applyFont`, igual que
+  `Label` (FR-092) y `Tooltip` (FR-101). `""` = sin contorno; `nil` = el `t.fontFlags` del tema,
+  así que **sin la opción no cambia nada**. Se reaplica en cada re-tema; los submenús de `Menu`
+  heredan el del padre y `AttachContextMenu` lo toma del spec que devuelve el builder.
+
 ## [2.27.0] - 2026-09-28
 
 > **Release v2.27.0 — dos FR de SMRT (módulo Timeline) y las fuentes Betto.** `Craft.Scroll`
