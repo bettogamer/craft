@@ -190,6 +190,7 @@ y no ofrece un `Close` componible. Diferencia de alcance, no bug — ver
 | `onClose` | function | nil | Callback invocado al cerrar (botón × o Escape) |
 | `closeOnEscape` | boolean | true | Si true, registrar el frame en `UISpecialFrames` |
 | `headerBorder` | boolean | **false** | (FR-088) Dibuja una regla de 1px `t.border` bajo el header, gemela de la del footer. **Opt-in a propósito:** Lyra no pinta `border-b` en `.cn-dialog-header`, así que el default es el shadcn fiel; se enciende en el modal cuyo contenido arranca con controles pegados al encabezado. No cambia la altura de nada. |
+| `fontFlags` | string | `nil` | FR-102: flags de fuente de título y descripción (4.º arg de `Theme.applyFont`; `""` = sin contorno, p. ej. texto claro sobre superficie oscura con el tema en `"OUTLINE"`). `nil` = el `t.fontFlags` global del tema. Se reaplica en cada re-tema. |
 | `strata` | string | `Craft.Strata.modal` (`"FULLSCREEN_DIALOG"`) | Strata del **frame**. Default = capa `modal` (sobre cualquier `Craft.Window`). El overlay va siempre en `Craft.Strata.modalOverlay` (`"FULLSCREEN"`), una strata por debajo. Solo cambiarlo para casos avanzados. |
 
 ## API pública

@@ -80,6 +80,9 @@ function Empty:Create(parent, config)
         height      = config.height,     -- nil = auto (padding*2 + contenido)
         width       = config.width,      -- nil = lo fija el caller (o fallback maxWidth+2*pad)
         maxWidth    = config.maxWidth or MAX_WIDTH,
+        -- FR-102: override del contorno del tema (t.fontFlags), 4.º arg de applyFont —
+        -- "" = sin contorno, nil = el del tema. Se reaplica en cada re-tema.
+        fontFlags   = config.fontFlags,
     }
 
     self.frame = CreateFrame("Frame", nil, parent)
@@ -166,13 +169,13 @@ function Empty:_applyTheme(t)
 
     -- Título: text-sm (14 = t.fontSizeLg) weight medium, t.foreground.
     local titleSize = t.fontSizeLg or 14
-    Craft.Theme.applyFont(self._title, t.fontMedium or t.font, titleSize)
+    Craft.Theme.applyFont(self._title, t.fontMedium or t.font, titleSize, self._cfg.fontFlags)
     self._title:SetSpacing(lineSpacing(titleSize, TITLE_LEADING))
     self._title:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
 
     -- Descripción: text-xs (12 = t.fontSize) leading-relaxed, t.mutedForeground.
     local descSize = t.fontSize or 12
-    Craft.Theme.applyFont(self._desc, t.font, descSize)
+    Craft.Theme.applyFont(self._desc, t.font, descSize, self._cfg.fontFlags)
     self._desc:SetSpacing(lineSpacing(descSize, DESC_LEADING))
     self._desc:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
 

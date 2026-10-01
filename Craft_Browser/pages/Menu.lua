@@ -297,6 +297,36 @@ CraftBrowserPages["Menu"] = {
         table.insert(comps, btn6)
         y = y + 44
 
+        -- FR-102: per-menu fontFlags; the ▸ branch inherits the root's flag.
+        y = addLabel("FR-102 fontFlags — activa 'Font outline' en Theme y compara (el submenú hereda)", y)
+        local function planItems()
+            return {
+                { type = "heading", label = "Planes" },
+                { type = "item", label = "Mítico — Tindral", rightText = "M" },
+                { type = "submenu", label = "Heroico", items = {
+                    { type = "item", label = "Fyrakk", rightText = "H" },
+                    { type = "item", label = "Smolderon", rightText = "H" },
+                } },
+            }
+        end
+        local themedMenu = Craft.Menu:Create({ items = planItems() })
+        local cleanMenu  = Craft.Menu:Create({ items = planItems(), fontFlags = "" })
+        table.insert(menus, themedMenu)
+        table.insert(menus, cleanMenu)
+        local btn7 = Craft.Button:Create(parent, { text = "Theme flag", variant = "outline",
+            onClick = function(b)
+                themedMenu:Open(b:GetFrame(), { point = "TOPLEFT", relativePoint = "BOTTOMLEFT" })
+            end })
+        btn7:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, btn7)
+        local btn8 = Craft.Button:Create(parent, { text = "fontFlags = \"\"", variant = "outline",
+            onClick = function(b)
+                cleanMenu:Open(b:GetFrame(), { point = "TOPLEFT", relativePoint = "BOTTOMLEFT" })
+            end })
+        btn8:GetFrame():SetPoint("LEFT", btn7:GetFrame(), "RIGHT", 8, 0)
+        table.insert(comps, btn8)
+        y = y + 44
+
         return {
             height  = y + 24,
             cleanup = function()

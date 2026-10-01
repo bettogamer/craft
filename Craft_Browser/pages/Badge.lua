@@ -103,6 +103,15 @@ CraftBrowserPages["Badge"] = {
         local sigCheck = Craft.Checkbox:Create(parent, { label = "seleccionado", checked = sig })
         y = addRow({ sigChip, sigCheck }, y)
 
+        -- FR-102: per-badge fontFlags (SMRT's AUTO / RECIBIDO over dark variants).
+        y = addLabel("FR-102 fontFlags — activa 'Font outline' en Theme y compara", y)
+        y = addRow({
+            Craft.Badge:Create(parent, { text = "AUTO", variant = "secondary" }),
+            Craft.Badge:Create(parent, { text = "RECIBIDO", variant = "outline" }),
+            Craft.Badge:Create(parent, { text = "AUTO", variant = "secondary", fontFlags = "" }),
+            Craft.Badge:Create(parent, { text = "RECIBIDO", variant = "outline", fontFlags = "" }),
+        }, y)
+
         return {
             height  = y + 24,
             cleanup = function()

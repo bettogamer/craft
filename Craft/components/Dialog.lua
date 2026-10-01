@@ -47,6 +47,9 @@ function Dialog:Create(parent, config)
         strata       = config.strata or (Craft.Strata and Craft.Strata.modal) or "FULLSCREEN_DIALOG",
         -- User-facing dialog scale (FR-068/FR-073). The zoom multiplies onto it.
         scale        = config.scale or 1,
+        -- FR-102: override of the theme's outline (t.fontFlags), applyFont's 4th arg —
+        -- "" = no outline, nil = theme flag. Title + description. Re-applied on every re-theme.
+        fontFlags    = config.fontFlags,
     }
     self._baseScale = self._cfg.scale
     self._lastZoom  = 1
@@ -397,11 +400,12 @@ function Dialog:_applyTheme(t)
     self._bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b)
 
     -- Title: font-medium, fontSizeLg (14px), popoverForeground (.cn-dialog-title font-medium)
-    Craft.Theme.applyFont(self._title, t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14)
+    Craft.Theme.applyFont(self._title, t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14,
+        self._cfg.fontFlags)
     self._title:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
 
     -- Description: font, fontSize (12px), mutedForeground
-    Craft.Theme.applyFont(self._desc, t.font, t.fontSize or 12)
+    Craft.Theme.applyFont(self._desc, t.font, t.fontSize or 12, self._cfg.fontFlags)
     self._desc:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
 
     -- Close icon: mutedForeground default

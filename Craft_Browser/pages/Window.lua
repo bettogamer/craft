@@ -123,6 +123,25 @@ CraftBrowserPages["Window"] = {
         table.insert(comps, scaledBtn)
         y = y + 44
 
+        -- ── FR-102: fontFlags on title + description ─────────────────────────
+        y = addLabel("FR-102 fontFlags = \"\" — activa 'Font outline' en Theme y compara con las otras ventanas", y)
+        local flagsWin
+        local flagsBtn = Craft.Button:Create(parent, { text="Open without outline", variant="outline" })
+        flagsBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        flagsBtn:GetFrame():SetScript("OnClick", function()
+            if not flagsWin then
+                flagsWin = Craft.Window:Create(UIParent, {
+                    title       = "Timeline",
+                    description = "fontFlags = \"\": título y descripción sin contorno",
+                    width = 420, height = 200,
+                    fontFlags = "",
+                })
+            end
+            flagsWin:Show()
+        end)
+        table.insert(comps, flagsBtn)
+        y = y + 44
+
         -- ── Persisted position (FR-078) ──────────────────────────────────────
         -- The bug this guards against: the zoom pivot was captured from the frame's
         -- RECTANGLE, and WoW does not recompute the rect of a hidden frame. A window
@@ -198,6 +217,10 @@ CraftBrowserPages["Window"] = {
                     if scaledWin._demoNote then scaledWin._demoNote:Destroy() end
                     scaledWin:Destroy()
                     scaledWin = nil
+                end
+                if flagsWin then
+                    flagsWin:Destroy()
+                    flagsWin = nil
                 end
                 if posWin then
                     if posWin._demoNote then posWin._demoNote:Destroy() end

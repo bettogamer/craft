@@ -87,6 +87,7 @@ Ver tablas de arriba — todos `t.*`, cero hardcodes. El fill selected = `t.mute
 | `selected` | boolean/signal | `false` | Estado del chip. Señal escribible = two-way (ADR-0013). |
 | `onSelectedChange` | function | `nil` | `function(selected, self)` — SOLO clicks del usuario (paridad Toggle). |
 | `pill` | boolean | `false` | Esquinas redondeadas completas: el `rounded-full` del badge **base** de shadcn, que Lyra pisa con `rounded-none`. Solo en `Create`. |
+| `fontFlags` | string | `nil` | FR-102: flags de fuente de la etiqueta (4.º arg de `Theme.applyFont`; `""` = sin contorno, p. ej. texto claro sobre superficie oscura con el tema en `"OUTLINE"`). `nil` = el `t.fontFlags` global del tema. Se reaplica en cada re-tema. |
 
 ### `pill` — forma de píldora
 

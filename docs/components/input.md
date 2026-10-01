@@ -123,6 +123,7 @@ Notas sobre estados:
 | `onEnterPressed`| `function` | `nil`       | `fn(value)` — se dispara en `OnEnterPressed` del EditBox                 |
 | `onEscapePressed`| `function`| `nil`       | `fn(value)` — se dispara en `OnEscapePressed`. Si se pasa, **sustituye** al default (Craft no suelta además el foco: cerrar algo es decisión del consumidor). FR-072 |
 | `width`         | `number`   | `nil`       | Ancho fijo en px. Si es nil, ocupa 100% del parent                       |
+| `fontFlags` | string | `nil` | FR-102: flags de fuente de texto y placeholder (4.º arg de `Theme.applyFont`; `""` = sin contorno, p. ej. texto claro sobre superficie oscura con el tema en `"OUTLINE"`). `nil` = el `t.fontFlags` global del tema. Se reaplica en cada re-tema. |
 
 > **Nota de fidelidad (FR-016).** El botón **clear ✕ dentro del input es una extensión de Craft**,
 > NO existe en shadcn: el Input de shadcn no tiene prop `clearable`. El patrón shadcn para búsqueda es

@@ -103,6 +103,9 @@ function Window:Create(parent, config)
         -- User-facing window scale (FR-068). The open/close zoom MULTIPLIES onto
         -- this instead of owning the frame's scale outright — see SetBaseScale.
         scale         = config.scale or 1,
+        -- FR-102: override of the theme's outline (t.fontFlags), applyFont's 4th arg —
+        -- "" = no outline, nil = theme flag. Title + description. Re-applied on every re-theme.
+        fontFlags     = config.fontFlags,
     }
     self._baseScale = self._cfg.scale
     self._lastZoom  = 1
@@ -400,9 +403,10 @@ function Window:_applyTheme(t)
         Craft.Theme.SetPixelHeight(self._titleBarSep, 1)
 
         -- Title + description (title font-medium, mirrors Dialog/Panel)
-        Craft.Theme.applyFont(self._title, t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14)
+        local ff = self._cfg.fontFlags
+        Craft.Theme.applyFont(self._title, t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14, ff)
         self._title:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
-        Craft.Theme.applyFont(self._desc, t.font, t.fontSize or 12)
+        Craft.Theme.applyFont(self._desc, t.font, t.fontSize or 12, ff)
         self._desc:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     else
         -- Headless (FR-019): content hangs from the frame's TOP, inset by the ring.

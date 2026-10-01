@@ -43,6 +43,9 @@ function Input:Create(parent, config)
         onEnterPressed = config.onEnterPressed,
         onEscapePressed= config.onEscapePressed,           -- FR-072: default clears focus
         width          = config.width,
+        -- FR-102: override of the theme's outline (t.fontFlags), applyFont's 4th arg —
+        -- "" = no outline, nil = theme flag. Re-applied on every re-theme.
+        fontFlags      = config.fontFlags,
     }
 
     -- Reactive props (ADR-0013): a callable prop binds through the setters
@@ -351,8 +354,9 @@ function Input:_applyTheme(t)
     self._t = t
 
     -- Font for EditBox and placeholder
-    Craft.Theme.applyFont(self._edit, t.font, FONT_SIZE)  -- EditBox requires flags arg (FontString does not)
-    Craft.Theme.applyFont(self._placeholder, t.font, FONT_SIZE)
+    -- (applyFont always passes a flags string — the EditBox requires it.)
+    Craft.Theme.applyFont(self._edit, t.font, FONT_SIZE, self._cfg.fontFlags)
+    Craft.Theme.applyFont(self._placeholder, t.font, FONT_SIZE, self._cfg.fontFlags)
 
     -- Text colors
     if self._cfg.disabled then

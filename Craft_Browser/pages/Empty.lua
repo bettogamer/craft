@@ -148,6 +148,22 @@ CraftBrowserPages["Empty"] = {
         table.insert(comps, narrow)
         y = y + math.max(wide:GetHeight(), narrow:GetHeight()) + 24
 
+        -- ── FR-102: fontFlags — mismo Empty con el flag del tema y con "" ──────
+        y = addLabel("FR-102 fontFlags — activa 'Font outline' en Theme y compara (izq. tema, der. \"\")", y)
+        local themedEmpty = Craft.Empty:Create(parent, {
+            width = 300, border = true, icon = "calendar",
+            title = "Sin planes", description = "Crea un plan para la Timeline.",
+        })
+        themedEmpty:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, themedEmpty)
+        local cleanEmpty = Craft.Empty:Create(parent, {
+            width = 300, border = true, icon = "calendar", fontFlags = "",
+            title = "Sin planes", description = "Crea un plan para la Timeline.",
+        })
+        cleanEmpty:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 336, -y)
+        table.insert(comps, cleanEmpty)
+        y = y + math.max(themedEmpty:GetHeight(), cleanEmpty:GetHeight()) + 24
+
         -- ── props reactivas (ADR-0013): title / description como señales ──────
         y = addLabel("title / description reactivos — el alto se recalcula al cambiar", y)
         local filtered = Weave.signal(0)

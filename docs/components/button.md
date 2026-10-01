@@ -167,6 +167,7 @@ inset 1px (padding-box). El borde se vuelve visible en `outline` (`dark:border-i
 | `iconPosition` | string | `"left"` | `"left"` (`inline-start`) o `"right"` (`inline-end`). |
 | `tooltip` | string | `nil` | Tooltip de `Craft.Tooltip` mostrado en hover. Visible aun si el botón está disabled. |
 | `tone` | string \| table | `nil` | **Color explícito del par label+icono** (FR-077). Un **string** es el nombre de un token del tema (`"sidebarPrimary"`) y se re-resuelve en cada pasada de tema; una **tabla** es un `{r,g,b,a}` literal. `nil` = el color de texto de la variante. Un token desconocido se ignora. |
+| `fontFlags` | string | `nil` | FR-102: flags de fuente de la etiqueta (4.º arg de `Theme.applyFont`; `""` = sin contorno, p. ej. texto claro sobre superficie oscura con el tema en `"OUTLINE"`). `nil` = el `t.fontFlags` global del tema. Se reaplica en cada re-tema. |
 | `onClick` | function | `nil` | `function(self)` en OnClick. |
 
 ---

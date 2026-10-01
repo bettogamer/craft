@@ -282,6 +282,7 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
 | `width` | `number` | `nil` (`w-fit`) | Ancho fijo del panel en px (equivale a `className="w-56"` en shadcn). Si es `nil`, `w-fit` = ancho de la fila más ancha, piso `min-w-32`=128 |
 | `maxHeight` | `number` | altura disponible en pantalla | Tope de altura (Lyra: `max-h-(--available-height)`); scroll interno (`Craft.Scroll`) si el contenido excede |
 | `onClose` | `function` | `nil` | Callback al cerrar (click-fuera, Esc, o selección) |
+| `fontFlags` | string | `nil` | FR-102: flags de fuente de todas las filas (label, heading, `rightText`) (4.º arg de `Theme.applyFont`; `""` = sin contorno, p. ej. texto claro sobre superficie oscura con el tema en `"OUTLINE"`). `nil` = el `t.fontFlags` global del tema. Se reaplica en cada re-tema. |
 
 ### Campos por entrada de `items`
 

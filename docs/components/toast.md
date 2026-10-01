@@ -149,7 +149,7 @@ Craft.Toast.Show({ title = "...", ... })          -- forma de una sola tabla
 Craft.Toast.Dismiss(idOrHandle)    -- uno;  Craft.Toast.Dismiss() — todos
 Craft.Toast.IsActive(idOrHandle)
 Craft.Toast.GetCount([container])  -- toasts en pantalla (sin contar los que salen)
-Craft.Toast.Configure({ position, duration, visibleToasts, expand, offset, gap, container })
+Craft.Toast.Configure({ position, duration, visibleToasts, expand, offset, gap, container, fontFlags })
 Craft.Toast.Configure({ position = "top-center" }, win)   -- overrides de UN contenedor
 Craft.Toast.SetPosition(pos [, container]) / GetPosition([container])
 
@@ -167,6 +167,7 @@ h.id;  h:Dismiss();  h:IsActive();  h:Update(opts)
 | `duration` | segundos | 4 (`loading`: `math.huge`) | `math.huge` = hasta cerrarlo |
 | `id` | cualquiera | autoincremental | si hay un toast vivo con ese id, **se actualiza en su sitio** (merge de opciones, y en su contenedor aunque la actualización nombre otro) y su reloj vuelve a empezar — la dedupe de sonner |
 | `container` | frame \| componente con `GetFrame()` | el de `Configure`, si no la pantalla | dónde sale el toast |
+| `fontFlags` | string | `nil` | FR-102: flags de fuente de este toast (título, descripción y botones) (4.º arg de `Theme.applyFont`; `""` = sin contorno, p. ej. texto claro sobre superficie oscura con el tema en `"OUTLINE"`). `nil` = el `t.fontFlags` global del tema. Se reaplica en cada re-tema. Sin la opción manda el default de `Configure({ fontFlags })`; no se pega a la tarjeta reciclada del pool. |
 | `action` | `{ label, onClick(handle) }` | nil | cierra tras el click salvo que `onClick` devuelva `false` (el `preventDefault` de sonner) |
 | `cancel` | `{ label, onClick(handle) }` | nil | siempre cierra |
 | `onDismiss` | `fn(handle)` | nil | cierre manual (`Dismiss`, action, cancel) |

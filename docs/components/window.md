@@ -81,6 +81,7 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
 | `closable` | boolean | true | Muestra el botón "x" |
 | `closeOnEscape` | boolean | true | Escape cierra la ventana (`UISpecialFrames`) |
 | `scale` | number | `1` | Escala de la ventana visible al usuario. **Única vía soportada** — `GetFrame():SetScale()` no funciona (FR-068, ver §Escala) |
+| `fontFlags` | string | `nil` | FR-102: flags de fuente de título y descripción (4.º arg de `Theme.applyFont`; `""` = sin contorno, p. ej. texto claro sobre superficie oscura con el tema en `"OUTLINE"`). `nil` = el `t.fontFlags` global del tema. Se reaplica en cada re-tema. |
 | `onMoved` | function | nil | `fn(self, x, y)` al terminar de arrastrar |
 | `onResized` | function | nil | `fn(self, w, h)` al terminar de redimensionar |
 | `onClose` | function | nil | `fn(self)` al cerrar (botón "x" o `Close()`) |

@@ -104,6 +104,15 @@ CraftBrowserPages["Button"] = {
         }
         y = addRow(toned, y)
 
+        -- FR-102: per-button fontFlags. With the theme outline on, the right pair opts out.
+        y = addLabel("FR-102 fontFlags — activa 'Font outline' en Theme y compara", y)
+        y = addRow({
+            Craft.Button:Create(parent, { text="Theme flag", variant="outline" }),
+            Craft.Button:Create(parent, { text="Theme flag", variant="ghost" }),
+            Craft.Button:Create(parent, { text="fontFlags = \"\"", variant="outline", fontFlags="" }),
+            Craft.Button:Create(parent, { text="fontFlags = \"\"", variant="ghost", fontFlags="" }),
+        }, y)
+
         -- The case that filed the FR: an icon-only ghost action inside a coloured
         -- section header. Grey, it is indistinguishable from the window's ✕.
         y = addLabel("Icon-only in a coloured header — the ✕ ambiguity the FR describes", y)

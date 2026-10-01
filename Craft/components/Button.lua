@@ -56,6 +56,9 @@ function Button:Create(parent, config)
         -- sometimes the action of a coloured block, and inheriting `foreground`
         -- made it read as window chrome (Coffer's pinned section headers).
         tone         = config.tone,
+        -- FR-102: override of the theme's outline (t.fontFlags), applyFont's 4th arg —
+        -- "" = no outline, nil = theme flag. Re-applied on every re-theme.
+        fontFlags    = config.fontFlags,
     }
 
     -- Root frame (WoW Button — has native OnClick)
@@ -238,7 +241,7 @@ function Button:_applyTheme(t)
 
     -- Font
     if s then
-        Craft.Theme.applyFont(self._label, t.fontMedium or t.font, s.font or 12)  -- .cn-button font-medium
+        Craft.Theme.applyFont(self._label, t.fontMedium or t.font, s.font or 12, self._cfg.fontFlags)  -- font-medium
     end
 
     -- Colors by variant (dark mode)

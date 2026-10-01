@@ -85,6 +85,9 @@ function Menu:Create(config)
         width     = config.width,       -- fixed panel width (w-56 style); nil = w-fit
         maxHeight = config.maxHeight,   -- cap; scroll past it. nil = screen-available
         onClose   = config.onClose,
+        -- FR-102: per-menu override of the theme's outline (t.fontFlags), applyFont's
+        -- 4th arg — "" = no outline, nil = theme flag. Submenus inherit it on open.
+        fontFlags = config.fontFlags,
     }
 
     self._items    = {}   -- pooled row bundles (reused by index across rebuilds)
@@ -436,7 +439,8 @@ function Menu:_renderRow(item, cfg)
     local useAvatar = cfg.avatar and Craft.Avatar and true or false
     local rowH = useAvatar and AVATAR_ROW_H or ROW_H
     row:SetHeight(rowH)
-    Craft.Theme.applyFont(item.label, (typ == "heading" and (t.fontMedium or t.font)) or t.font, FONT_SIZE)
+    Craft.Theme.applyFont(item.label, (typ == "heading" and (t.fontMedium or t.font)) or t.font, FONT_SIZE,
+        self._cfg.fontFlags)
     item.label:SetText(resolve(cfg.label) or "")
     item.label:Show()
 
@@ -525,7 +529,7 @@ function Menu:_renderRow(item, cfg)
         local rightPad = ITEM_PR + CHEV_SIZE + GAP
         contentW = x + item.label:GetStringWidth() + rightPad
         if cfg.rightText and cfg.rightText ~= "" then
-            Craft.Theme.applyFont(item.rightText, t.font, FONT_SIZE)
+            Craft.Theme.applyFont(item.rightText, t.font, FONT_SIZE, self._cfg.fontFlags)
             item.rightText:SetText(cfg.rightText)
             item.rightText:ClearAllPoints()
             item.rightText:SetPoint("RIGHT", row, "RIGHT", -rightPad, 0)
@@ -548,7 +552,7 @@ function Menu:_renderRow(item, cfg)
 
         contentW = x + item.label:GetStringWidth() + rightPad
         if cfg.rightText and cfg.rightText ~= "" then
-            Craft.Theme.applyFont(item.rightText, t.font, FONT_SIZE)
+            Craft.Theme.applyFont(item.rightText, t.font, FONT_SIZE, self._cfg.fontFlags)
             item.rightText:SetText(cfg.rightText)
             item.rightText:ClearAllPoints()
             item.rightText:SetPoint("RIGHT", row, "RIGHT", -rightPad, 0)
@@ -843,6 +847,7 @@ function Menu:_openSubmenu(item)
     if not items and cfg.builder then items = cfg.builder() end
     sub._cfg.width     = cfg.width
     sub._cfg.maxHeight = cfg.maxHeight or self._cfg.maxHeight
+    sub._cfg.fontFlags = self._cfg.fontFlags   -- FR-102: the branch inherits the root's flag
     sub:SetItems(items or {})
 
     -- Placement: side=right align=start (Radix) — the child's top-left meets the
@@ -1247,6 +1252,7 @@ function Menu:AttachContextMenu(frame, builder)
     frame:SetScript("OnMouseUp", function(_, button)
         if button == "RightButton" then
             local spec = builder() or {}
+            menu._cfg.fontFlags = spec.fontFlags   -- FR-102, per open like the items
             menu:SetItems(spec.items or {})
             menu:OpenAtCursor()
         end

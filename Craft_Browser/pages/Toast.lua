@@ -104,6 +104,24 @@ CraftBrowserPages["Toast"] = {
             { "Dismiss all", function() Craft.Toast.Dismiss() end },
         })
 
+        -- ── FR-102: per-toast fontFlags ──────────────────────────────────────
+        addLabel("FR-102 fontFlags — activa 'Font outline' en Theme y compara")
+        addRow({
+            { "Theme flag", function()
+                Craft.Toast.Show("Pull en 10 s", {
+                    description = "Con el contorno del tema.",
+                    action = { label = "Listo", onClick = function() end },
+                })
+            end },
+            { "fontFlags = \"\"", function()
+                Craft.Toast.Show("Pull en 10 s", {
+                    description = "Sin contorno: claro sobre la tarjeta oscura.",
+                    action = { label = "Listo", onClick = function() end },
+                    fontFlags = "",
+                })
+            end },
+        })
+
         -- ── Position (sonner-position.tsx) ───────────────────────────────────
         addLabel("Position")
         local pos = Craft.ToggleGroup:Create(parent, {

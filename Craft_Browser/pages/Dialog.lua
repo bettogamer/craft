@@ -142,6 +142,20 @@ CraftBrowserPages["Dialog"] = {
         table.insert(comps, ruledBtn)
         y = y + 48
 
+        -- ── FR-102: fontFlags on title + description ─────────────────────────
+        y = addLabel("FR-102 fontFlags = \"\" — activa 'Font outline' en Theme y compara con el Demo Dialog", y)
+        local flagsDlg = Craft.Dialog:Create(UIParent, {
+            title       = "Elegir plan",
+            description = "fontFlags = \"\": título y descripción sin contorno",
+            fontFlags   = "",
+        })
+        table.insert(comps, flagsDlg)
+        local flagsBtn = Craft.Button:Create(parent, { text="Open without outline", variant="outline" })
+        flagsBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        flagsBtn:GetFrame():SetScript("OnClick", function() flagsDlg:Show() end)
+        table.insert(comps, flagsBtn)
+        y = y + 48
+
         return {
             height  = y + 24,
             cleanup = function()

@@ -302,8 +302,9 @@ local function themeCard(c, t)
     c.bg:SetPoint("BOTTOMRIGHT", c.frame, "BOTTOMRIGHT", -px1,  px1)
     c.bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
 
-    Craft.Theme.applyFont(c.title, t.fontMedium or t.font, FONT_SIZE)
-    Craft.Theme.applyFont(c.desc,  t.font,                 FONT_SIZE)
+    local ff = c.fontFlags   -- FR-102: resolved per Show (nil = theme flag)
+    Craft.Theme.applyFont(c.title, t.fontMedium or t.font, FONT_SIZE, ff)
+    Craft.Theme.applyFont(c.desc,  t.font,                 FONT_SIZE, ff)
     c.title:SetTextColor(fg.r, fg.g, fg.b, fg.a or 1)
     c.desc:SetTextColor(fg.r, fg.g, fg.b, (fg.a or 1) * DESC_ALPHA)
     c.icon:SetVertexColor(fg.r, fg.g, fg.b, fg.a or 1)
@@ -316,7 +317,7 @@ local function themeCard(c, t)
     c.cancelBtn._bg:SetColorTexture(fg.r, fg.g, fg.b, CANCEL_ALPHA)
     c.cancelBtn._label:SetTextColor(fg.r, fg.g, fg.b, fg.a or 1)
     for _, b in ipairs({ c.actionBtn, c.cancelBtn }) do
-        Craft.Theme.applyFont(b._label, t.fontMedium or t.font, BTN_FONT)
+        Craft.Theme.applyFont(b._label, t.fontMedium or t.font, BTN_FONT, ff)
     end
 end
 
@@ -599,7 +600,8 @@ end
 -- that is still on screen UPDATES that toast in place and restarts its clock),
 -- container (frame or Craft component; default: Configure's, else the screen),
 -- action / cancel ({ label, onClick(handle) } — action returning false keeps the
--- toast open), onDismiss(handle), onAutoClose(handle).
+-- toast open), onDismiss(handle), onAutoClose(handle), fontFlags (FR-102: "" = no
+-- outline; nil = Configure's, else the theme's t.fontFlags).
 function Toast.Show(title, opts)
     if type(title) == "table" then
         opts, title = title, nil
@@ -634,10 +636,21 @@ function Toast.Show(title, opts)
         c.removing = false
         c.entering = true
         table.insert(R.toasts, 1, c)           -- newest in front
+        c.fontFlags = nil                      -- a pooled card must not keep the last flag
         themeCard(c, S.t)
         c.frame:Show()
     end
     c.opts = merged
+
+    -- FR-102: per-toast override of the theme's outline ("" = none); nil falls back
+    -- to the toaster's Configure default, then to the theme. Re-themed only when it
+    -- changes, BEFORE the layout below measures (outline changes glyph metrics).
+    local ff = merged.fontFlags
+    if ff == nil then ff = R.cfg.fontFlags end
+    if ff ~= c.fontFlags then
+        c.fontFlags = ff
+        themeCard(c, S.t)
+    end
 
     local kind = merged.type or merged.variant or "default"
     kind = TYPE_ALIAS[kind] or kind
@@ -721,7 +734,8 @@ function Toast.GetCount(container)
     return n
 end
 
--- <Toaster/> props: position, duration, visibleToasts, expand, offset, gap.
+-- <Toaster/> props: position, duration, visibleToasts, expand, offset, gap (+ fontFlags,
+-- FR-102: a string default for the toasts that pass none).
 -- Without `container` it sets the GLOBAL defaults (plus `opts.container`, the
 -- default container for toasts that name none). With `container` it sets that
 -- container's own overrides — a Window can stack top-center while the screen
@@ -744,6 +758,7 @@ function Toast.Configure(opts, container)
     if opts.expand ~= nil                   then rawset(cfg, "expand", opts.expand and true or false) end
     if type(opts.offset) == "number"        then rawset(cfg, "offset", opts.offset) end
     if type(opts.gap) == "number"           then rawset(cfg, "gap", opts.gap) end
+    if type(opts.fontFlags) == "string"     then rawset(cfg, "fontFlags", opts.fontFlags) end   -- FR-102
     for _, R in ipairs(S.order) do refit(R) end
 end
 

@@ -145,6 +145,7 @@ Craft.Empty:Create(parent, {
   height       = nil,                 -- number: alto fijo (h-56 → 224); nil = auto
   width        = nil,                 -- number: ancho; nil = lo fija el caller
   maxWidth     = 384,                 -- límite de wrap de título/descripción (max-w-sm)
+  fontFlags    = nil,                 -- FR-102: flags de título/descripción ("" = sin contorno); nil = t.fontFlags
 })
 ```
 

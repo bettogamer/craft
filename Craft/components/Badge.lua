@@ -56,6 +56,9 @@ function Badge:Create(parent, config)
         selectable       = config.selectable or false,
         onSelectedChange = config.onSelectedChange,
         pill             = config.pill and true or false,   -- rounded-full (shadcn base)
+        -- FR-102: override of the theme's outline (t.fontFlags), applyFont's 4th arg —
+        -- "" = no outline, nil = theme flag. Re-applied on every re-theme.
+        fontFlags        = config.fontFlags,
     }
     self._selected = false   -- applied below via the reactive bind (literal or signal)
 
@@ -257,7 +260,7 @@ end
 function Badge:_applyTheme(t)
     self._t = t
 
-    Craft.Theme.applyFont(self._label, t.fontMedium or t.font, FONT_SIZE)
+    Craft.Theme.applyFont(self._label, t.fontMedium or t.font, FONT_SIZE, self._cfg.fontFlags)
 
     local px1 = Craft.Theme.px(1, self.frame)
     if self._pill then

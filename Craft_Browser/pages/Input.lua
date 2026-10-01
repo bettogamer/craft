@@ -39,6 +39,10 @@ CraftBrowserPages["Input"] = {
         y = addLabel("With placeholder", y)
         y = addInput({ placeholder="Type something..." }, y)
 
+        -- FR-102: per-input fontFlags (text + placeholder). Compare with the one above.
+        y = addLabel("FR-102 fontFlags = \"\" — activa 'Font outline' en Theme y compara con el de arriba", y)
+        y = addInput({ placeholder="0:00", fontFlags="" }, y)
+
         y = addLabel("With icon (leading)", y)
         y = addInput({ placeholder="Search...", iconLeading="search" }, y)
 
