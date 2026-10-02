@@ -6,6 +6,24 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.29.0] - 2026-10-02
+
+> **Release v2.29.0 — tokens `chart1`..`chart5` (FR-103, SMRT).** El `--chart-N` de shadcn con
+> los valores de Lyra: rampa monocroma del base, no paleta categórica. Los colores por elemento
+> (una tarjeta de cada color) siguen siendo del consumidor: color por instancia (`tone`/`color`),
+> nunca cambiando el tema global — ver la resolución del FR.
+>
+> **Sin cambio para consumidores existentes:** solo se añaden tokens.
+
+### Añadido
+
+- **Tokens `chart1`..`chart5` (FR-103, pedido de SMRT).** El `--chart-1..5` de shadcn, en el
+  eje Base: **rampa monocroma del base** (300/500/600/700/800 de neutral/zinc/stone/mist), que
+  es lo que emite el create tool para Lyra. **No** es la paleta categórica del globals v4
+  clásico (azul/verde/ámbar/violeta/rosa): Lyra ya no la usa y Craft sigue a Lyra. No dependen
+  del accent. Se leen como cualquier token (`Craft.Theme.get().chart1`) y valen como `tone`
+  de `Button`. Demo: mini bar chart en la página Theme del Browser.
+
 ## [2.28.0] - 2026-09-30
 
 > **Release v2.28.0 — `fontFlags` por componente (FR-102, SMRT).** Los componentes con texto
