@@ -6,6 +6,35 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.30.0] - 2026-10-02
+
+> **Release v2.30.0 — un tema por addon (FR-104, ADR-0019).** Cada consumidor puede tener su
+> propio contexto de tema (`Craft.Theme.context`) fijado en su ventana raíz; cambiarlo
+> re-tematiza solo ese addon. Los overlays (Menu, Popover, Tooltip, Toast) siguen a su dueño.
+>
+> **Sin cambio para consumidores existentes:** sin `theme`, todo resuelve al tema global como
+> en 2.29.0.
+
+### Añadido
+
+- **Contextos de tema por addon (FR-104, ADR-0019).** `Craft.Theme.context(name, spec)` da a
+  cada consumidor su propio tema (preset, caché y listeners); `ctx:use` re-tematiza solo los
+  componentes de ese contexto. Se fija en la raíz (`theme = ctx` en la Window/Panel del addon) y
+  lo heredan los descendientes por la cadena de padres. Los overlays siguen a su dueño lógico:
+  `Menu`/`Popover` al ancla de cada apertura, `Tooltip` al ancla de cada `Show`, `Toast` a su
+  contenedor, `Select`/`Combobox`/`Dialog` a su `parent`. Helpers nuevos `Craft.Theme.resolve`,
+  `rebind`, `isContext` y `ctx:getSpec()`. `use(tabla)` acepta también una **spec** de ejes
+  (sin `background`), fusionada sobre la spec en uso. Demo en Craft_Browser → Theme.
+
+### Cambiado
+
+- **`Craft.Theme` es el contexto por defecto** y admite llamada con punto o con dos puntos
+  (`Craft.Theme.get()` == `Craft.Theme:get()`). Los 33 componentes resuelven su contexto en
+  `Create` y usan `self._theme` en vez del singleton. **Sin cambio para consumidores
+  existentes:** sin `theme`, todo resuelve al global como en 2.29.0.
+- Las sondas de fuente del primer arranque (bug #4) re-notifican a los listeners de **todos**
+  los contextos.
+
 ## [2.29.0] - 2026-10-02
 
 > **Release v2.29.0 — tokens `chart1`..`chart5` (FR-103, SMRT).** El `--chart-N` de shadcn con
