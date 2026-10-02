@@ -42,6 +42,12 @@ local EXPECT = {
     sidebarAccentForeground = {0.980, 0.980, 0.980, 1},
     sidebarBorder           = {1.000, 1.000, 1.000, 0.100},
     sidebarRing             = {0.452, 0.452, 0.452, 1},
+    -- FR-103: rampa monocroma neutral-300/500/600/700/800 (Lyra create, NO categórica)
+    chart1                  = {0.831, 0.831, 0.831, 1},
+    chart2                  = {0.452, 0.452, 0.452, 1},
+    chart3                  = {0.322, 0.322, 0.322, 1},
+    chart4                  = {0.250, 0.250, 0.250, 1},
+    chart5                  = {0.149, 0.149, 0.149, 1},
 }
 
 local EXPECT_SCALAR = {
@@ -254,6 +260,25 @@ describe("Theme axes (ADR-0014)", function()
         local t = Craft.Theme.build({ base = "stone" })
         checkColor(t, "background", {0.047, 0.039, 0.036, 1})
         checkColor(t, "foreground", {0.981, 0.981, 0.978, 1})
+    end)
+
+    it("chart1..5 existen en todos los bases y no dependen del accent (FR-103)", function()
+        for _, base in ipairs({ "neutral", "zinc", "stone", "mist" }) do
+            local a = Craft.Theme.build({ base = base, accent = "emerald" })
+            local b = Craft.Theme.build({ base = base, accent = "orange" })
+            for i = 1, 5 do
+                local k = "chart" .. i
+                checkColor(b, k, { a[k].r, a[k].g, a[k].b, a[k].a })
+            end
+            -- rampa: cada paso más oscuro que el anterior (300 → 800)
+            for i = 1, 4 do
+                assert.is_true(a["chart" .. i].r > a["chart" .. (i + 1)].r)
+            end
+        end
+        -- 500 = ring y 800 = muted en neutral (misma rampa Tailwind)
+        local t = Craft.Theme.build({ base = "zinc" })
+        checkColor(t, "chart2", {0.443, 0.443, 0.484, 1})
+        checkColor(t, "chart5", {0.153, 0.153, 0.166, 1})
     end)
 
     it("accent=blue compone el primary de blue", function()

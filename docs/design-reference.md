@@ -155,6 +155,11 @@ WoW no sintetiza pesos (toma un TTF por peso), así que Craft bundlea tres archi
 | `--sidebar-accent-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
 | `--sidebar-border` | oklch(1 0 0 / 10%) | white 10% | — | `{r=1.000, g=1.000, b=1.000, a=0.100}` |
 | `--sidebar-ring` | oklch(0.556 0 0) | #737373 | neutral-500 | `{r=0.452, g=0.452, b=0.452, a=1}` |
+| `--chart-1` | oklch(0.87 0 0) | #d4d4d4 | neutral-300 | `{r=0.831, g=0.831, b=0.831, a=1}` |
+| `--chart-2` | oklch(0.556 0 0) | #737373 | neutral-500 | `{r=0.452, g=0.452, b=0.452, a=1}` |
+| `--chart-3` | oklch(0.439 0 0) | #525252 | neutral-600 | `{r=0.322, g=0.322, b=0.322, a=1}` |
+| `--chart-4` | oklch(0.371 0 0) | #404040 | neutral-700 | `{r=0.250, g=0.250, b=0.250, a=1}` |
+| `--chart-5` | oklch(0.269 0 0) | #262626 | neutral-800 | `{r=0.149, g=0.149, b=0.149, a=1}` |
 | `--radius` | — | 0 | — | `0` |
 
 ---

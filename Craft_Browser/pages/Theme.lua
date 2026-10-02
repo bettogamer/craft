@@ -160,6 +160,12 @@ CraftBrowserPages["Theme"] = {
             { name="border",            color=t.border            },
             { name="input",             color=t.input             },
             { name="ring",              color=t.ring              },
+            -- FR-103: rampa del base (Lyra), no paleta categórica
+            { name="chart1",            color=t.chart1            },
+            { name="chart2",            color=t.chart2            },
+            { name="chart3",            color=t.chart3            },
+            { name="chart4",            color=t.chart4            },
+            { name="chart5",            color=t.chart5            },
         }
 
         y = addLabel("Token  →  cuadrado de color  +  valores RGBA", y)
@@ -201,6 +207,29 @@ CraftBrowserPages["Theme"] = {
                 y = y + ROW_H
             end
         end
+
+        -- ─── FR-103: mini bar chart con chart1..chart5 ──────────────────────
+        -- Lo que pinta un <BarChart> de shadcn con fill="var(--chart-N)": en Lyra
+        -- es una rampa monocroma del base (cambia con Base, NO con Accent).
+        y = addLabel("FR-103: chart1..chart5 (cambia el Base para ver la rampa)", y + 8)
+        local BAR_W, BAR_MAX = 28, 72
+        local heights = { 72, 56, 64, 40, 48 }
+        for i = 1, 5 do
+            local c = t["chart" .. i]
+            if c then
+                local bar = CreateFrame("Frame", nil, parent)
+                bar:SetSize(BAR_W, heights[i])
+                bar:SetPoint("TOPLEFT", parent, "TOPLEFT", 16 + (i - 1) * (BAR_W + 8),
+                    -(y + BAR_MAX - heights[i]))
+                local tex = bar:CreateTexture(nil, "BACKGROUND")
+                tex:SetAllPoints(bar)
+                tex:SetColorTexture(c.r, c.g, c.b, c.a or 1)
+                table.insert(comps, { Destroy = function()
+                    bar:Hide(); bar:SetParent(nil)
+                end })
+            end
+        end
+        y = y + BAR_MAX + 12
 
         return {
             height  = y + 24,
