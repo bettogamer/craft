@@ -43,6 +43,10 @@ local WRAP_SLACK = 2  -- px of text-box headroom so the zoom animation never re-
 local _tooltip       = nil   -- the shared Frame, created lazily
 local _visible       = nil   -- Weave.signal(false): internal show/hide state (fade driver)
 local _fontFlags     = nil   -- current Show's config.fontFlags (nil = theme flag, FR-101)
+-- FR-104: the singleton listens to ONE theme context — the one it was last shown
+-- with (config.theme > the anchor's context). Starts on the default context.
+TT._ctx    = Craft.Theme
+TT._handle = nil
 
 local function _getTooltipFrame()
     if _tooltip then return _tooltip end
@@ -79,6 +83,8 @@ local function _getTooltipFrame()
     -- The singleton lives forever → no destructor / disposal (see Attach note).
     _visible = Weave.signal(false)
 
+    -- Motion is built once for the singleton's whole life: it uses the default
+    -- context's tokens (FR-104 re-themes colors/fonts per Show, not the tween).
     local motion = Craft.Theme.get()
     local alpha = Weave.tween(
         Weave.computed(function() return _visible() and 1 or 0 end),
@@ -140,11 +146,9 @@ local function _getTooltipFrame()
         slideFx,
     }
 
-    -- Register global theme listener (once, never unregistered — singleton lives forever)
-    Craft.Theme.register(function(t)
-        TT._applyThemeToFrame(t)
-    end)
-    TT._applyThemeToFrame(Craft.Theme.get())
+    -- Listen to the current context (moved by _bindTheme when a Show changes it)
+    TT._handle = TT._ctx:register(function(t) TT._applyThemeToFrame(t) end)
+    TT._applyThemeToFrame(TT._ctx:get())
 
     return _tooltip
 end
@@ -152,6 +156,14 @@ end
 TT._getFrame = _getTooltipFrame  -- internal (specs): the singleton frame
 
 -- ─── Internal theme application ────────────────────────────────────────────
+-- FR-104 (ADR-0019 §3.4): moves the singleton's listener to `ctx` if it changed.
+function TT._bindTheme(ctx)
+    if ctx == TT._ctx then return end
+    if TT._handle then TT._ctx:unregister(TT._handle) end
+    TT._ctx    = ctx
+    TT._handle = ctx:register(function(t) TT._applyThemeToFrame(t) end)
+end
+
 function TT._applyThemeToFrame(t)
     TT._t = t
     if not _tooltip then return end
@@ -171,7 +183,7 @@ function TT._applyThemeToFrame(t)
         _tooltip._bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
     end
 
-    Craft.Theme.applyFont(_tooltip._text, t.font, FONT_SIZE, _fontFlags)
+    TT._ctx:applyFont(_tooltip._text, t.font, FONT_SIZE, _fontFlags)
     _tooltip._text:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
 end
 
@@ -232,7 +244,7 @@ local function _layoutTooltip(config)
         f._text:SetPoint("TOPLEFT", f._icon, "TOPRIGHT", ICON_GAP, 0)
 
         -- Tint icon with popover foreground
-        local t = TT._t or Craft.Theme.get()
+        local t = TT._t or TT._ctx:get()
         f._icon:SetVertexColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b, 1)
         f._icon:Show()
     else
@@ -309,7 +321,9 @@ function TT.Show(anchor, config)
     -- FR-101: resolve the flag for THIS show before measuring (outline changes glyph
     -- metrics). Assigned unconditionally so a previous show's override never sticks.
     _fontFlags = config.fontFlags
-    TT._applyThemeToFrame(TT._t or Craft.Theme.get())
+    -- FR-104: this show's context — config.theme > the anchor's (parent chain).
+    TT._bindTheme(Craft.Theme.resolve(anchor, config))
+    TT._applyThemeToFrame(TT._ctx:get())
 
     _layoutTooltip(config)
     _positionTooltip(anchor, config.side)

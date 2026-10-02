@@ -84,6 +84,7 @@ function Avatar:Create(parent, config)
     self._size = sizePx
 
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetSize(self._size, self._size)
 
     -- _ring: anillo de 2px color t.background que SEPARA avatares solapados en un
@@ -116,8 +117,8 @@ function Avatar:Create(parent, config)
 
     self:_applyShapes()
 
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
     self._text:SetText(self._cfg.fallback)   -- después de applyFont (AGENTS §9)
 
     -- Fuente del retrato: CUATRO excluyentes. Si el config trae varias, la precedencia
@@ -198,7 +199,7 @@ function Avatar:_ensureImageMask()
 end
 
 -- ─── _paint ───────────────────────────────────────────────────────────────────
--- Lee los tokens cacheados en self._t (nunca Craft.Theme.get()). En modo mask los
+-- Lee los tokens cacheados en self._t (nunca self._theme:get()). En modo mask los
 -- rellenos son color-textures planos; en modo baked el círculo blanco YA es la
 -- textura y se tinta por vertex color.
 function Avatar:_paint()
@@ -229,7 +230,7 @@ end
 function Avatar:_applyTheme(t)
     self._t = t
 
-    Craft.Theme.applyFont(self._text, t.font, FONT_SIZE)
+    self._theme:applyFont(self._text, t.font, FONT_SIZE)
 
     if self._ring then
         local w = self._size + 2 * Craft.Theme.px(RING, self.frame)
@@ -428,7 +429,7 @@ end
 function Avatar:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
@@ -462,6 +463,7 @@ function AvatarGroup:Create(parent, config)
     self._count = 0
 
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetHeight(self._size)
 
     -- `items` es prop de LISTA reactiva (AGENTS §5): literal aplica una vez, señal

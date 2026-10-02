@@ -64,6 +64,7 @@ function Input:Create(parent, config)
 
     -- ── Root frame ────────────────────────────────────────────────────────────
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetHeight(HEIGHT)
     if self._cfg.width then
         self.frame:SetWidth(self._cfg.width)
@@ -256,7 +257,7 @@ function Input:Create(parent, config)
     -- signal flips in the focus scripts (above); the tween drives an effect that
     -- lerps each border color between the cached endpoints. Mirrors the Dialog fade.
     self._focused = Weave.signal(false)
-    local m = Craft.Theme.get()
+    local m = self._theme:get()
     local prog = Weave.tween(
         Weave.computed(function() return self._focused() and 1 or 0 end),
         { duration = m.motionFast, easing = Weave.easing[m.motionEasing] })
@@ -271,8 +272,8 @@ function Input:Create(parent, config)
     self._effects[#self._effects + 1] = prog  -- dispose the tween (effect + driver reg)
 
     -- ── Theme registration ────────────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
     self._placeholder:SetText(self._cfg.placeholder)  -- after SetFont in _applyTheme
 
     -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
@@ -329,7 +330,7 @@ end
 -- default) and RE-APPLIES the color at the live tween progress. Called from
 -- _applyTheme (AGENTS §9: a theme change re-applies with the vigente prog, it
 -- must NOT snap the border back to idle mid-fade) and from SetError.
--- Does NOT call Craft.Theme.get() — uses self._t.
+-- Does NOT call self._theme:get() — uses self._t.
 function Input:_updateBorderEndpoints()
     local t = self._t
     if not t then return end
@@ -355,8 +356,8 @@ function Input:_applyTheme(t)
 
     -- Font for EditBox and placeholder
     -- (applyFont always passes a flags string — the EditBox requires it.)
-    Craft.Theme.applyFont(self._edit, t.font, FONT_SIZE, self._cfg.fontFlags)
-    Craft.Theme.applyFont(self._placeholder, t.font, FONT_SIZE, self._cfg.fontFlags)
+    self._theme:applyFont(self._edit, t.font, FONT_SIZE, self._cfg.fontFlags)
+    self._theme:applyFont(self._placeholder, t.font, FONT_SIZE, self._cfg.fontFlags)
 
     -- Text colors
     if self._cfg.disabled then
@@ -499,7 +500,7 @@ end
 function Input:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

@@ -63,6 +63,7 @@ function Button:Create(parent, config)
 
     -- Root frame (WoW Button — has native OnClick)
     self.frame = CreateFrame("Button", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
 
     -- _border: 4 × 1px edge textures (corner-safe ring). Transparent by default
     -- (border-transparent); visible for variant=outline. A ring — NOT a full texture —
@@ -99,7 +100,7 @@ function Button:Create(parent, config)
     -- interpolates the bg colour each frame. Created BEFORE _applyTheme so the theme
     -- pass can re-apply the current progress with freshly-resolved endpoints.
     self._hover = Weave.signal(false)  -- private hover state (NOT a public prop)
-    local m = Craft.Theme.get()
+    local m = self._theme:get()
     self._prog = Weave.tween(
         Weave.computed(function() return self._hover() and 1 or 0 end),
         { duration = m.motionFast, easing = Weave.easing[m.motionEasing] })
@@ -114,8 +115,8 @@ function Button:Create(parent, config)
     end)
 
     -- Register in the theming system and apply initial theme
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
     self._label:SetText(self._cfg.text)  -- after SetFont in _applyTheme
     self:_recalcWidth()                  -- recalc now that text is set (GetStringWidth was 0 before)
 
@@ -241,7 +242,7 @@ function Button:_applyTheme(t)
 
     -- Font
     if s then
-        Craft.Theme.applyFont(self._label, t.fontMedium or t.font, s.font or 12, self._cfg.fontFlags)  -- font-medium
+        self._theme:applyFont(self._label, t.fontMedium or t.font, s.font or 12, self._cfg.fontFlags)  -- font-medium
     end
 
     -- Colors by variant (dark mode)
@@ -493,7 +494,7 @@ function Button:Destroy()
         Craft.Tooltip.Detach(self.frame)       -- FR-020: cancels any pending delayed show
     end
     Craft.Reactive.disposeAll(self)            -- cut the hover tween + effect (ghost updates)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

@@ -82,6 +82,7 @@ function Combobox:Create(parent, config)
     -- ── Root + trigger (Select-style) ─────────────────────────────────────────
     local sz = SIZES[self._cfg.size] or SIZES.default
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetHeight(sz.h)
     if config.width then self.frame:SetWidth(config.width) end
 
@@ -127,6 +128,7 @@ function Combobox:Create(parent, config)
 
     -- ── Panel: Craft.Popover (FR-028), p-0, anchored below the trigger ────────
     self._pop = Craft.Popover:Create({
+        theme   = self._theme,   -- FR-104: pinned to the combobox's context
         side    = "bottom",
         align   = "start",
         padding = 0,
@@ -201,9 +203,9 @@ function Combobox:Create(parent, config)
     self._empty:Hide()
 
     -- ── Theme ─────────────────────────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
     self:SetOptions(self._cfg.options)   -- normalize + seed entries (no-op paint: _t not set yet)
-    self:_applyTheme(Craft.Theme.get())  -- fonts/colors + first real row build
+    self:_applyTheme(self._theme:get())  -- fonts/colors + first real row build
 
     -- ── Reactive binds — options FIRST so value resolves against the live list ─
     R.applyOrBind(self, optionsSource,  function(s, v) s:SetOptions(v) end)
@@ -324,7 +326,7 @@ function Combobox:_buildRows()
         end
         row.index = i
 
-        Craft.Theme.applyFont(row.label,
+        self._theme:applyFont(row.label,
             (e.kind == "group" and (t.fontMedium or t.font)) or t.font, FONT_SIZE)
         row.label:SetText(e.kind == "group" and e.label or (e.opt.label or e.opt.value or ""))
         row.label:ClearAllPoints()
@@ -488,7 +490,7 @@ function Combobox:_applyTheme(t)
 
     local px1 = Craft.Theme.px(1, self._trigger)
 
-    Craft.Theme.applyFont(self._selectedText, t.font, FONT_SIZE)
+    self._theme:applyFont(self._selectedText, t.font, FONT_SIZE)
     self:_updateTriggerText()
 
     self._chevron:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)
@@ -509,14 +511,14 @@ function Combobox:_applyTheme(t)
     self._searchIcon:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)
     Craft.Theme.SetPixelHeight(self._searchSep, 1)
     self._searchSep:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a or 1)
-    Craft.Theme.applyFont(self._edit, t.font, FONT_SIZE)
+    self._theme:applyFont(self._edit, t.font, FONT_SIZE)
     self._edit:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
-    Craft.Theme.applyFont(self._searchPh, t.font, FONT_SIZE)
+    self._theme:applyFont(self._searchPh, t.font, FONT_SIZE)
     self._searchPh:SetText(self._cfg.searchPlaceholder)
     self._searchPh:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
 
     -- Empty state
-    Craft.Theme.applyFont(self._empty, t.font, FONT_SIZE)
+    self._theme:applyFont(self._empty, t.font, FONT_SIZE)
     self._empty:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
 
     -- Rows with the new palette/fonts
@@ -629,7 +631,7 @@ end
 function Combobox:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self._pop:Destroy()
     self.frame:Hide()
     self.frame = nil

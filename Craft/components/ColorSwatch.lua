@@ -52,6 +52,7 @@ function ColorSwatch:Create(parent, config)
 
     -- Root Button — the whole row (swatch + label) opens the picker.
     self.frame = CreateFrame("Button", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetHeight(sz)
     self.frame:EnableMouse(true)
 
@@ -89,8 +90,8 @@ function ColorSwatch:Create(parent, config)
     self.frame:SetScript("OnLeave", function() self:_hover(false) end)
 
     -- ── Theme + initial render ──────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
     if self._cfg.label then self._label:SetText(self._cfg.label) end  -- after SetFont
 
     -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
@@ -123,7 +124,7 @@ function ColorSwatch:_applyTheme(t)
     self._fill:SetPoint("BOTTOMRIGHT", self._swatch, "BOTTOMRIGHT", -px1, px1)
 
     -- Label
-    Craft.Theme.applyFont(self._label, t.font, FONT_SIZE)
+    self._theme:applyFont(self._label, t.font, FONT_SIZE)
     self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
 
     self:_refresh()
@@ -279,7 +280,7 @@ end
 function ColorSwatch:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

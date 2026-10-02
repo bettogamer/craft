@@ -81,6 +81,7 @@ function Tabs:Create(parent, config)
 
     -- Root frame
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
 
     -- Tab list: 32px tall, full width, bg=t.muted
     self._list = CreateFrame("Frame", nil, self.frame)
@@ -124,8 +125,8 @@ function Tabs:Create(parent, config)
     self._list:SetScript("OnSizeChanged", function() self:_relayout() end)
 
     -- Register theming
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     -- Add initial tabs from config
     if config.tabs then
@@ -184,7 +185,7 @@ function Tabs:AddTab(id, label, opts)
 
     local btnText = btn:CreateFontString(nil, "OVERLAY")
     if self._t then
-        Craft.Theme.applyFont(btnText, self._t.fontMedium or self._t.font, FONT_SIZE)
+        self._theme:applyFont(btnText, self._t.fontMedium or self._t.font, FONT_SIZE)
     end
     btnText:SetText(label or id)
 
@@ -299,7 +300,7 @@ function Tabs:_styleButton(btn, isActive)
     if not t then return end
 
     -- Font (.cn-tabs-trigger font-medium)
-    Craft.Theme.applyFont(btn._text, t.fontMedium or t.font, FONT_SIZE)
+    self._theme:applyFont(btn._text, t.fontMedium or t.font, FONT_SIZE)
 
     -- Line variant: no bg fill, no border box; active = 2px underline in t.foreground.
     if self._variant == "line" then
@@ -566,7 +567,7 @@ end
 function Tabs:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

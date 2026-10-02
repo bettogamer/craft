@@ -74,6 +74,7 @@ function Dialog:Create(parent, config)
     -- Named frame required for UISpecialFrames (closeOnEscape).
     local frameName = "CraftDialog_" .. self._instanceId
     self.frame = CreateFrame("Frame", frameName, UIParent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetFrameStrata(self._cfg.strata)
     self.frame:SetWidth(WIDTHS[self._cfg.size] or WIDTHS.default)
     -- Height is initially set to a sensible minimum; it grows via _layoutFrames.
@@ -105,7 +106,7 @@ function Dialog:Create(parent, config)
 
     -- Alpha eases 0↔1 as the open state flips. Duration/easing from the shared
     -- motion tokens (theme/Presets) so every animated component feels consistent.
-    local motion = Craft.Theme.get()
+    local motion = self._theme:get()
     local alpha = Weave.tween(
         Weave.computed(function() return self._open() and 1 or 0 end),
         { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
@@ -312,8 +313,8 @@ function Dialog:Create(parent, config)
     end
 
     -- ── Theme and layout ───────────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
     self._title:SetText(self._cfg.title)           -- after SetFont in _applyTheme
     if self._cfg.description then
         self._desc:SetText(self._cfg.description)
@@ -400,12 +401,12 @@ function Dialog:_applyTheme(t)
     self._bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b)
 
     -- Title: font-medium, fontSizeLg (14px), popoverForeground (.cn-dialog-title font-medium)
-    Craft.Theme.applyFont(self._title, t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14,
+    self._theme:applyFont(self._title, t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14,
         self._cfg.fontFlags)
     self._title:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
 
     -- Description: font, fontSize (12px), mutedForeground
-    Craft.Theme.applyFont(self._desc, t.font, t.fontSize or 12, self._cfg.fontFlags)
+    self._theme:applyFont(self._desc, t.font, t.fontSize or 12, self._cfg.fontFlags)
     self._desc:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
 
     -- Close icon: mutedForeground default
@@ -527,7 +528,7 @@ end
 function Dialog:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)            -- cut alpha/shown binds + the tween
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     if self._overlay then
         self._overlay:Hide()

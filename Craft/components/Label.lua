@@ -33,6 +33,7 @@ function Label:Create(parent, config)
     -- In all cases we create a Frame so that GetFrame() always returns a Frame
     -- and SetAlpha() (for disabled) works uniformly on the same object.
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
 
     -- _text: FontString child — OVERLAY, text-xs = 12px, leading-none
     self._text = self.frame:CreateFontString(nil, "OVERLAY")
@@ -64,8 +65,8 @@ function Label:Create(parent, config)
     self._text:SetPoint("TOPLEFT", self.frame, "TOPLEFT")
 
     -- Register in theming system and apply initial theme (sets font before SetText below)
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     -- SetText must come after _applyTheme so the font is set before WoW renders the string
     self._text:SetText(self._cfg.text)
@@ -120,7 +121,7 @@ function Label:_applyTheme(t)
         if     self._cfg.weight == "bold"   then font = t.fontBold   or t.font
         elseif self._cfg.weight == "medium" then font = t.fontMedium or t.font end
     end
-    Craft.Theme.applyFont(self._text, font,
+    self._theme:applyFont(self._text, font,
                           self._cfg.size or t.fontSize or 12, self._cfg.flags)
 
     -- Re-measure AFTER applyFont — MANDATORY here (CLAUDE.md bug #4): the Inter
@@ -239,7 +240,7 @@ function Label:SetFontOptions(opts)
     self._cfg.size   = opts.size
     self._cfg.flags  = opts.flags
     self._cfg.weight = opts.weight
-    self:_applyTheme(self._t or Craft.Theme.get())
+    self:_applyTheme(self._t or self._theme:get())
 end
 
 -- Returns the natural (untruncated) width of the current text in px.
@@ -268,7 +269,7 @@ end
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Label:Destroy()
     if not self.frame then return end
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

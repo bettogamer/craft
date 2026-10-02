@@ -63,6 +63,7 @@ function Textarea:Create(parent, config)
 
     -- ── Root frame ────────────────────────────────────────────────────────────
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetHeight(self._cfg.height)
     if self._cfg.width then self.frame:SetWidth(self._cfg.width) end
     self.frame:EnableMouse(true)
@@ -167,15 +168,15 @@ function Textarea:Create(parent, config)
     -- ── Theme + initial state ─────────────────────────────────────────────────
     -- First _applyTheme caches the border endpoints (self._borderIdle/_borderFocus)
     -- BEFORE the effect below runs eagerly and needs them.
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
     self._placeholder:SetText(self._cfg.placeholder)   -- after SetFont
 
     -- ── Animated focus border (Weave.tween) ──────────────────────────────────
     -- Mirrors Dialog._open→tween→effect: prog eases 0↔1 as focus flips; the effect
     -- lerps the border colour between idle and focus endpoints. Duration/easing
     -- from the shared motion tokens (theme/Presets) for a consistent feel.
-    local motion = Craft.Theme.get()
+    local motion = self._theme:get()
     local prog = Weave.tween(
         Weave.computed(function() return self._focused() and 1 or 0 end),
         { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
@@ -255,7 +256,7 @@ function Textarea:_applyTheme(t)
     local font = self._cfg.font or t.font
 
     -- EditBox + placeholder font/colour
-    Craft.Theme.applyFont(self._edit, font, FONT_SIZE)
+    self._theme:applyFont(self._edit, font, FONT_SIZE)
     if self._cfg.disabled then
         self._edit:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
         self._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a * 0.80)  -- disabled bg-input/80
@@ -263,7 +264,7 @@ function Textarea:_applyTheme(t)
         self._edit:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
         self._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, t.input.a * 0.30)  -- bg-input/30
     end
-    Craft.Theme.applyFont(self._placeholder, font, FONT_SIZE)
+    self._theme:applyFont(self._placeholder, font, FONT_SIZE)
     self._placeholder:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
 
     -- Border (4 × 1px, corner-safe)
@@ -358,7 +359,7 @@ function Textarea:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
     self._bar:Destroy()        -- the rail keeps its OWN theme listener
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

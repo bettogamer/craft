@@ -63,6 +63,8 @@ function Popover:Create(config)
     local panelName = "CraftPopoverPanel" .. Craft._popoverCount
     self._panelName = panelName
     self._panel = CreateFrame("Frame", panelName, UIParent, "BackdropTemplate")
+    self._theme = Craft.Theme.resolve(config and config.anchor, config, self._panel)  -- FR-104: before any child
+    self._themePinned = config.theme ~= nil   -- FR-104: else it follows the anchor on open
     self._panel:SetFrameStrata("TOOLTIP")
     self._panel:Hide()
     self._panel:SetClipsChildren(true)
@@ -92,7 +94,7 @@ function Popover:Create(config)
     self._open   = Weave.signal(false)
     self._hidden = Weave.signal(false)
 
-    local motion = Craft.Theme.get()
+    local motion = self._theme:get()
     local alpha = Weave.tween(
         Weave.computed(function() return self._open() and 1 or 0 end),
         { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
@@ -137,8 +139,8 @@ function Popover:Create(config)
     end)
 
     -- ── Theme ─────────────────────────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     -- ── Reactive `open` (ADR-0013): literal applies once, signal binds two-way ─
     if Craft.Reactive.isWritableSignal(config.open) then
@@ -197,6 +199,14 @@ function Popover:Open(anchor)
 
     local af = self._cfg.anchor or UIParent
     self._anchorFrame = af
+
+    -- FR-104 (ADR-0019 §3.4): the panel lives in UIParent, so without an explicit
+    -- `theme` it takes the context of the anchor it opens from — before measuring.
+    -- Craft components already inside the content keep the context they were
+    -- created with: pass `theme` or `anchor` to Create when the content has any.
+    if not self._themePinned then
+        Craft.Theme.rebind(self, Craft.Theme.resolve(af, nil), self._panel)
+    end
 
     local a   = ANCHORS[self._cfg.side]
     local pts = a[self._cfg.align] or a.center
@@ -264,7 +274,7 @@ function Popover:Destroy()
     if not self._panel then return end
     self:Close()
     Craft.Reactive.disposeAll(self)      -- animation binds + open bind
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     if self._catcher then self._catcher:Hide(); self._catcher = nil end
     self._panel:Hide()
     self._panel = nil

@@ -63,12 +63,13 @@ function ToggleGroup:Create(parent, config)
     end
 
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetHeight(H)
 
     self:_buildItems()
 
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
     -- options binds FIRST so the value bind resolves against the real list.
@@ -135,7 +136,7 @@ function ToggleGroup:_makeSegment(initialOn)
     seg.hoverSig = Weave.signal(false)                       -- hover (set by _hover)
     seg.target   = Weave.computed(function() return seg.onSig() or seg.hoverSig() end)
 
-    local m = Craft.Theme.get()
+    local m = self._theme:get()
     seg.prog = Weave.tween(
         Weave.computed(function() return seg.target() and 1 or 0 end),
         { duration = m.motionFast, easing = Weave.easing[m.motionEasing] })
@@ -343,7 +344,7 @@ function ToggleGroup:_applyTheme(t)
         self:_applyFill(seg)
 
         -- Text (foreground always; on/off differ only by fill)
-        Craft.Theme.applyFont(seg.fs, t.fontMedium or t.font, FONT_SIZE)   -- .cn-toggle font-medium
+        self._theme:applyFont(seg.fs, t.fontMedium or t.font, FONT_SIZE)   -- .cn-toggle font-medium
         seg.fs:SetTextColor(txt.r, txt.g, txt.b)
         seg.fs:SetText(seg.label)
 
@@ -411,7 +412,7 @@ function ToggleGroup:Destroy()
         if seg._ttOn then Craft.Tooltip.Detach(seg.btn) end  -- FR-020: cancels pending shows
     end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
     self._segs = nil

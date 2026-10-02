@@ -50,6 +50,7 @@ function Toggle:Create(parent, config)
     self._pressed = config.pressed and true or false
 
     self.frame = CreateFrame("Button", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self._size = SIZES[self._cfg.size] or SIZES["default"]
     self.frame:SetHeight(self._size.h)
 
@@ -79,7 +80,7 @@ function Toggle:Create(parent, config)
     self._target     = Weave.computed(function()
         return self._pressedSig() or self._hoverSig()
     end)
-    local m = Craft.Theme.get()
+    local m = self._theme:get()
     self._prog = Weave.tween(
         Weave.computed(function() return self._target() and 1 or 0 end),
         { duration = m.motionFast, easing = Weave.easing[m.motionEasing] })
@@ -88,8 +89,8 @@ function Toggle:Create(parent, config)
     self._effects[#self._effects + 1] = self._prog
     self._effects[#self._effects + 1] = Weave.effect(function() self:_applyFill() end)
 
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
     self._label:SetText(self._cfg.text)  -- after SetFont in _applyTheme (AGENTS §9)
     self:_recalcWidth()                  -- recalc now that text is set (GetStringWidth was 0 before)
 
@@ -196,7 +197,7 @@ function Toggle:_applyTheme(t)
         self:_setBorderColor(0, 0, 0, 0)  -- default: bg-transparent, borderless
     end
 
-    Craft.Theme.applyFont(self._label, t.fontMedium or t.font, s.font)  -- .cn-toggle font-medium text-xs
+    self._theme:applyFont(self._label, t.fontMedium or t.font, s.font)  -- .cn-toggle font-medium text-xs
 
     -- Cache the fill endpoint (bg-muted — pressed and hover share it), then re-apply
     -- at the CURRENT progress (a theme change doesn't tick the tween — AGENTS §9).
@@ -282,7 +283,7 @@ function Toggle:Destroy()
         Craft.Tooltip.Detach(self.frame)       -- FR-020: cancels any pending delayed show
     end
     Craft.Reactive.disposeAll(self)            -- cut the fill tween + effect (ghost updates)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

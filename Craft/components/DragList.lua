@@ -59,6 +59,7 @@ function DragList:Create(parent, config)
     end
 
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetWidth(self._cfg.width)
 
     -- FR-090: `_cfg.width` is the single source of truth for the row width, and the
@@ -70,9 +71,9 @@ function DragList:Create(parent, config)
     -- One OnUpdate closure for the whole list (installed only while dragging)
     self._onUpdate = function() self:_onDragUpdate() end
 
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
     self:_build()
-    self:_applyTheme(Craft.Theme.get())
+    self:_applyTheme(self._theme:get())
 
     -- ── Reactive binds — after the initial build. `items`: skip the rebuild
     -- when the incoming table is the one we just wrote back (post-reorder echo).
@@ -313,7 +314,7 @@ function DragList:_applyTheme(t)
         row.divider:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
         row.dragBg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 1)
         if row.fs then
-            Craft.Theme.applyFont(row.fs, t.font, FONT_SIZE)   -- font BEFORE SetText (see _build)
+            self._theme:applyFont(row.fs, t.font, FONT_SIZE)   -- font BEFORE SetText (see _build)
             row.fs:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
             row.fs:SetText(row.labelText or "")
         end
@@ -363,7 +364,7 @@ function DragList:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)  -- cut the items bind (ghost updates on reuse)
     self.frame:SetScript("OnUpdate", nil)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     -- Hand every still-rendered row back to the consumer so it can destroy the
     -- components it put in them (they'd otherwise stay in Theme._listeners).
     for _, row in ipairs(self._rows) do self:_releaseRow(row) end

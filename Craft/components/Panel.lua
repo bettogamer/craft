@@ -40,6 +40,7 @@ function Panel:Create(parent, config)
     -- ── Root frame ─────────────────────────────────────────────────────────
     -- panel.frame is what the developer anchors and sizes.
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     if self._cfg.width  then self.frame:SetWidth(self._cfg.width)   end
     if self._cfg.height then self.frame:SetHeight(self._cfg.height) end
     self.frame:SetClipsChildren(true)  -- overflow-hidden (cn-card)
@@ -118,8 +119,8 @@ function Panel:Create(parent, config)
     end
 
     -- ── Theme registration ─────────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     -- ── Initial text ───────────────────────────────────────────────────────
     if self._cfg.title then
@@ -306,12 +307,12 @@ function Panel:_applyTheme(t)
     self._bg:SetColorTexture(t.card.r, t.card.g, t.card.b)
 
     -- Title: font-medium, fontSizeLg (14px), cardForeground (.cn-card-title font-medium)
-    Craft.Theme.applyFont(self._title, t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14)
+    self._theme:applyFont(self._title, t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14)
     self._title:SetTextColor(t.cardForeground.r, t.cardForeground.g, t.cardForeground.b)
 
     -- Description: font, fontSize (12px), mutedForeground
     local descSz = t.fontSize or 12
-    Craft.Theme.applyFont(self._desc, t.font, descSz)
+    self._theme:applyFont(self._desc, t.font, descSz)
     self._desc:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     -- line-height: leading-relaxed = 1.625 (.cn-card-description { text-xs/relaxed }). WoW
     -- SetSpacing es el px EXTRA entre líneas; sobre leading 1.0 el extra ≈ size*0.625 (=8px @12).
@@ -430,7 +431,7 @@ end
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Panel:Destroy()
     if not self.frame then return end
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

@@ -48,6 +48,7 @@ function Scroll:Create(parent, config)
 
     -- Root frame — sized by dev
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     if config.width  then self.frame:SetWidth(config.width)   end
     if config.height then self.frame:SetHeight(config.height) end
 
@@ -138,8 +139,8 @@ function Scroll:Create(parent, config)
     self.frame:SetScript("OnShow", function() self:_updateScrollbar() end)
 
     -- Register theming
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     return self
 end
@@ -285,7 +286,7 @@ function Scroll:Destroy()
     if not self.frame then return end
     if self._bar  then self._bar:Destroy()  end   -- each rail keeps its OWN theme listener
     if self._hbar then self._hbar:Destroy() end
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

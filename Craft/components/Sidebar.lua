@@ -86,6 +86,7 @@ function Sidebar:Create(parent, config)
 
     -- ── Root frame ────────────────────────────────────────────────────────────
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetWidth(w)
 
     -- _bg: Texture BACKGROUND — t.sidebar
@@ -245,8 +246,8 @@ function Sidebar:Create(parent, config)
     self._itemFrames = {}
 
     -- ── Theme registration ────────────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     -- ── Load initial items (flat groups and/or nested tree) ───────────────────
     self._building = true
@@ -352,7 +353,7 @@ function Sidebar:_recolorAll()
                 t.sidebarForeground.b,
                 GROUP_ALPHA
             )
-            Craft.Theme.applyFont(entry.labelFs, t.font, GROUP_FONT)
+            self._theme:applyFont(entry.labelFs, t.font, GROUP_FONT)
 
         elseif entry.type == "item" and entry.frame then
             self:_colorItem(entry, entry.itemId == self._cfg.activeItem)
@@ -385,7 +386,7 @@ function Sidebar:_colorItem(entry, isActive)
         -- Takes precedence over active/hover (pointer-events-none in Lyra).
         local m = t.mutedForeground
         entry.bg:SetColorTexture(0, 0, 0, 0)
-        Craft.Theme.applyFont(entry.labelFs, t.font, ITEM_FONT)
+        self._theme:applyFont(entry.labelFs, t.font, ITEM_FONT)
         entry.labelFs:SetTextColor(m.r, m.g, m.b, DISABLED_ALPHA)
         if entry.iconTex then
             entry.iconTex:SetVertexColor(m.r, m.g, m.b, DISABLED_ALPHA)
@@ -402,7 +403,7 @@ function Sidebar:_colorItem(entry, isActive)
         -- Lyra only sets data-active:font-medium on the root menu-button; the nested
         -- menu-sub-button keeps regular weight (FR-047)
         local activeFont = (entry.depth or 0) == 0 and (t.fontMedium or t.font) or t.font
-        Craft.Theme.applyFont(entry.labelFs, activeFont, ITEM_FONT)
+        self._theme:applyFont(entry.labelFs, activeFont, ITEM_FONT)
         entry.labelFs:SetTextColor(
             t.sidebarAccentForeground.r,
             t.sidebarAccentForeground.g,
@@ -422,7 +423,7 @@ function Sidebar:_colorItem(entry, isActive)
         end
     else
         entry.bg:SetColorTexture(0, 0, 0, 0)
-        Craft.Theme.applyFont(entry.labelFs, t.font, ITEM_FONT)  -- regular weight when inactive
+        self._theme:applyFont(entry.labelFs, t.font, ITEM_FONT)  -- regular weight when inactive
         entry.labelFs:SetTextColor(
             t.sidebarForeground.r,
             t.sidebarForeground.g,
@@ -534,7 +535,7 @@ function Sidebar:AddSection(label)
     labelFs:SetJustifyV("MIDDLE")
 
     if t then
-        Craft.Theme.applyFont(labelFs, t.font, GROUP_FONT)
+        self._theme:applyFont(labelFs, t.font, GROUP_FONT)
         labelFs:SetTextColor(
             t.sidebarForeground.r,
             t.sidebarForeground.g,
@@ -608,7 +609,7 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
     -- Label — SINGLE-point anchor set in _positionRow (avoids the FontString two-anchor
     -- bug #2 when _child width resolves late).
     local labelFs = itemFrame:CreateFontString(nil, "OVERLAY")
-    if t then Craft.Theme.applyFont(labelFs, t.font, ITEM_FONT) end
+    if t then self._theme:applyFont(labelFs, t.font, ITEM_FONT) end
     labelFs:SetJustifyH("LEFT")
     labelFs:SetJustifyV("MIDDLE")
     labelFs:SetText(label)
@@ -1026,7 +1027,7 @@ function Sidebar:Destroy()
         if e.tooltip and e.frame then Craft.Tooltip.Detach(e.frame) end
     end
     self:_destroyRowAvatars()
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

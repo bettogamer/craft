@@ -70,6 +70,7 @@ function Badge:Create(parent, config)
 
     -- ── Frames ────────────────────────────────────────────────────────────────
     self.frame = CreateFrame("Button", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetHeight(H)
     self.frame:EnableMouse(self._cfg.selectable)   -- plain badges let clicks pass
 
@@ -126,8 +127,8 @@ function Badge:Create(parent, config)
     end)
 
     -- ── Theme ─────────────────────────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
     self._label:SetText(self._cfg.text)   -- after applyFont (AGENTS §9)
     self:_recalcSize()
 
@@ -260,7 +261,7 @@ end
 function Badge:_applyTheme(t)
     self._t = t
 
-    Craft.Theme.applyFont(self._label, t.fontMedium or t.font, FONT_SIZE, self._cfg.fontFlags)
+    self._theme:applyFont(self._label, t.fontMedium or t.font, FONT_SIZE, self._cfg.fontFlags)
 
     local px1 = Craft.Theme.px(1, self.frame)
     if self._pill then
@@ -323,7 +324,7 @@ end
 function Badge:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

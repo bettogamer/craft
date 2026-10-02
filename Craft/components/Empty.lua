@@ -86,6 +86,7 @@ function Empty:Create(parent, config)
     }
 
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     if self._cfg.width  then self.frame:SetWidth(self._cfg.width)   end
     if self._cfg.height then self.frame:SetHeight(self._cfg.height) end
 
@@ -119,8 +120,8 @@ function Empty:Create(parent, config)
 
     self:_buildMedia()
 
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     -- Props reactivas (ADR-0013): title/description aceptan literal o señal. One-way —
     -- un estado vacío no se escribe de vuelta. Van DESPUÉS de _applyTheme porque el
@@ -169,13 +170,13 @@ function Empty:_applyTheme(t)
 
     -- Título: text-sm (14 = t.fontSizeLg) weight medium, t.foreground.
     local titleSize = t.fontSizeLg or 14
-    Craft.Theme.applyFont(self._title, t.fontMedium or t.font, titleSize, self._cfg.fontFlags)
+    self._theme:applyFont(self._title, t.fontMedium or t.font, titleSize, self._cfg.fontFlags)
     self._title:SetSpacing(lineSpacing(titleSize, TITLE_LEADING))
     self._title:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
 
     -- Descripción: text-xs (12 = t.fontSize) leading-relaxed, t.mutedForeground.
     local descSize = t.fontSize or 12
-    Craft.Theme.applyFont(self._desc, t.font, descSize, self._cfg.fontFlags)
+    self._theme:applyFont(self._desc, t.font, descSize, self._cfg.fontFlags)
     self._desc:SetSpacing(lineSpacing(descSize, DESC_LEADING))
     self._desc:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
 
@@ -413,7 +414,7 @@ function Empty:Destroy()
     if not self.frame then return end
     -- media y content son propiedad del caller (solo reparentados): NO se destruyen aquí.
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self._contentFrames = {}
     self.frame:Hide()
     self.frame = nil

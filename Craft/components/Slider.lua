@@ -90,6 +90,7 @@ function Slider:Create(parent, config)
 
     -- ── Root frame ───────────────────────────────────────────────────────────
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetHeight(frameH)
     -- `config.width` was documented but never applied: the height was set here and
     -- the width silently wasn't, so a caller who passed `width` (and reasonably
@@ -247,8 +248,8 @@ function Slider:Create(parent, config)
     end)
 
     -- ── Theme + initial render ────────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     -- ── Reactive binds — after the theme pass (SetText needs the font set) ────
     R.applyOrBind(self, labelSource,    function(s, text) s:SetLabel(text) end)
@@ -395,21 +396,21 @@ function Slider:_applyTheme(t)
     Craft.Theme.SetPixelWidth(self._thumbRingRight, 1)
 
     if self._label then
-        Craft.Theme.applyFont(self._label, t.font, t.fontSizeSm)
+        self._theme:applyFont(self._label, t.font, t.fontSizeSm)
         self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
         self._label:SetText(self._cfg.label or "")
     end
     if self._valueLabel then
-        Craft.Theme.applyFont(self._valueLabel, t.font, t.fontSizeSm)
+        self._theme:applyFont(self._valueLabel, t.font, t.fontSizeSm)
         self._valueLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
         self._valueLabel:SetText(self:_fmt(self._value, "value"))
     end
     if self._minLabel then
-        Craft.Theme.applyFont(self._minLabel, t.font, t.fontSizeSm)
+        self._theme:applyFont(self._minLabel, t.font, t.fontSizeSm)
         self._minLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     end
     if self._maxLabel then
-        Craft.Theme.applyFont(self._maxLabel, t.font, t.fontSizeSm)
+        self._theme:applyFont(self._maxLabel, t.font, t.fontSizeSm)
         self._maxLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     end
 
@@ -488,7 +489,7 @@ end
 function Slider:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

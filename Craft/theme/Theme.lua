@@ -1,6 +1,6 @@
 -- Theme.lua — theming system with live-switching
 -- Spec:   docs/components/theme.md
--- ADR:    docs/adr/0005-sistema-de-theming.md
+-- ADR:    docs/adr/0005-sistema-de-theming.md, 0019-contextos-de-tema.md (contexts)
 -- Pixels: docs/pixel-perfect.md (ADR-0011)
 --
 -- Depends on: CraftPresets global (defined in theme/Presets.lua, loaded first in Craft.toc)
@@ -10,25 +10,41 @@ local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (
 
 local T = {}
 
--- ─── Internal state ────────────────────────────────────────────────────────
+-- ─── Contexts (ADR-0019) ───────────────────────────────────────────────────
+-- A theme CONTEXT is an object with its own active preset, token cache and
+-- listener list. `Craft.Theme` itself IS the default context (its state lives
+-- in the T._active/_resolved/_listeners fields below, as before ADR-0019), and
+-- each consumer addon may own a named one: Craft.Theme.context("SMRT", spec).
+-- `Ctx` holds the methods; every one takes the context as first arg, so they
+-- work as `ctx:get()` on a named context and back the dot-call statics of T.
 
+local Ctx = {}
+local CtxMT = { __index = Ctx }
+
+-- ─── Internal state of the DEFAULT context ─────────────────────────────────
+
+T.name         = "default"
 T._active      = "lyra-dark"   -- name of the active preset
 T._resolved    = nil           -- cached token table; nil = needs rebuild on next get()
 T._listeners   = {}            -- array of {handle=int, fn=function}
 T._handleCount = 0             -- auto-increment for unique handles
+T._spec        = nil           -- axis spec in use (ADR-0014), nil = preset/token table
 T._presets     = CraftPresets  -- reference to Presets.lua global (never mutate directly)
+T._contexts    = {}            -- name → named context (the default is T, not listed)
 
 -- ─── get() ─────────────────────────────────────────────────────────────────
 -- Returns the resolved token table. Lazy: builds on first call, caches until use().
 -- The returned table is READ-ONLY — never mutate t.primary.r or similar.
 
-function T.get()
-    if T._resolved then return T._resolved end
+function Ctx.get(s)
+    if s._resolved then return s._resolved end
 
-    local preset = T._presets[T._active]
+    -- A named context keeps its anonymous preset to itself (_custom); the default
+    -- one keeps the historical shared slot T._presets.__custom__.
+    local preset = (s._active == "__custom__" and s._custom) or T._presets[s._active]
     if not preset then
         -- Fallback: should never happen if _active is always valid
-        T._active = "lyra-dark"
+        s._active = "lyra-dark"
         preset = T._presets["lyra-dark"]
     end
 
@@ -38,40 +54,63 @@ function T.get()
     for k, v in pairs(preset) do
         resolved[k] = v
     end
-    T._resolved = resolved
+    s._resolved = resolved
     return resolved
 end
 
 -- ─── use() ─────────────────────────────────────────────────────────────────
--- Switches the active preset and notifies all registered listeners.
--- preset: string (registered name) or table (anonymous custom preset)
+-- Switches the active preset and notifies THIS context's listeners only.
+-- preset: string (registered name), table of TOKENS (anonymous custom preset —
+-- every preset and every build() result has `background`), or an axis SPEC
+-- table ({ base=, accent=, font=, … }, ADR-0014) MERGED over the spec in use,
+-- so ctx:use({ accent = "orange" }) changes only the accent. A name or a token
+-- table resets the spec.
 
-function T.use(preset)
+local function mergeSpec(base, delta)
+    local out = {}
+    if base then for k, v in pairs(base) do out[k] = v end end
+    for k, v in pairs(delta) do out[k] = v end
+    return out
+end
+
+function Ctx.use(s, preset)
     if type(preset) == "string" then
-        if not T._presets[preset] then
+        if not T._presets[preset] or preset == "__custom__" then
             -- Unknown preset name — warn and abort
             if DEFAULT_CHAT_FRAME then
                 DEFAULT_CHAT_FRAME:AddMessage("|cffff4444Craft:|r unknown theme preset: " .. tostring(preset))
             end
             return
         end
-        T._active = preset
+        s._active = preset
+        s._spec   = nil
 
     elseif type(preset) == "table" then
+        local tokens = preset
+        if preset.background == nil then
+            s._spec = mergeSpec(s._spec, preset)
+            tokens  = CraftThemeAxes.compose(s._spec)
+        else
+            s._spec = nil
+        end
         -- Anonymous custom preset — stored under a reserved key
-        T._presets["__custom__"] = preset
-        T._active = "__custom__"
+        if s == T then
+            T._presets["__custom__"] = tokens
+        else
+            s._custom = tokens
+        end
+        s._active = "__custom__"
 
     else
         return
     end
 
     -- Invalidate cache and rebuild immediately
-    T._resolved = nil
-    local t = T.get()
+    s._resolved = nil
+    local t = Ctx.get(s)
 
     -- Notify all listeners in insertion order (synchronous)
-    for _, entry in ipairs(T._listeners) do
+    for _, entry in ipairs(s._listeners) do
         entry.fn(t)
     end
 
@@ -83,23 +122,30 @@ end
 -- ─── register() / unregister() ─────────────────────────────────────────────
 -- Components call register() in Create() and unregister() in Destroy().
 -- Forgetting unregister() causes memory leaks and potential errors on destroyed frames.
+-- Handles are unique PER CONTEXT: unregister on the context you registered with.
 
-function T.register(fn)
-    T._handleCount = T._handleCount + 1
-    local handle   = T._handleCount
-    table.insert(T._listeners, { handle = handle, fn = fn })
+function Ctx.register(s, fn)
+    s._handleCount = s._handleCount + 1
+    local handle   = s._handleCount
+    table.insert(s._listeners, { handle = handle, fn = fn })
     return handle
 end
 
-function T.unregister(handle)
+function Ctx.unregister(s, handle)
     if not handle then return end
-    for i, entry in ipairs(T._listeners) do
+    for i, entry in ipairs(s._listeners) do
         if entry.handle == handle then
-            table.remove(T._listeners, i)
+            table.remove(s._listeners, i)
             return
         end
     end
     -- handle not found: no-op (already unregistered or never registered)
+end
+
+-- The axis spec in use (nil when the context runs a named preset or a token
+-- table). Consumers persist it in THEIR SavedVariables (Craft persists nothing).
+function Ctx.getSpec(s)
+    return s._spec
 end
 
 -- ─── extend() ──────────────────────────────────────────────────────────────
@@ -217,8 +263,8 @@ end
 
 -- ─── getFont() ─────────────────────────────────────────────────────────────
 
-function T.getFont(weight)
-    local t = T.get()
+function Ctx.getFont(s, weight)
+    local t = Ctx.get(s)
     if weight == "bold"   then return t.fontBold end
     if weight == "medium" then return t.fontMedium end
     return t.font
@@ -227,19 +273,20 @@ end
 -- ─── applyFont() ───────────────────────────────────────────────────────────
 -- Punto ÚNICO donde los componentes aplican fuente a un FontString/EditBox
 -- (ADR-0015 Fase 3). Recibe la ruta y el tamaño YA resueltos y añade el flag de
--- outline global (`t.fontFlags`, default "" = sin contorno). Antes cada componente
+-- outline del tema (`t.fontFlags`, default "" = sin contorno). Antes cada componente
 -- llamaba `fs:SetFont(path, size)` disperso; centralizar aquí permite el outline
 -- (y cualquier flag futuro) sin tocar 40+ sitios. Pasa siempre el 3er arg, que el
--- EditBox REQUIERE y el FontString acepta.
+-- EditBox REQUIERE y el FontString acepta. Los tokens son los del CONTEXTO
+-- (ADR-0019): un componente llama `self._theme:applyFont(...)`.
 --
 -- `flags` (4º arg, opcional, FR-092) permite a UN elemento apartarse del flag
--- global: `nil` = hereda `t.fontFlags` (el caso de los 32 call-sites migrados en
+-- del tema: `nil` = hereda `t.fontFlags` (el caso de los 32 call-sites migrados en
 -- la Fase 3), y una cadena — incluida `""` — MANDA sobre el tema. Existe para el
 -- texto sobre el mundo 3D, donde el consumidor necesita contorno en ese panel sin
--- ponérselo a toda su UI; el default sigue siendo el token global.
+-- ponérselo a toda su UI; el default sigue siendo el token del tema.
 
-function T.applyFont(fs, path, size, flags)
-    local t = T._resolved or T.get()
+function Ctx.applyFont(s, fs, path, size, flags)
+    local t = s._resolved or Ctx.get(s)
     local f = flags or t.fontFlags or ""
 
     -- Una ruta AJENA (LibSharedMedia, un TTF que el usuario borró) puede no
@@ -250,6 +297,121 @@ function T.applyFont(fs, path, size, flags)
     if fs:SetFont(path, size, f) == false and path ~= t.font then
         fs:SetFont(t.font, size, f)
     end
+end
+
+-- ─── Default context statics ───────────────────────────────────────────────
+-- Craft.Theme.get() (dot, historical) and Craft.Theme:get() (the default
+-- context used as an object, ADR-0019 §3.2) both work: a leading arg equal to
+-- T is dropped. Lets a component hold `self._theme = Craft.Theme` and call
+-- self._theme:register(...) without caring which context it got.
+
+for _, m in ipairs({ "get", "use", "register", "unregister", "getSpec", "getFont", "applyFont" }) do
+    local fn = Ctx[m]
+    T[m] = function(a, ...)
+        if a == T then return fn(T, ...) end
+        return fn(T, a, ...)
+    end
+end
+
+-- ─── context() ─────────────────────────────────────────────────────────────
+-- A named theme context (ADR-0019), IDEMPOTENT by name: the first call creates
+-- it and applies `spec` (preset name, token table or axis spec — same as use());
+-- later calls return the SAME object and ignore `spec`, so any module of the
+-- consumer can fetch it without resetting what the user changed live.
+-- Without spec a new context starts at the MVP config ("lyra-dark").
+-- "default" is Craft.Theme itself.
+
+function T.context(name, spec)
+    if name == "default" then return T end
+    if type(name) ~= "string" or name == "" then
+        error("Craft.Theme.context(name, spec): name must be a non-empty string", 2)
+    end
+    local ctx = T._contexts[name]
+    if ctx then return ctx end
+    ctx = setmetatable({
+        name         = name,
+        _active      = "lyra-dark",
+        _resolved    = nil,
+        _listeners   = {},
+        _handleCount = 0,
+        _spec        = nil,
+        _custom      = nil,
+    }, CtxMT)
+    T._contexts[name] = ctx
+    if spec ~= nil then Ctx.use(ctx, spec) end
+    return ctx
+end
+
+-- True for Craft.Theme and for any context made by context().
+function T.isContext(v)
+    return v == T or (type(v) == "table" and getmetatable(v) == CtxMT)
+end
+
+-- ─── resolve() ─────────────────────────────────────────────────────────────
+-- The context a component uses, picked ONCE in Create (ADR-0019 §3.3):
+--   config.theme (context or name) > inherited from `parent` > Craft.Theme.
+-- Inheritance walks parent:GetParent()… up to the first frame marked with
+-- `_craftTheme`. `parent` may also be a Craft component (anything with
+-- GetFrame()). If `frame` is given it is marked, so descendants inherit:
+-- components call this BEFORE creating their sub-components.
+
+local function frameOf(v)
+    if type(v) ~= "table" then return nil end
+    if v.GetParent then return v end
+    if v.GetFrame then return v:GetFrame() end
+    return v.frame
+end
+
+local function inherited(parent)
+    local f = frameOf(parent)
+    local depth = 0
+    while f and depth < 64 do
+        local mark = f._craftTheme
+        if mark then return mark end
+        -- pcall: an anchor may be a Blizzard frame whose ancestors are forbidden
+        local ok, p = pcall(f.GetParent, f)
+        f = ok and p or nil
+        depth = depth + 1
+    end
+    return nil
+end
+
+function T.resolve(parent, config, frame)
+    local ctx
+    local want = config and config.theme
+    if want ~= nil then
+        if type(want) == "string" then
+            ctx = (want == "default") and T or T._contexts[want]
+            if not ctx and DEFAULT_CHAT_FRAME then
+                DEFAULT_CHAT_FRAME:AddMessage("|cffff4444Craft:|r unknown theme context: " .. want)
+            end
+        elseif T.isContext(want) then
+            ctx = want
+        end
+    end
+    ctx = ctx or inherited(parent) or T
+    if frame then frame._craftTheme = ctx end
+    return ctx
+end
+
+-- ─── rebind() ──────────────────────────────────────────────────────────────
+-- Moves a component to another context (ADR-0019 §3.4): the overlays that
+-- follow their anchor re-resolve on Open/Show. Uses owner._theme /
+-- owner._themeHandle / owner:_applyTheme; no-op when already there. `frame`
+-- (optional) is re-marked so later children inherit the new context.
+-- Returns true if the context changed.
+
+function T.rebind(owner, ctx, frame)
+    ctx = ctx or T
+    if frame then frame._craftTheme = ctx end
+    if owner._theme == ctx then return false end
+    if owner._theme and owner._themeHandle then
+        owner._theme:unregister(owner._themeHandle)
+    end
+    owner._theme = ctx
+    owner._themeHandle = ctx:register(function(t) owner:_applyTheme(t) end)
+    owner:_applyTheme(ctx:get())
+    return true
 end
 
 -- ─── getPresets() ──────────────────────────────────────────────────────────
@@ -415,9 +577,16 @@ do
 
     local function notifyMetricsChanged()
         -- Same notification use() performs: components re-run _applyTheme
+        -- ... in EVERY context (ADR-0019), each with its own tokens.
         local t = T.get()
         for _, entry in ipairs(T._listeners) do
             entry.fn(t)
+        end
+        for _, ctx in pairs(T._contexts) do
+            local ct = Ctx.get(ctx)
+            for _, entry in ipairs(ctx._listeners) do
+                entry.fn(ct)
+            end
         end
         for i = 1, #fontsChangedCbs do fontsChangedCbs[i]() end
     end

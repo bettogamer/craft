@@ -44,6 +44,7 @@ function Section:Create(parent, config)
     self._expanded = (config.collapsed == false)  -- collapsed defaults to true → start collapsed
 
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
 
     -- ── Header (trigger) ──────────────────────────────────────────────────────
     -- Height is dynamic (FR-044): HEADER_MIN is the single-line floor; a long title
@@ -108,7 +109,7 @@ function Section:Create(parent, config)
     -- `_open` mirrors `_expanded` and is the reactive source; `_bodyH` publishes the
     -- expandable region height (content + pb-2.5) so a content resize re-derives the
     -- open height without re-animating (only a toggle moves `prog`).
-    local m = Craft.Theme.get()
+    local m = self._theme:get()
     self._open    = Weave.signal(self._expanded)
     self._bodyH   = Weave.signal(0)
     self._headerH = Weave.signal(HEADER_MIN)   -- FR-044: drives the collapsed floor; grows with wrapped titles
@@ -164,8 +165,8 @@ function Section:Create(parent, config)
         self._chevron:SetRotation(prog() * math.pi)
     end)
 
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     return self
 end
@@ -342,7 +343,7 @@ function Section:_applyTheme(t)
     self._t = t
 
     -- .cn-accordion-trigger font-medium; t.fontHeading = eje headingFont (ADR-0014)
-    Craft.Theme.applyFont(self._title, t.fontHeading or t.fontMedium or t.font, FONT_SIZE)
+    self._theme:applyFont(self._title, t.fontHeading or t.fontMedium or t.font, FONT_SIZE)
     self._title:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
     self._title:SetText(self._cfg.title)
 
@@ -374,7 +375,7 @@ end
 function Section:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)            -- cut height/alpha/shown binds + tweens
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
     self._child = nil

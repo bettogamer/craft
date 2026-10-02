@@ -58,6 +58,7 @@ function Checkbox:Create(parent, config)
     -- ── Root frame ────────────────────────────────────────────────────────────
     -- Generic frame: receives OnMouseDown over the entire area (box + label)
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetHeight(BOX_SIZE)
     self.frame:EnableMouse(true)
     -- Target real 40×32 con el box en 16×16 (FR-055). El rect crece por los 4 lados; con
@@ -126,7 +127,7 @@ function Checkbox:Create(parent, config)
     -- indicator en indeterminate: `color` = `--foreground`, no `--primary-foreground`
     -- (si la regla de checked hubiera aplicado, el glyph heredaría primary-foreground).
     -- Antes ambos estados compartían un único `prog` y el box salía accent en mixed.
-    local motion = Craft.Theme.get()
+    local motion = self._theme:get()
     local tweenOpts = { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] }
 
     -- fill: relleno + borde del box. SOLO "on".
@@ -148,8 +149,8 @@ function Checkbox:Create(parent, config)
     self._effects[#self._effects + 1] = iconA
 
     -- ── Theme registration ────────────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
     if self._cfg.label and self._cfg.label ~= "" then
         self._label:SetText(self._cfg.label)  -- after SetFont in _applyTheme
         self:_recalcWidth()                   -- recalc now that text is set (GetStringWidth was 0 before)
@@ -209,7 +210,7 @@ end
 -- Single point where the visual STATE is recomputed after a toggle/programmatic
 -- change. It only pushes the state into _checkedSig (which drives the fade) and
 -- syncs the non-animated disabled alpha; colors/icon alpha are painted by the
--- Weave effect (see Create) / _paint. NO Craft.Theme.get() — endpoints live in
+-- Weave effect (see Create) / _paint. NO self._theme:get() — endpoints live in
 -- self._c cached by _applyTheme.
 function Checkbox:_refreshVisual()
     if self._checkedSig then
@@ -231,7 +232,7 @@ end
 
 -- ─── _paint ───────────────────────────────────────────────────────────────────
 -- Renders the box for a given progress p in [0,1] (0=unchecked, 1=filled). Reads
--- the theme endpoints cached in self._c (never Craft.Theme.get()). Called every
+-- the theme endpoints cached in self._c (never self._theme:get()). Called every
 -- tween tick by the effect, and directly by _applyTheme after re-caching endpoints
 -- so a mid-animation theme change re-applies at the current prog (AGENTS §9).
 function Checkbox:_paint(fillP, iconP)
@@ -282,7 +283,7 @@ function Checkbox:_applyTheme(t)
     self._t = t
 
     -- Label font
-    Craft.Theme.applyFont(self._label, t.font, 12)
+    self._theme:applyFont(self._label, t.font, 12)
     if self._cfg.disabled then
         self._label:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     else
@@ -403,7 +404,7 @@ end
 function Checkbox:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

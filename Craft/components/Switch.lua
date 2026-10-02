@@ -62,6 +62,7 @@ function Switch:Create(parent, config)
 
     -- ── Root frame: the pill track (captures clicks over the whole control) ──
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetSize(self._dims.trackW, self._dims.trackH)
     self.frame:EnableMouse(true)
 
@@ -90,7 +91,7 @@ function Switch:Create(parent, config)
     -- signal (_checkedSignal, above) is separate.
     self._checkedSig = Weave.signal(self._cfg.checked)
 
-    local motion = Craft.Theme.get()
+    local motion = self._theme:get()
     local prog = Weave.tween(
         Weave.computed(function() return self._checkedSig() and 1 or 0 end),
         { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
@@ -103,8 +104,8 @@ function Switch:Create(parent, config)
     self._effects[#self._effects + 1] = prog  -- dispose the tween (effect + driver reg)
 
     -- ── Theme registration ────────────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     -- ── Reactive binds — checked binds through _applyChecked (not SetChecked)
     -- so a programmatic signal sync never fires onChange — _toggle already
@@ -142,7 +143,7 @@ end
 -- ─── _refreshVisual ───────────────────────────────────────────────────────────
 -- Single point where the visual STATE is recomputed after a toggle/programmatic
 -- change: pushes the state into _checkedSig (which drives the slide) and syncs
--- the non-animated disabled alpha. NO Craft.Theme.get() — endpoints live in
+-- the non-animated disabled alpha. NO self._theme:get() — endpoints live in
 -- self._c cached by _applyTheme.
 function Switch:_refreshVisual()
     if self._checkedSig then
@@ -157,7 +158,7 @@ end
 
 -- ─── _paint ───────────────────────────────────────────────────────────────────
 -- Renders track + thumb for a progress p in [0,1] (0=unchecked, 1=checked).
--- Reads the theme endpoints cached in self._c (never Craft.Theme.get()). Called
+-- Reads the theme endpoints cached in self._c (never self._theme:get()). Called
 -- every tween tick by the effect, and directly by _applyTheme after re-caching
 -- endpoints so a mid-animation theme change re-applies at the current prog (§9).
 function Switch:_paint(p)
@@ -308,7 +309,7 @@ end
 function Switch:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

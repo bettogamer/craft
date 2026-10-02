@@ -42,13 +42,14 @@ Field.__index = Field
 -- ─── Create ──────────────────────────────────────────────────────────────────
 function Field:Create(parent, config)
     local self = setmetatable({}, Field)
+    self._theme = Craft.Theme.resolve(parent, config)  -- FR-104 (frame marked below)
 
     config = config or {}
     assert(config.control, "Craft.Field: config.control es obligatorio")
 
     -- gap-2 = t.spacingSm (8px, Lyra .cn-field { gap: calc(var(--spacing)*2) }). Fallback literal
     -- 8 si el token no existe en el tema (defensivo, igual que FieldGroup con spacingLg2).
-    local theme = Craft.Theme.get()
+    local theme = self._theme:get()
     self._cfg = {
         label       = config.label,
         description = config.description,
@@ -61,6 +62,7 @@ function Field:Create(parent, config)
 
     -- Root frame — sin fondo ni ring: Field es puro layout, no chrome visual.
     self.frame = CreateFrame("Frame", nil, parent)
+    self.frame._craftTheme = self._theme  -- FR-104: children inherit
     if self._cfg.width then self.frame:SetWidth(self._cfg.width) end
 
     -- Control externo: se REPARENTA, NO se crea (consistente con Panel.footer). Duck-type:
@@ -83,8 +85,8 @@ function Field:Create(parent, config)
     if self._cfg.description then self:_ensureDesc() end
     if self._cfg.error       then self:_ensureError() end
 
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     if self._descText then self._descText:SetText(self._cfg.description) end
     if self._errText  then self._errText:SetText(self._cfg.error) end
@@ -147,7 +149,7 @@ function Field:_ensureDesc()
     d:SetWordWrap(true)
     if self._t then
         local sz = self._t.fontSize or 12
-        Craft.Theme.applyFont(d, self._t.font, sz)
+        self._theme:applyFont(d, self._t.font, sz)
         d:SetSpacing(lineSpacing(sz))  -- leading-normal 1.5 (multilínea); label = leading-none
     end
     self._descText = d
@@ -161,7 +163,7 @@ function Field:_ensureError()
     e:SetWordWrap(true)
     if self._t then
         local sz = self._t.fontSize or 12
-        Craft.Theme.applyFont(e, self._t.font, sz)
+        self._theme:applyFont(e, self._t.font, sz)
         e:SetSpacing(lineSpacing(sz))  -- leading-normal 1.5 (multilínea); label = leading-none
     end
     self._errText = e
@@ -175,14 +177,14 @@ function Field:_applyTheme(t)
     -- (precedente Card description, Panel.lua:8) → comparte tamaño con el label (12px).
     if self._descText then
         local sz = t.fontSize or 12
-        Craft.Theme.applyFont(self._descText, t.font, sz)
+        self._theme:applyFont(self._descText, t.font, sz)
         self._descText:SetSpacing(lineSpacing(sz))  -- leading-normal 1.5 (multilínea)
         self._descText:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     end
     -- error: text-xs (12px), t.destructive.
     if self._errText then
         local sz = t.fontSize or 12
-        Craft.Theme.applyFont(self._errText, t.font, sz)
+        self._theme:applyFont(self._errText, t.font, sz)
         self._errText:SetSpacing(lineSpacing(sz))  -- leading-normal 1.5 (multilínea)
         self._errText:SetTextColor(t.destructive.r, t.destructive.g, t.destructive.b)
     end
@@ -425,7 +427,7 @@ end
 function Field:Destroy()
     if not self.frame then return end
     -- El control es propiedad del caller (solo reparentado): NO se destruye aquí.
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     if self._label then self._label:Destroy(); self._label = nil end
     self.frame:Hide()
     self.frame = nil
@@ -445,24 +447,26 @@ FieldGroup.__index = FieldGroup
 -- config: { gap = 20 (gap-5 top-level; pasar 16 explícito al anidar, gap-4), width }
 function FieldGroup:Create(parent, config)
     local self = setmetatable({}, FieldGroup)
+    self._theme = Craft.Theme.resolve(parent, config)  -- FR-104 (frame marked below)
 
     config = config or {}
     -- gap-5 = t.spacingLg2 (20px, Lyra devtools). Fallback literal 20 si el token no
     -- existe en el tema (defensivo). Sin selector descendant nativo, el anidado pasa gap=16.
-    local t = Craft.Theme.get()
+    local t = self._theme:get()
     self._cfg = {
         gap   = config.gap or (t and t.spacingLg2) or 20,
         width = config.width,
     }
 
     self.frame = CreateFrame("Frame", nil, parent)
+    self.frame._craftTheme = self._theme  -- FR-104: children inherit
     if self._cfg.width then self.frame:SetWidth(self._cfg.width) end
 
     self._children = {}   -- array de Frames (align=stretch)
 
     -- Registro de tema: el grupo no colorea nada, pero re-layoutea en cambios de tema /
     -- fuente async (los Fields hijos se re-miden y su OnSizeChanged también restackea).
-    self._themeHandle = Craft.Theme.register(function() self:_relayout() end)
+    self._themeHandle = self._theme:register(function() self:_relayout() end)
 
     self.frame:HookScript("OnSizeChanged", function() self:_relayout() end)
 
@@ -530,7 +534,7 @@ end
 function FieldGroup:Destroy()
     if not self.frame then return end
     -- Los children son propiedad del caller (solo apilados): NO se destruyen aquí.
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self._children = {}
     self.frame:Hide()
     self.frame = nil

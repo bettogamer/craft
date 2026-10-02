@@ -115,6 +115,7 @@ function Window:Create(parent, config)
 
     -- ── Root frame ─────────────────────────────────────────────────────────
     self.frame = CreateFrame("Frame", frameName, parent or UIParent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetFrameStrata(self._cfg.strata)
     self.frame:SetSize(config.width or 640, config.height or 420)
     self.frame:SetClampedToScreen(true)
@@ -145,7 +146,7 @@ function Window:Create(parent, config)
 
     -- Alpha eases 0↔1 as the open state flips. Duration/easing from the shared
     -- motion tokens (theme/Presets) so every animated component feels consistent.
-    local motion = Craft.Theme.get()
+    local motion = self._theme:get()
     local alpha = Weave.tween(
         Weave.computed(function() return self._open() and 1 or 0 end),
         { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
@@ -335,8 +336,8 @@ function Window:Create(parent, config)
     end
 
     -- ── Theme + initial layout ──────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
     if self._title then
         self._title:SetText(self._cfg.title)       -- after SetFont
         if self._cfg.description then self._desc:SetText(self._cfg.description) end
@@ -404,9 +405,9 @@ function Window:_applyTheme(t)
 
         -- Title + description (title font-medium, mirrors Dialog/Panel)
         local ff = self._cfg.fontFlags
-        Craft.Theme.applyFont(self._title, t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14, ff)
+        self._theme:applyFont(self._title, t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14, ff)
         self._title:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
-        Craft.Theme.applyFont(self._desc, t.font, t.fontSize or 12, ff)
+        self._theme:applyFont(self._desc, t.font, t.fontSize or 12, ff)
         self._desc:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     else
         -- Headless (FR-019): content hangs from the frame's TOP, inset by the ring.
@@ -606,7 +607,7 @@ end
 function Window:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)            -- cut alpha/shown binds + the tween
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

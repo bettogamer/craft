@@ -252,6 +252,7 @@ function ProgressRing:Create(parent, config)
     -- Output only: no EnableMouse (a consumer wanting a tooltip attaches
     -- Craft.Tooltip to GetFrame(), exactly as with Craft.Progress).
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetSize(self._cfg.size, self._cfg.size)
 
     self._track = self.frame:CreateTexture(nil, "BACKGROUND")
@@ -284,8 +285,8 @@ function ProgressRing:Create(parent, config)
     -- included) is stored as-is so the first _applyTheme already paints it.
     if not valueSource then self._value = rawValue end
 
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     if valueSource then
         R.applyOrBind(self, valueSource, function(s, v) s:SetValue(v) end)
@@ -584,7 +585,7 @@ end
 function ProgressRing:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

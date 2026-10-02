@@ -94,6 +94,7 @@ function Progress:Create(parent, config)
     -- Output only: no EnableMouse. A consumer who wants a tooltip attaches
     -- Craft.Tooltip to GetFrame() (FR-075 explicitly leaves interaction out).
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetSize(self._cfg.width, self._cfg.height)
 
     self._track = self.frame:CreateTexture(nil, "BACKGROUND")
@@ -112,8 +113,8 @@ function Progress:Create(parent, config)
     self._marker = self.frame:CreateTexture(nil, "OVERLAY")
     self._marker:Hide()
 
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     -- Literal props apply once; callable ones bind. Order mirrors the rest of the
     -- library: the range first, then the value and the marker that read against it.
@@ -268,7 +269,7 @@ end
 function Progress:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

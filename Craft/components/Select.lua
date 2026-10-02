@@ -85,6 +85,7 @@ function Select:Create(parent, config)
     -- ── Root frame (Frame — invisible container) ──────────────────────────────
     local sz = SIZES[self._cfg.size] or SIZES["default"]
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetHeight(sz.h)
     if self._cfg.width then
         self.frame:SetWidth(self._cfg.width)
@@ -176,7 +177,7 @@ function Select:Create(parent, config)
     -- drive the panel's visibility, replacing the old imperative Show()/Hide().
     self._open = Weave.signal(false)  -- private open/close state (NOT a public prop)
 
-    local motion = Craft.Theme.get()
+    local motion = self._theme:get()
     local alpha = Weave.tween(
         Weave.computed(function() return self._open() and 1 or 0 end),
         { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
@@ -271,8 +272,8 @@ function Select:Create(parent, config)
     end)
 
     -- ── Theme registration ────────────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
     -- options binds FIRST so the value bind below resolves its label against
@@ -391,7 +392,7 @@ function Select:_buildItems()
         item.value = opt.value
         item.label = opt.label
 
-        Craft.Theme.applyFont(item.text, t.font, ITEM_FONT)
+        self._theme:applyFont(item.text, t.font, ITEM_FONT)
         item.text:SetText(opt.label or opt.value or "")
         item.checkmark:SetVertexColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b, 1)
 
@@ -466,7 +467,7 @@ function Select:_applyTheme(t)
     local px1 = Craft.Theme.px(1, self._trigger)
 
     -- Trigger font
-    Craft.Theme.applyFont(self._selectedText, t.font, FONT_SIZE)
+    self._theme:applyFont(self._selectedText, t.font, FONT_SIZE)
 
     -- Text color (placeholder or selected value)
     self:_updateTriggerText()
@@ -809,7 +810,7 @@ function Select:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
     self:Close()
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     if self._panel then
         self._panel:Hide()
         self._panel = nil

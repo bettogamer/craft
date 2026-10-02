@@ -81,6 +81,7 @@ function ScrollBar:Create(parent, config)
     -- reserves the bottom-right corner.
     self._cornerInsetApplied = 0
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self:_anchorRail(0)
 
     -- Track texture: subtle background so the rail is always visible
@@ -146,8 +147,8 @@ function ScrollBar:Create(parent, config)
     -- Re-check visibility when the rail gets its real size (post-layout)
     self.frame:SetScript("OnSizeChanged", function() self:Update() end)
 
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     return self
 end
@@ -323,7 +324,7 @@ end
 function ScrollBar:Destroy()
     if not self.frame then return end
     self.thumb:SetScript("OnUpdate", nil)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

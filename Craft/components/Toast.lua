@@ -123,6 +123,7 @@ local S = {
     toasters = {},     -- container frame → toaster
     order    = {},     -- toasters in creation order (stable iteration)
     seq      = 0,      -- auto ids
+    handles  = {},     -- theme context → listener handle (FR-104: one per context in use)
 }
 Toast._state = S
 
@@ -233,7 +234,7 @@ local function makeButton(c, kind)
     return b
 end
 
-local function makeCard(parent)
+local function makeCard(parent, ctx)
     local c = {}
 
     local f = CreateFrame("Frame", nil, parent)
@@ -280,7 +281,7 @@ local function makeCard(parent)
     c.actionBtn = makeButton(c, "action")
 
     -- Motion: goal (layout target) → one array tween → geometry.
-    local m = Craft.Theme.get()
+    local m = ctx:get()
     c.goal  = Weave.signal({ 0, 1, 1, 0, 0 })
     c.tween = Weave.tween(c.goal, { duration = TRANSITION,
                                     easing = Weave.easing[m.motionEasing] })
@@ -293,7 +294,11 @@ local function makeCard(parent)
 end
 
 -- ─── Theme / measure ────────────────────────────────────────────────────────
-local function themeCard(c, t)
+-- Tokens come from the card's OWN context (FR-104): c.ctx, set on every Show —
+-- the pool is shared by every container, so a reused card re-themes on acquire.
+local function themeCard(c)
+    local ctx = c.ctx or Craft.Theme
+    local t = ctx:get()
     local fg = t.popoverForeground
     c.ring:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a or 1)
     local px1 = Craft.Theme.px(1, c.frame)
@@ -303,8 +308,8 @@ local function themeCard(c, t)
     c.bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
 
     local ff = c.fontFlags   -- FR-102: resolved per Show (nil = theme flag)
-    Craft.Theme.applyFont(c.title, t.fontMedium or t.font, FONT_SIZE, ff)
-    Craft.Theme.applyFont(c.desc,  t.font,                 FONT_SIZE, ff)
+    ctx:applyFont(c.title, t.fontMedium or t.font, FONT_SIZE, ff)
+    ctx:applyFont(c.desc,  t.font,                 FONT_SIZE, ff)
     c.title:SetTextColor(fg.r, fg.g, fg.b, fg.a or 1)
     c.desc:SetTextColor(fg.r, fg.g, fg.b, (fg.a or 1) * DESC_ALPHA)
     c.icon:SetVertexColor(fg.r, fg.g, fg.b, fg.a or 1)
@@ -317,7 +322,7 @@ local function themeCard(c, t)
     c.cancelBtn._bg:SetColorTexture(fg.r, fg.g, fg.b, CANCEL_ALPHA)
     c.cancelBtn._label:SetTextColor(fg.r, fg.g, fg.b, fg.a or 1)
     for _, b in ipairs({ c.actionBtn, c.cancelBtn }) do
-        Craft.Theme.applyFont(b._label, t.fontMedium or t.font, BTN_FONT, ff)
+        ctx:applyFont(b._label, t.fontMedium or t.font, BTN_FONT, ff)
     end
 end
 
@@ -543,16 +548,27 @@ function Toast._setHovered(R, v)
     Toast._layout(R)
 end
 
--- ─── Theme (§5: t.* only — never Theme.get() in here) ───────────────────────
-function Toast._applyTheme(t)
-    S.t = t
-    for _, c in ipairs(S.pool) do themeCard(c, t) end
+-- ─── Theme (FR-104: per context) ────────────────────────────────────────────
+-- A theme switch re-themes only the cards of THAT context. Pooled cards are not
+-- touched: they re-theme on acquire with whichever context the next Show gives.
+function Toast._applyTheme(ctx)
     for _, R in ipairs(S.order) do
+        local hit = false
         for _, c in ipairs(R.toasts) do
-            themeCard(c, t)
-            measure(c)   -- fonts settle async on the first boot (CLAUDE.md bug #4)
+            if c.ctx == ctx then
+                themeCard(c)
+                measure(c)   -- fonts settle async on the first boot (CLAUDE.md bug #4)
+                hit = true
+            end
         end
-        Toast._layout(R)
+        if hit then Toast._layout(R) end
+    end
+end
+
+-- One listener per context that has shown a toast (contexts live all session).
+local function listen(ctx)
+    if not S.handles[ctx] then
+        S.handles[ctx] = ctx:register(function() Toast._applyTheme(ctx) end)
     end
 end
 
@@ -560,12 +576,9 @@ end
 local function getToaster(frame)
     local R = S.toasters[frame]
     if R then return R end
-    if not S.themeHandle then
-        S.themeHandle = Craft.Theme.register(function(t) Toast._applyTheme(t) end)
-        S.t = Craft.Theme.get()
-    end
     R = {
         frame   = frame,
+        ctx     = Craft.Theme.resolve(frame, nil),   -- FR-104: the container's context
         toasts  = {},        -- NEWEST FIRST (leaving ones included until released)
         hovered = false,     -- sonner `expanded`
         cfg     = setmetatable({}, { __index = function(_, k) return S.cfg[k] end }),
@@ -621,7 +634,7 @@ function Toast.Show(title, opts)
         R = c.toaster                          -- an update stays where it is
     else
         R = getToaster(containerOf(opts.container))
-        c = table.remove(S.pool) or makeCard(R.frame)
+        c = table.remove(S.pool) or makeCard(R.frame, R.ctx)
         if c.frame:GetParent() ~= R.frame then
             c.frame:SetParent(R.frame)
             c.frame:SetFrameStrata(STRATA)     -- SetParent re-inherits the strata
@@ -637,7 +650,11 @@ function Toast.Show(title, opts)
         c.entering = true
         table.insert(R.toasts, 1, c)           -- newest in front
         c.fontFlags = nil                      -- a pooled card must not keep the last flag
-        themeCard(c, S.t)
+        -- FR-104: opts.theme > the container's context. Re-themed on EVERY acquire:
+        -- the pool is shared, the card may come from another addon's toaster.
+        c.ctx = (opts.theme ~= nil) and Craft.Theme.resolve(nil, opts) or R.ctx
+        listen(c.ctx)
+        themeCard(c)
         c.frame:Show()
     end
     c.opts = merged
@@ -649,7 +666,7 @@ function Toast.Show(title, opts)
     if ff == nil then ff = R.cfg.fontFlags end
     if ff ~= c.fontFlags then
         c.fontFlags = ff
-        themeCard(c, S.t)
+        themeCard(c)
     end
 
     local kind = merged.type or merged.variant or "default"

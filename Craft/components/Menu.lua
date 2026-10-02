@@ -100,6 +100,8 @@ function Menu:Create(config)
     local panelName = "CraftMenuPanel" .. Craft._menuCount
     self._panelName = panelName
     self._panel = CreateFrame("Frame", panelName, UIParent, "BackdropTemplate")
+    self._theme = Craft.Theme.resolve(config and config.anchor, config, self._panel)  -- FR-104: before any child
+    self._themePinned = config.theme ~= nil   -- FR-104: else it follows the anchor on open
     self._panel:SetFrameStrata("TOOLTIP")
     self._panel:Hide()
     self._panel:SetClipsChildren(true)
@@ -169,7 +171,7 @@ function Menu:Create(config)
     -- submenu ever sets this; the parent drives it from _syncSubmenuVisibility.
     self._refHidden = Weave.signal(false)
 
-    local motion = Craft.Theme.get()
+    local motion = self._theme:get()
     local alpha = Weave.tween(
         Weave.computed(function() return self._open() and 1 or 0 end),
         { duration = motion.motionFast, easing = Weave.easing[motion.motionEasing] })
@@ -241,8 +243,8 @@ function Menu:Create(config)
     end)
 
     -- ── Theme ─────────────────────────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     return self
 end
@@ -439,7 +441,7 @@ function Menu:_renderRow(item, cfg)
     local useAvatar = cfg.avatar and Craft.Avatar and true or false
     local rowH = useAvatar and AVATAR_ROW_H or ROW_H
     row:SetHeight(rowH)
-    Craft.Theme.applyFont(item.label, (typ == "heading" and (t.fontMedium or t.font)) or t.font, FONT_SIZE,
+    self._theme:applyFont(item.label, (typ == "heading" and (t.fontMedium or t.font)) or t.font, FONT_SIZE,
         self._cfg.fontFlags)
     item.label:SetText(resolve(cfg.label) or "")
     item.label:Show()
@@ -529,7 +531,7 @@ function Menu:_renderRow(item, cfg)
         local rightPad = ITEM_PR + CHEV_SIZE + GAP
         contentW = x + item.label:GetStringWidth() + rightPad
         if cfg.rightText and cfg.rightText ~= "" then
-            Craft.Theme.applyFont(item.rightText, t.font, FONT_SIZE, self._cfg.fontFlags)
+            self._theme:applyFont(item.rightText, t.font, FONT_SIZE, self._cfg.fontFlags)
             item.rightText:SetText(cfg.rightText)
             item.rightText:ClearAllPoints()
             item.rightText:SetPoint("RIGHT", row, "RIGHT", -rightPad, 0)
@@ -552,7 +554,7 @@ function Menu:_renderRow(item, cfg)
 
         contentW = x + item.label:GetStringWidth() + rightPad
         if cfg.rightText and cfg.rightText ~= "" then
-            Craft.Theme.applyFont(item.rightText, t.font, FONT_SIZE, self._cfg.fontFlags)
+            self._theme:applyFont(item.rightText, t.font, FONT_SIZE, self._cfg.fontFlags)
             item.rightText:SetText(cfg.rightText)
             item.rightText:ClearAllPoints()
             item.rightText:SetPoint("RIGHT", row, "RIGHT", -rightPad, 0)
@@ -1161,6 +1163,8 @@ end
 function Menu:_doOpen(scaleRef)
     if self._open:peek() then return end
 
+    self:_followAnchorTheme(scaleRef)   -- FR-104: before the rows are built/measured
+
     self:_buildRows()   -- fresh render (items may have changed since last open)
 
     -- Scale compensation: the panel is in UIParent but the anchor may sit in a
@@ -1232,7 +1236,7 @@ function Menu:Destroy()
     if self._sub then self._sub:Destroy(); self._sub = nil end
     Craft.Reactive.disposeAll(self)      -- animation binds (self._effects)
     self:_disposeItemEffects()
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     -- Pooled avatars are components of their own (theme handle + frames): the rows
     -- can't be destroyed, but the avatars must at least unregister and hide.
     for i = 1, #self._items do
@@ -1244,10 +1248,27 @@ function Menu:Destroy()
     self._panel = nil
 end
 
+-- ─── Theme context (FR-104, ADR-0019 §3.4) ────────────────────────────────────
+-- The panel lives in UIParent, so the parent chain never reaches whoever opens
+-- the menu. Without an explicit `theme` the menu follows the context of what
+-- opens it, re-resolved on EVERY open: one Menu opened from two addons' windows
+-- takes each one's theme. A submenu opens from its parent's (marked) panel, so it
+-- inherits the parent's context. Pooled row avatars move along with the menu.
+function Menu:_followAnchorTheme(ref)
+    if self._themePinned then return end
+    local ctx = Craft.Theme.resolve(self._themeSource or ref, nil)
+    if Craft.Theme.rebind(self, ctx, self._panel) then
+        for _, item in ipairs(self._items) do
+            if item.avatar then Craft.Theme.rebind(item.avatar, ctx, item.avatar.frame) end
+        end
+    end
+end
+
 -- ─── Convenience: right-click context menu on a frame ─────────────────────────
 -- builder() returns a fresh { items = {...} } on every open (state may change).
 function Menu:AttachContextMenu(frame, builder)
     local menu = Menu:Create({})
+    menu._themeSource = frame   -- FR-104: OpenAtCursor scales to UIParent, the theme is the frame's
     frame:EnableMouse(true)
     frame:SetScript("OnMouseUp", function(_, button)
         if button == "RightButton" then

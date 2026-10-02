@@ -20,6 +20,7 @@ function Separator:Create(parent, config)
 
     -- Root frame — sized and anchored per orientation (see _applyOrientation)
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
 
     -- _line: Texture that renders the 1px line — BACKGROUND layer
     -- SetAllPoints keeps it filling the 1px frame exactly
@@ -27,8 +28,8 @@ function Separator:Create(parent, config)
     self._line:SetAllPoints(self.frame)
 
     -- Register in theming system and apply initial theme
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     return self
 end
@@ -95,7 +96,7 @@ end
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Separator:Destroy()
     if not self.frame then return end
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end
