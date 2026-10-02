@@ -224,6 +224,63 @@ return handle
 
 `unregister(handle)` itera `_listeners` buscando el handle y elimina la entrada con `table.remove`. Si el handle no se encuentra, no hace nada (no es un error).
 
+## Contextos de tema por addon (FR-104, ADR-0019)
+
+Cada addon consumidor puede llevar **su propio tema** sin pisar a los demás. Un **contexto** es
+un objeto con la misma API que el tema global pero con su propio preset, caché y listeners.
+`Craft.Theme` **es** el contexto por defecto: sin opt-in todo se comporta como antes.
+
+```lua
+-- En el consumidor, una vez (p. ej. en ADDON_LOADED), con su spec de SavedVariables
+local theme = Craft.Theme.context("SMRT", SMRT_DB.theme or { accent = "blue" })
+
+-- Se fija en la raíz y lo heredan todos los componentes Craft de dentro
+local win = Craft.Window:Create(UIParent, { title = "SMRT", theme = theme })
+Craft.Button:Create(win:GetContent(), { text = "OK" })      -- usa el tema de SMRT
+
+-- Cambio en vivo: solo re-tematiza los componentes de ESTE contexto
+theme:use({ accent = "orange" })      -- spec: se fusiona, solo cambia el accent
+SMRT_DB.theme = theme:getSpec()       -- persistir es cosa del consumidor
+```
+
+| Función / método | Descripción |
+|---|---|
+| `Craft.Theme.context(name, spec?)` | Crea o devuelve el contexto `name`. **Idempotente:** las llamadas siguientes devuelven el mismo objeto e **ignoran** `spec`. Sin `spec` arranca en `lyra-dark`. `"default"` devuelve `Craft.Theme`. |
+| `ctx:get()` / `ctx:use(x)` | Como `get`/`use` del global, pero solo sobre este contexto. `x` = nombre de preset, tabla de **tokens** (tiene `background`) o **spec** de ejes (`base`, `accent`, `font`…), que se **fusiona** sobre la spec actual. |
+| `ctx:register(fn)` / `ctx:unregister(h)` | Listeners propios; los handles son por contexto. |
+| `ctx:getFont(w)` / `ctx:applyFont(fs, path, size, flags?)` | Con los tokens (`fontFlags`, fuente de fallback) del contexto. |
+| `ctx:getSpec()` | Spec de ejes en uso (o `nil` si usa preset/tabla de tokens). |
+| `Craft.Theme.resolve(parent, config, frame?)` | Contexto de un componente: `config.theme` (objeto o nombre) > heredado de la cadena `parent:GetParent()…` > `Craft.Theme`. Marca `frame._craftTheme`. |
+| `Craft.Theme.rebind(owner, ctx, frame?)` | Mueve `owner` (`_theme`/`_themeHandle`/`_applyTheme`) a otro contexto; lo usan los overlays. |
+| `Craft.Theme.isContext(v)` | `true` para `Craft.Theme` y cualquier contexto. |
+
+`Craft.Theme.get()` y `Craft.Theme:get()` son equivalentes (también `register`, `use`,
+`applyFont`…): el global se puede guardar y usar como un contexto más.
+
+**Reglas de resolución:**
+
+- El contexto se fija en `Create` y **no se recalcula al reparentar** (p. ej. el control de un
+  `Craft.Field`). Para otro contexto, pasar `theme` al crear.
+- **Overlays** (viven en `UIParent`): `Select`, `Combobox` y `Dialog` usan el contexto de su
+  `parent` de `Create`. `Menu` y `Popover` sin `theme` explícito toman el del **ancla** en cada
+  `Open` (un mismo Menu abierto desde dos addons sale con el tema de cada uno); con `theme`
+  quedan fijos. Los submenús heredan el de su menú. `Tooltip` toma `config.theme` o el del ancla
+  en cada `Show`. `Toast` usa el del contenedor (o `opts.theme`).
+- Los componentes Craft **dentro** de un Popover se crean con el contexto que tenga el Popover en
+  ese momento: si el contenido lleva componentes, pasar `theme` o `anchor` al `Create` del Popover.
+- **Sigue siendo global:** `px`/`SetPixel*`/`AnchorBorder`, el registro de presets y ejes
+  (`register_preset`, `build`, `registerFont`, `getAxisOptions`) y las sondas de fuente
+  (`onFontsReady`/`onFontMetricsChanged`, que re-notifican a **todos** los contextos).
+- Un componente nuevo sigue el patrón:
+
+```lua
+self.frame = CreateFrame("Frame", nil, parent)
+self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- antes de crear hijos
+self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+self:_applyTheme(self._theme:get())
+-- Destroy(): self._theme:unregister(self._themeHandle)
+```
+
 ## Flujo de un componente — ejemplo completo
 
 Este es el patrón estándar que **todos los componentes de Craft deben seguir**:
