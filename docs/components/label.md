@@ -27,7 +27,7 @@ mismo objeto, y que `onClick` funcione sin reestructurar. El `_text` es un FontS
 
 **Caso con onClick**: el Frame raíz recibe `OnEnter`/`OnLeave`/`OnMouseDown`, ya que los FontStrings no pueden registrar eventos de ratón en WoW.
 
-**Caso con maxWidth**: El FontString se configura con `_text:SetWidth(maxWidth)` y `_text:SetNonSpaceWrap(false)` para truncar con "..." automáticamente vía `SetWordWrap(false)`.
+**Caso con maxWidth**: `SetWordWrap(false)` + `SetNonSpaceWrap(false)` siempre; `_text:SetWidth(maxWidth)` **solo si el ancho natural lo supera** (equivalente a `truncate` de shadcn: la elipsis aparece solo con overflow). Si el texto cabe, el string queda libre y el frame abraza su ancho natural (FR-105).
 
 ## Dimensiones
 
@@ -138,7 +138,7 @@ note:SetFontOptions({ font = LSM:Fetch("font", db.font), size = db.fontSize, fla
 
 **Disabled**: `group-data-[disabled=true]:opacity-50` → aplicar `SetAlpha(0.5)` al frame del label (o directamente al FontString si no hay Frame padre) cuando el campo asociado entra en estado disabled. Esto es responsabilidad del Form/Field contenedor, no del Label en aislamiento.
 
-**Truncado con maxWidth**: Configurar `_text:SetWidth(config.maxWidth)` y `_text:SetWordWrap(false)`. WoW truncará el texto automáticamente con "..." cuando supere el ancho. Importante: `SetNonSpaceWrap(false)` evita que palabras largas sin espacios rompan el truncado.
+**Truncado con maxWidth**: `_text:SetWordWrap(false)` siempre y `_text:SetWidth(config.maxWidth)` solo cuando el ancho natural supera el tope. WoW truncará el texto con "..." al desbordar. **Nunca** fijar el string a su propio ancho medido cuando cabe: el redondeo sub-píxel hace que WoW elida el último glifo ("Sszorak" → "Sszor…", FR-105). Importante: `SetNonSpaceWrap(false)` evita que palabras largas sin espacios rompan el truncado.
 
 **Cursor hand en onClick**: En `OnEnter`, llamar `SetCursor("Interface\\CURSOR\\Point")`. En `OnLeave`, llamar `SetCursor(nil)`. Simultáneamente cambiar `_text:SetTextColor(t.primary.r, t.primary.g, t.primary.b)` en `OnEnter` y restaurar el color original en `OnLeave`.
 
