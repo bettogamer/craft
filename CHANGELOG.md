@@ -6,6 +6,20 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.31.0] - 2026-10-02
+
+> **Release v2.31.0 — `Label` con `maxWidth` solo elide cuando desborda (FR-105).**
+>
+> **Sin cambio de API.** Los consumidores con recortes manuales de texto como fallback
+> (SMRT) pueden volver a usar `maxWidth`.
+
+### Corregido
+
+- **Label con `maxWidth` elidía textos que cabían (FR-105).** Con ancho natural menor que
+  `maxWidth`, la FontString se fijaba a su propio ancho medido y el redondeo sub-píxel cortaba el
+  último glifo («Sszorak» → «Sszor…»). Ahora el ancho solo se fija cuando el texto desborda, como
+  `truncate` de shadcn. Demo y repro en la página Label del Browser.
+
 ## [2.30.0] - 2026-10-02
 
 > **Release v2.30.0 — un tema por addon (FR-104, ADR-0019).** Cada consumidor puede tener su
