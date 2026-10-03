@@ -160,17 +160,20 @@ function Label:_recalcSize()
     end
 
     local w = natural
-    if self._cfg.maxWidth and self._cfg.maxWidth < w then
+    local overflows = self._cfg.maxWidth and self._cfg.maxWidth < natural
+    if overflows then
         w = self._cfg.maxWidth
     end
 
-    -- Explicit string width ONLY when the text must elide (maxWidth). With no
-    -- maxWidth the frame already hugs the natural width, so justifying inside a
-    -- same-width box changes nothing visually — and pinning the width with
-    -- WordWrap still on made embedded |T..|t textures (GetMoneyString) wrap to
-    -- a second line by sub-pixel rounding (FR-025). align ~= LEFT alone must
-    -- NOT constrain the string.
-    if self._cfg.maxWidth then
+    -- Explicit string width ONLY when the text really overflows maxWidth (shadcn
+    -- `truncate`: the ellipsis appears on overflow, never before). A text that
+    -- fits stays unconstrained and the frame hugs it, so justifying inside a
+    -- same-width box changes nothing visually. Pinning the string to its OWN
+    -- measured width is a bug: sub-pixel rounding makes WoW elide the last
+    -- glyphs ("Sszorak" → "Sszor…", FR-105) — and with WordWrap still on it
+    -- pushed embedded |T..|t textures (GetMoneyString) to a second line
+    -- (FR-025). align ~= LEFT alone must NOT constrain the string either.
+    if overflows then
         text:SetWidth(w)
     end
 

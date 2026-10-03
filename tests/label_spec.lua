@@ -173,6 +173,29 @@ describe("Craft.Label", function()
         assert.equals(#"Hi" * 7, lbl.frame:GetWidth())
     end)
 
+    -- Regresión FR-105: con natural < maxWidth el string se fijaba a su PROPIO
+    -- ancho medido y WoW elidía el último glifo por redondeo sub-píxel
+    -- ("Sszorak" → "Sszor…"). shadcn `truncate` solo elide si desborda.
+    it("maxWidth con texto que cabe NO fija ancho del string (FR-105)", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { weight = "bold", flags = "", maxWidth = 148 })
+        lbl:SetText("Sszorak")
+        assert.equals(0, lbl._text:GetWidth())              -- sin constraint → no elide
+        assert.equals(#"Sszorak" * 7, lbl.frame:GetWidth())  -- el frame abraza el texto
+    end)
+
+    it("maxWidth: SetText largo → corto → largo alterna elide/libre (FR-105)", function()
+        Craft.Theme.use("lyra-dark")
+        local lbl = Craft.Label:Create(UIParent, { text = "Texto muy largo", maxWidth = 40 })
+        assert.equals(40, lbl._text:GetWidth())
+        lbl:SetText("Hi")
+        assert.equals(0, lbl._text:GetWidth())
+        assert.equals(#"Hi" * 7, lbl.frame:GetWidth())
+        lbl:SetText("Texto muy largo")
+        assert.equals(40, lbl._text:GetWidth())
+        assert.equals(40, lbl.frame:GetWidth())
+    end)
+
     -- Regresión FR-025: align ~= LEFT sin maxWidth pineaba el string a su propio
     -- ancho medido con WordWrap aún activo → texturas |T..|t embebidas
     -- (GetMoneyString) saltaban a una segunda línea por redondeo sub-píxel.

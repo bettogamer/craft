@@ -62,6 +62,42 @@ CraftBrowserPages["Label"] = {
         table.insert(comps, lblTrunc)
         y = y + 28
 
+        -- ── FR-105 repro: maxWidth with text that FITS must not elide ────────
+        -- SMRT's boss cards: bold, flags="", maxWidth=148, SetText after Create.
+        -- Before the fix the short names came out "Sszor…" / "Ula't…".
+        y = addLabel("FR-105: maxWidth=148, short names must NOT elide; long one elides at 148", y)
+        local NAMES = { "Sszorak", "Ula'tek", "Nek'zali the Soulcoiler of the Deep" }
+        local x = 16
+        for _, name in ipairs(NAMES) do
+            local lblName = Craft.Label:Create(parent, {
+                weight = "bold", flags = "", maxWidth = 148,
+            })
+            lblName:SetText(name)
+            lblName:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", x, -y)
+            table.insert(comps, lblName)
+            x = x + 164
+        end
+        y = y + 24
+
+        local lblToggle = Craft.Label:Create(parent, { weight = "bold", flags = "", maxWidth = 148 })
+        lblToggle:SetText("Sszorak")
+        lblToggle:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, lblToggle)
+        local short = true
+        local btnToggle = Craft.Button:Create(parent, {
+            text = "FR-105: toggle short/long", variant = "outline", size = "sm",
+            onClick = function()
+                short = not short
+                lblToggle:SetText(short and "Sszorak" or "Nek'zali the Soulcoiler of the Deep")
+                print(("FR-105: text=%q frame=%.1f string=%.1f"):format(
+                    lblToggle._text:GetText() or "", lblToggle:GetFrame():GetWidth(),
+                    lblToggle._text:GetWidth()))
+            end,
+        })
+        btnToggle:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 180, -y + 4)
+        table.insert(comps, btnToggle)
+        y = y + 36
+
         -- ── Wrap box (FR-071) ────────────────────────────────────────────────
         -- The SAME text in the three width modes, stacked, so the difference is
         -- the only variable: hug (overflows), maxWidth (elides), wrap (fits).
