@@ -527,3 +527,127 @@ describe("Craft.Sidebar double click (FR-098)", function()
         sb:Destroy()
     end)
 end)
+
+describe("Craft.Sidebar right click (FR-107)", function()
+    it("onContextMenu gets (id, row frame) and does not select", function()
+        local got, selected
+        local sb = Craft.Sidebar:Create(UIParent, {
+            width = 200,
+            onSelect      = function(id) selected = id end,
+            onContextMenu = function(id, anchor, cfg) got = { id, anchor, cfg.label } end,
+        })
+        sb:SetItems({ { id = "n1", label = "Note 1" } })
+        local f = sb._itemFrames.n1.frame
+        f:_fire("OnClick", "RightButton")
+        assert.equals("n1", got[1])
+        assert.equals(f, got[2])
+        assert.equals("Note 1", got[3])
+        assert.is_nil(selected)
+        assert.is_nil(sb._cfg.activeItem)
+        sb:Destroy()
+    end)
+
+    it("registers the right button only when someone listens", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems({ { id = "a", label = "A" },
+                      { id = "b", label = "B", onContextMenu = function() end } })
+        assert.is_nil(sb._itemFrames.a.frame._clicks)
+        assert.equals("RightButtonUp", sb._itemFrames.b.frame._clicks[2])
+        -- a stray right click on a non-listening row is not a selection
+        sb._itemFrames.a.frame:_fire("OnClick", "RightButton")
+        assert.is_nil(sb._cfg.activeItem)
+        sb:Destroy()
+    end)
+
+    it("itemConfig.onContextMenu gets (id, anchor, itemConfig); branches take it", function()
+        local got
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems({ { id = "g", label = "Group", children = { { id = "c", label = "C" } },
+                        onContextMenu = function(id, _, cfg) got = { id, cfg.label } end } })
+        sb._itemFrames.g.frame:_fire("OnClick", "RightButton")
+        assert.equals("g", got[1])
+        assert.equals("Group", got[2])
+        -- right click on the chevron forwards to the row; it does not toggle
+        got = nil
+        sb._itemFrames.g.chevBtn:_fire("OnClick", "RightButton")
+        assert.equals("g", got[1])
+        assert.is_true(sb:IsExpanded("g"))
+        sb:Destroy()
+    end)
+
+    it("disabled rows don't fire it", function()
+        local fired = false
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, onContextMenu = function() fired = true end })
+        sb:SetItems({ { id = "off", label = "Off", disabled = true } })
+        sb._itemFrames.off.frame:_fire("OnClick", "RightButton")
+        assert.is_false(fired)
+        sb:Destroy()
+    end)
+end)
+
+describe("Craft.Sidebar onToggle (FR-108)", function()
+    local tree = function(selectable)
+        return { { id = "g", label = "Group", selectable = selectable,
+                   children = { { id = "c", label = "C" } } },
+                 { id = "x", label = "X" } }
+    end
+
+    it("fires on chevron / ToggleNode / Expand / Collapse with the new state", function()
+        local log = {}
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200,
+            onToggle = function(id, open) log[#log + 1] = id .. ":" .. tostring(open) end })
+        sb:SetItems(tree())
+        sb._itemFrames.g.chevBtn:_fire("OnClick", "LeftButton")
+        sb:ToggleNode("g")
+        sb:Collapse("g")
+        sb:Collapse("g")      -- already closed: no-op, no event
+        sb:Expand("g")
+        assert.equals("g:false,g:true,g:false,g:true", table.concat(log, ","))
+        sb:Destroy()
+    end)
+
+    it("does not fire from SetItems / SetExpandedState (restores, not gestures)", function()
+        local n = 0
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, onToggle = function() n = n + 1 end })
+        sb:SetItems(tree())
+        sb:SetExpandedState({ g = false })
+        sb:SetItems(tree())
+        assert.equals(0, n)
+        sb:Destroy()
+    end)
+
+    it("fires when SetActiveItem opens a collapsed ancestor", function()
+        local log = {}
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200,
+            onToggle = function(id, open) log[#log + 1] = id .. ":" .. tostring(open) end })
+        sb:SetItems(tree())
+        sb:SetExpandedState({ g = false })
+        sb:SetActiveItem("c")
+        assert.equals("g:true", table.concat(log, ","))
+        sb:Destroy()
+    end)
+
+    it("selectable = false: a row click toggles the branch, keeps the selection, no onSelect", function()
+        local log, selected = {}, nil
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200,
+            onSelect = function(id) selected = id end,
+            onToggle = function(id, open) log[#log + 1] = id .. ":" .. tostring(open) end })
+        sb:SetItems(tree(false))
+        sb:SetActiveItem("x")
+        sb._itemFrames.g.frame:_fire("OnClick", "LeftButton")
+        assert.equals("g:false", table.concat(log, ","))
+        assert.is_false(sb:IsExpanded("g"))
+        assert.equals("x", sb:GetActiveItem())
+        assert.is_nil(selected)
+        sb:Destroy()
+    end)
+
+    it("a selectable branch (default) still selects on row click", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems(tree())
+        sb._itemFrames.g.frame:_fire("OnClick", "LeftButton")
+        assert.equals("g", sb:GetActiveItem())
+        assert.is_true(sb:IsExpanded("g"))
+        sb:Destroy()
+    end)
+end)

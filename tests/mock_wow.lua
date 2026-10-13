@@ -330,7 +330,7 @@ local function makeFrame(frameType, name, parent)
     function f:SetHighlightTexture(t)     end
     function f:SetPushedTexture(t)        end
     function f:SetDisabledTexture(t)      end
-    function f:RegisterForClicks(...)     end
+    function f:RegisterForClicks(...)     self._clicks = { ... } end
 
     -- Frame children
     function f:CreateTexture(name, layer)

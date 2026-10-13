@@ -7,6 +7,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 --  4. Separadores (FR-050: grupo p-2 + separador + grupo p-2)
 --  5. Disabled (FR-048: sin hover/click, muted a=0.5, rama incluida)
 --  6. Árbol colapsable (FR-008) + API de expansión (FR-010) + FR-047/FR-049
+--     + clic derecho (FR-107) + onToggle / selectable=false (FR-108)
 --  7. Header + Footer (GetHeader/GetFooter + RefreshLayout)
 --  8. Scroll con overflow vs scrollbar oculto (FR-051)
 --  9. Items reactivos (ADR-0013: signal como prop, preserva expansión por id)
@@ -190,14 +191,38 @@ CraftBrowserPages["Sidebar"] = {
 
         -- ── 6. Árbol colapsable (FR-008) + API de expansión (FR-010) ─────────
         y = addLabel("Árbol (FR-008) — chevron al final (FR-049), guías, sub-item regular (FR-047); "
-            .. "doble clic en hoja → chat (FR-098)", y)
-        local c6 = newContainer(240, 260, y)
-        local tree = newSidebar(c6, {
+            .. "doble clic en hoja → chat (FR-098); clic derecho → menú (FR-107); plegar → chat (FR-108)", y)
+        y = addLabel("«Secciones» es selectable=false (FR-108): clic en la fila pliega y NO cambia la selección", y)
+        local c6 = newContainer(240, 350, y)
+        local tree
+        -- FR-107: one Craft.Menu reused for every row; the items are rebuilt per open.
+        local rowMenu = Craft.Menu:Create({})
+        table.insert(comps, rowMenu)
+        tree = newSidebar(c6, {
             width      = 240,
             activeItem = "aura1",
             onSelect   = function(id) print("Sidebar onSelect:", id) end,
             onDoubleClick = function(id) print("Sidebar onDoubleClick:", id) end,   -- FR-098
+            onToggle   = function(id, open) print("Sidebar onToggle:", id, open) end, -- FR-108
+            onContextMenu = function(id, _, cfg)                                       -- FR-107
+                rowMenu:SetItems({
+                    { type="heading", label=cfg.label or id },
+                    { type="item", label="Seleccionar", icon="mouse-pointer-click",
+                      onClick=function() tree:SetActiveItem(id) end },
+                    { type="item", label="Renombrar", icon="pencil",
+                      onClick=function() print("Renombrar:", id) end },
+                    { type="separator" },
+                    { type="item", label="Borrar", icon="trash-2", variant="destructive",
+                      onClick=function() print("Borrar:", id) end },
+                })
+                rowMenu:OpenAtCursor()
+            end,
             items = {
+                { id="sec", label="Secciones", icon="list", selectable=false, defaultOpen=true,  -- FR-108
+                  children = {
+                    { id="s1", label="Triggers", icon="zap" },
+                    { id="s2", label="Display",  icon="eye" },
+                  } },
                 { id="pack1", label="Manaforge Omega", icon="folder", collapsible=true, defaultOpen=true,
                   children = {
                     { id="aura1", label="Shadow Crash", icon="star" },
@@ -253,7 +278,7 @@ CraftBrowserPages["Sidebar"] = {
             end
             print("GetExpandedState:", table.concat(parts, ", "))
         end)
-        y = y + 272
+        y = y + 362
 
         -- ── 7. Header + Footer (GetHeader/GetFooter) ─────────────────────────
         y = addLabel("Header + Footer — GetHeader()/GetFooter(): SetHeight + contenido + RefreshLayout", y)

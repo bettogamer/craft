@@ -65,6 +65,8 @@ function Sidebar:Create(parent, config)
         width      = config.width,
         onSelect   = config.onSelect,
         onDoubleClick = config.onDoubleClick,  -- FR-098
+        onContextMenu = config.onContextMenu,  -- FR-107
+        onToggle      = config.onToggle,       -- FR-108
     }
     self._hasTree  = false  -- true once any collapsible (tree) item is added
     self._building = false  -- defers _rebuildLayout() during bulk add
@@ -557,8 +559,8 @@ function Sidebar:AddSection(label)
 end
 
 -- ─── AddItem ──────────────────────────────────────────────────────────────────
--- Adds a menu item. itemConfig: {id, label, icon, avatar, section, onClick, onDoubleClick, collapsible,
--- defaultOpen, children, disabled, tooltip}. `depth`/`parentEntry` are internal
+-- Adds a menu item. itemConfig: {id, label, icon, avatar, section, onClick, onDoubleClick,
+-- onContextMenu, collapsible, selectable, defaultOpen, children, disabled, tooltip}. `depth`/`parentEntry` are internal
 -- (tree recursion).
 -- Returns the item entry. Content x-positions are set in _positionRow (layout time).
 function Sidebar:AddItem(itemConfig, depth, parentEntry)
@@ -630,6 +632,10 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
         disabled    = disabled,
         collapsible = collapsible,
         tooltip     = hasTip and itemConfig.tooltip or nil,
+        -- FR-108: `selectable = false` on a branch = a section header. A click on the
+        -- row toggles it (shadcn: the SidebarMenuButton IS the CollapsibleTrigger)
+        -- instead of making it the active item. Leaves ignore the flag.
+        toggleOnClick = collapsible and itemConfig.selectable == false or false,
         _open       = itemConfig.defaultOpen ~= false,  -- default open
     }
 
@@ -696,12 +702,47 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
             if id ~= self._cfg.activeItem and self._t then self:_colorItem(entry, false) end
         end)
 
+        -- Right click = the row's context menu (FR-107). Only registered when someone
+        -- listens: a sidebar that doesn't ask keeps ignoring the right button (the
+        -- default "LeftButtonUp" registration). It does NOT select — the consumer
+        -- decides (SetActiveItem inside the callback); `anchor` is the row frame, to
+        -- hand to Craft.Menu:Open / OpenAtCursor. Branch rows take it too.
+        local onContextMenu = itemConfig.onContextMenu
+        local wantsContext  = (onContextMenu or self._cfg.onContextMenu) and true or false
+        if wantsContext then itemFrame:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
+
         -- Click on the row body = select (chevron Button intercepts clicks on the chevron).
-        itemFrame:SetScript("OnClick", function()
+        -- A section header (selectable = false, FR-108) toggles instead and reports
+        -- through onToggle, never onSelect: it was not selected.
+        itemFrame:SetScript("OnClick", function(_, button)
+            if button == "RightButton" then
+                if not wantsContext then return end
+                if onContextMenu then onContextMenu(id, itemFrame, itemConfig) end
+                if self._cfg.onContextMenu then self._cfg.onContextMenu(id, itemFrame, itemConfig) end
+                return
+            end
+            if entry.toggleOnClick then
+                self:_toggleNode(entry)
+                if onClick then onClick(id, itemConfig) end
+                return
+            end
             if id then self:SetActiveItem(id) end
             if onClick then onClick(id, itemConfig) end
             if self._cfg.onSelect then self._cfg.onSelect(id) end
         end)
+
+        -- The chevron Button covers the row's trailing edge: a right click there is
+        -- still a right click on the row, so it forwards instead of swallowing it.
+        if wantsContext and entry.chevBtn then
+            entry.chevBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+            entry.chevBtn:SetScript("OnClick", function(_, button)
+                if button == "RightButton" then
+                    itemFrame:GetScript("OnClick")(itemFrame, button)
+                else
+                    self:_toggleNode(entry)
+                end
+            end)
+        end
 
         -- Double click = "open / use" (FR-098). The client fires OnClick for the first
         -- click and OnDoubleClick INSTEAD of OnClick for the second, so the row is
@@ -826,22 +867,33 @@ function Sidebar:_toggleNode(entry)
     entry._open = not entry._open
     self:_updateChevron(entry)
     self:_rebuildLayout()
+    self:_notifyToggle(entry)
+end
+
+-- FR-108: tells the consumer a branch changed state (chevron, row click on a
+-- section header, ToggleNode/Expand/Collapse, or SetActiveItem opening ancestors).
+-- Never from SetItems/SetExpandedState: restoring state is not a player gesture.
+function Sidebar:_notifyToggle(entry)
+    local fn = self._cfg.onToggle
+    if fn and entry.itemId ~= nil then fn(entry.itemId, entry._open and true or false) end
 end
 
 -- Expands every collapsed ancestor of `entry` so it becomes visible. Returns true
--- if anything changed (caller re-runs the layout).
+-- if anything changed (caller re-runs the layout), plus the list of opened entries.
 function Sidebar:_expandAncestors(entry)
-    local changed = false
+    local changed, opened = false, nil
     local p = entry and entry.parent
     while p do
         if p.collapsible and not p._open then
             p._open = true
             self:_updateChevron(p)
             changed = true
+            opened = opened or {}
+            opened[#opened + 1] = p
         end
         p = p.parent
     end
-    return changed
+    return changed, opened
 end
 
 -- ─── AddSeparator ─────────────────────────────────────────────────────────────
@@ -886,8 +938,12 @@ function Sidebar:SetActiveItem(id)
     local entry = id and self._itemFrames[id]
     if entry then
         self:_colorItem(entry, true)
-        if self:_expandAncestors(entry) then
+        local changed, opened = self:_expandAncestors(entry)
+        if changed then
             self:_rebuildLayout()
+            -- FR-108: opening ancestors is a real state change the consumer would
+            -- otherwise miss when it persists the expansion.
+            for _, p in ipairs(opened) do self:_notifyToggle(p) end
         end
     end
 end

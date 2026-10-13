@@ -217,14 +217,19 @@ items = {
 | `items[i].section` | string | nil | (grupos planos, depth 0) Label de la sección; nil = sin sección |
 | `items[i].onClick` | function | nil | Callback `fn(id, itemConfig)` al hacer click en el item |
 | `items[i].onDoubleClick` | function | nil | (FR-098) Callback `fn(id, itemConfig)` en el segundo clic de un doble clic. No en ramas ni filas `disabled` |
+| `items[i].onContextMenu` | function | nil | (FR-107) Callback `fn(id, anchor, itemConfig)` al clic derecho sobre la fila (`anchor` = el frame de la fila). Como el `onContextMenu` global |
 | `items[i].children` | array | nil | (árbol) Sub-items anidados — hace al item una rama colapsable |
 | `items[i].collapsible` | boolean | auto | true si tiene `children`; fuerza rama colapsable |
+| `items[i].selectable` | boolean | true | (FR-108) Solo ramas. `false` = cabecera de sección: el clic en la fila **pliega/despliega** (en shadcn el `SidebarMenuButton` es el `CollapsibleTrigger`) en vez de volverla activa; dispara `onToggle` e `itemConfig.onClick`, **no** `onSelect`, y la selección actual no cambia |
 | `items[i].defaultOpen` | boolean | true | Estado inicial expandido de la rama |
 | `items[i].disabled` | boolean | false | (FR-048) Item deshabilitado: sin hover/click (`EnableMouse(false)`, chevron incluido), texto e ícono `t.mutedForeground` con a=0.5 |
 | `items[i].tooltip` | string | nil | (FR-089) Etiqueta al hover de la fila, mismo nombre y forma que en `Craft.Button` (FR-020) y `Craft.Menu` (FR-084). Vale también —y sobre todo— en filas `disabled`. Un valor que no sea string se ignora |
 | `activeItem` | string | nil | Id del item activo al crear el componente |
 | `onSelect` | function | nil | Callback `fn(id)` al seleccionar cualquier item |
 | `onDoubleClick` | function | nil | (FR-098) Callback `fn(id)` al hacer doble clic en un item hoja. Es el `OnDoubleClick` del cliente: el primer clic ya disparó `onSelect` (la fila está seleccionada) y el segundo llega aquí **en vez de** como `OnClick`. Ramas (`collapsible`) y `disabled` no lo disparan. El script solo se registra si hay algún `onDoubleClick` (global o del item): sin él, el segundo clic sigue siendo un `OnClick` como antes |
+
+| `onContextMenu` | function | nil | (FR-107) Callback `fn(id, anchor, itemConfig)` al clic derecho sobre una fila (hojas y ramas; no `disabled`). **No selecciona**: si el consumidor quiere el patrón WA (seleccionar y luego menú) llama `SetActiveItem(id)` dentro. `anchor` es el frame de la fila → `Craft.Menu:Open(anchor, …)` u `OpenAtCursor()`. El botón derecho solo se registra (`RegisterForClicks("LeftButtonUp", "RightButtonUp")`) si hay algún `onContextMenu` (global o del item); el chevrón de una rama reenvía el clic derecho a la fila |
+| `onToggle` | function | nil | (FR-108) Callback `fn(id, open)` tras plegar/desplegar una rama con `id`: chevrón, clic en cabecera `selectable = false`, `ToggleNode`/`Expand`/`Collapse`, y `SetActiveItem` cuando abre ancestros plegados. **No** desde `SetItems` ni `SetExpandedState` (restaurar estado no es un gesto). Pensado para persistir el plegado sin adivinar cuándo leer `GetExpandedState()` |
 
 > `_header` y `_footer` no tienen parámetros de config — se obtienen vía `GetHeader()`/`GetFooter()` y el dev los configura directamente.
 
