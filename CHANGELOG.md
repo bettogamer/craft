@@ -6,6 +6,35 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.32.0] - 2026-10-12
+
+> **Release v2.32.0 — `Craft.CodeEditor` (FR-106) y Sidebar con clic derecho y aviso de
+> plegado (FR-107, FR-108).** Pedidos de SMRT para el editor de Auras.
+>
+> **Sin cambio para consumidores existentes:** todo es opt-in (componente nuevo, callbacks y
+> flags nuevos). Paquete: añade `media/GeistMono-Regular.ttf` (fuente nueva ⇒ reiniciar el
+> cliente, no basta `/reload`). SMRT puede quitar sus apaños al re-vendorear.
+
+### Añadido
+
+- **`Craft.CodeEditor` — editor de código Lua (FR-106).** Caja Lyra de `Textarea` con fuente
+  monoespaciada (**Geist Mono**, token nuevo `fontMono`), resaltado de sintaxis en vivo (tokens
+  nuevos `syntaxKeyword/String/Number/Comment/Function`, paleta github-dark de los bloques de
+  código de ui.shadcn.com), números de línea, Tab/Mayús+Tab/Enter con sangría, sin wrap (scroll
+  en dos ejes), `SetErrorLine(n, msg)`/`ClearError()`, `Undo/Redo/CanUndo/CanRedo` por API
+  (sin atajos), `GoToLine(n)` y la API de scroll de `Textarea`. `GetText()` devuelve siempre el
+  texto plano. Spec: `docs/components/code-editor.md`; demo en la página CodeEditor del Browser.
+- **Sidebar: clic derecho sobre una fila (FR-107).** `onContextMenu = fn(id, anchor, itemConfig)` (y
+  `itemConfig.onContextMenu`). No selecciona; el botón derecho solo se registra si alguien escucha.
+- **Sidebar: `onToggle(id, open)` al plegar/desplegar (FR-108)**, por cualquier gesto o API (no
+  al restaurar con `SetItems`/`SetExpandedState`), y `itemConfig.selectable = false` para ramas
+  cabecera: el clic en la fila pliega sin cambiar la selección.
+
+### Build
+
+- Geist Mono Regular (SIL OFL 1.1) se descarga e instancia en CI (`package.yml`, `release.yml`),
+  como Geist.
+
 ## [2.31.0] - 2026-10-02
 
 > **Release v2.31.0 — `Label` con `maxWidth` solo elide cuando desborda (FR-105).**
