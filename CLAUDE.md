@@ -228,3 +228,19 @@ de shader / slot de textura inválido). **No hay error Lua ni stack**: `<LuaErro
   `MaskTexture` **por destino y en su misma draw layer** (nunca compartida entre capas), la
   región con **tamaño antes** de anclarle la máscara, y **nunca** dejar una máscara colgando de
   una textura sin archivo asignado.
+
+### 7. EditBox multilínea + `SetSpacing` — el cursor deriva hacia arriba (FR-106)
+
+Un `EditBox` multilínea con `SetSpacing(n > 0)` pinta las líneas con el hueco extra pero
+coloca el **cursor sin él**: cada línea el caret queda `n` px más arriba del texto (en la
+línea 9 ya se ve entre dos líneas). **Regla:** `SetSpacing(0)` en EditBoxes donde importa el
+caret; si un gutter/overlay tiene que alinearse línea a línea, que use el MISMO spacing (0).
+_Visto en `Craft.CodeEditor`, 12.1 (2026-10-12)._
+
+### 8. FontString multilínea con ancla única y `SetWordWrap(false)` — solo pinta ".."
+
+Un texto con `\n` ("1\n2\n3…") en una FontString con **una sola ancla** y wrap desactivado
+se maqueta como UNA línea que no cabe y el cliente dibuja solo la elipsis `..`. **Fix:**
+tamaño explícito (`SetSize(ancho, líneas × paso)`) + `SetWordWrap(true)` con ancho suficiente
+para que solo parta en los `\n`. Complementa el bug #2b: wrap off = una línea, incluso con `\n`.
+_Visto en el gutter de `Craft.CodeEditor`, 12.1 (2026-10-12)._
