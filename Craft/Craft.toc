@@ -58,6 +58,7 @@ components\ColorSwatch.lua
 components\Input.lua
 components\RadioGroup.lua
 components\Textarea.lua
+components\CodeEditor.lua
 components\Label.lua
 components\Field.lua
 components\Empty.lua

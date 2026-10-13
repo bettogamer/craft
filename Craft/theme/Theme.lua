@@ -635,7 +635,7 @@ do
     -- this session (e.g. Geist) loads async too and needs its own probe.
     function T._armFontProbes(tokens)
         local added = false
-        for _, path in ipairs({ tokens.font, tokens.fontMedium, tokens.fontBold }) do
+        for _, path in ipairs({ tokens.font, tokens.fontMedium, tokens.fontBold, tokens.fontMono }) do
             if path and not probed[path] then
                 probed[path] = true
                 if not warm then

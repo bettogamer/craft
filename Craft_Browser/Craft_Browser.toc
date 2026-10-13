@@ -80,6 +80,7 @@ libs\Craft\components\Slider.lua
 libs\Craft\components\Switch.lua
 libs\Craft\components\Toast.lua
 libs\Craft\components\Textarea.lua
+libs\Craft\components\CodeEditor.lua
 libs\Craft\components\Tabs.lua
 libs\Craft\components\Tooltip.lua
 libs\Craft\components\Window.lua
@@ -117,6 +118,7 @@ pages\Sidebar.lua
 pages\Slider.lua
 pages\Switch.lua
 pages\Textarea.lua
+pages\CodeEditor.lua
 pages\Tabs.lua
 pages\Theme.lua
 pages\Toast.lua

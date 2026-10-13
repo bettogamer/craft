@@ -27,6 +27,9 @@ local GEIST_B = Craft.mediaPath .. "Geist-Bold.ttf"
 -- las baja el CI: viajan commiteadas (excepción en .gitignore). Solo se referencian
 -- los 3 pesos que usa el eje (400/500/700); el resto de pesos/itálicas del paquete
 -- queda en media/ para consumidores que los pidan por path (Label `font`, FR-092).
+-- Geist Mono (SIL OFL 1.1) — la monoespaciada de la familia Geist; token `fontMono`
+-- (el `--font-mono` de shadcn). Solo la usa Craft.CodeEditor (FR-106). Un peso.
+local GEIST_MONO = Craft.mediaPath .. "GeistMono-Regular.ttf"
 local BSANS   = Craft.mediaPath .. "BettoSans-Regular.ttf"
 local BSANS_M = Craft.mediaPath .. "BettoSans-Medium.ttf"
 local BSANS_B = Craft.mediaPath .. "BettoSans-Bold.ttf"
@@ -78,6 +81,18 @@ CraftThemeAxes.style = {
 CraftThemeAxes.semantic = {
     destructive             = {r=1.000, g=0.391, b=0.404, a=1},  -- red-400 (dark), oklch(0.704 0.191 22.216)
     destructiveForeground   = {r=1.000, g=1.000, b=1.000, a=1},
+
+    -- FR-106 (Craft.CodeEditor). `--font-mono` no es un eje del create tool: Lyra no
+    -- lo cambia, así que vive aquí y no en el eje Font.
+    fontMono                = GEIST_MONO,
+    -- Resaltado de sintaxis: shadcn no tiene tokens de código; sus bloques de código
+    -- (ui.shadcn.com, rehype-pretty-code/shiki) usan el tema `github-dark`. Mismos hex.
+    -- El resto (identificadores, operadores) va en `foreground`.
+    syntaxKeyword           = {r=0.976, g=0.459, b=0.514, a=1},  -- #F97583
+    syntaxString            = {r=0.620, g=0.796, b=1.000, a=1},  -- #9ECBFF
+    syntaxNumber            = {r=0.475, g=0.722, b=1.000, a=1},  -- #79B8FF (números + true/false/nil)
+    syntaxComment           = {r=0.416, g=0.451, b=0.490, a=1},  -- #6A737D
+    syntaxFunction          = {r=0.702, g=0.573, b=0.941, a=1},  -- #B392F0
 }
 
 -- ─── Eje Base Color (grises neutrales) ───────────────────────────────────────
