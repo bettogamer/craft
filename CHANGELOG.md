@@ -6,6 +6,29 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.33.0] - 2026-10-14
+
+> **Release v2.33.0 — acción por fila en `Craft.Sidebar` (FR-109) y fix del arrastre de
+> `Craft.Slider` (FR-110).** Pedidos de SMRT para el editor de Auras.
+>
+> **Sin cambio para consumidores existentes:** `action` es opt-in; el fix del Slider solo
+> cambia el fin del arrastre (y pulsar la pista ahora también arrastra, como Radix). SMRT puede
+> quitar su botón de ojo fantasma al re-vendorear.
+
+### Añadido
+
+- **`Craft.Sidebar`: botón de acción por fila, `items[i].action` (FR-109).** El
+  `SidebarMenuAction` de shadcn: `{ icon, onClick, tooltip, hover, active }`, cuadrado de 20px
+  al borde derecho (a la izquierda del chevrón en ramas). Su clic no selecciona la fila ni
+  dispara `onSelect`/`onContextMenu`; `hover = true` = `showOnHover`; `active = false` = icono
+  apagado (`mutedForeground`). Pedido de SMRT (ojo de vista previa por aura).
+
+### Corregido
+
+- **`Craft.Slider`: el arrastre ya no se queda enganchado al soltar fuera del pulgar (FR-110).**
+  El tick del drag consulta el estado real del botón y termina solo; ocultar el slider también
+  lo corta. De paso, como Radix, pulsar la pista salta **y sigue** al cursor hasta soltar.
+
 ## [2.32.0] - 2026-10-12
 
 > **Release v2.32.0 — `Craft.CodeEditor` (FR-106) y Sidebar con clic derecho y aviso de
