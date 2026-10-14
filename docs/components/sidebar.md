@@ -120,8 +120,8 @@ API mucho más amplia que Craft **no** implementa (decisión de alcance MVP, no 
 ver `docs/design-reference.md` §9.1):
 - **Variantes de layout**: `floating`, `inset` (Craft solo tiene la barra fija).
 - **Collapse modes**: `offcanvas`, `icon` (colapso a solo-íconos), `none`.
-- **Sub-componentes**: `SidebarTrigger`, `SidebarRail`, slots de acción/badge
-  (`SidebarMenuAction`, `SidebarMenuBadge`), `SidebarMenuSkeleton`.
+- **Sub-componentes**: `SidebarTrigger`, `SidebarRail`, slot de badge
+  (`SidebarMenuBadge`), `SidebarMenuSkeleton`. (`SidebarMenuAction` sí: `items[i].action`, FR-109.)
 
 > **Implementado (FR-008):** el **árbol colapsable** (sub-menús anidados) sí existe vía
 > `items[i].children` + `collapsible`. Ver "Árbol colapsable" abajo.
@@ -224,6 +224,7 @@ items = {
 | `items[i].defaultOpen` | boolean | true | Estado inicial expandido de la rama |
 | `items[i].disabled` | boolean | false | (FR-048) Item deshabilitado: sin hover/click (`EnableMouse(false)`, chevron incluido), texto e ícono `t.mutedForeground` con a=0.5 |
 | `items[i].tooltip` | string | nil | (FR-089) Etiqueta al hover de la fila, mismo nombre y forma que en `Craft.Button` (FR-020) y `Craft.Menu` (FR-084). Vale también —y sobre todo— en filas `disabled`. Un valor que no sea string se ignora |
+| `items[i].action` | table | nil | (FR-109) Botón de acción al borde derecho de la fila = `SidebarMenuAction` de shadcn: `{ icon, onClick, tooltip, hover, active }`. Cuadrado `w-5` (20px) a `right-1` (4px), icono `size-4`, `top-1.5` en `h-8` / `top-1` en `h-7` (centrado) / `top-2.5` en `lg`; en una rama va a la izquierda del chevrón. Es **hermano** del botón de la fila: `onClick(id, itemConfig)` con clic izquierdo **no selecciona** ni dispara `onSelect`/`onContextMenu`; el clic derecho sobre él es el de la fila (como el chevrón). Hover propio `bg-sidebar-accent`; el hover de la fila (`peer-hover`) pasa el icono a `sidebarAccentForeground`. `hover = true` = `showOnHover`: `opacity-0` hasta que se pasa el ratón por la fila o la acción, **sigue siendo clicable** invisible (como el CSS). `active = false` pinta el icono en `mutedForeground` (petición de SMRT: «ojo apagado»; en shadcn el consumidor solo cambiaría el icono). No se desactiva con `disabled` de la fila (es otro elemento). `SetItems` lo repinta; `icon` debe ser string o no hay acción |
 | `activeItem` | string | nil | Id del item activo al crear el componente |
 | `onSelect` | function | nil | Callback `fn(id)` al seleccionar cualquier item |
 | `onDoubleClick` | function | nil | (FR-098) Callback `fn(id)` al hacer doble clic en un item hoja. Es el `OnDoubleClick` del cliente: el primer clic ya disparó `onSelect` (la fila está seleccionada) y el segundo llega aquí **en vez de** como `OnClick`. Ramas (`collapsible`) y `disabled` no lo disparan. El script solo se registra si hay algún `onDoubleClick` (global o del item): sin él, el segundo clic sigue siendo un `OnClick` como antes |
