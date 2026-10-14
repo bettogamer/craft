@@ -11,6 +11,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 --  7. Header + Footer (GetHeader/GetFooter + RefreshLayout)
 --  8. Scroll con overflow vs scrollbar oculto (FR-051)
 --  9. Items reactivos (ADR-0013: signal como prop, preserva expansión por id)
+-- 10. Acción por fila (FR-109: SidebarMenuAction, showOnHover)
 
 CraftBrowserPages["Sidebar"] = {
     title = "Sidebar",
@@ -392,6 +393,46 @@ CraftBrowserPages["Sidebar"] = {
             rItems:set(buildTree())
         end)
         y = y + 232
+
+        -- ── 10. Acción por fila (FR-109, SidebarMenuAction) ──────────────────
+        y = addLabel("Acción por fila (FR-109) — ojo siempre visible (active=false = apagado); "
+            .. "«…» con hover=true (showOnHover). Clic en la acción NO selecciona", y)
+        local c10 = newContainer(240, 170, y)
+        local preview = { au1 = true, au2 = false, au3 = false }
+        local actMenu = Craft.Menu:Create({})
+        table.insert(comps, actMenu)
+        local acts
+        local function buildActs()
+            local function eye(id, label)
+                return { id = id, label = label, icon = "star",
+                  action = { icon = preview[id] and "eye" or "eye-off", active = preview[id],
+                    tooltip = "Vista previa",
+                    onClick = function(aid)
+                        preview[aid] = not preview[aid]
+                        print("Sidebar action (eye):", aid, preview[aid])
+                        acts:SetItems(buildActs())
+                    end } }
+            end
+            return {
+                { id = "grp", label = "Auras", icon = "folder", collapsible = true, defaultOpen = true,
+                  action = { icon = "ellipsis", hover = true, onClick = function(aid, cfg)
+                      actMenu:SetItems({
+                          { type = "heading", label = cfg.label or aid },
+                          { type = "item", label = "Nueva aura", icon = "plus",
+                            onClick = function() print("Nueva aura en", aid) end },
+                      })
+                      actMenu:OpenAtCursor()
+                  end },
+                  children = { eye("au1", "Shadow Crash"), eye("au2", "Interrumpir"), eye("au3", "Bolster") } },
+                { id = "opt", label = "Opciones", icon = "settings",
+                  action = { icon = "ellipsis", hover = true,
+                    onClick = function(aid) print("Sidebar action (more):", aid) end } },
+            }
+        end
+        acts = newSidebar(c10, { width = 240, activeItem = "au1",
+            onSelect = function(id) print("Sidebar onSelect:", id) end,
+            items = buildActs() })
+        y = y + 182
 
         return {
             height  = y + 24,

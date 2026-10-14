@@ -49,6 +49,9 @@ local GROUP_PX       = 8    -- px-2
 local GROUP_FONT     = 12   -- text-xs (fontSizeSm)
 local GROUP_ALPHA    = 0.7  -- sidebarForeground/70
 local DISABLED_ALPHA = 0.5  -- disabled:opacity-50 (FR-048)
+local ACTION_SIZE    = 20   -- SidebarMenuAction: aspect-square w-5 (FR-109)
+local ACTION_RIGHT   = 4    -- right-1
+local ACTION_TOP_LG  = 10   -- peer-data-[size=lg]:top-2.5 (sm/default top-1/top-1.5 = centred)
 
 local SBAR_W         = 4    -- scrollbar track width (px)
 local SBAR_THUMB_MIN = 20   -- minimum thumb height (px)
@@ -396,6 +399,7 @@ function Sidebar:_colorItem(entry, isActive)
         if entry.chevTex then
             entry.chevTex:SetVertexColor(m.r, m.g, m.b, DISABLED_ALPHA)
         end
+        self:_colorAction(entry)   -- FR-109: the action is a sibling, not disabled
         return
     end
 
@@ -444,6 +448,7 @@ function Sidebar:_colorItem(entry, isActive)
                 t.sidebarForeground.r, t.sidebarForeground.g, t.sidebarForeground.b, 1)
         end
     end
+    self:_colorAction(entry)   -- FR-109 (peer-data-active)
 end
 
 -- ─── _rebuildLayout ───────────────────────────────────────────────────────────
@@ -560,7 +565,8 @@ end
 
 -- ─── AddItem ──────────────────────────────────────────────────────────────────
 -- Adds a menu item. itemConfig: {id, label, icon, avatar, section, onClick, onDoubleClick,
--- onContextMenu, collapsible, selectable, defaultOpen, children, disabled, tooltip}. `depth`/`parentEntry` are internal
+-- onContextMenu, collapsible, selectable, defaultOpen, children, disabled, tooltip, action}.
+-- `depth`/`parentEntry` are internal
 -- (tree recursion).
 -- Returns the item entry. Content x-positions are set in _positionRow (layout time).
 function Sidebar:AddItem(itemConfig, depth, parentEntry)
@@ -632,6 +638,7 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
         disabled    = disabled,
         collapsible = collapsible,
         tooltip     = hasTip and itemConfig.tooltip or nil,
+        itemConfig  = itemConfig,
         -- FR-108: `selectable = false` on a branch = a section header. A click on the
         -- row toggles it (shadcn: the SidebarMenuButton IS the CollapsibleTrigger)
         -- instead of making it the active item. Leaves ignore the flag.
@@ -710,6 +717,7 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
         local onContextMenu = itemConfig.onContextMenu
         local wantsContext  = (onContextMenu or self._cfg.onContextMenu) and true or false
         if wantsContext then itemFrame:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
+        entry.wantsContext = wantsContext
 
         -- Click on the row body = select (chevron Button intercepts clicks on the chevron).
         -- A section header (selectable = false, FR-108) toggles instead and reports
@@ -759,6 +767,9 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
         end
     end
 
+    -- Trailing action button (FR-109) — after the row scripts: it hooks them.
+    self:_makeRowAction(entry, itemConfig.action, rowH)
+
     -- Tooltip (FR-089). Craft.Tooltip.Attach hooks with HookScript, so it stacks on
     -- top of whatever the branch above registered instead of replacing it — and on a
     -- disabled row, where there is nothing, it is the only listener. Anchored to the
@@ -771,6 +782,110 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
     table.insert(self._sections, entry)
     if not self._building then self:_rebuildLayout() end
     return entry
+end
+
+-- ─── _makeRowAction (FR-109) ───────────────────────────────────────────────────
+-- shadcn SidebarMenuAction: a small square button at the row's trailing edge that
+-- takes its own click (it is a SIBLING of the menu button, never part of it), so
+-- it neither selects the row nor fires onSelect / onContextMenu.
+--   action = { icon, onClick(id, itemConfig), tooltip, hover, active }
+-- `hover = true` is `showOnHover`: opacity-0 until the row (or the action) is
+-- hovered — still clickable while invisible, like the CSS. `active = false` paints
+-- the icon muted (an "off" toggle such as a preview eye), a consumer request on
+-- top of shadcn, where the consumer would only swap the icon.
+-- On a branch the chevron owns the trailing edge, so the action sits left of it.
+function Sidebar:_makeRowAction(entry, spec, rowH)
+    if type(spec) ~= "table" or type(spec.icon) ~= "string" then return end
+    local itemFrame = entry.frame
+    local btn = CreateFrame("Button", nil, itemFrame)
+    btn:SetSize(ACTION_SIZE, ACTION_SIZE)
+    btn:SetFrameLevel(itemFrame:GetFrameLevel() + 3)   -- above the chevron Button
+    btn:EnableMouse(true)
+
+    local bg = btn:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints(btn)
+    bg:SetColorTexture(0, 0, 0, 0)
+
+    local tex = btn:CreateTexture(nil, "ARTWORK")
+    tex:SetSize(ICON_SIZE, ICON_SIZE)
+    tex:SetPoint("CENTER", btn, "CENTER", 0, 0)
+    if Craft.Icons.Has(spec.icon) then Craft.Icons.Apply(tex, spec.icon, ICON_SIZE) end
+
+    local a = {
+        btn = btn, bg = bg, tex = tex, spec = spec,
+        showOnHover = spec.hover and true or false,
+        tooltip = type(spec.tooltip) == "string" and spec.tooltip or nil,
+        top = (self._cfg.size == "lg" and (entry.depth or 0) == 0)
+              and ACTION_TOP_LG or math.floor((rowH - ACTION_SIZE) / 2),
+    }
+    entry.action = a
+
+    local id, itemConfig = entry.itemId, entry.itemConfig
+    btn:SetScript("OnClick", function(_, button)
+        if button == "RightButton" then
+            -- Covers the row like the chevron does: a right click is still the row's.
+            local rowClick = itemFrame:GetScript("OnClick")
+            if rowClick then rowClick(itemFrame, button) end
+            return
+        end
+        if spec.onClick then spec.onClick(id, itemConfig) end
+    end)
+    if entry.wantsContext then btn:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
+
+    -- hover:bg-sidebar-accent on the action itself; it also keeps a showOnHover
+    -- action visible (group-hover/menu-item covers the whole item).
+    btn:SetScript("OnEnter", function()
+        a.hovered = true
+        self:_colorAction(entry)
+    end)
+    btn:SetScript("OnLeave", function()
+        a.hovered = false
+        self:_colorAction(entry)
+    end)
+    -- peer-hover/menu-button: the row's hover tints the action too. HookScript so
+    -- the row's own hover (and a disabled row with no scripts) stay untouched.
+    itemFrame:HookScript("OnEnter", function() a.rowHovered = true;  self:_colorAction(entry) end)
+    itemFrame:HookScript("OnLeave", function() a.rowHovered = false; self:_colorAction(entry) end)
+
+    if a.tooltip then
+        Craft.Tooltip.Attach(btn, { text = a.tooltip, side = "right" })
+    end
+    self:_colorAction(entry)
+end
+
+-- Paints the action of a row: visibility (showOnHover), hover background and icon
+-- colour. Reads the row geometry with IsMouseOver — moving from the row onto the
+-- action fires the row's OnLeave, but the item is still "hovered" (group-hover).
+function Sidebar:_colorAction(entry)
+    local a, t = entry.action, self._t
+    if not a or not t then return end
+    local itemHovered = a.hovered or a.rowHovered or entry.frame:IsMouseOver()
+    if a.showOnHover then a.btn:SetAlpha(itemHovered and 1 or 0) end
+
+    if a.hovered then
+        local acc = t.sidebarAccent
+        a.bg:SetColorTexture(acc.r, acc.g, acc.b, 1)
+    else
+        a.bg:SetColorTexture(0, 0, 0, 0)
+    end
+
+    local c
+    if a.spec.active == false then
+        c = t.mutedForeground
+    elseif a.hovered or a.rowHovered
+        or (a.showOnHover and entry.itemId ~= nil and entry.itemId == self._cfg.activeItem) then
+        c = t.sidebarAccentForeground   -- hover / peer-hover / peer-data-active (showOnHover)
+    else
+        c = t.sidebarForeground
+    end
+    a.tex:SetVertexColor(c.r, c.g, c.b, 1)
+end
+
+-- Releases the row actions' tooltips before the rows are dropped.
+function Sidebar:_detachRowActions()
+    for _, e in ipairs(self._sections) do
+        if e.action and e.action.tooltip then Craft.Tooltip.Detach(e.action.btn) end
+    end
 end
 
 -- ─── _makeRowAvatar (FR-095) ────────────────────────────────────────────────────
@@ -827,6 +942,14 @@ function Sidebar:_positionRow(entry)
             entry.chevBtn:ClearAllPoints()
             entry.chevBtn:SetPoint("RIGHT", entry.frame, "RIGHT", 0, 0)
         end
+    end
+
+    -- Action (FR-109): top-right, left of the chevron Button on a branch.
+    if entry.action then
+        local right = ACTION_RIGHT
+        if entry.chevBtn then right = entry.chevBtn:GetWidth() end
+        entry.action.btn:ClearAllPoints()
+        entry.action.btn:SetPoint("TOPRIGHT", entry.frame, "TOPRIGHT", -right, -entry.action.top)
     end
 
     -- Vertical guide lines (border-l): one per ancestor level, in each indent gutter.
@@ -969,6 +1092,7 @@ function Sidebar:SetItems(items, opts)
     local prev     = preserve and self:GetExpandedState() or nil
 
     self:_destroyRowAvatars()   -- FR-095: the rows are dropped; their avatars too
+    self:_detachRowActions()    -- FR-109: and their action tooltips
     for _, e in ipairs(self._sections) do
         -- FR-089: the hook dies with the row it belonged to. These frames are
         -- orphaned here, and a delayed show already queued would otherwise fire
@@ -1083,6 +1207,7 @@ function Sidebar:Destroy()
         if e.tooltip and e.frame then Craft.Tooltip.Detach(e.frame) end
     end
     self:_destroyRowAvatars()
+    self:_detachRowActions()
     self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil

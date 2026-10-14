@@ -651,3 +651,96 @@ describe("Craft.Sidebar onToggle (FR-108)", function()
         sb:Destroy()
     end)
 end)
+
+describe("Craft.Sidebar row action (FR-109)", function()
+    it("click calls action.onClick(id, itemConfig) and does not select", function()
+        local got, selected, ctx
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200,
+            onSelect = function(id) selected = id end,
+            onContextMenu = function() ctx = true end })
+        sb:SetItems({ { id = "a1", label = "Aura", action = {
+            icon = "eye", onClick = function(id, cfg) got = { id, cfg.label } end } } })
+        local a = sb._itemFrames.a1.action
+        assert.is_not_nil(a)
+        a.btn:_fire("OnClick", "LeftButton")
+        assert.equals("a1", got[1])
+        assert.equals("Aura", got[2])
+        assert.is_nil(selected)
+        assert.is_nil(ctx)
+        assert.is_nil(sb._cfg.activeItem)
+        sb:Destroy()
+    end)
+
+    it("a right click on the action is the row's context menu", function()
+        local ctx
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200,
+            onContextMenu = function(id) ctx = id end })
+        sb:SetItems({ { id = "a1", label = "Aura", action = { icon = "eye", onClick = function() end } } })
+        sb._itemFrames.a1.action.btn:_fire("OnClick", "RightButton")
+        assert.equals("a1", ctx)
+        sb:Destroy()
+    end)
+
+    it("rows without action (or with a malformed one) get none", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems({ { id = "a", label = "A" }, { id = "b", label = "B", action = { onClick = function() end } } })
+        assert.is_nil(sb._itemFrames.a.action)
+        assert.is_nil(sb._itemFrames.b.action)
+        sb:Destroy()
+    end)
+
+    it("hover = true hides it until the row is hovered (opacity, still clickable)", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems({ { id = "a", label = "A", action = { icon = "eye", hover = true } } })
+        local e = sb._itemFrames.a
+        assert.equals(0, e.action.btn:GetAlpha())
+        assert.is_true(e.action.btn:IsMouseEnabled())
+        e.frame:_fire("OnEnter")
+        assert.equals(1, e.action.btn:GetAlpha())
+        e.frame:_fire("OnLeave")
+        e.action.btn:_fire("OnEnter")          -- moved from the row onto the action
+        assert.equals(1, e.action.btn:GetAlpha())
+        e.action.btn:_fire("OnLeave")
+        assert.equals(0, e.action.btn:GetAlpha())
+        sb:Destroy()
+    end)
+
+    it("without hover it is always visible", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems({ { id = "a", label = "A", action = { icon = "eye" } } })
+        assert.equals(1, sb._itemFrames.a.action.btn:GetAlpha())
+        sb:Destroy()
+    end)
+
+    it("active = false paints the icon mutedForeground; SetItems repaints", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems({ { id = "a", label = "A", action = { icon = "eye", active = false } } })
+        local t = sb._t
+        local r, g, b = sb._itemFrames.a.action.tex:GetVertexColor()
+        assert.equals(t.mutedForeground.r, r)
+        assert.equals(t.mutedForeground.g, g)
+        assert.equals(t.mutedForeground.b, b)
+        sb:SetItems({ { id = "a", label = "A", action = { icon = "eye", active = true } } })
+        r, g, b = sb._itemFrames.a.action.tex:GetVertexColor()
+        assert.equals(t.sidebarForeground.r, r)
+        assert.equals(t.sidebarForeground.g, g)
+        assert.equals(t.sidebarForeground.b, b)
+        sb:Destroy()
+    end)
+
+    it("is a w-5 square at right-1; on a branch it sits left of the chevron", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems({ { id = "leaf", label = "L", action = { icon = "eye" } },
+                      { id = "g", label = "G", action = { icon = "eye" },
+                        children = { { id = "c", label = "C" } } } })
+        local leaf = sb._itemFrames.leaf.action.btn
+        assert.equals(20, leaf:GetWidth())
+        assert.equals(20, leaf:GetHeight())
+        local _, _, _, x, y = leaf:GetPoint(1)
+        assert.equals(-4, x)
+        assert.equals(-6, y)                   -- h-8 row: top-1.5
+        local _, _, _, gx = sb._itemFrames.g.action.btn:GetPoint(1)
+        assert.equals(-sb._itemFrames.g.chevBtn:GetWidth(), gx)
+        sb:Destroy()
+    end)
+end)
