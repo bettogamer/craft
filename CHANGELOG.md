@@ -29,6 +29,11 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   El tick del drag consulta el estado real del botón y termina solo; ocultar el slider también
   lo corta. De paso, como Radix, pulsar la pista salta **y sigue** al cursor hasta soltar.
 
+### Cambiado
+
+- **`## Interface: 120105` (WoW 12.1.5)** en `Craft.toc` y `Craft_Browser.toc`; taintlint pasa
+  limpio con la db 12.1.5 (build 70391).
+
 ## [2.32.0] - 2026-10-12
 
 > **Release v2.32.0 — `Craft.CodeEditor` (FR-106) y Sidebar con clic derecho y aviso de

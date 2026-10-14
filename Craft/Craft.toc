@@ -1,4 +1,4 @@
-## Interface: 120100
+## Interface: 120105
 ## Title: Craft
 ## Title-esMX: Craft
 ## Notes: Modern UI component library for WoW addons (shadcn Lyra style)
