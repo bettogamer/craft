@@ -222,3 +222,84 @@ describe("Craft.Slider config.width", function()
         sl:Destroy()
     end)
 end)
+
+-- ─── FR-110: the drag ends even when the button is released elsewhere ─────
+
+describe("Craft.Slider drag lifetime (FR-110)", function()
+
+    -- The mini-runner has no before_each: the stub is installed once for this
+    -- block and every test starts by pressing the button (held = true).
+    local held = true
+    IsMouseButtonDown = function() return held end   -- luacheck: ignore
+    local function press() held = true end
+
+    it("a tick with the button already up ends the drag (release over another frame)", function()
+        press()
+        local sl = newSlider({ min = 0, max = 100, value = 50 })
+        sl._thumb:_fire("OnMouseDown", "LeftButton")
+        assert.is_true(sl._dragging)
+        assert.is_not_nil(sl._thumb:GetScript("OnUpdate"))
+
+        held = false                       -- OnMouseUp went to some other frame
+        sl._thumb:_fire("OnUpdate", 0.016)
+        assert.is_false(sl._dragging)
+        assert.is_nil(sl._thumb:GetScript("OnUpdate"))
+        sl:Destroy()
+    end)
+
+    it("keeps dragging while the button is held", function()
+        press()
+        local sl = newSlider({ min = 0, max = 100, value = 50 })
+        sl._thumb:_fire("OnMouseDown", "LeftButton")
+        sl._thumb:_fire("OnUpdate", 0.016)
+        assert.is_true(sl._dragging)
+        sl:Destroy()
+    end)
+
+    it("OnMouseUp on the thumb still ends it, and repeating is harmless", function()
+        press()
+        local sl = newSlider({ min = 0, max = 100, value = 50 })
+        sl._thumb:_fire("OnMouseDown", "LeftButton")
+        sl._thumb:_fire("OnMouseUp", "LeftButton")
+        assert.is_false(sl._dragging)
+        assert.has_no_errors(function() sl._thumb:_fire("OnMouseUp", "LeftButton") end)
+        sl:Destroy()
+    end)
+
+    it("hiding the slider kills a live drag", function()
+        press()
+        local sl = newSlider({ min = 0, max = 100, value = 50 })
+        sl._thumb:_fire("OnMouseDown", "LeftButton")
+        sl.frame:_fire("OnHide")
+        assert.is_false(sl._dragging)
+        assert.is_nil(sl._thumb:GetScript("OnUpdate"))
+        sl:Destroy()
+    end)
+
+    it("pressing the track starts a drag that follows the cursor (Radix pointerdown)", function()
+        press()
+        local sl = newSlider({ min = 0, max = 100, value = 50 })
+        sl.frame:_fire("OnMouseDown", "LeftButton")
+        assert.is_true(sl._dragging)
+        sl.frame:_fire("OnMouseUp", "LeftButton")
+        assert.is_false(sl._dragging)
+        sl:Destroy()
+    end)
+
+    it("a disabled slider never starts a drag", function()
+        local sl = newSlider({ min = 0, max = 100, value = 50 })
+        sl:SetEnabled(false)
+        sl._thumb:_fire("OnMouseDown", "LeftButton")
+        sl.frame:_fire("OnMouseDown", "LeftButton")
+        assert.is_false(sl._dragging)
+        sl:Destroy()
+    end)
+
+    it("a right click does not start a drag", function()
+        press()
+        local sl = newSlider({ min = 0, max = 100, value = 50 })
+        sl._thumb:_fire("OnMouseDown", "RightButton")
+        assert.is_false(sl._dragging)
+        sl:Destroy()
+    end)
+end)

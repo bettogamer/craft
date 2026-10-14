@@ -196,8 +196,14 @@ function Slider:Create(parent, config)
             -- Ignore clicks in the label row (above the track area)
             if frameTop and (cy / scale) > frameTop - self._trackTopFromFrameTop then return end
         end
+        -- Radix: pointerdown on the track jumps AND keeps following the pointer
+        -- until release (FR-110), not a one-shot jump.
         self:_updateFromCursor()
+        self:_beginDrag()
     end)
+    self.frame:SetScript("OnMouseUp", function() self:_endDrag() end)
+    -- A drag must never outlive the slider's visibility (FR-110).
+    self.frame:SetScript("OnHide", function() self:_endDrag() end)
 
     -- ── Mouse wheel — OPT-IN (config.wheel, default false) ────────────────────
     -- In WoW the wheel goes to the TOPMOST frame under the cursor that has it
@@ -232,20 +238,9 @@ function Slider:Create(parent, config)
     -- ── Thumb drag ────────────────────────────────────────────────────────────
     self._thumb:SetScript("OnMouseDown", function(_, button)
         if button ~= "LeftButton" then return end
-        self._dragging = true
-        self._thumbRing:Show()
-        self._thumb:SetScript("OnUpdate", function()
-            self:_updateFromCursor()
-        end)
+        self:_beginDrag()
     end)
-
-    self._thumb:SetScript("OnMouseUp", function()
-        self._dragging = false
-        self._thumb:SetScript("OnUpdate", nil)
-        if not self._thumb:IsMouseOver() then
-            self._thumbRing:Hide()
-        end
-    end)
+    self._thumb:SetScript("OnMouseUp", function() self:_endDrag() end)
 
     -- ── Theme + initial render ────────────────────────────────────────────────
     self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
@@ -417,6 +412,34 @@ function Slider:_applyTheme(t)
     self:_updateVisuals()
 end
 
+-- ─── Drag (FR-110) ──────────────────────────────────────────────────────────
+-- OnMouseUp only reaches the frame under the cursor at release time: let go of
+-- the button over another control and the thumb never hears it. So the drag
+-- tick polls the real button state and ends itself — the WoW stand-in for the
+-- pointer capture Radix gets from setPointerCapture. OnMouseUp stays as the
+-- fast path; _endDrag is idempotent.
+function Slider:_beginDrag()
+    if self._disabled or self._dragging then return end
+    self._dragging = true
+    self._thumbRing:Show()
+    self._thumb:SetScript("OnUpdate", function()
+        if not IsMouseButtonDown("LeftButton") then
+            self:_endDrag()
+            return
+        end
+        self:_updateFromCursor()
+    end)
+end
+
+function Slider:_endDrag()
+    if not self._dragging then return end
+    self._dragging = false
+    self._thumb:SetScript("OnUpdate", nil)
+    if not self._thumb:IsMouseOver() then
+        self._thumbRing:Hide()
+    end
+end
+
 -- ─── Hover ─────────────────────────────────────────────────────────────────
 function Slider:_onThumbEnter()
     if self._disabled then return end
@@ -490,6 +513,7 @@ function Slider:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
     self._theme:unregister(self._themeHandle)
+    self:_endDrag()
     self.frame:Hide()
     self.frame = nil
 end

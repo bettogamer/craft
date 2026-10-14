@@ -108,6 +108,35 @@ CraftBrowserPages["Slider"] = {
 
         y = y - box:GetHeight() - GAP
 
+        -- ── Drag released over another control (FR-110) ─────────────────────
+        -- Repro: grab the "Width" thumb, drag down onto "Height" or the input and
+        -- let go THERE. Before the fix the thumb kept following the cursor because
+        -- OnMouseUp went to the other frame. PASS: it stops the moment you release.
+        -- Also Radix: pressing the TRACK (not the thumb) jumps and keeps following
+        -- the cursor until release.
+        local hdr2 = parent:CreateFontString(nil, "OVERLAY")
+        hdr2:SetFont(t.font, t.fontSize)
+        hdr2:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+        hdr2:SetPoint("TOPLEFT", parent, "TOPLEFT", PAD, y)
+        hdr2:SetText("FR-110 — drag a thumb and release over the slider/input below: it must stop")
+        loose[#loose + 1] = hdr2
+        y = y - 22
+        for _, lbl in ipairs({ "Width", "Height" }) do
+            local sld = Craft.Slider:Create(parent, {
+                label = lbl, min = 16, max = 512, step = 1, value = 64, showValue = true,
+                onChange = function(v) print("FR-110 " .. lbl .. ":", v) end,
+            })
+            sld:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", PAD, y)
+            sld:GetFrame():SetWidth(W)
+            comps[#comps + 1] = sld
+            y = y - sld:GetFrame():GetHeight() - 8
+        end
+        local inp = Craft.Input:Create(parent, { placeholder = "Release the drag over me" })
+        inp:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", PAD, y)
+        inp:GetFrame():SetWidth(W)
+        comps[#comps + 1] = inp
+        y = y - inp:GetFrame():GetHeight() - GAP
+
         return {
             height  = math.abs(y) - GAP + PAD,
             cleanup = function()
