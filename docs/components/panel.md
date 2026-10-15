@@ -149,6 +149,7 @@ sin cambios. El caller instancia su propio widget (p. ej. `Craft.Button` variant
 | `action` | Frame | nil | Widget de acción del header (CardAction, FR-039); reparentado y anclado arriba-derecha. Fuerza el layout de header con `Craft.Grid` `[1fr auto]` |
 | `padding` | number | 16 | Override del padding **horizontal** de content (`px-4`) |
 | `paddingY` | number | nil (=`lg`, 16) | Override del padding **vertical** de content (`py-4`). **Solo** aplica a la rama sin header y sin footer (con header el gap es `header:BOTTOM − lg`, con footer `footer:TOP + lg`; no se tocan). `paddingY=0` → content pegado arriba/abajo (FR-046) |
+| `titleWeight` | string | nil (=`"medium"`) | Peso del título: `"regular"` \| `"medium"` \| `"bold"` (FR-112). Equivale a `<CardTitle className="font-bold">` de shadcn. `"medium"` usa el eje de fuente de títulos (`fontHeading`); `"bold"`/`"regular"` salen de la fuente de cuerpo (`fontBold`/`font`; una fuente sin negrita registra su regular como `fontBold`). Si es nil manda el token de contexto `cardTitleWeight` y luego `"medium"` |
 | `flush` | boolean | false | Full-bleed: azúcar que fuerza `padding=0` **y** `paddingY=0` — el hijo cuelga del ring por los 4 lados (Card como marco: sidebar, imagen, tabla, mapa). FR-046 |
 
 ## API pública
@@ -164,6 +165,7 @@ sin cambios. El caller instancia su propio widget (p. ej. `Craft.Button` variant
 | `GetHeaderAction()` | Frame \| nil | Retorna el widget de acción del header (FR-039) o nil |
 | `SetHeaderAction(frame)` | void | Setea/reemplaza la acción del header; `nil` la limpia. Re-maqueta el header como grid `[1fr auto]` |
 | `SetTitle(text)` | void | Actualiza el texto de `panel._title`; crea el header si no existía |
+| `SetTitleWeight(weight)` | void | Cambia el peso del título en caliente; `nil` vuelve al token/default (FR-112) |
 | `SetDescription(text)` | void | Actualiza `panel._desc`; expande el header si es necesario |
 
 ## Notas de implementación
@@ -219,3 +221,15 @@ tiene ancho 0 (mismo guard que Flex). Es idempotente: recomputa geometría idén
 tamaño no cambia.
 
 **Radius = 0:** ninguna textura usa `SetTexCoord` para esquinas redondeadas. Todas las texturas son rectangulares sin modificación (`rounded-none` en Lyra).
+
+### Peso del título para todas las tarjetas de un addon (FR-112)
+
+Token de contexto opcional `cardTitleWeight` (no está en los presets: default `"medium"`, Lyra
+`.cn-card-title font-medium`). Un consumidor lo fija una vez en su contexto de tema y aplica a
+todas sus tarjetas; `config.titleWeight` de una tarjeta lo pisa:
+
+```lua
+local ctx = Craft.Theme.context("SMRT", { overrides = { cardTitleWeight = "bold" } })
+Craft.Panel:Create(parent, { theme = ctx, title = "Icon Settings" })   -- bold
+```
+

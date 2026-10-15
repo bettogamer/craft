@@ -81,7 +81,8 @@ textarea.frame        (Frame — borde + fondo, alto = height)
 | `error` | boolean | false | Borde destructive |
 | `maxLetters` | number | 0 | Límite de caracteres (`0` = sin límite) |
 | `font` | string | nil | Ruta de fuente (p. ej. una TTF monoespaciada para código); default `t.font` |
-| `onChange` | function | nil | `fn(text)` en `OnTextChanged` (solo input del usuario) |
+| `onChange` | function | nil | `fn(text)` en `OnTextChanged` (solo input del usuario, y `Insert`) |
+| `onFocusGained` / `onFocusLost` | function | nil | `fn()` al ganar / perder el foco, después del trabajo interno (FR-111) |
 
 > **Monospace**: Craft no incluye fuente monoespaciada bundled. Para código, pasar
 > `config.font` con la ruta de una TTF mono del addon consumidor.
@@ -97,7 +98,9 @@ textarea.frame        (Frame — borde + fondo, alto = height)
 | `ScrollToTop()` | Vuelve a la primera línea |
 | `ScrollToBottom()` | Va al final del texto |
 | `SetScrollOffset(n)` / `GetScrollOffset()` | Offset vertical en px (clamped al rango) |
-| `GetEditBox()` | EditBox nativo (para `SetCursorPosition`, etc.) |
+| `Insert(text)` | Inserta en el cursor con el efecto de teclear (`onChange` una vez + señal). No-op si `disabled` (FR-111) |
+| `GetCursorPosition()` / `SetCursorPosition(n)` | Cursor del EditBox (FR-111) |
+| `GetEditBox()` | EditBox nativo |
 | `GetFrame()` | Frame raíz |
 
 > `SetValue(text)` **vuelve arriba** (FR-091): cargar otro texto es empezar otro documento.
