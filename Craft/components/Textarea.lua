@@ -45,6 +45,8 @@ function Textarea:Create(parent, config)
         width       = config.width,
         font        = config.font,        -- optional font path (e.g. a monospace TTF for code)
         onChange    = config.onChange,
+        onFocusGained = config.onFocusGained,   -- FR-111: after internal focus work
+        onFocusLost   = config.onFocusLost,     -- FR-111
     }
 
     -- Reactive props (ADR-0013): a callable prop binds through the public
@@ -138,10 +140,12 @@ function Textarea:Create(parent, config)
     self._edit:SetScript("OnEditFocusGained", function()
         self._placeholder:Hide()
         self._focused:set(true)
+        if self._cfg.onFocusGained then self._cfg.onFocusGained() end
     end)
     self._edit:SetScript("OnEditFocusLost", function()
         if self._edit:GetText() == "" then self._placeholder:Show() end
         self._focused:set(false)
+        if self._cfg.onFocusLost then self._cfg.onFocusLost() end
     end)
     self._edit:SetScript("OnTextChanged", function(eb, userInput)
         local text = eb:GetText()
@@ -149,8 +153,8 @@ function Textarea:Create(parent, config)
         -- Write back to the signal on USER input only — the programmatic
         -- SetText of the reactive bind arrives with userInput=false, so it
         -- never echoes; the signal's equality cut breaks the feedback loop.
-        if userInput and self._valueSignal then self._valueSignal:set(text) end
-        if userInput and self._cfg.onChange then self._cfg.onChange(text) end
+        -- Insert() fires the user path itself, once (FR-111).
+        if userInput and not self._inserting then self:_onUserText(text) end
         self._bar:Update()   -- typing a line more (or one less) shows/hides the rail
     end)
     self._edit:SetScript("OnCursorChanged", function(_, _, y, _, cursorH)
@@ -301,6 +305,28 @@ function Textarea:SetValue(text)
     self._edit:SetText(text)
     self._placeholder:SetShown(text == "" and not self._edit:HasFocus())
     self:ScrollToTop()
+end
+
+function Textarea:_onUserText(text)
+    if self._valueSignal then self._valueSignal:set(text) end
+    if self._cfg.onChange then self._cfg.onChange(text) end
+end
+
+-- FR-111: insert at the caret with the same effects as typing (see Input:Insert).
+function Textarea:Insert(text)
+    if self._cfg.disabled or text == nil or text == "" then return end
+    self._inserting = true
+    self._edit:Insert(text)
+    self._inserting = false
+    self:_onUserText(self._edit:GetText())
+end
+
+function Textarea:GetCursorPosition()
+    return self._edit:GetCursorPosition()
+end
+
+function Textarea:SetCursorPosition(n)
+    self._edit:SetCursorPosition(n)
 end
 
 function Textarea:GetValue()

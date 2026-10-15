@@ -196,3 +196,35 @@ describe("Craft.Textarea scroll API (FR-091)", function()
         assert.equals(before, #Craft.Theme._listeners)
     end)
 end)
+
+-- ─── Insert at the caret + focus callbacks (FR-111) ───────────────────────────
+
+describe("Craft.Textarea Insert / focus callbacks (FR-111)", function()
+
+    it("Insert puts the text at the caret and fires onChange once", function()
+        local seen, calls = nil, 0
+        local ta = Craft.Textarea:Create(UIParent, {
+            value = "ab", onChange = function(v) seen = v; calls = calls + 1 end,
+        })
+        ta:SetCursorPosition(1)
+        ta:Insert("%p")
+        assert.equals("a%pb", ta:GetValue())
+        assert.equals("a%pb", seen)
+        assert.equals(1, calls)
+        assert.equals(3, ta:GetCursorPosition())
+        ta:Destroy()
+    end)
+
+    it("onFocusGained / onFocusLost fire on focus changes", function()
+        local log = {}
+        local ta = Craft.Textarea:Create(UIParent, {
+            onFocusGained = function() log[#log + 1] = "in" end,
+            onFocusLost   = function() log[#log + 1] = "out" end,
+        })
+        ta._edit:SetFocus()
+        ta._edit:ClearFocus()
+        assert.equals("in", log[1])
+        assert.equals("out", log[2])
+        ta:Destroy()
+    end)
+end)

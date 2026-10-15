@@ -313,6 +313,15 @@ local function makeFrame(frameType, name, parent)
     f._cursor = 0
     function f:SetCursorPosition(n)       self._cursor = n or 0 end
     function f:GetCursorPosition()        return self._cursor end
+    -- Insert at the caret (no selection modelled); the caret ends after the
+    -- inserted text. Fires OnTextChanged like a programmatic SetText.
+    function f:Insert(t)
+        t = tostring(t or "")
+        local c = math.min(self._cursor, #self._text)
+        self._text = self._text:sub(1, c) .. t .. self._text:sub(c + 1)
+        self._cursor = c + #t
+        self:_fire("OnTextChanged", false)
+    end
 
     -- ScrollFrame methods
     f._vScroll = 0

@@ -86,6 +86,52 @@ CraftBrowserPages["Input"] = {
         escStatus:SetPoint("LEFT", escInput:GetFrame(), "RIGHT", 12, 0)
         y = y + 44
 
+        -- ── Insert at the caret + focus callbacks (FR-111) ───────────────────
+        -- The WeakAuras "text codes" pattern: focusing the field opens a row of
+        -- codes; clicking one drops it WHERE THE CARET IS (not appended) and
+        -- keeps typing. Focus events are echoed to chat.
+        y = addLabel("FR-111 — focus the field: codes appear; click one to insert it at the caret", y)
+        local codesInput
+        local codeBtns = {}
+        local function showCodes(shown)
+            for _, b in ipairs(codeBtns) do b:GetFrame():SetShown(shown) end
+        end
+        codesInput = Craft.Input:Create(parent, {
+            value = "HP  left",
+            onChange = function(text) print("|cff88ccffCraft FR-111|r onChange: " .. text) end,
+            onFocusGained = function()
+                print("|cff88ccffCraft FR-111|r onFocusGained")
+                showCodes(true)
+            end,
+            onFocusLost = function()
+                print("|cff88ccffCraft FR-111|r onFocusLost")
+                -- A click on a code may take the focus first: give it a beat,
+                -- the click hands the caret back (Focus below).
+                C_Timer.After(0.2, function()
+                    if codesInput and not codesInput:HasFocus() then showCodes(false) end
+                end)
+            end,
+        })
+        codesInput:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        codesInput:GetFrame():SetWidth(inputW)
+        table.insert(comps, codesInput)
+        local bx = 16 + inputW + 8
+        for _, code in ipairs({ "%p", "%n", "%s", "{rt1}" }) do
+            local b = Craft.Button:Create(parent, {
+                text = code, size = "sm", variant = "outline",
+                onClick = function()
+                    codesInput:Insert(code)
+                    codesInput:Focus()
+                end,
+            })
+            b:GetFrame():SetPoint("LEFT", codesInput:GetFrame(), "LEFT", bx - 16, 0)
+            bx = bx + b:GetFrame():GetWidth() + 4
+            table.insert(codeBtns, b)
+            table.insert(comps, b)
+        end
+        showCodes(false)
+        y = y + 44
+
         return {
             height  = y + 24,
             cleanup = function()

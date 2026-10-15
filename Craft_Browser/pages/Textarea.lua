@@ -102,6 +102,32 @@ CraftBrowserPages["Textarea"] = {
         table.insert(comps, taDis)
         y = y + 76
 
+        -- FR-111: Insert at the caret (same as typing: onChange fires) + focus callbacks.
+        y = addLabel("FR-111 — click inside, move the caret, then press a code: it lands at the caret.", y)
+        local taIns = Craft.Textarea:Create(parent, {
+            value  = "Line one\nLine two",
+            width  = 360,
+            height = 64,
+            onChange      = function(text)
+                print("|cff88ccffCraft FR-111|r Textarea onChange (" .. #text .. " chars)")
+            end,
+            onFocusGained = function() print("|cff88ccffCraft FR-111|r Textarea onFocusGained") end,
+            onFocusLost   = function() print("|cff88ccffCraft FR-111|r Textarea onFocusLost") end,
+        })
+        taIns:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(y + 4))
+        table.insert(comps, taIns)
+        local insX = 16 + 360 + 8
+        for _, code in ipairs({ "%p", "{rt1}" }) do
+            local b = Craft.Button:Create(parent, {
+                text = code, size = "sm", variant = "outline",
+                onClick = function() taIns:Insert(code); taIns:GetEditBox():SetFocus() end,
+            })
+            b:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", insX, -(y + 4))
+            insX = insX + b:GetFrame():GetWidth() + 4
+            table.insert(comps, b)
+        end
+        y = y + 76
+
         return {
             height  = y + 24,
             cleanup = function()

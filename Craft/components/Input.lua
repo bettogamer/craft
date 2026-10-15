@@ -42,6 +42,8 @@ function Input:Create(parent, config)
         onChange       = config.onChange,
         onEnterPressed = config.onEnterPressed,
         onEscapePressed= config.onEscapePressed,           -- FR-072: default clears focus
+        onFocusGained  = config.onFocusGained,             -- FR-111: after internal focus work
+        onFocusLost    = config.onFocusLost,               -- FR-111
         width          = config.width,
         -- FR-102: override of the theme's outline (t.fontFlags), applyFont's 4th arg —
         -- "" = no outline, nil = theme flag. Re-applied on every re-theme.
@@ -201,6 +203,7 @@ function Input:Create(parent, config)
     self._edit:SetScript("OnEditFocusGained", function()
         self._placeholder:Hide()
         self._focused:set(true)   -- tween fades the border → ring (see focus-ring fade)
+        if self._cfg.onFocusGained then self._cfg.onFocusGained() end
     end)
 
     self._edit:SetScript("OnEditFocusLost", function()
@@ -208,24 +211,17 @@ function Input:Create(parent, config)
             self._placeholder:Show()
         end
         self._focused:set(false)  -- tween fades the border back → idle
+        if self._cfg.onFocusLost then self._cfg.onFocusLost() end
     end)
 
     -- OnTextChanged also fires on programmatic SetText (the reactive bind's
     -- SetValue path) — the userInput guard keeps the signal writeback strictly
     -- user-driven, so a bind sync never echoes back into the signal.
     self._edit:SetScript("OnTextChanged", function(editbox, userInput)
-        if userInput then
-            local text = editbox:GetText()
-            if self._valueSignal then self._valueSignal:set(text) end
-            if self._cfg.onChange then
-                self._cfg.onChange(text)
-            end
-            -- Update placeholder visibility
-            if text == "" then
-                self._placeholder:Show()
-            else
-                self._placeholder:Hide()
-            end
+        -- Insert() runs the user path itself, once, whatever userInput the
+        -- client reports for a code-driven Insert.
+        if userInput and not self._inserting then
+            self:_onUserText(editbox:GetText())
         end
         -- Clear ✕ visibility tracks the text on both user input and programmatic
         -- SetText (fires OnTextChanged with userInput=false), so it stays in sync.
@@ -413,6 +409,41 @@ function Input:SetValue(text)
         self._placeholder:Hide()
     end
     self:_updateClear()
+end
+
+-- The path a keystroke takes: signal writeback + onChange + placeholder.
+function Input:_onUserText(text)
+    if self._valueSignal then self._valueSignal:set(text) end
+    if self._cfg.onChange then
+        self._cfg.onChange(text)
+    end
+    if text == "" then
+        self._placeholder:Show()
+    else
+        self._placeholder:Hide()
+    end
+end
+
+-- ─── Insert at the caret (FR-111) ─────────────────────────────────────────────
+-- Inserts `text` where the caret is (replacing a selection, like typing) and
+-- takes the same path as a keystroke: onChange fires, a bound value signal is
+-- written back, placeholder and clear ✕ update. Use case: a "codes" panel that
+-- drops `%p` into the field without losing the caret. No-op when disabled.
+function Input:Insert(text)
+    if self._cfg.disabled or text == nil or text == "" then return end
+    self._inserting = true
+    self._edit:Insert(text)
+    self._inserting = false
+    self:_onUserText(self._edit:GetText())
+    self:_updateClear()
+end
+
+function Input:GetCursorPosition()
+    return self._edit:GetCursorPosition()
+end
+
+function Input:SetCursorPosition(n)
+    self._edit:SetCursorPosition(n)
 end
 
 -- ─── Clear (FR-016) ───────────────────────────────────────────────────────────

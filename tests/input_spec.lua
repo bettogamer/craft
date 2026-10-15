@@ -243,3 +243,56 @@ describe("Craft.Input onEscapePressed (FR-072)", function()
         i:Destroy()
     end)
 end)
+
+-- ─── Insert at the caret + focus callbacks (FR-111) ───────────────────────────
+
+describe("Craft.Input Insert / focus callbacks (FR-111)", function()
+
+    it("Insert puts the text at the caret and fires onChange once", function()
+        local seen, calls = nil, 0
+        local i = Craft.Input:Create(UIParent, {
+            value = "HP  left",
+            onChange = function(v) seen = v; calls = calls + 1 end,
+        })
+        i:SetCursorPosition(3)
+        i:Insert("%p")
+        assert.equals("HP %p left", i:GetValue())
+        assert.equals("HP %p left", seen)
+        assert.equals(1, calls)
+        assert.equals(5, i:GetCursorPosition())
+        i:Destroy()
+    end)
+
+    it("Insert writes back into a bound value signal and hides the placeholder", function()
+        local sig = Weave.signal("")
+        local i = Craft.Input:Create(UIParent, { value = sig, placeholder = "Text" })
+        i:Insert("{rt1}")
+        assert.equals("{rt1}", sig())
+        assert.is_false(i._placeholder:IsShown())
+        i:Destroy()
+    end)
+
+    it("Insert is a no-op on a disabled field", function()
+        local calls = 0
+        local i = Craft.Input:Create(UIParent, { disabled = true, onChange = function() calls = calls + 1 end })
+        i:Insert("%n")
+        assert.equals("", i:GetValue())
+        assert.equals(0, calls)
+        i:Destroy()
+    end)
+
+    it("onFocusGained / onFocusLost fire after the internal focus work", function()
+        local log = {}
+        local i
+        i = Craft.Input:Create(UIParent, {
+            placeholder = "Text",
+            onFocusGained = function() log[#log + 1] = "in:" .. tostring(i._placeholder:IsShown()) end,
+            onFocusLost   = function() log[#log + 1] = "out:" .. tostring(i._placeholder:IsShown()) end,
+        })
+        i:Focus()
+        i:ClearFocus()
+        assert.equals("in:false", log[1])
+        assert.equals("out:true", log[2])
+        i:Destroy()
+    end)
+end)
