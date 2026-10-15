@@ -6,6 +6,25 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.34.0] - 2026-10-15
+
+> **Release v2.34.0 — `Insert` en el cursor y callbacks de foco en `Craft.Input`/`Craft.Textarea`
+> (FR-111) y peso del título en `Craft.Panel` (FR-112).** Pedidos de SMRT.
+>
+> **Sin cambio para consumidores existentes:** todo es opt-in; el título del Panel sigue en
+> medium por defecto. SMRT puede quitar su fallback de «añadir al final» al re-vendorear.
+
+### Añadido
+
+- **`Craft.Input` / `Craft.Textarea`: `Insert(text)` en el cursor y callbacks de foco (FR-111).**
+  `Insert` inserta donde está el cursor y sigue el camino de una tecla (`onChange` una vez,
+  write-back a la señal ligada, placeholder y ✕); `Get/SetCursorPosition` por simetría con el
+  EditBox; config `onFocusGained()` / `onFocusLost()`, llamados después del trabajo interno.
+  Pedido de SMRT (panel de códigos de texto estilo WeakAuras).
+- **`Craft.Panel`: peso del título, `titleWeight = "regular" | "medium" | "bold"` (FR-112).**
+  Default `"medium"` (sin cambio). Token de contexto opcional `cardTitleWeight` para fijarlo en
+  todas las tarjetas de un addon; `SetTitleWeight(w)` en caliente. Pedido de SMRT.
+
 ## [2.33.0] - 2026-10-14
 
 > **Release v2.33.0 — acción por fila en `Craft.Sidebar` (FR-109) y fix del arrastre de
