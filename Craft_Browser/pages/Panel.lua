@@ -53,6 +53,21 @@ CraftBrowserPages["Panel"] = {
         table.insert(comps, p3)
         y = y + 132
 
+        -- FR-112: title weight (config titleWeight; or the context token
+        -- cardTitleWeight for all the cards of an addon).
+        y = addLabel("FR-112 titleWeight — regular / medium (default) / bold", y)
+        local wx = 16
+        for _, w in ipairs({ "regular", "medium", "bold" }) do
+            local pw = Craft.Panel:Create(parent, {
+                width = 200, height = 90, title = "Icon Settings (" .. w .. ")",
+                description = "Size, zoom and swipe", titleWeight = w,
+            })
+            pw:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", wx, -y)
+            table.insert(comps, pw)
+            wx = wx + 212
+        end
+        y = y + 102
+
         -- Panel with footer
         y = addLabel("With title and footer", y)
         local p4 = Craft.Panel:Create(parent, { width=300, height=160, title="Panel with Footer" })

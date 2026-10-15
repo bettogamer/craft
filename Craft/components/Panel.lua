@@ -35,6 +35,9 @@ function Panel:Create(parent, config)
         -- so the default tracks the theme like the hardcoded value it replaces.
         paddingY    = flush and 0 or config.paddingY,
         footer      = config.footer,
+        -- FR-112: "regular" | "medium" | "bold". nil → theme token `cardTitleWeight`
+        -- (a context override, so a consumer can set it for all its cards) → "medium".
+        titleWeight = config.titleWeight,
     }
 
     -- ── Root frame ─────────────────────────────────────────────────────────
@@ -306,8 +309,21 @@ function Panel:_applyTheme(t)
     -- Background: t.card
     self._bg:SetColorTexture(t.card.r, t.card.g, t.card.b)
 
-    -- Title: font-medium, fontSizeLg (14px), cardForeground (.cn-card-title font-medium)
-    self._theme:applyFont(self._title, t.fontHeading or t.fontMedium or t.font, t.fontSizeLg or 14)
+    -- Title: font-medium, fontSizeLg (14px), cardForeground (.cn-card-title font-medium).
+    -- FR-112: the weight is overridable (shadcn: <CardTitle className="font-bold">).
+    -- "medium" keeps the heading-font axis; "bold"/"regular" come from the body font
+    -- (the heading axis only ships a medium cut; a font without bold registers its
+    -- regular as fontBold, Theme.lua register).
+    local weight = self._cfg.titleWeight or t.cardTitleWeight or "medium"
+    local titleFont
+    if weight == "bold" then
+        titleFont = t.fontBold or t.font
+    elseif weight == "regular" then
+        titleFont = t.font
+    else
+        titleFont = t.fontHeading or t.fontMedium or t.font
+    end
+    self._theme:applyFont(self._title, titleFont, t.fontSizeLg or 14)
     self._title:SetTextColor(t.cardForeground.r, t.cardForeground.g, t.cardForeground.b)
 
     -- Description: font, fontSize (12px), mutedForeground
@@ -396,6 +412,13 @@ end
 
 -- Sets (or clears) the description below the title.
 -- No-op if no title exists.
+-- FR-112: change the title weight at runtime ("regular" | "medium" | "bold";
+-- nil → back to the theme token / default).
+function Panel:SetTitleWeight(weight)
+    self._cfg.titleWeight = weight
+    if self._t then self:_applyTheme(self._t) end
+end
+
 function Panel:SetDescription(text)
     self._cfg.description = text
     if text and self._cfg.title then
