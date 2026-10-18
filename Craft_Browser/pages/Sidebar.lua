@@ -12,6 +12,8 @@ CraftBrowserPages = CraftBrowserPages or {}
 --  8. Scroll con overflow vs scrollbar oculto (FR-051)
 --  9. Items reactivos (ADR-0013: signal como prop, preserva expansión por id)
 -- 10. Acción por fila (FR-109: SidebarMenuAction, showOnHover)
+-- 11. Lista de auras: selección múltiple (FR-116), arrastrar y soltar (FR-117),
+--     ScrollToItem/SetScroll (FR-118) y estrés del pool de filas (FR-080)
 
 CraftBrowserPages["Sidebar"] = {
     title = "Sidebar",
@@ -186,6 +188,32 @@ CraftBrowserPages["Sidebar"] = {
                 { id="a-me",   label="Personal",         avatar = { unit = "player", fallback = "P" } },
                 { id="a-off",  label="Deshabilitado",    disabled = true,
                   avatar = { unit = "player", fallback = "P" } },
+            },
+        })
+        y = y + 212
+
+        -- ── 5d. Textura cuadrada por ítem (FR-114) ───────────────────────────
+        -- La lista de auras de SMRT (estilo WeakAuras): el icono del hechizo, CUADRADO.
+        -- crop = 0.08 recorta el borde horneado del icono; sin crop se ve entero.
+        -- In-game: sin tinte al hover/active; la fila gris la baja al 50 %; el atlas
+        -- inexistente cae al lucide `icon`.
+        local function spellTex(id)
+            local ok, tex = pcall(C_Spell.GetSpellTexture, id)
+            return ok and tex or 134400   -- INV_Misc_QuestionMark
+        end
+        y = addLabel("Textura (FR-114) — icono de hechizo cuadrado "
+            .. "(crop 0.08 / entero / atlas / gris / atlas roto → lucide)", y)
+        local c5d = newContainer(240, 200, y)
+        newSidebar(c5d, {
+            width = 240, activeItem = "t-pws",
+            items = {
+                { id="t-pws",  label="Power Word: Shield", texture = { image = spellTex(17),  crop = 0.08 } },
+                { id="t-fb",   label="Frostbolt (entero)", texture = { image = spellTex(116) } },
+                { id="t-atl",  label="Atlas de clase",     texture = { atlas = "classicon-mage" } },
+                { id="t-off",  label="Deshabilitado",      disabled = true,
+                  texture = { image = spellTex(17), crop = 0.08 } },
+                { id="t-bad",  label="Atlas roto",         icon = "sparkles",
+                  texture = { atlas = "no-such-atlas" } },
             },
         })
         y = y + 212
@@ -433,6 +461,172 @@ CraftBrowserPages["Sidebar"] = {
             onSelect = function(id) print("Sidebar onSelect:", id) end,
             items = buildActs() })
         y = y + 182
+
+        -- ── 11. Lista de auras estilo WeakAuras (FR-116/117/118 + pool FR-080) ─
+        -- Ctrl+clic suma/quita, Shift+clic rango, clic = solo esa (la selección la
+        -- decide la demo vía onClick → SetSelection). Arrastra una fila o la
+        -- selección: antes/después (línea) o dentro de un grupo (relleno); un grupo
+        -- solo se recoloca en la raíz. ESC o soltar fuera cancela. Los botones llevan
+        -- una fila a la vista (ScrollToItem, abre el grupo plegado) y estresan el pool.
+        y = addLabel("Lista de auras (FR-116/117/118) — Ctrl/Shift+clic; arrastra (ESC cancela); "
+            .. "grupos solo en la raíz", y)
+        local c11 = newContainer(240, 200, y)
+        local nextId = 0
+        local function aura(label)
+            nextId = nextId + 1
+            return { id = "wa" .. nextId, label = label }
+        end
+        local tree11 = {
+            { id = "wg1", label = "Raid: Manaforge", group = true, children = {
+                aura("Shadow Crash"), aura("Interrumpir"), aura("Bolster") } },
+            aura("Power Word: Shield"), aura("Frostbolt"),
+            { id = "wg2", label = "Defensivos", group = true, closed = true, children = {
+                aura("Barkskin"), aura("Ice Block"), aura("Divine Shield") } },
+            aura("Bloodlust"), aura("Healthstone"), aura("Mana Tea"), aura("Ironfur"),
+        }
+        local sel11, anchor11 = {}, nil
+        local wa
+        -- Flattened order (+ parent of each id) — for Shift ranges and drop rules.
+        local function walk()
+            local order, parentOf = {}, {}
+            for _, n in ipairs(tree11) do
+                order[#order + 1] = n.id
+                for _, k in ipairs(n.children or {}) do
+                    order[#order + 1] = k.id
+                    parentOf[k.id] = n
+                end
+            end
+            return order, parentOf
+        end
+        local function isGroup(id)
+            for _, n in ipairs(tree11) do if n.id == id then return n.group end end
+        end
+        local function build11()
+            local out = {}
+            for _, n in ipairs(tree11) do
+                local item = { id = n.id, label = n.label, icon = n.group and "folder" or "sparkles" }
+                if n.group then
+                    item.collapsible, item.defaultOpen, item.children = true, not n.closed, {}
+                    for _, k in ipairs(n.children) do
+                        item.children[#item.children + 1] = { id = k.id, label = k.label, icon = "sparkles" }
+                    end
+                end
+                out[#out + 1] = item
+            end
+            return out
+        end
+        -- Removes node `id` from the tree and returns it.
+        local function detach(id)
+            for i, n in ipairs(tree11) do
+                if n.id == id then return table.remove(tree11, i) end
+                for j, k in ipairs(n.children or {}) do
+                    if k.id == id then return table.remove(n.children, j) end
+                end
+            end
+        end
+        local function moveTo(ids, target, zone)
+            local order = walk()
+            local moving, pick = {}, {}
+            for _, id in ipairs(ids) do pick[id] = true end
+            for _, id in ipairs(order) do       -- keep the on-screen order
+                if pick[id] then
+                    local n = detach(id)
+                    if n then moving[#moving + 1] = n end
+                end
+            end
+            if zone == "inside" then
+                for _, n in ipairs(tree11) do
+                    if n.id == target then
+                        for _, m in ipairs(moving) do table.insert(n.children, m) end
+                    end
+                end
+                return
+            end
+            local function insertInto(list)
+                for i, n in ipairs(list) do
+                    if n.id == target then
+                        local at = zone == "after" and i + 1 or i
+                        for k, m in ipairs(moving) do table.insert(list, at + k - 1, m) end
+                        return true
+                    end
+                end
+            end
+            if not insertInto(tree11) then
+                for _, n in ipairs(tree11) do
+                    if n.children and insertInto(n.children) then return end
+                end
+            end
+        end
+
+        wa = newSidebar(c11, { width = 240, items = build11(),
+            onClick = function(id, mods)
+                if isGroup(id) then              -- a group is selected alone; clicking it again
+                    sel11, anchor11 = { id }, nil -- folds it (Sidebar's branch-click rule)
+                    wa:SetSelection(sel11)
+                    return
+                end
+                if mods.shift and anchor11 then
+                    local order = walk()
+                    local a, b
+                    for i, x in ipairs(order) do
+                        if x == anchor11 then a = i end
+                        if x == id then b = i end
+                    end
+                    sel11 = {}
+                    for i = math.min(a, b), math.max(a, b) do
+                        if not isGroup(order[i]) then sel11[#sel11 + 1] = order[i] end
+                    end
+                elseif mods.ctrl then
+                    local found
+                    for i, x in ipairs(sel11) do if x == id then found = i end end
+                    if found then table.remove(sel11, found) else sel11[#sel11 + 1] = id end
+                    anchor11 = id
+                else
+                    sel11, anchor11 = { id }, id
+                end
+                wa:SetSelection(sel11)
+                print("Sidebar onClick:", id, "ctrl=" .. tostring(mods.ctrl),
+                      "shift=" .. tostring(mods.shift), "→", #sel11, "seleccionadas")
+            end,
+            onDragStart = function(id)
+                local ids = { id }
+                for _, x in ipairs(sel11) do
+                    if x == id then ids = sel11 end
+                end
+                return ids, #ids > 1 and (#ids .. " auras") or nil
+            end,
+            dropZones = function(id) return isGroup(id) and "thirds" or "split" end,
+            canDrop = function(ids, target, zone)
+                local _, parentOf = walk()
+                for _, id in ipairs(ids) do
+                    if isGroup(id) and (zone == "inside" or parentOf[target]) then return false end
+                end
+                return zone ~= "inside" or isGroup(target)
+            end,
+            onDrop = function(ids, target, zone)
+                print("Sidebar onDrop:", table.concat(ids, ","), zone, target)
+                moveTo(ids, target, zone)
+                wa:SetItems(build11())          -- the rows slide to their new slots
+            end,
+            onDragCancel = function() print("Sidebar onDragCancel") end,
+        })
+
+        local wx, wy = 16 + 240 + 16, y
+        local function waBtn(label, onClick)
+            local b = Craft.Button:Create(parent, { text=label, variant="outline", size="sm", onClick=onClick })
+            b:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", wx, -wy)
+            table.insert(comps, b)
+            wy = wy + 36
+        end
+        waBtn("Ir a Ironfur (animado)", function() print("ScrollToItem:", wa:ScrollToItem("wa12", true)) end)
+        waBtn("Ir a Ice Block (grupo plegado)", function() print("ScrollToItem:", wa:ScrollToItem("wa8", true)) end)
+        waBtn("Arriba (SetScroll 0)", function() wa:SetScroll(0) end)
+        waBtn("Estrés: 200× SetItems (FR-080)", function()
+            for _ = 1, 200 do wa:SetItems(build11(), { animate = false }) end
+            -- _pool is private: read here only as a leak probe for the demo.
+            print("Sidebar pool tras 200 SetItems:", #wa._pool.item, "filas (antes crecía 200× cada vez)")
+        end)
+        y = y + 212
 
         return {
             height  = y + 24,

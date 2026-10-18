@@ -209,13 +209,18 @@ describe("Craft.Sidebar — expansion state (FR-010)", function()
             }
         end
 
-        it("apaga el mouse y no registra scripts de interacción", function()
+        it("apaga el mouse y sus scripts no hacen nada (filas pooleadas, FR-080)", function()
+            local selected
             local sb = newSidebar(disabledTree())
+            sb._cfg.onSelect = function(id) selected = id end
             local e = sb._itemFrames["off"]
             assert.is_false(e.frame:IsMouseEnabled())
-            assert.is_nil(e.frame:GetScript("OnClick"))
-            assert.is_nil(e.frame:GetScript("OnEnter"))
-            assert.is_nil(e.frame:GetScript("OnLeave"))
+            -- The pooled row keeps its scripts for life; on a disabled entry they bail out.
+            e.frame:_fire("OnClick", "LeftButton")
+            assert.is_nil(selected)
+            assert.is_false(sb:IsSelected("off"))
+            e.frame:_fire("OnEnter")
+            assert.equals(0, select(4, e.bg:GetColorTexture()))
         end)
 
         it("un item normal sí conserva sus scripts", function()
@@ -347,9 +352,10 @@ describe("Craft.Sidebar — expansion state (FR-010)", function()
         it("la fila disabled con tooltip sigue sin OnClick ni OnEnter propios", function()
             local sb = newSidebar(tipItems())
             local e = rowOf(sb, "boss")
-            -- Sin OnClick: no se puede seleccionar. Sin OnEnter propio: el plate no
-            -- se enciende — el unico OnEnter que existe es el hook del tooltip.
-            assert.is_nil(e.frame:GetScript("OnClick"))
+            -- El clic no selecciona y el hover no enciende el plate: solo habla el
+            -- tooltip (los scripts de la fila pooleada salen sin hacer nada, FR-080).
+            e.frame:_fire("OnClick", "LeftButton")
+            assert.is_false(sb:IsSelected("boss"))
             local before = { e.bg:GetColorTexture() }
             e.frame:_fire("OnEnter")
             local after = { e.bg:GetColorTexture() }
@@ -741,6 +747,692 @@ describe("Craft.Sidebar row action (FR-109)", function()
         assert.equals(-6, y)                   -- h-8 row: top-1.5
         local _, _, _, gx = sb._itemFrames.g.action.btn:GetPoint(1)
         assert.equals(-sb._itemFrames.g.chevBtn:GetWidth(), gx)
+        sb:Destroy()
+    end)
+end)
+
+-- ── FR-114: an item can carry a square texture in the icon slot ──────────────
+describe("Craft.Sidebar item texture (FR-114)", function()
+    local function assertCoords(want, tex)
+        for i = 1, 4 do assert.equals(want[i], tex._texCoords[i]) end
+    end
+    local function newSb(items)
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems(items)
+        return sb
+    end
+
+    it("image: painted square in the 16px slot, no filterMode, full coords by default", function()
+        local sb = newSb({ { id = "a", label = "Shadow Crash",
+                             texture = { image = 136201 } } })
+        local e = sb._itemFrames.a
+        assert.is_true(e.hasTexture)
+        assert.is_false(e.hasIcon)
+        assert.is_true(e.iconTex:IsShown())
+        assert.equals(136201, e.iconTex:GetTexture())
+        assert.equals(16, e.iconTex:GetWidth())
+        assertCoords({ 0, 1, 0, 1 }, e.iconTex)
+        sb:Destroy()
+    end)
+
+    it("crop trims symmetrically; texCoord wins over crop", function()
+        local sb = newSb({
+            { id = "c", label = "C", texture = { image = "X", crop = 0.08 } },
+            { id = "t", label = "T", texture = { image = "X", crop = 0.08, texCoord = { 0.1, 0.9, 0.2, 0.8 } } },
+        })
+        assertCoords({ 0.08, 0.92, 0.08, 0.92 }, sb._itemFrames.c.iconTex)
+        assertCoords({ 0.1, 0.9, 0.2, 0.8 }, sb._itemFrames.t.iconTex)
+        sb:Destroy()
+    end)
+
+    it("the label moves past the slot (icon size + gap-2)", function()
+        local sb = newSb({ { id = "a", label = "A", texture = { image = "X" } } })
+        local _, _, _, x = sb._itemFrames.a.labelFs:GetPoint(1)
+        assert.equals(8 + 16 + 8, x)
+        sb:Destroy()
+    end)
+
+    it("texture wins over icon; avatar wins over texture", function()
+        local sb = newSb({
+            { id = "a", label = "A", icon = "house", texture = { image = "X" } },
+            { id = "b", label = "B", texture = { image = "X" }, avatar = { fallback = "B" } },
+        })
+        assert.is_true(sb._itemFrames.a.hasTexture)
+        assert.is_false(sb._itemFrames.a.hasIcon)
+        assert.is_false(sb._itemFrames.b.hasTexture)
+        assert.is_false(sb._itemFrames.b.iconTex:IsShown())
+        sb:Destroy()
+    end)
+
+    it("an unknown atlas falls back to the lucide icon", function()
+        local sb = newSb({ { id = "a", label = "A", icon = "house", texture = { atlas = "nope" } } })
+        assert.is_false(sb._itemFrames.a.hasTexture)
+        assert.is_true(sb._itemFrames.a.hasIcon)
+        sb:Destroy()
+    end)
+
+    it("hover/active never tint it; disabled dims it to 50%", function()
+        local sb = newSb({
+            { id = "a", label = "A", texture = { image = "X" } },
+            { id = "d", label = "D", disabled = true, texture = { image = "X" } },
+        })
+        local e = sb._itemFrames.a
+        e.frame:_fire("OnEnter")
+        sb:SetActiveItem("a")
+        local r, g, b, a = e.iconTex:GetVertexColor()
+        assert.equals(1, r); assert.equals(1, g); assert.equals(1, b); assert.equals(1, a)
+        local _, _, _, da = sb._itemFrames.d.iconTex:GetVertexColor()
+        assert.equals(0.5, da)
+        sb:Destroy()
+    end)
+end)
+
+-- ── FR-080: rows are pooled — SetItems reuses frames instead of leaking them ──
+describe("Craft.Sidebar row pool (FR-080)", function()
+    local function flat(n, prefix)
+        local items = {}
+        for i = 1, n do items[i] = { id = (prefix or "r") .. i, label = "Row " .. i } end
+        return items
+    end
+
+    it("SetItems reuses the same frames (no new rows per refresh)", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, items = flat(5) })
+        local before = sb._itemFrames.r1.frame
+        for _ = 1, 10 do sb:SetItems(flat(5)) end
+        assert.equals(5, #sb._pool.item)
+        assert.equals(before, sb._itemFrames.r1.frame)
+        sb:Destroy()
+    end)
+
+    it("a shorter list hides the surplus; a longer one only grows the pool", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, items = flat(5) })
+        sb:SetItems(flat(2))
+        assert.equals(5, #sb._pool.item)
+        assert.is_false(sb._pool.item[3]:IsShown())
+        assert.is_nil(sb._pool.item[3].entry)
+        sb:SetItems(flat(7))
+        assert.equals(7, #sb._pool.item)
+        sb:Destroy()
+    end)
+
+    it("sections and separators pool by kind", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        for _ = 1, 3 do
+            sb:SetItems({ { id = "a", label = "A", section = "G1" }, { id = "b", label = "B", section = "G2" } })
+        end
+        assert.equals(2, #sb._pool.section)
+        sb:Destroy()
+    end)
+
+    it("a recycled row never fires the previous item's callbacks", function()
+        local hits = {}
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems({ { id = "old", label = "Old", onClick = function() hits[#hits + 1] = "old" end } })
+        local f = sb._itemFrames.old.frame
+        sb:SetItems({ { id = "new", label = "New", onClick = function() hits[#hits + 1] = "new" end } })
+        assert.equals(f, sb._itemFrames.new.frame)
+        f:_fire("OnClick", "LeftButton")
+        assert.same({ "new" }, hits)
+        sb:Destroy()
+    end)
+
+    it("a recycled row drops the chevron, guides and action it no longer needs", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems({ { id = "g", label = "G", action = { icon = "eye" }, children = {
+            { id = "c", label = "C" } } } })
+        local gRow, cRow = sb._itemFrames.g.frame, sb._itemFrames.c.frame
+        sb:SetItems({ { id = "x", label = "X" }, { id = "y", label = "Y" } })
+        assert.equals(gRow, sb._itemFrames.x.frame)
+        assert.is_false(gRow.chevTex:IsShown())
+        assert.is_false(gRow.chevBtn:IsShown())
+        assert.is_false(gRow.action.btn:IsShown())
+        assert.is_nil(sb._itemFrames.x.action)
+        assert.equals(cRow, sb._itemFrames.y.frame)
+        assert.is_false(cRow.guides[1]:IsShown())
+        sb:Destroy()
+    end)
+
+    it("a row recycled from disabled gets its mouse back", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems({ { id = "d", label = "D", disabled = true } })
+        local f = sb._itemFrames.d.frame
+        assert.is_false(f:IsMouseEnabled())
+        sb:SetItems({ { id = "e", label = "E" } })
+        assert.is_true(f:IsMouseEnabled())
+        sb:Destroy()
+    end)
+end)
+
+-- ── FR-116: multiple selection ───────────────────────────────────────────────
+describe("Craft.Sidebar selection (FR-116)", function()
+    local function items()
+        return {
+            { id = "a", label = "A" }, { id = "b", label = "B" }, { id = "c", label = "C" },
+        }
+    end
+    local function bgAlpha(sb, id) return select(4, sb._itemFrames[id].bg:GetColorTexture()) end
+
+    it("SetSelection paints every id with the active state", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, items = items() })
+        sb:SetSelection({ "a", "c" })
+        assert.same({ "a", "c" }, sb:GetSelection())
+        assert.equals(1, bgAlpha(sb, "a"))
+        assert.equals(0, bgAlpha(sb, "b"))
+        assert.equals(1, bgAlpha(sb, "c"))
+        assert.equals("c", sb:GetActiveItem())     -- activeItem = the last id
+        sb:SetSelection({ "b" })
+        assert.equals(0, bgAlpha(sb, "a"))
+        assert.equals(1, bgAlpha(sb, "b"))
+        sb:SetSelection(nil)
+        assert.same({}, sb:GetSelection())
+        assert.is_nil(sb:GetActiveItem())
+        sb:Destroy()
+    end)
+
+    it("SetActiveItem(id) = SetSelection({ id })", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, items = items() })
+        sb:SetSelection({ "a", "b" })
+        sb:SetActiveItem("c")
+        assert.same({ "c" }, sb:GetSelection())
+        assert.equals(0, bgAlpha(sb, "a"))
+        sb:Destroy()
+    end)
+
+    it("config.selection seeds it; duplicates and order are handled", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, items = items(),
+            selection = { "b", "a", "b" } })
+        assert.same({ "b", "a" }, sb:GetSelection())
+        assert.is_true(sb:IsSelected("b"))
+        assert.is_false(sb:IsSelected("c"))
+        sb:Destroy()
+    end)
+
+    it("hovering off a selected row keeps it painted", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, items = items() })
+        sb:SetSelection({ "a", "b" })
+        sb._itemFrames.a.frame:_fire("OnEnter")
+        sb._itemFrames.a.frame:_fire("OnLeave")
+        assert.equals(1, bgAlpha(sb, "a"))
+        sb:Destroy()
+    end)
+
+    it("with onClick the sidebar reports (id, mods) and leaves the selection alone", function()
+        local got, selected
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, items = items(),
+            onSelect = function(id) selected = id end,
+            onClick = function(id, mods) got = { id = id, mods = mods } end })
+        local prevCtrl = IsControlKeyDown
+        IsControlKeyDown = function() return true end
+        sb._itemFrames.b.frame:_fire("OnClick", "LeftButton")
+        IsControlKeyDown = prevCtrl
+        assert.equals("b", got.id)
+        assert.is_true(got.mods.ctrl)
+        assert.is_false(got.mods.shift)
+        assert.same({}, sb:GetSelection())
+        assert.is_nil(selected)
+        sb:Destroy()
+    end)
+
+    it("without onClick a click still selects (compatible)", function()
+        local selected
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, items = items(),
+            onSelect = function(id) selected = id end })
+        sb:SetSelection({ "a", "c" })
+        sb._itemFrames.b.frame:_fire("OnClick", "LeftButton")
+        assert.same({ "b" }, sb:GetSelection())
+        assert.equals("b", selected)
+        sb:Destroy()
+    end)
+
+    it("SetItems keeps the selection by id and drops the ids that disappeared", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, items = items() })
+        sb:SetSelection({ "a", "c" })
+        sb:SetItems({ { id = "c", label = "C" }, { id = "a", label = "A" } })
+        assert.same({ "a", "c" }, sb:GetSelection())
+        assert.equals(1, bgAlpha(sb, "a"))
+        sb:SetItems({ { id = "a", label = "A" } })
+        assert.same({ "a" }, sb:GetSelection())
+        sb:Destroy()
+    end)
+
+    it("an id selected before it ever existed survives the first SetItems", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, activeItem = "later" })
+        sb:SetItems({ { id = "x", label = "X" } })
+        assert.equals("later", sb:GetActiveItem())
+        sb:SetItems({ { id = "later", label = "Later" } })
+        assert.equals(1, bgAlpha(sb, "later"))
+        sb:Destroy()
+    end)
+end)
+
+-- ── FR-118: public scroll API ────────────────────────────────────────────────
+describe("Craft.Sidebar scroll API (FR-118)", function()
+    local function longList()
+        local items = {}
+        for i = 1, 20 do items[i] = { id = "r" .. i, label = "Row " .. i } end
+        return items
+    end
+    local function newSb()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, items = longList() })
+        sb._scroll:SetHeight(96)    -- 3 rows of 32 in view
+        sb:_rebuildLayout()
+        return sb
+    end
+
+    it("GetScroll / SetScroll clamp to the content", function()
+        local sb = newSb()
+        sb:SetScroll(50)
+        assert.equals(50, sb:GetScroll())
+        sb:SetScroll(-10)
+        assert.equals(0, sb:GetScroll())
+        sb:SetScroll(1e6)
+        assert.equals(sb._child:GetHeight() - 96, sb:GetScroll())
+        sb:Destroy()
+    end)
+
+    it("ScrollToItem scrolls the least needed to show the whole row", function()
+        local sb = newSb()
+        local e = sb._itemFrames.r10           -- y = 8 + 9*32 = 296
+        assert.is_true(sb:ScrollToItem("r10"))
+        assert.equals(e._y + e._h - 96, sb:GetScroll())   -- bottom-aligned (came from above)
+        assert.is_true(sb:ScrollToItem("r2"))
+        assert.equals(sb._itemFrames.r2._y, sb:GetScroll()) -- top-aligned (came from below)
+        local before = sb:GetScroll()
+        sb:ScrollToItem("r3")                    -- already fully visible: no move
+        assert.equals(before, sb:GetScroll())
+        sb:Destroy()
+    end)
+
+    it("opens collapsed ancestors and reports them through onToggle", function()
+        local toggled = {}
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, onToggle = function(id, open)
+            toggled[#toggled + 1] = id .. "=" .. tostring(open) end, items = {
+            { id = "g", label = "G", defaultOpen = false, children = { { id = "leaf", label = "L" } } },
+        } })
+        sb._scroll:SetHeight(200)
+        assert.is_true(sb:ScrollToItem("leaf"))
+        assert.is_true(sb:IsExpanded("g"))
+        assert.same({ "g=true" }, toggled)
+        sb:Destroy()
+    end)
+
+    it("unknown ids return false", function()
+        local sb = newSb()
+        assert.is_false(sb:ScrollToItem("nope"))
+        assert.is_false(sb:ScrollToItem(nil))
+        sb:Destroy()
+    end)
+
+    it("before the view has a height the request waits for it", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, items = longList() })
+        sb._scroll:SetHeight(0)
+        assert.is_true(sb:ScrollToItem("r20"))
+        assert.equals(0, sb:GetScroll())
+        sb._scroll:SetHeight(96)
+        sb._scroll:_fire("OnSizeChanged", 195, 96)
+        local e = sb._itemFrames.r20
+        assert.equals(e._y + e._h - 96, sb:GetScroll())
+        sb:Destroy()
+    end)
+
+    it("animate = true aims the tween at the row instead of jumping", function()
+        local sb = newSb()
+        sb:ScrollToItem("r10", true)
+        local e = sb._itemFrames.r10
+        assert.is_true(sb._scrollAnim)
+        assert.equals(e._y + e._h - 96, sb._scrollGoal:peek())
+        sb:SetScroll(0)                          -- the hand wins
+        assert.is_false(sb._scrollAnim)
+        sb:Destroy()
+    end)
+
+    it("content that shrinks under a scrolled view pulls the offset back", function()
+        local sb = newSb()
+        sb:SetScroll(1e6)
+        sb:SetItems({ { id = "only", label = "Only" } }, { animate = false })
+        assert.equals(0, sb:GetScroll())
+        sb:Destroy()
+    end)
+end)
+
+-- ── FR-117: drag and drop ─────────────────────────────────────────────────────
+describe("Craft.Sidebar drag and drop (FR-117)", function()
+    -- Rows (size default, h=32, group pad 8): a y=8, b y=40, c y=72, g y=104 (+ g1 y=136).
+    local function tree()
+        return {
+            { id = "a", label = "A" }, { id = "b", label = "B" }, { id = "c", label = "C" },
+            { id = "g", label = "G", children = { { id = "g1", label = "G1" } } },
+        }
+    end
+    -- Drives the cursor: relY = px below the content top; `inside` = over the view.
+    local function cursorAt(sb, relY, inside)
+        sb._cursorInView = function() return relY, inside ~= false end
+    end
+    local function newSb(cfg)
+        cfg = cfg or {}
+        cfg.width, cfg.items = 200, cfg.items or tree()
+        local sb = Craft.Sidebar:Create(UIParent, cfg)
+        sb._scroll:SetHeight(400)
+        return sb
+    end
+    local function startDrag(sb, id)
+        sb._itemFrames[id].frame:_fire("OnMouseDown", "LeftButton")
+        sb:_beginDrag()
+    end
+
+    it("without onDrop nothing arms", function()
+        local sb = newSb()
+        sb._itemFrames.a.frame:_fire("OnMouseDown", "LeftButton")
+        assert.is_nil(sb._press)
+        sb:Destroy()
+    end)
+
+    it("draggable(id) = false keeps the row put", function()
+        local sb = newSb({ onDrop = function() end, draggable = function(id) return id ~= "a" end })
+        sb._itemFrames.a.frame:_fire("OnMouseDown", "LeftButton")
+        assert.is_nil(sb._press)
+        sb._itemFrames.b.frame:_fire("OnMouseDown", "LeftButton")
+        assert.is_not_nil(sb._press)
+        sb:Destroy()
+    end)
+
+    it("a press becomes a drag only past the threshold", function()
+        local sb = newSb({ onDrop = function() end })
+        local prevDown, prevCur = IsMouseButtonDown, GetCursorPosition
+        IsMouseButtonDown = function() return true end
+        GetCursorPosition = function() return 0, 0 end
+        sb._itemFrames.a.frame:_fire("OnMouseDown", "LeftButton")
+        GetCursorPosition = function() return 0, 2 end
+        sb:_dragTick(0.016)
+        assert.is_false(sb:IsDragging())
+        cursorAt(sb, 50)
+        GetCursorPosition = function() return 0, 6 end
+        sb:_dragTick(0.016)
+        assert.is_true(sb:IsDragging())
+        IsMouseButtonDown, GetCursorPosition = prevDown, prevCur
+        sb:CancelDrag()
+        sb:Destroy()
+    end)
+
+    it("travelling rows stay in place at opacity-50; a ghost follows the cursor", function()
+        local sb = newSb({ onDrop = function() end,
+            onDragStart = function() return { "a", "c" } end })
+        cursorAt(sb, 20)
+        startDrag(sb, "a")
+        local a, c = sb._itemFrames.a, sb._itemFrames.c
+        assert.equals(8,  a._y)                            -- nothing reorders until the drop
+        assert.equals(72, c._y)
+        assert.equals(0.5, a.frame:GetAlpha())
+        assert.equals(0.5, c.frame:GetAlpha())
+        assert.equals(1,   sb._itemFrames.b.frame:GetAlpha())
+        assert.is_true(sb._ghost:IsShown())
+        assert.equals("A", sb._ghost.label:GetText())
+        cursorAt(sb, 100)
+        sb:_updateDrag(0)
+        local _, _, _, _, gy = sb._ghost:GetPoint()
+        assert.equals(-(100 - 16), gy)                     -- centred on the cursor
+        sb:CancelDrag()
+        -- The cancel flies the ghost home: it starts where it was (cursor slot 84)
+        -- and heads to a's slot (8); the rows light up when it lands.
+        assert.equals(8, sb._ghostHome)
+        assert.equals(84 - 8, sb._ghost.slide:peek())
+        assert.is_true(sb._ghost:IsShown())
+        assert.equals(0.5, a.frame:GetAlpha())
+        sb._ghost.slide:snap(0)                            -- landed
+        assert.equals(1, a.frame:GetAlpha())
+        assert.equals(1, c.frame:GetAlpha())
+        assert.is_false(sb._ghost:IsShown())
+        sb:Destroy()
+    end)
+
+    it("a travelling row is never a target", function()
+        local sb = newSb({ onDrop = function() end })
+        cursorAt(sb, 20)
+        startDrag(sb, "a")
+        cursorAt(sb, 8 + 5)
+        sb:_updateDrag(0)
+        assert.is_nil(sb._drag.target)
+        sb:CancelDrag()
+        sb:Destroy()
+    end)
+
+    it("hovering a collapsed branch that accepts 'inside' opens it (spring-loading)", function()
+        local toggled
+        local sb = newSb({ onDrop = function() end, onToggle = function(id, open) toggled = { id, open } end,
+            items = {
+                { id = "a", label = "A" },
+                { id = "g", label = "G", defaultOpen = false, children = { { id = "g1", label = "G1" } } },
+                { id = "h", label = "H", defaultOpen = false, children = { { id = "h1", label = "H1" } } },
+            },
+            canDrop = function(_, target, zone) return not (target == "h" and zone == "inside") end })
+        cursorAt(sb, 20)
+        startDrag(sb, "a")
+        cursorAt(sb, 40 + 16)                      -- g (y=40), middle
+        sb:_updateDrag(0.3)
+        assert.is_false(sb:IsExpanded("g"))        -- not yet
+        sb:_updateDrag(0.4)
+        assert.is_true(sb:IsExpanded("g"))
+        assert.same({ "g", true }, toggled)
+        assert.is_true(sb._itemFrames.g1._shown)  -- its children can now be targets
+        local e, z = sb:_hitTest(sb._itemFrames.g1._y + 5)
+        assert.equals("g1", e.itemId); assert.equals("before", z)
+        cursorAt(sb, sb._itemFrames.h._y + 16)     -- h refuses "inside": stays shut
+        sb:_updateDrag(1)
+        assert.is_false(sb:IsExpanded("h"))
+        sb:CancelDrag()
+        sb:Destroy()
+    end)
+
+    it("a travelling branch carries its subtree", function()
+        local sb = newSb({ onDrop = function() end })
+        cursorAt(sb, 120)
+        startDrag(sb, "g")
+        assert.is_true(sb._itemFrames.g1.travel)
+        assert.equals(0.5, sb._itemFrames.g1.frame:GetAlpha())   -- dimmed with its branch
+        sb:CancelDrag()
+        sb:Destroy()
+    end)
+
+    it("zones: split on leaves, thirds on branches, dropZones overrides", function()
+        local sb = newSb({ onDrop = function() end })
+        local e, z = sb:_hitTest(40 + 5)          -- b, top half
+        assert.equals("b", e.itemId); assert.equals("before", z)
+        e, z = sb:_hitTest(40 + 25)               -- b, bottom half
+        assert.equals("after", z)
+        e, z = sb:_hitTest(104 + 16)              -- g (branch), middle third
+        assert.equals("g", e.itemId); assert.equals("inside", z)
+        sb._cfg.dropZones = function(id) if id == "b" then return "inside" end end
+        e, z = sb:_hitTest(40 + 5)
+        assert.equals("inside", z)
+        assert.is_nil(sb:_hitTest(8 + 5))          -- a: dropZones → nil = not a target
+        sb:Destroy()
+    end)
+
+    it("drop over a valid zone calls onDrop(ids, target, zone) and swallows the click", function()
+        local dropped, selected
+        local sb = newSb({ onSelect = function(id) selected = id end,
+            onDrop = function(ids, target, zone) dropped = { ids, target, zone } end })
+        cursorAt(sb, 20)
+        startDrag(sb, "a")
+        cursorAt(sb, 72 + 25)                      -- c, bottom half
+        sb:_updateDrag()
+        assert.equals(1, sb._indGoal:peek())       -- indicator shown
+        sb._itemFrames.a.frame:_fire("OnMouseUp", "LeftButton")
+        sb._itemFrames.a.frame:_fire("OnClick", "LeftButton")
+        assert.same({ { "a" }, "c", "after" }, dropped)
+        assert.is_false(sb:IsDragging())
+        assert.is_nil(selected)                    -- the release was not a click
+        assert.equals(0, sb._indGoal:peek())
+        sb._itemFrames.b.frame:_fire("OnMouseDown", "LeftButton")
+        sb._itemFrames.b.frame:_fire("OnMouseUp", "LeftButton")
+        sb._itemFrames.b.frame:_fire("OnClick", "LeftButton")
+        assert.equals("b", selected)               -- the next click is a click again
+        sb:Destroy()
+    end)
+
+    it("canDrop = false hides the indicator and a release there cancels", function()
+        local dropped, cancelled
+        local sb = newSb({ onDrop = function() dropped = true end,
+            onDragCancel = function() cancelled = true end,
+            canDrop = function(_, target) return target ~= "c" end })
+        cursorAt(sb, 20)
+        startDrag(sb, "a")
+        cursorAt(sb, 72 + 5)                       -- c
+        sb:_updateDrag()
+        assert.equals(0, sb._indGoal:peek())
+        sb:_finishDrag()
+        assert.is_nil(dropped)
+        assert.is_true(cancelled)
+        sb:Destroy()
+    end)
+
+    it("released outside the view → onDragCancel", function()
+        local cancelled
+        local sb = newSb({ onDrop = function() end, onDragCancel = function() cancelled = true end })
+        cursorAt(sb, 20)
+        startDrag(sb, "a")
+        cursorAt(sb, 72 + 5, false)
+        sb:_updateDrag()
+        sb:_finishDrag()
+        assert.is_true(cancelled)
+        sb:Destroy()
+    end)
+
+    it("CancelDrag / ESC restore the follower and fire onDragCancel", function()
+        local cancelled = 0
+        local sb = newSb({ onDrop = function() end, onDragCancel = function() cancelled = cancelled + 1 end,
+            onDragStart = function(id) return { id }, "3 auras" end })
+        cursorAt(sb, 20)
+        startDrag(sb, "a")
+        assert.equals("3 auras", sb._ghost.label:GetText())
+        assert.equals("A", sb._itemFrames.a.labelFs:GetText())   -- the row keeps its own label
+        sb._keys:_fire("OnKeyDown", "ESCAPE")
+        assert.is_false(sb:IsDragging())
+        assert.equals(1, cancelled)
+        sb._ghost.slide:snap(0)                    -- the return flight lands
+        assert.equals("A", sb._itemFrames.a.labelFs:GetText())
+        assert.equals(1, sb._itemFrames.a.frame:GetAlpha())
+        assert.is_false(sb:CancelDrag())           -- nothing left to cancel
+        assert.equals(1, cancelled)
+        sb:Destroy()
+    end)
+
+    it("onDragStart returning nil cancels before anything moves", function()
+        local sb = newSb({ onDrop = function() end, onDragStart = function() return nil end })
+        startDrag(sb, "a")
+        assert.is_false(sb:IsDragging())
+        sb:Destroy()
+    end)
+
+    it("a drop lights the rows at once (no return flight)", function()
+        local sb = newSb({ onDrop = function() end })
+        cursorAt(sb, 20)
+        startDrag(sb, "a")
+        cursorAt(sb, 72 + 25)
+        sb:_updateDrag(0)
+        sb:_finishDrag()
+        assert.equals(1, sb._itemFrames.a.frame:GetAlpha())
+        assert.is_false(sb._ghost:IsShown())
+        sb:Destroy()
+    end)
+
+    it("'after' an open branch means 'before its first child'", function()
+        local got
+        local sb = newSb({ onDrop = function(ids, target, zone) got = { target, zone } end })
+        cursorAt(sb, 20)
+        startDrag(sb, "a")
+        cursorAt(sb, 104 + 28)                     -- g (open, y=104), bottom third = after
+        sb:_updateDrag(0)
+        assert.equals("g1", sb._drag.target.itemId)
+        assert.equals("before", sb._drag.zone)
+        sb:_finishDrag()
+        assert.same({ "g1", "before" }, got)
+        sb:Destroy()
+    end)
+
+    it("…unless the consumer refuses the child: then 'after the branch' stands", function()
+        local sb = newSb({ onDrop = function() end,
+            canDrop = function(_, target) return target ~= "g1" end })
+        cursorAt(sb, 20)
+        startDrag(sb, "a")
+        cursorAt(sb, 104 + 28)
+        sb:_updateDrag(0)
+        assert.equals("g", sb._drag.target.itemId)
+        assert.equals("after", sb._drag.zone)
+        sb:CancelDrag()
+        sb:Destroy()
+    end)
+
+    it("SetItems slides moved rows from their old slot (animate = false jumps)", function()
+        local sb = newSb()
+        sb:SetItems({ { id = "b", label = "B" }, { id = "a", label = "A" } })
+        local a = sb._itemFrames.a
+        assert.equals(40, a._y)
+        assert.equals(-32, a.frame.slide:peek())   -- drawn at its old slot (8), heading to 40
+        local _, _, _, _, y = a.frame:GetPoint()
+        assert.equals(-8, y)
+        sb:SetItems({ { id = "a", label = "A" }, { id = "b", label = "B" } }, { animate = false })
+        local _, _, _, _, y2 = sb._itemFrames.a.frame:GetPoint()
+        assert.equals(-8, y2)
+        sb:Destroy()
+    end)
+end)
+
+-- ── Clicking a selectable branch (tree-editor pattern) ───────────────────────
+describe("Craft.Sidebar branch click", function()
+    local function newSb(cfg)
+        cfg = cfg or {}
+        cfg.width = 200
+        cfg.items = { { id = "g", label = "G", defaultOpen = false, children = { { id = "g1", label = "G1" } } } }
+        return Craft.Sidebar:Create(UIParent, cfg)
+    end
+
+    it("an unselected closed branch: click selects AND opens it", function()
+        local sb = newSb()
+        sb._itemFrames.g.frame:_fire("OnClick", "LeftButton")
+        assert.is_true(sb:IsSelected("g"))
+        assert.is_true(sb:IsExpanded("g"))
+        sb:Destroy()
+    end)
+
+    it("an unselected open branch: click selects and never closes it", function()
+        local sb = newSb()
+        sb:Expand("g")
+        sb._itemFrames.g.frame:_fire("OnClick", "LeftButton")
+        assert.is_true(sb:IsExpanded("g"))
+        sb:Destroy()
+    end)
+
+    it("the selected branch: click toggles it", function()
+        local sb = newSb()
+        local f = sb._itemFrames.g.frame
+        f:_fire("OnClick", "LeftButton")          -- select + open
+        f:_fire("OnClick", "LeftButton")          -- close
+        assert.is_false(sb:IsExpanded("g"))
+        f:_fire("OnClick", "LeftButton")          -- open
+        assert.is_true(sb:IsExpanded("g"))
+        sb:Destroy()
+    end)
+
+    it("works the same when the consumer owns the selection (onClick)", function()
+        local sb
+        sb = newSb({ onClick = function(id) sb:SetSelection({ id }) end })
+        local f = sb._itemFrames.g.frame
+        f:_fire("OnClick", "LeftButton")
+        assert.is_true(sb:IsExpanded("g"))
+        f:_fire("OnClick", "LeftButton")
+        assert.is_false(sb:IsExpanded("g"))
+        sb:Destroy()
+    end)
+
+    it("Ctrl/Shift clicks only select, never fold", function()
+        local sb
+        sb = newSb({ onClick = function(id) sb:SetSelection({ id }) end })
+        local prev = IsControlKeyDown
+        IsControlKeyDown = function() return true end
+        sb._itemFrames.g.frame:_fire("OnClick", "LeftButton")
+        IsControlKeyDown = prev
+        assert.is_false(sb:IsExpanded("g"))
         sb:Destroy()
     end)
 end)
