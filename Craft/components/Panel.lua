@@ -140,6 +140,18 @@ function Panel:Create(parent, config)
         if self._t then self:_layoutFrames(self._t) end
     end)
 
+    -- The header resolves its width from its two anchors AFTER the panel's own
+    -- OnSizeChanged has run, so a header action set before the panel had width can
+    -- miss the grid pass (Grid:Layout skips a 0-wide container) and stay unanchored
+    -- (FR-115). Re-lay the header when ITS width changes; the guard against the width
+    -- of the last grid pass keeps our own SetHeight from looping back here.
+    self._header:HookScript("OnSizeChanged", function(_, w)
+        w = w or self._header:GetWidth()
+        if self._action and self._t and w and w > 0 and w ~= self._headerGridW then
+            self:_layoutFrames(self._t)
+        end
+    end)
+
     return self
 end
 
@@ -215,6 +227,9 @@ function Panel:_layoutHeaderGrid(t, hasTitle, hasDesc, lg, xs)
         alignSelf   = "start",           -- self-start (aligned with the title top)
     })
     grid:Layout()
+    -- Width this pass saw (0 = Grid skipped it); the header's OnSizeChanged retries
+    -- once the real width lands (FR-115).
+    self._headerGridW = self._header:GetWidth() or 0
 
     -- Header height: top pad + max(text block, action). The action can be taller than
     -- title+desc (self-start leaves the slack below it, matching the CSS grid).

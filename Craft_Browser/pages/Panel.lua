@@ -68,6 +68,19 @@ CraftBrowserPages["Panel"] = {
         end
         y = y + 102
 
+        -- FR-115 repro (SMRT «Border Settings»): the action is set while the panel has
+        -- NO width yet; the consumer sizes it afterwards. Before FR-115 the switch was
+        -- never anchored (invisible); now the header re-lays once its width lands.
+        y = addLabel("FR-115 — SetHeaderAction antes de dar ancho: el switch debe verse arriba a la derecha", y)
+        local p115 = Craft.Panel:Create(parent, { title = "Border Settings", description = "Show Border" })
+        local sw115 = Craft.Switch:Create(parent, { checked = true })
+        table.insert(comps, sw115)
+        p115:SetHeaderAction(sw115:GetFrame())
+        p115:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        p115:GetFrame():SetSize(300, 90)      -- width arrives AFTER the action
+        table.insert(comps, p115)
+        y = y + 102
+
         -- Panel with footer
         y = addLabel("With title and footer", y)
         local p4 = Craft.Panel:Create(parent, { width=300, height=160, title="Panel with Footer" })

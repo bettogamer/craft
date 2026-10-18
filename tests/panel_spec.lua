@@ -234,3 +234,36 @@ describe("Craft.Panel title weight (FR-112)", function()
         a:Destroy(); b:Destroy()
     end)
 end)
+
+-- ── FR-115: an action set before the panel had width lands once it gets one ──
+describe("Craft.Panel header action before width (FR-115)", function()
+
+    it("the header's width arriving later lays the action out", function()
+        local action = CreateFrame("Frame")
+        action:SetSize(42, 28)
+        local p = Craft.Panel:Create(UIParent, { title = "Border Settings" })
+        p:SetHeaderAction(action)
+        assert.equals(0, action:GetNumPoints())      -- Grid skipped the 0-wide header
+
+        p._header:SetWidth(300)                       -- anchors resolve after a SetWidth
+        p._header:_fire("OnSizeChanged", 300, p._header:GetHeight())
+        assert.equals(1, action:GetNumPoints())
+        local ax = pos(action)
+        assert.equals(300 - LG - 42, ax)
+        p:Destroy()
+    end)
+
+    it("a height-only change (our own SetHeight) does not re-lay the header", function()
+        local action = CreateFrame("Frame")
+        action:SetSize(42, 28)
+        local p = Craft.Panel:Create(UIParent, { title = "T", action = action })
+        p._header:SetWidth(300)
+        p._header:_fire("OnSizeChanged", 300, 0)
+        local calls = 0
+        local orig = p._layoutFrames
+        p._layoutFrames = function(...) calls = calls + 1; return orig(...) end
+        p._header:_fire("OnSizeChanged", 300, 60)
+        assert.equals(0, calls)
+        p:Destroy()
+    end)
+end)
