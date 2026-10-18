@@ -51,6 +51,15 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 - **`Craft.Panel`: la acción de cabecera se coloca aunque se fije antes de dar ancho (FR-115).**
   La cabecera re-maqueta cuando recibe ancho; antes la acción quedaba sin anclar (invisible).
 
+### CI
+
+- **Los releases de GitHub vuelven a publicarse.** Desde la 2.11.0 `release.yml` fallaba en los tests
+  (y `ci.yml` también): busted ejecuta cada spec en su propio entorno, así que los specs que
+  sustituían un global (`GetCursorPosition = …`) no llegaban al `_G` de los componentes. Los stubs
+  escriben ahora en `_G.Nombre` y el mini-runner local aísla cada spec igual que busted (el fallo
+  se reproduce en local). `release.yml` admite `workflow_dispatch` para re-publicar tags viejos;
+  `ci.yml` vigila `master` (antes `main`, que no es la rama principal); `actions/checkout@v5`.
+
 ## [2.34.0] - 2026-10-15
 
 > **Release v2.34.0 — `Insert` en el cursor y callbacks de foco en `Craft.Input`/`Craft.Textarea`

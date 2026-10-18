@@ -1,6 +1,6 @@
 name: Package (dev build)
 
-# Genera 2 zips instalables en WoW en cada push a dev o main.
+# Genera 2 zips instalables en WoW en cada push a dev o master.
 # NO publica en CurseForge ni Wago — solo artefactos en GitHub Actions.
 # Para descargar: Actions → run → Artifacts → craft-dev-<sha>
 
@@ -13,7 +13,7 @@ jobs:
     name: Build artifacts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # ─── Assets ─────────────────────────────────────────────────────────
       - name: Set up Python

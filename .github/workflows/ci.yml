@@ -2,16 +2,16 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    branches: [master, dev]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   lint:
     name: Lint (luacheck)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install luacheck
         run: |
@@ -26,7 +26,7 @@ jobs:
     name: Secret values (taintlint)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Action propio (github.com/marketplace/actions/taintlint): secret values de WoW 12.0+.
       # La db la elige el propio taintlint desde el `## Interface` del .toc (hoy 120105 → 12.1.5).
@@ -46,7 +46,7 @@ jobs:
     name: Unit tests (busted)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install busted
         run: |
