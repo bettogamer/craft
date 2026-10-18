@@ -182,6 +182,10 @@ pooleadas) y no comparte este código.
 
 ## Notas de implementación
 
+- **Acotar al encoger (FR-113)**: `OnScrollRangeChanged` y el `OnSizeChanged` del ScrollFrame llaman a
+  `_clampOffsets()` antes de repintar la barra: si el contenido encoge con la vista al fondo, el
+  desplazamiento baja al nuevo máximo en vez de enseñar espacio vacío hasta el siguiente gesto.
+
 - **ScrollFrame nativo**: usar `CreateFrame("ScrollFrame", nil, parent)`. La API nativa provee `SetScrollChild(frame)`, `GetVerticalScroll()`, `SetVerticalScroll(n)`, `GetVerticalScrollRange()`, `GetHorizontalScroll()`, `SetHorizontalScroll(n)`, `GetHorizontalScrollRange()`.
 - **ScrollChild height explícito**: el `scrollChild` debe tener `SetHeight` explícito para que WoW calcule correctamente el rango de scroll. Sin un height definido, `GetVerticalScrollRange()` retorna 0. El consumer del componente es responsable de llamar `scrollChild:SetHeight(contenidoTotal)` después de poblar el contenido, o de pasarle el frame ya dimensionado.
 - **Mouse wheel**: habilitar con `ScrollFrame:EnableMouseWheel(true)`. El script:

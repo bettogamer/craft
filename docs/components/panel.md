@@ -111,7 +111,10 @@ título + descripción, y la columna `auto` lleva la acción anclada arriba-dere
 `CardAction = col-start-2 row-span-2 self-start justify-self-end` del `card.tsx`.
 El título pasa a una sola línea (`SetWordWrap(false)`, `truncate`) porque su ancho
 queda acotado a la columna `1fr`. Sin acción, el header conserva el layout histórico
-sin cambios. El caller instancia su propio widget (p. ej. `Craft.Button` variant
+sin cambios. **Acción fijada antes de dar ancho (FR-115):** `Grid:Layout()` no hace nada con
+un contenedor de ancho 0, así que la cabecera re-maqueta en su `OnSizeChanged` cuando su ancho
+real llega (guardado contra el ancho de la última pasada para no entrar en bucle con su propio
+`SetHeight`). El caller instancia su propio widget (p. ej. `Craft.Button` variant
 `ghost` size `icon` con el icono `x`), igual que con el footer.
 
 ## Estados

@@ -214,6 +214,7 @@ items = {
 | `items[i].label` | string | — | Texto visible del item |
 | `items[i].icon` | string | nil | Nombre del ícono para `Craft.Icons.Get(name)`; nil = sin ícono |
 | `items[i].avatar` | table | nil | (FR-095) Un `Craft.Avatar` en el hueco del icono, como el `<Avatar>` que shadcn compone dentro de `SidebarMenuButton` (NavUser). La tabla es el config del Avatar (`unit` \| `creatureDisplayID` \| `atlas` \| `image`, `fallback`, `size`, `crop`, `texCoord`, `desaturated`) y se copia. `size` por defecto 16 (el hueco `size-4`); el label se corre a `size + 8`. Gana a `icon`. El hover/active **no lo tiñe**; `disabled` lo baja al 50 % (`opacity-50` del botón entero). `SetItems`/`Destroy` lo destruyen |
+| `items[i].texture` | table | nil | (FR-114) Textura **cuadrada** sin máscara en el hueco del icono (16px): `{ image \| atlas, crop?, texCoord? }`. Es el `<img>` dentro de `SidebarMenuButton`, sin el redondeo del Avatar — pensado para iconos de hechizo (`crop = 0.08` recorta su borde horneado). `image` va por `SetTexture` **sin** `filterMode` (crash #132); un `atlas` desconocido cae a `icon`. Por debajo de `avatar`, por encima de `icon`. Hover/active no la tiñen; `disabled` la baja al 50 % |
 | `items[i].section` | string | nil | (grupos planos, depth 0) Label de la sección; nil = sin sección |
 | `items[i].onClick` | function | nil | Callback `fn(id, itemConfig)` al hacer click en el item |
 | `items[i].onDoubleClick` | function | nil | (FR-098) Callback `fn(id, itemConfig)` en el segundo clic de un doble clic. No en ramas ni filas `disabled` |
@@ -225,7 +226,15 @@ items = {
 | `items[i].disabled` | boolean | false | (FR-048) Item deshabilitado: sin hover/click (`EnableMouse(false)`, chevron incluido), texto e ícono `t.mutedForeground` con a=0.5 |
 | `items[i].tooltip` | string | nil | (FR-089) Etiqueta al hover de la fila, mismo nombre y forma que en `Craft.Button` (FR-020) y `Craft.Menu` (FR-084). Vale también —y sobre todo— en filas `disabled`. Un valor que no sea string se ignora |
 | `items[i].action` | table | nil | (FR-109) Botón de acción al borde derecho de la fila = `SidebarMenuAction` de shadcn: `{ icon, onClick, tooltip, hover, active }`. Cuadrado `w-5` (20px) a `right-1` (4px), icono `size-4`, `top-1.5` en `h-8` / `top-1` en `h-7` (centrado) / `top-2.5` en `lg`; en una rama va a la izquierda del chevrón. Es **hermano** del botón de la fila: `onClick(id, itemConfig)` con clic izquierdo **no selecciona** ni dispara `onSelect`/`onContextMenu`; el clic derecho sobre él es el de la fila (como el chevrón). Hover propio `bg-sidebar-accent`; el hover de la fila (`peer-hover`) pasa el icono a `sidebarAccentForeground`. `hover = true` = `showOnHover`: `opacity-0` hasta que se pasa el ratón por la fila o la acción, **sigue siendo clicable** invisible (como el CSS). `active = false` pinta el icono en `mutedForeground` (petición de SMRT: «ojo apagado»; en shadcn el consumidor solo cambiaría el icono). No se desactiva con `disabled` de la fila (es otro elemento). `SetItems` lo repinta; `icon` debe ser string o no hay acción |
-| `activeItem` | string | nil | Id del item activo al crear el componente |
+| `activeItem` | string | nil | Id del item activo al crear el componente (= `selection = { activeItem }`) |
+| `selection` | array | nil | (FR-116) Ids seleccionados al crear (gana a `activeItem`) |
+| `onClick` | function | nil | (FR-116) `fn(id, mods)` con `mods = { ctrl, shift, alt }` leídos en el clic. **Si existe, el Sidebar no cambia la selección por su cuenta** (ni dispara `onSelect`): el consumidor decide y llama `SetSelection`. Sin él, el clic selecciona como siempre. `items[i].onClick` se sigue llamando. Las cabeceras `selectable = false` pliegan igual |
+| `onDrop` | function | nil | (FR-117) `fn(ids, targetId, zone)` al soltar sobre un destino válido. **Activa el arrastre**: sin él no se arma nada. Mientras dura, las filas que viajan se atenúan en su sitio y un fantasma sigue al cursor; una rama plegada se abre tras 0,6 s de hover si acepta `"inside"` |
+| `draggable` | function | nil | (FR-117) `fn(id) -> bool`: qué filas se pueden arrastrar (por defecto todas las que tienen `id` y no son `disabled`) |
+| `onDragStart` | function | nil | (FR-117) `fn(id) -> ids, label?`: las filas que viajan (p. ej. la selección, o el grupo con su árbol) y un texto opcional para el fantasma que sigue al cursor («3 auras»). `nil` cancela. Sin él viaja `{ id }` |
+| `dropZones` | function | nil | (FR-117) `fn(id) -> "split" \| "thirds" \| "inside" \| nil`: mitades antes/después, tercios con «dentro» en el centro, toda la fila = dentro, o no es destino. Por defecto `"thirds"` en ramas y `"split"` en hojas |
+| `canDrop` | function | nil | (FR-117) `fn(ids, targetId, zone) -> bool`. Falso = sin indicador y soltar ahí cancela. Por defecto todo vale |
+| `onDragCancel` | function | nil | (FR-117) `fn()` al soltar fuera / sobre un destino no válido, con ESC o con `CancelDrag()` |
 | `onSelect` | function | nil | Callback `fn(id)` al seleccionar cualquier item |
 | `onDoubleClick` | function | nil | (FR-098) Callback `fn(id)` al hacer doble clic en un item hoja. Es el `OnDoubleClick` del cliente: el primer clic ya disparó `onSelect` (la fila está seleccionada) y el segundo llega aquí **en vez de** como `OnClick`. Ramas (`collapsible`) y `disabled` no lo disparan. El script solo se registra si hay algún `onDoubleClick` (global o del item): sin él, el segundo clic sigue siendo un `OnClick` como antes |
 
@@ -243,12 +252,16 @@ items = {
 | Método | Retorno | Descripción |
 |---|---|---|
 | `GetFrame()` | Frame | Retorna `sidebar.frame` |
-| `SetActiveItem(id)` | void | Marca el item como activo (bg `t.sidebarAccent`, texto `t.sidebarAccentForeground`); desactiva el anterior |
-| `GetActiveItem()` | string \| nil | Retorna el id del item actualmente activo |
+| `SetActiveItem(id)` | void | = `SetSelection({ id })` y además abre sus ancestros plegados. Activo = bg `t.sidebarAccent`, texto `t.sidebarAccentForeground` |
+| `GetActiveItem()` | string \| nil | El último id de la selección (el activo) |
+| `SetSelection(ids)` / `GetSelection()` / `IsSelected(id)` | void / array / boolean | (FR-116) Varias filas con el mismo estado `data-active`. `SetSelection` no abre ancestros; `nil`/`{}` vacía. `GetSelection` devuelve una copia en el orden dado |
+| `GetScroll()` / `SetScroll(y)` | number / void | (FR-118) Desplazamiento vertical en px; `SetScroll` lo acota al contenido y cancela un `ScrollToItem` animado |
+| `ScrollToItem(id, animate?)` | boolean | (FR-118) Desplaza lo mínimo para que la fila quede **entera** a la vista; abre sus ancestros plegados (avisa por `onToggle`). `animate` = deslizamiento `motionBase`. `false` si el id no existe; si la vista aún no tiene alto, la petición se aplica cuando lo tenga |
+| `IsDragging()` / `CancelDrag()` | boolean / boolean | (FR-117) `CancelDrag` devuelve las filas a su sitio y dispara `onDragCancel`; `false` si no había arrastre |
 | `Select(id)` | void | Alias de `SetActiveItem` |
 | `AddItem(config)` | void | Agrega un item al final; recalcula la altura del `_child` |
 | `AddSection(label)` | void | Agrega un section header (grupo plano) al final del listado |
-| `SetItems(tree, opts?)` | void | Reemplaza todos los items/secciones por un nuevo árbol (posiblemente anidado) y reconstruye. **Por defecto preserva** el estado de expansión de las ramas cuyo `id` exista antes y después (FR-010); las nuevas usan su `defaultOpen`. `opts.preserveExpansion = false` resetea todo a `defaultOpen` |
+| `SetItems(tree, opts?)` | void | Reemplaza todos los items/secciones por un nuevo árbol (posiblemente anidado) **reutilizando las filas** (FR-080). **Por defecto preserva** el estado de expansión de las ramas cuyo `id` exista antes y después (FR-010); las nuevas usan su `defaultOpen`. `opts.preserveExpansion = false` resetea todo a `defaultOpen`. Conserva la selección por id y descarta los ids que existían y desaparecen (FR-116). Las filas que cambian de sitio **se deslizan** a su hueco nuevo (`motionFast`, FR-117); `opts.animate = false` salta. Cancela un arrastre en curso |
 | `Expand(id)` / `Collapse(id)` / `ToggleNode(id)` | void | Expande/colapsa/alterna una rama colapsable por id |
 | `GetExpandedState()` | table | Snapshot `{ [id] = bool }` del estado abierto/cerrado de cada rama colapsable (FR-010) |
 | `SetExpandedState(map)` | void | Aplica un mapa `{ [id] = bool }` a las ramas colapsables; ignora ids inexistentes o no colapsables (FR-010) |
@@ -316,23 +329,73 @@ sectionLabel:SetTextColor(t.sidebarForeground.r, t.sidebarForeground.g, t.sideba
 
 **Item activo en negrita:** `data-active:font-medium` → el label del item activo (solo nivel raíz) usa `t.fontMedium`; los inactivos usan `t.font` (regular). Los sub-items (`data-active` en `sidebar-menu-sub-button`) NO llevan `font-medium` en Lyra — mantienen `t.font` incluso activos (ver [FR-047](../requests/FR-047-sidebar-subitem-no-bold.md)).
 
-**Tooltip por entrada (FR-089):** `Craft.Tooltip.Attach(itemFrame, { text = tooltip, side = "right" })`.
-Ancla a la DERECHA para que el tip caiga fuera de la barra en vez de tapar las filas vecinas (la
-misma elección que `Craft.Menu`, FR-067), y engancha con `HookScript`, así que se apila sobre los
-scripts que la fila ya tenga en vez de reemplazarlos. `SetItems` y `Destroy` hacen `Detach` de las
-filas que descartan: el frame queda huérfano y un show diferido ya encolado dispararía contra una
-fila que ya no está en la barra.
+**Tooltip por entrada (FR-089):** `Craft.Tooltip.Show(row, { text = tooltip, side = "right" })` tras
+300 ms de hover, desde el `OnEnter`/`OnLeave` propios de la fila. Ancla a la DERECHA para que el tip
+caiga fuera de la barra en vez de tapar las filas vecinas (la misma elección que `Craft.Menu`,
+FR-067). **No usa `Craft.Tooltip.Attach`** desde FR-080: `Attach` engancha el frame para siempre
+(FR-081) y una fila del pool cambia de item. Un token cancela el show diferido en cuanto acaba el
+hover, y `SetItems`/`Destroy` lo cancelan también.
 
 > **Separa los dos "pointer events" de una fila disabled.** Una fila gris sin explicación se lee
 > como una fila **rota**; la diferencia entre «esto no funciona» y «esto todavía no existe» es una
 > línea al hover, y solo el componente puede dársela — un consumidor que construye la barra con
 > `SetItems` no tiene acceso soportado al frame de la fila, y aunque lo tuviera la fila disabled no
 > tiene ratón. Con `tooltip`, la fila disabled pasa a `EnableMouse(true)` **solo** para recibir
-> `OnEnter`/`OnLeave`: sigue sin `OnClick` y sin recolorear (esta rama no registra ninguno de los
-> dos), así que la garantía de FR-048 no se toca. Sin `tooltip` el comportamiento es idéntico al
+> `OnEnter`/`OnLeave`: el clic no hace nada y no recolorea (los scripts de la fila salen en cuanto
+> ven `disabled`), así que la garantía de FR-048 no se toca. Sin `tooltip` el comportamiento es idéntico al
 > de antes: `EnableMouse(false)`. Misma política que `Craft.Button` (FR-020) y `Craft.Menu` (FR-084).
 
-**Item disabled (FR-048):** `disabled:pointer-events-none disabled:opacity-50` → `itemFrame:EnableMouse(false)` (sin OnEnter/OnLeave/OnClick registrados; en ramas también se apaga el Button del chevron) y foreground `t.mutedForeground` con a=0.5 en label, ícono y chevron. El estado disabled tiene precedencia visual sobre activo/hover en `_colorItem`.
+**Item disabled (FR-048):** `disabled:pointer-events-none disabled:opacity-50` → `itemFrame:EnableMouse(false)` (los scripts de la fila pooleada existen pero no actúan sobre una entrada `disabled`; en ramas también se apaga el Button del chevron) y foreground `t.mutedForeground` con a=0.5 en label, ícono y chevron. El estado disabled tiene precedencia visual sobre activo/hover en `_colorItem`.
+
+**Pool de filas (FR-080):** `SetItems` ya no abandona frames. Las filas viven en
+`_pool.item/section/separator` (un pool por tipo: no se mezclan tipos entre generaciones) y cada
+generación las toma en orden; las sobrantes se ocultan, se desanclan y pierden su `entry`. Los
+scripts de una fila se instalan **una vez** al crearla y despachan por `row.entry` (la entrada de
+la generación actual), así que una fila reciclada nunca dispara los callbacks del item anterior.
+Al reutilizar se reajustan chevrón, guías, acción (FR-109, también pooleada), clics derechos,
+`OnDoubleClick` y ratón. Los `Craft.Avatar` de fila (FR-095) se destruyen y se crean por uso.
+
+**Selección múltiple (FR-116):** shadcn tiene un único estado `data-active`; una selección
+múltiple es varias filas en ese estado (mismo fondo, texto y `font-medium` en raíz). La lógica de
+qué entra (Ctrl suma, Shift rango, solo hojas…) es del consumidor vía `onClick(id, mods)` +
+`SetSelection`: el Sidebar solo pinta y avisa. `activeItem` es el último id de la lista.
+
+**Arrastrar y soltar (FR-117)** — shadcn no tiene sidebar ordenable; esto es de Craft, con el
+vocabulario de WeakAuras:
+- Pulsar y recorrer 4px = arrastre (antes es un clic). El soltar que acaba un arrastre no es clic.
+- Patrón dnd-kit (el del ecosistema shadcn): las filas que viajan —los `ids` y todo lo que cuelga
+  de una rama que viaja— **se quedan en su sitio al 50 %** (`opacity-50`) y un **fantasma** de la
+  fila pulsada (icono/textura + label, o el `label` de `onDragStart`; fondo `sidebarAccent`, alpha
+  0.9) sigue al cursor. Nada se reordena hasta soltar. Las filas que viajan nunca son destino.
+- **Apertura por hover (spring-loading):** 0,6 s sobre una rama plegada que acepte `"inside"`
+  (`canDrop(ids, rama, "inside")`) la abre para poder soltar entre sus hijos. Queda abierta y se
+  avisa por `onToggle`.
+- **«Después» de una rama abierta = primer hijo:** esa línea se dibuja entre la rama y su primer
+  hijo, así que el destino pasa a «antes del primer hijo» (como VS Code/Finder). Si el consumidor
+  lo rechaza (un grupo no entra en un grupo) queda «después de la rama»; sin hijos válidos, «dentro».
+- **Cancelar (ESC, soltar fuera o en destino no válido)**: el fantasma vuelve volando a su fila
+  (`motionBase`) y las filas se iluminan al llegar. Tras un drop válido se iluminan al instante.
+- Indicador: línea de 2px `sidebarPrimary` sobre/bajo la fila, desde la sangría de su contenido
+  (antes/después), o lavado `sidebarPrimary` a 0.15 sobre la fila (dentro); fundido `motionFast`.
+- Autodesplazamiento en una franja de 24px arriba/abajo, más rápido cuanto más al borde.
+- ESC se captura **solo durante el arrastre** (`EnableKeyboard` + `SetPropagateKeyboardInput`:
+  todo lo que no es ESC se propaga, la ventana no se cierra). En combate no se captura: allí
+  `SetPropagateKeyboardInput` está protegida y un frame con teclado se comería todas las teclas.
+- Deslizamiento: cada fila del pool lleva un `Weave.tween` de desplazamiento que se `snap`ea a
+  «hueco viejo − hueco nuevo» y vuelve a 0 (`motionFast`, `motionEasing`). La posición vieja se
+  mide en pantalla (hueco + desplazamiento en curso), con clave por id (secciones por texto,
+  separadores por orden), así que un `SetItems` dentro de `onDrop` desliza desde donde se ve.
+
+**API de scroll (FR-118):** `ScrollToItem` usa la geometría de la última maquetación (`_y`, `_h`
+de cada fila); con `animate`, un `Weave.tween` (`motionBase`) mueve el `ScrollFrame` mientras nada
+más lo toque — rueda, thumb, autodesplazamiento y `SetScroll` lo cancelan. Como FR-113 en
+`Craft.Scroll`, cada maquetación acota el desplazamiento si el contenido encogió.
+
+**Clic en una rama seleccionable** (patrón de los árboles editables: VS Code, capas de Figma;
+shadcn no fija uno): clic en una rama **no seleccionada** la selecciona y, si está plegada, la
+abre (nunca la pliega); clic en la rama **ya seleccionada** la pliega/despliega. Ctrl/Shift+clic
+solo seleccionan. Vale también con `onClick` (lo decide el estado de selección antes del clic).
+El chevrón siempre pliega/despliega; `selectable = false` sigue siendo «la fila entera pliega».
 
 **Radius = 0:** los fondos de hover y activo son Textures rectangulares sin redondeo (`rounded-none` en Lyra), pintadas con `SetColorTexture`.
 

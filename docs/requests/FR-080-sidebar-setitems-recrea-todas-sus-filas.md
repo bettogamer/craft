@@ -8,7 +8,7 @@
 **Prioridad:** Media-alta. Es exactamente la forma de FR-079, en un componente que además
 **tiene bind reactivo de `items`** — así que una señal que cambie fuga una barra lateral entera
 por cada cambio, sin que el consumidor haya llamado a nada.
-**Estado:** Abierto.
+**Estado:** ✅ Cerrado — implementado y verificado in-game (2026-10-18), release v2.35.0. Pool por tipo (`_pool.item/section/separator`); los scripts de cada fila se instalan una vez y despachan por `row.entry`; la acción de fila también se poolea; los tooltips de fila dejan `Tooltip.Attach` (ver FR-081). CHANGELOG 2.4.0 corregido. Demo: botón «Estrés: 200× SetItems» en `Craft_Browser/pages/Sidebar.lua` §11.
 
 ---
 
