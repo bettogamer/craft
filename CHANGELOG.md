@@ -6,6 +6,51 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.35.0] - 2026-10-18
+
+> **Release v2.35.0 — `Craft.Sidebar` como lista editable estilo WeakAuras: selección múltiple
+> (FR-116), arrastrar y soltar (FR-117), API de scroll (FR-118), textura cuadrada (FR-114) y pool
+> de filas (FR-080); más los fixes de `Craft.Scroll` (FR-113) y `Craft.Panel` (FR-115).**
+> Pedidos de SMRT (lista «Mis auras» estilo WeakAuras, editor de auras) + la deuda FR-080.
+>
+> **API compatible:** todo lo nuevo es opt-in. **Tres cambios visibles** en el Sidebar:
+> `SetItems` desliza las filas que cambian de sitio (`{ animate = false }` para saltar), descarta
+> de la selección los ids que desaparecen, y un clic en una rama seleccionable la abre si está
+> plegada o la pliega/despliega si ya estaba seleccionada (antes solo seleccionaba).
+> SMRT puede quitar sus fallbacks de FR-113/114/115 al re-vendorear.
+
+### Añadido
+
+- **`Craft.Sidebar`: selección múltiple (FR-116).** `SetSelection(ids)` / `GetSelection()` /
+  `IsSelected(id)`, config `selection`; varias filas en el estado activo. Config
+  `onClick(id, mods)` (`mods = { ctrl, shift, alt }`): con él la selección es del consumidor.
+  `SetActiveItem(id)` = `SetSelection({ id })`.
+- **`Craft.Sidebar`: arrastrar y soltar en el árbol (FR-117).** `onDrop(ids, targetId, zone)`
+  lo activa; `draggable`, `onDragStart(id) -> ids, label`, `dropZones` (`split`/`thirds`/
+  `inside`), `canDrop`, `onDragCancel`; `CancelDrag()`, `IsDragging()`. Antes/después/dentro con
+  indicador, varias filas a la vez (atenuadas en su sitio + fantasma bajo el cursor, patrón
+  dnd-kit), ramas plegadas que se abren tras 0,6 s de hover, ESC solo durante el arrastre,
+  autodesplazamiento y umbral de 4px. «Después» de una rama abierta = primer hijo. Al cancelar,
+  el fantasma vuelve a su fila animado. Tras `SetItems` las filas se deslizan a su sitio.
+- **`Craft.Sidebar`: clic en una rama seleccionable = seleccionar + abrir; clic en la ya
+  seleccionada = plegar/desplegar.** Ctrl/Shift+clic solo seleccionan.
+- **`Craft.Sidebar`: API de scroll (FR-118).** `ScrollToItem(id, animate?)` (abre ancestros),
+  `GetScroll()`, `SetScroll(y)`.
+- **`Craft.Sidebar`: textura cuadrada por ítem, `itemConfig.texture` (FR-114).** `{ image | atlas,
+  crop?, texCoord? }` en el hueco del icono, sin máscara (iconos de hechizo como en WeakAuras).
+
+### Corregido
+
+- **`Craft.Sidebar`: `SetItems` reutiliza sus filas (FR-080).** Antes cada refresco (y cada
+  emisión de un `items` reactivo) abandonaba todas las filas. Pool por tipo; los scripts
+  despachan por la entrada actual, así que una fila reciclada no arrastra callbacks del item
+  anterior. Los tooltips de fila ya no usan `Tooltip.Attach` (FR-081). También acota el
+  desplazamiento cuando el contenido encoge.
+- **`Craft.Scroll`: acota el desplazamiento cuando el contenido encoge (FR-113).** Con la vista al
+  fondo, borrar contenido dejaba espacio vacío hasta tocar la barra.
+- **`Craft.Panel`: la acción de cabecera se coloca aunque se fije antes de dar ancho (FR-115).**
+  La cabecera re-maqueta cuando recibe ancho; antes la acción quedaba sin anclar (invisible).
+
 ## [2.34.0] - 2026-10-15
 
 > **Release v2.34.0 — `Insert` en el cursor y callbacks de foco en `Craft.Input`/`Craft.Textarea`
@@ -1945,7 +1990,8 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 - **Props de lista reactivas** (ADR-0013, oleada 3): la prop `options` de `Craft.Select`,
   `Craft.RadioGroup` y `Craft.ToggleGroup`, y la prop `items` de `Craft.Sidebar` y
   `Craft.DragList`, aceptan una señal/computed además del literal. El bind re-renderiza
-  reutilizando frames por índice (sin fugas). `DragList` es two-way: reordenar escribe el
+  reutilizando frames por índice (sin fugas — *corrección: falso para Sidebar y DragList hasta
+  FR-079 (2.17.0) y FR-080*). `DragList` es two-way: reordenar escribe el
   nuevo orden en una señal escribible; además su prop `disabled` pasa a ser reactiva (antes
   no lo era: pasarle una señal la dejaba deshabilitada de forma permanente). Nuevos setters
   públicos `RadioGroup:SetOptions()` y
