@@ -273,3 +273,63 @@ describe("Craft.Scroll — orientation (FR-100)", function()
         assert.equals(20, s:GetScrollOffset())
     end)
 end)
+
+-- ── FR-113: the offset follows the range down when the content shrinks ─────────
+describe("Craft.Scroll — clamp on shrink (FR-113)", function()
+
+    local function makeVertical(orientation)
+        local s = Craft.Scroll:Create(makeHost(300, 200), {
+            width = 300, height = 200, orientation = orientation,
+        })
+        s._scrollFrame:SetWidth(292)
+        s._scrollFrame:SetHeight(orientation == "both" and 192 or 200)
+        return s
+    end
+
+    it("content shrinks under a view scrolled to the end: the offset is clamped", function()
+        local s = makeVertical()
+        s:GetContent():SetHeight(1000)
+        s:ScrollToBottom()                                   -- 800
+        assert.equals(800, s:GetScrollOffset())
+        s:GetContent():SetHeight(500)                        -- a sub element was removed
+        s._scrollFrame:GetScript("OnScrollRangeChanged")(s._scrollFrame)
+        assert.equals(300, s:GetScrollOffset())
+    end)
+
+    it("content shrinks below the view: back to 0", function()
+        local s = makeVertical()
+        s:GetContent():SetHeight(1000)
+        s:ScrollToBottom()
+        s:GetContent():SetHeight(120)
+        s._scrollFrame:GetScript("OnScrollRangeChanged")(s._scrollFrame)
+        assert.equals(0, s:GetScrollOffset())
+    end)
+
+    it("an offset still inside the new range is left alone", function()
+        local s = makeVertical()
+        s:GetContent():SetHeight(1000)
+        s:SetScrollOffset(100)
+        s:GetContent():SetHeight(500)
+        s._scrollFrame:GetScript("OnScrollRangeChanged")(s._scrollFrame)
+        assert.equals(100, s:GetScrollOffset())
+    end)
+
+    it("the viewport growing clamps the Y offset too", function()
+        local s = makeVertical()
+        s:GetContent():SetHeight(1000)
+        s:ScrollToBottom()                                   -- 800
+        s._scrollFrame:SetHeight(400)
+        s._scrollFrame:GetScript("OnSizeChanged")(s._scrollFrame, 292, 400)
+        assert.equals(600, s:GetScrollOffset())
+    end)
+
+    it("both: a range change clamps both axes", function()
+        local s = makeVertical("both")
+        s:GetContent():SetSize(900, 1000)
+        s:ScrollToBottom(); s:ScrollToRight()
+        s:GetContent():SetSize(400, 300)
+        s._scrollFrame:GetScript("OnScrollRangeChanged")(s._scrollFrame)
+        assert.equals(108, s:GetScrollOffset())              -- 300 - 192
+        assert.equals(108, s:GetHorizontalScroll())          -- 400 - 292
+    end)
+end)

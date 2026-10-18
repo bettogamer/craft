@@ -128,6 +128,41 @@ CraftBrowserPages["Scroll"] = {
         end
         y = y + 212
 
+        -- ─── FR-113: clamp when the content shrinks ──────────────────────────
+        -- Repro: «Al fondo» and then «Quitar 10». Before FR-113 the view stayed past
+        -- the new end, showing empty space until the rail was clicked; now the offset
+        -- follows the range down the moment the content shrinks.
+        y = addLabel("FR-113 — «Al fondo» y luego «Quitar 10»: la vista se acota, sin hueco vacío", y)
+        local sContainer = CreateFrame("Frame", nil, parent)
+        sContainer:SetSize(300, 160)
+        sContainer:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        local sScroll = Craft.Scroll:Create(sContainer, {})
+        sScroll:GetFrame():SetAllPoints(sContainer)
+        table.insert(comps, sScroll)
+        local sChild = sScroll:GetContent()
+        local sRows, sCount = {}, 30
+        local function paintRows()
+            for i = 1, math.max(#sRows, sCount) do
+                local row = sRows[i]
+                if i <= sCount and not row then
+                    row = Craft.Label:Create(sChild, {
+                        text  = "Sub elemento " .. i,
+                        color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+                    })
+                    row:GetFrame():SetPoint("TOPLEFT", sChild, "TOPLEFT", 8, -((i - 1) * 22 + 8))
+                    sRows[i] = row
+                end
+                if row then row:GetFrame():SetShown(i <= sCount) end
+            end
+            sChild:SetHeight(sCount * 22 + 8)
+        end
+        paintRows()
+        y = y + 172
+        addHBtn("Al fondo",  0,   function() sScroll:ScrollToBottom() end)
+        addHBtn("Quitar 10", 90,  function() sCount = math.max(0, sCount - 10); paintRows() end)
+        addHBtn("Añadir 10", 180, function() sCount = sCount + 10; paintRows() end)
+        y = y + 40
+
         return {
             height  = y + 24,
             cleanup = function()
@@ -137,6 +172,9 @@ CraftBrowserPages["Scroll"] = {
                 for _, lbl in ipairs(ticks) do lbl:Destroy() end
                 for _, lbl in ipairs(cells) do lbl:Destroy() end
                 for _, b in ipairs(hBtns) do b:Destroy() end
+                for _, r in ipairs(sRows) do r:Destroy() end
+                sContainer:Hide()
+                sContainer:SetParent(nil)
                 if scroll.Destroy then scroll:Destroy() end
                 container:Hide()
                 container:SetParent(nil)

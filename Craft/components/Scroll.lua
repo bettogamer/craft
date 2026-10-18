@@ -81,7 +81,7 @@ function Scroll:Create(parent, config)
         elseif orientation == "horizontal" and h and h > 0 then
             self._child:SetHeight(h)
         end
-        if self._hasH then self:_clampHorizontal() end
+        self:_clampOffsets()
         self:_updateScrollbar()
     end)
 
@@ -122,8 +122,13 @@ function Scroll:Create(parent, config)
     self.frame:EnableMouseWheel(true)
     self.frame:SetScript("OnMouseWheel", function(_, delta) self:_wheel(delta) end)
 
-    -- Sync scrollbar when scroll position or range changes
-    self._scrollFrame:SetScript("OnScrollRangeChanged", function() self:_updateScrollbar() end)
+    -- Sync scrollbar when scroll position or range changes. A range change can come
+    -- from the content shrinking under a view scrolled to the end: clamp first, or
+    -- the view keeps showing empty space until something else moves it (FR-113).
+    self._scrollFrame:SetScript("OnScrollRangeChanged", function()
+        self:_clampOffsets()
+        self:_updateScrollbar()
+    end)
     self._scrollFrame:SetScript("OnVerticalScroll", function()
         self:_updateScrollbar()
         self:_notify()
@@ -173,6 +178,18 @@ function Scroll:_wheel(delta)
     local current   = self._scrollFrame:GetVerticalScroll()
     self._scrollFrame:SetVerticalScroll(math.max(0, math.min(maxScroll, current - delta * WHEEL_STEP)))
     self:_updateScrollbar()
+end
+
+function Scroll:_clampVertical()
+    local maxY = self._bar:GetMaxScroll()
+    local cur  = self._scrollFrame:GetVerticalScroll() or 0
+    if cur > maxY then self._scrollFrame:SetVerticalScroll(maxY) end
+end
+
+-- Keep both offsets inside the current range (resize or content change).
+function Scroll:_clampOffsets()
+    if self._hasV then self:_clampVertical()   end
+    if self._hasH then self:_clampHorizontal() end
 end
 
 function Scroll:_clampHorizontal()
