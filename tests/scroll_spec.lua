@@ -257,9 +257,9 @@ describe("Craft.Scroll — orientation (FR-100)", function()
         assert.equals(20, s:GetScrollOffset())
         assert.equals(0, s:GetHorizontalScroll())
         local prev = IsShiftKeyDown
-        IsShiftKeyDown = function() return true end
+        _G.IsShiftKeyDown = function() return true end
         s:_wheel(-1)
-        IsShiftKeyDown = prev
+        _G.IsShiftKeyDown = prev
         assert.equals(20, s:GetHorizontalScroll())
         assert.equals(20, s:GetScrollOffset())
     end)
@@ -267,9 +267,9 @@ describe("Craft.Scroll — orientation (FR-100)", function()
     it("vertical ignores Shift+wheel (behaviour unchanged)", function()
         local s = makeScroll(makeHost(300, 200), 300, 200)
         local prev = IsShiftKeyDown
-        IsShiftKeyDown = function() return true end
+        _G.IsShiftKeyDown = function() return true end
         s:_wheel(-1)
-        IsShiftKeyDown = prev
+        _G.IsShiftKeyDown = prev
         assert.equals(20, s:GetScrollOffset())
     end)
 end)

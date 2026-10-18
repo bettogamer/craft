@@ -962,9 +962,9 @@ describe("Craft.Sidebar selection (FR-116)", function()
             onSelect = function(id) selected = id end,
             onClick = function(id, mods) got = { id = id, mods = mods } end })
         local prevCtrl = IsControlKeyDown
-        IsControlKeyDown = function() return true end
+        _G.IsControlKeyDown = function() return true end
         sb._itemFrames.b.frame:_fire("OnClick", "LeftButton")
-        IsControlKeyDown = prevCtrl
+        _G.IsControlKeyDown = prevCtrl
         assert.equals("b", got.id)
         assert.is_true(got.mods.ctrl)
         assert.is_false(got.mods.shift)
@@ -1139,17 +1139,17 @@ describe("Craft.Sidebar drag and drop (FR-117)", function()
     it("a press becomes a drag only past the threshold", function()
         local sb = newSb({ onDrop = function() end })
         local prevDown, prevCur = IsMouseButtonDown, GetCursorPosition
-        IsMouseButtonDown = function() return true end
-        GetCursorPosition = function() return 0, 0 end
+        _G.IsMouseButtonDown = function() return true end
+        _G.GetCursorPosition = function() return 0, 0 end
         sb._itemFrames.a.frame:_fire("OnMouseDown", "LeftButton")
-        GetCursorPosition = function() return 0, 2 end
+        _G.GetCursorPosition = function() return 0, 2 end
         sb:_dragTick(0.016)
         assert.is_false(sb:IsDragging())
         cursorAt(sb, 50)
-        GetCursorPosition = function() return 0, 6 end
+        _G.GetCursorPosition = function() return 0, 6 end
         sb:_dragTick(0.016)
         assert.is_true(sb:IsDragging())
-        IsMouseButtonDown, GetCursorPosition = prevDown, prevCur
+        _G.IsMouseButtonDown, _G.GetCursorPosition = prevDown, prevCur
         sb:CancelDrag()
         sb:Destroy()
     end)
@@ -1429,9 +1429,9 @@ describe("Craft.Sidebar branch click", function()
         local sb
         sb = newSb({ onClick = function(id) sb:SetSelection({ id }) end })
         local prev = IsControlKeyDown
-        IsControlKeyDown = function() return true end
+        _G.IsControlKeyDown = function() return true end
         sb._itemFrames.g.frame:_fire("OnClick", "LeftButton")
-        IsControlKeyDown = prev
+        _G.IsControlKeyDown = prev
         assert.is_false(sb:IsExpanded("g"))
         sb:Destroy()
     end)

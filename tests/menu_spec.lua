@@ -338,10 +338,10 @@ describe("Craft.Menu OpenAtCursor", function()
     local realCursor, realUIScale = GetCursorPosition, UIParent.GetEffectiveScale
 
     local function withCursor(x, y, uiScale, fn)
-        GetCursorPosition = function() return x, y end
+        _G.GetCursorPosition = function() return x, y end
         UIParent.GetEffectiveScale = function() return uiScale end
         local ok, err = pcall(fn)
-        GetCursorPosition = realCursor
+        _G.GetCursorPosition = realCursor
         UIParent.GetEffectiveScale = realUIScale
         if not ok then error(err, 0) end
     end
@@ -1003,7 +1003,7 @@ describe("Craft.Menu scroll rail", function()
         local movable = m._viewH - m._barThumb:GetHeight()    -- 139
         local y = 500
         local realCursor = GetCursorPosition
-        GetCursorPosition = function() return 0, y end
+        _G.GetCursorPosition = function() return 0, y end
 
         m._barThumb:_fire("OnMouseDown")
         y = y - movable / 2                                   -- half the rail, downwards
@@ -1015,7 +1015,7 @@ describe("Craft.Menu scroll rail", function()
         m._barThumb:_fire("OnUpdate", 0)                      -- released: no more travel
         assert.near(m:_maxScroll() / 2, m._scroll:GetVerticalScroll(), 0.5)
 
-        GetCursorPosition = realCursor
+        _G.GetCursorPosition = realCursor
         m:Destroy()
     end)
 end)

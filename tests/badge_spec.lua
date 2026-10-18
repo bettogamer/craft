@@ -291,13 +291,13 @@ describe("Craft.Badge pill", function()
 
     it("stays square (no error) when the client has no CreateMaskTexture", function()
         local realCreate = CreateFrame
-        CreateFrame = function(...)
+        _G.CreateFrame = function(...)
             local f = realCreate(...)
             f.CreateMaskTexture = nil
             return f
         end
         local ok, b = pcall(Craft.Badge.Create, Craft.Badge, UIParent, { text = "New", pill = true })
-        CreateFrame = realCreate
+        _G.CreateFrame = realCreate
         assert.is_true(ok)
         assert.is_nil(b._pill)
         b:Destroy()

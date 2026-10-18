@@ -230,7 +230,7 @@ describe("Craft.Slider drag lifetime (FR-110)", function()
     -- The mini-runner has no before_each: the stub is installed once for this
     -- block and every test starts by pressing the button (held = true).
     local held = true
-    IsMouseButtonDown = function() return held end   -- luacheck: ignore
+    _G.IsMouseButtonDown = function() return held end   -- luacheck: ignore
     local function press() held = true end
 
     it("a tick with the button already up ends the drag (release over another frame)", function()

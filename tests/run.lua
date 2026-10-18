@@ -101,8 +101,20 @@ if #specs == 0 then
 end
 
 assert = A  -- luassert-style global while specs run
+-- Each spec runs in its OWN environment (reads fall through to _G), like busted:
+-- a spec that writes `GetCursorPosition = …` changes only its own environment,
+-- never the _G that the components (loaded with dofile) read. To stub a global
+-- for the code under test, a spec must write `_G.Name = …`. Without this sandbox
+-- the local runner passed tests that failed in CI (busted).
+local loadIn = setfenv and function(path, env)       -- Lua 5.1
+    local chunk = rawassert(loadfile(path))
+    return setfenv(chunk, env)
+end or function(path, env)                           -- Lua 5.2+
+    return rawassert(loadfile(path, "t", env))
+end
 for _, spec in ipairs(specs) do
-    dofile(spec)
+    local env = setmetatable({}, { __index = _G })
+    loadIn(spec, env)()
 end
 assert = rawassert
 
