@@ -4,8 +4,11 @@
 --   with a `grip-vertical` drag handle. Dragging a row makes it follow the cursor (custom
 --   OnUpdate, not StartMoving) and live-reorders the rest as the cursor crosses row bands;
 --   on drop the new order is committed and `onReorder(items)` fires.
---   Rows are NOT recreated on reorder — each row stays bound to its item and is repositioned,
---   so `renderRow(content, item, index)` runs once per item at build time.
+--   Rows are NOT recreated on reorder — each row stays bound to its item and is repositioned.
+--   Rows are POOLED (FR-079): `self._rows` is the creation pool, `self._order` the current
+--   visual order (references into it). A rebuild (SetItems) REUSES the pooled frames, so
+--   `renderRow(content, item, index)` runs again over a *recycled* `content` — see
+--   `_releaseRow` and the `onRowReleased` config key for the teardown half of that contract.
 
 local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
@@ -28,13 +31,15 @@ function DragList:Create(parent, config)
 
     config = config or {}
     self._cfg = {
-        renderRow = config.renderRow,
-        onReorder = config.onReorder,
-        disabled  = config.disabled or false,
-        width     = config.width or 300,
+        renderRow     = config.renderRow,
+        onRowReleased = config.onRowReleased,
+        onReorder     = config.onReorder,
+        disabled      = config.disabled or false,
+        width         = config.width or 300,
     }
     self._items = config.items or {}
-    self._order = {}   -- row objects, in current visual order
+    self._rows  = {}   -- row pool, in creation order (never reordered)
+    self._order = {}   -- row objects, in current visual order (references into _rows)
     self._drag  = nil
 
     -- Reactive props (ADR-0013): `items` may be a signal. It binds through
@@ -54,14 +59,21 @@ function DragList:Create(parent, config)
     end
 
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetWidth(self._cfg.width)
+
+    -- FR-090: `_cfg.width` is the single source of truth for the row width, and the
+    -- frame is what can change it — by SetWidth, or by a layout that anchors the list
+    -- on both sides inside a resizable Window. Either way the rows follow from here,
+    -- so a width change never re-runs renderRow (the content only gets wider).
+    self.frame:SetScript("OnSizeChanged", function(_, w) self:_applyWidth(w) end)
 
     -- One OnUpdate closure for the whole list (installed only while dragging)
     self._onUpdate = function() self:_onDragUpdate() end
 
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
     self:_build()
-    self:_applyTheme(Craft.Theme.get())
+    self:_applyTheme(self._theme:get())
 
     -- ── Reactive binds — after the initial build. `items`: skip the rebuild
     -- when the incoming table is the one we just wrote back (post-reorder echo).
@@ -76,67 +88,124 @@ function DragList:Create(parent, config)
     return self
 end
 
--- ─── Build rows ───────────────────────────────────────────────────────────────
+-- ─── Row pool ────────────────────────────────────────────────────────────
+-- Creates ONE row and everything it owns. Called only when the pool runs short:
+-- WoW frames cannot be destroyed, so a rebuild that dropped its rows would leak
+-- them forever (FR-079). Item-specific state lives in _build, not here.
+function DragList:_makeRow()
+    local row = CreateFrame("Frame", nil, self.frame)
+
+    -- Lift highlight (shown while dragging)
+    row.dragBg = row:CreateTexture(nil, "BACKGROUND")
+    row.dragBg:SetAllPoints(row)
+    row.dragBg:Hide()
+
+    -- Bottom divider
+    row.divider = row:CreateTexture(nil, "BORDER")
+    row.divider:SetPoint("BOTTOMLEFT",  row, "BOTTOMLEFT",  0, -ROW_GAP / 2)
+    row.divider:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, -ROW_GAP / 2)
+
+    -- Grip handle (Button — RegisterForDrag)
+    local grip = CreateFrame("Button", nil, row)
+    grip:SetSize(GRIP_SZ + PAD_H, ROW_H)
+    grip:SetPoint("LEFT", row, "LEFT", 0, 0)
+    grip:RegisterForDrag("LeftButton")
+    local gtex = grip:CreateTexture(nil, "ARTWORK")
+    gtex:SetSize(GRIP_SZ, GRIP_SZ)
+    gtex:SetPoint("LEFT", grip, "LEFT", PAD_H, 0)
+    row.grip, row.gripTex = grip, gtex
+
+    -- Content area (consumer fills via renderRow; default = label FontString)
+    local content = CreateFrame("Frame", nil, row)
+    content:SetPoint("TOPLEFT",     grip, "TOPRIGHT", GRIP_GAP, 0)
+    content:SetPoint("BOTTOMRIGHT", row,  "BOTTOMRIGHT", -PAD_H, 0)
+    row.content = content
+
+    -- The scripts capture `row`, whose identity is stable for the pool's lifetime.
+    grip:SetScript("OnDragStart", function() self:_dragStart(row) end)
+    grip:SetScript("OnDragStop",  function() self:_dragStop()    end)
+    grip:SetScript("OnEnter",     function() self:_gripHover(row, true)  end)
+    grip:SetScript("OnLeave",     function() self:_gripHover(row, false) end)
+
+    return row
+end
+
+-- Teardown half of the renderRow contract. A pooled `content` still holds whatever
+-- the consumer painted for the PREVIOUS item — including Craft components, which
+-- stay in Theme._listeners until Destroy(). onRowReleased(content, prevItem) is the
+-- consumer's chance to destroy them before the row is re-rendered, recycled for
+-- another item, hidden as surplus, or dropped in DragList:Destroy().
+function DragList:_releaseRow(row)
+    local prev = row.rendered
+    if prev == nil then return end
+    row.rendered = nil
+    if self._cfg.onRowReleased then self._cfg.onRowReleased(row.content, prev) end
+end
+
+-- ─── Build rows ────────────────────────────────────────────────────
+-- Re-seeds the list from self._items, REUSING pooled rows by index (same shape as
+-- Menu:_buildRows). Surplus rows are released and hidden, never abandoned.
 function DragList:_build()
-    if self._order then
-        for _, row in ipairs(self._order) do row:Hide(); row:SetParent(nil) end
-    end
+    local w = self._cfg.width
     self._order = {}
 
-    local w = self._cfg.width
     for i, item in ipairs(self._items) do
-        local row = CreateFrame("Frame", nil, self.frame)
+        local row = self._rows[i]
+        if not row then
+            row = self:_makeRow()
+            self._rows[i] = row
+        end
+        self:_releaseRow(row)   -- drop the previous item's render before overwriting it
+
         row:SetSize(w, ROW_H)
         row:SetFrameLevel(self.frame:GetFrameLevel() + 1)
+        row:SetAlpha(1)
+        row.dragBg:Hide()
         row.item = item
 
-        -- Lift highlight (shown while dragging)
-        row.dragBg = row:CreateTexture(nil, "BACKGROUND")
-        row.dragBg:SetAllPoints(row)
-        row.dragBg:Hide()
-
-        -- Bottom divider
-        row.divider = row:CreateTexture(nil, "BORDER")
-        row.divider:SetPoint("BOTTOMLEFT",  row, "BOTTOMLEFT",  0, -ROW_GAP / 2)
-        row.divider:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, -ROW_GAP / 2)
-
-        -- Grip handle (Button — RegisterForDrag)
-        local grip = CreateFrame("Button", nil, row)
-        grip:SetSize(GRIP_SZ + PAD_H, ROW_H)
-        grip:SetPoint("LEFT", row, "LEFT", 0, 0)
-        grip:RegisterForDrag("LeftButton")
-        local gtex = grip:CreateTexture(nil, "ARTWORK")
-        gtex:SetSize(GRIP_SZ, GRIP_SZ)
-        gtex:SetPoint("LEFT", grip, "LEFT", PAD_H, 0)
-        row.grip, row.gripTex = grip, gtex
-
-        -- Content area (consumer fills via renderRow; default = label FontString)
-        local content = CreateFrame("Frame", nil, row)
-        content:SetPoint("TOPLEFT",     grip, "TOPRIGHT", GRIP_GAP, 0)
-        content:SetPoint("BOTTOMRIGHT", row,  "BOTTOMRIGHT", -PAD_H, 0)
-        row.content = content
-
         if self._cfg.renderRow then
-            self._cfg.renderRow(content, item, i)
+            self._cfg.renderRow(row.content, item, i)
+            row.rendered = item
         else
-            local fs = content:CreateFontString(nil, "OVERLAY")
-            fs:SetPoint("LEFT", content, "LEFT", 0, 0)
-            fs:SetJustifyH("LEFT")
+            if not row.fs then
+                local fs = row.content:CreateFontString(nil, "OVERLAY")
+                fs:SetPoint("LEFT", row.content, "LEFT", 0, 0)
+                fs:SetJustifyH("LEFT")
+                row.fs = fs
+            end
             -- Text is applied in _applyTheme, AFTER SetFont — calling SetText on a
             -- font-less FontString errors with "Font not set" in real WoW (CLAUDE.md bug #2 family).
-            row.fs        = fs
             row.labelText = type(item) == "table" and (item.label or tostring(item)) or tostring(item)
+            row.fs:Show()
         end
 
-        grip:SetScript("OnDragStart", function() self:_dragStart(row) end)
-        grip:SetScript("OnDragStop",  function() self:_dragStop()    end)
-        grip:SetScript("OnEnter",     function() self:_gripHover(row, true)  end)
-        grip:SetScript("OnLeave",     function() self:_gripHover(row, false) end)
-
+        row:Show()
         self._order[i] = row
     end
 
+    -- Surplus rows: release the consumer's content and park them in the pool.
+    for i = #self._items + 1, #self._rows do
+        local row = self._rows[i]
+        self:_releaseRow(row)
+        row.item = nil
+        row:Hide()
+    end
+
     self:_relayout()
+end
+
+-- ─── Width ────────────────────────────────────────────────────────────────────
+-- Pushes a new width onto the rows already built. Only the row frames resize: their
+-- `content` is anchored to both ends of the row, so whatever the consumer painted in
+-- it follows without a re-render. The equality guard makes this cheap enough to sit
+-- on OnSizeChanged, which also fires for every height change made by _relayout.
+function DragList:_applyWidth(w)
+    w = w or (self.frame and self.frame:GetWidth()) or 0
+    if w <= 0 or w == self._cfg.width then return end
+    self._cfg.width = w
+    for _, row in ipairs(self._order) do
+        row:SetWidth(w)
+    end
 end
 
 -- ─── Layout ───────────────────────────────────────────────────────────────────
@@ -172,7 +241,7 @@ function DragList:_onDragUpdate()
     if not top then return end
 
     local _, cy = GetCursorPosition()
-    cy = cy / UIParent:GetEffectiveScale()
+    cy = cy / self.frame:GetEffectiveScale()   -- same space as GetTop() above (ADR-0011)
     local relY = top - cy                 -- distance from list top, downward positive
     local s = step()
     local n = #self._order
@@ -245,7 +314,7 @@ function DragList:_applyTheme(t)
         row.divider:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
         row.dragBg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 1)
         if row.fs then
-            Craft.Theme.applyFont(row.fs, t.font, FONT_SIZE)   -- font BEFORE SetText (see _build)
+            self._theme:applyFont(row.fs, t.font, FONT_SIZE)   -- font BEFORE SetText (see _build)
             row.fs:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
             row.fs:SetText(row.labelText or "")
         end
@@ -266,6 +335,18 @@ function DragList:GetItems()
     return self._items
 end
 
+-- FR-090: resize the list in place — rows included — without losing the pool or the
+-- drag state. Safe to call on every frame of a window resize.
+function DragList:SetWidth(w)
+    if not w or w <= 0 then return end
+    self.frame:SetWidth(w)
+    self:_applyWidth(w)   -- WoW defers OnSizeChanged to the layout pass; apply now
+end
+
+function DragList:GetWidth()
+    return self._cfg.width
+end
+
 function DragList:SetEnabled(enabled)
     self._cfg.disabled = not enabled
     self.frame:SetAlpha(enabled and 1 or 0.5)
@@ -283,9 +364,13 @@ function DragList:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)  -- cut the items bind (ghost updates on reuse)
     self.frame:SetScript("OnUpdate", nil)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
+    -- Hand every still-rendered row back to the consumer so it can destroy the
+    -- components it put in them (they'd otherwise stay in Theme._listeners).
+    for _, row in ipairs(self._rows) do self:_releaseRow(row) end
     self.frame:Hide()
     self.frame = nil
+    self._rows  = nil
     self._order = nil
     self._items = nil
 end

@@ -48,10 +48,22 @@ function Button:Create(parent, config)
         icon         = config.icon,                    -- Lucide name or nil
         iconPosition = config.iconPosition or "left",  -- "left" | "right"
         onClick      = config.onClick,
+        tooltip      = config.tooltip,                 -- string or nil (FR-020)
+        -- FR-077: explicit tone for the label+icon pair. A STRING is a theme token
+        -- name ("sidebarPrimary") and keeps following the theme; a TABLE is a
+        -- literal {r,g,b,a}. nil = the variant's own text colour (today's
+        -- behaviour). Exists because a ghost button is not always chrome: it is
+        -- sometimes the action of a coloured block, and inheriting `foreground`
+        -- made it read as window chrome (Coffer's pinned section headers).
+        tone         = config.tone,
+        -- FR-102: override of the theme's outline (t.fontFlags), applyFont's 4th arg —
+        -- "" = no outline, nil = theme flag. Re-applied on every re-theme.
+        fontFlags    = config.fontFlags,
     }
 
     -- Root frame (WoW Button — has native OnClick)
     self.frame = CreateFrame("Button", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
 
     -- _border: 4 × 1px edge textures (corner-safe ring). Transparent by default
     -- (border-transparent); visible for variant=outline. A ring — NOT a full texture —
@@ -88,7 +100,7 @@ function Button:Create(parent, config)
     -- interpolates the bg colour each frame. Created BEFORE _applyTheme so the theme
     -- pass can re-apply the current progress with freshly-resolved endpoints.
     self._hover = Weave.signal(false)  -- private hover state (NOT a public prop)
-    local m = Craft.Theme.get()
+    local m = self._theme:get()
     self._prog = Weave.tween(
         Weave.computed(function() return self._hover() and 1 or 0 end),
         { duration = m.motionFast, easing = Weave.easing[m.motionEasing] })
@@ -103,8 +115,8 @@ function Button:Create(parent, config)
     end)
 
     -- Register in the theming system and apply initial theme
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
     self._label:SetText(self._cfg.text)  -- after SetFont in _applyTheme
     self:_recalcWidth()                  -- recalc now that text is set (GetStringWidth was 0 before)
 
@@ -119,6 +131,15 @@ function Button:Create(parent, config)
         end
     end)
 
+    -- Tooltip (FR-020): optional hover label — the idiom for icon-only buttons.
+    -- Attached AFTER the SetScript block above: Tooltip.Attach hooks OnEnter/OnLeave
+    -- via HookScript, and a later SetScript would wipe the hook. The hook fires even
+    -- while disabled (our handlers early-return; the hook doesn't) — intentional,
+    -- the tooltip explains a greyed-out button. See SetEnabled for the mouse policy.
+    if self._cfg.tooltip then
+        Craft.Tooltip.Attach(self.frame, { text = self._cfg.tooltip })
+    end
+
     if self._cfg.disabled then
         self:SetEnabled(false)
     end
@@ -132,8 +153,11 @@ function Button:_applySize()
     self._size = s
 
     if s.w then
-        -- Icon-only: fixed square frame
+        -- Icon-only: fixed square frame. The width is OURS, so record it as the
+        -- intrinsic one: otherwise, back on a text size, _recalcWidth's Flex guard
+        -- reads the icon square as an external width and keeps it (FR-097).
         self.frame:SetSize(s.w, s.h)
+        self._intrinsicWidth = s.w
     else
         self.frame:SetHeight(s.h)
         -- Width is recalculated in _recalcWidth once the text is known
@@ -188,6 +212,19 @@ function Button:_setBorderColor(r, g, b, a)
     self._bR:SetColorTexture(r, g, b, a)
 end
 
+-- ─── Tone resolver (FR-077) ────────────────────────────────────────────────
+-- Returns the {r,g,b,a} the label+icon should use, or nil to keep the variant's.
+-- A string is looked up in the theme, so `tone = "sidebarPrimary"` re-resolves on
+-- every theme pass instead of freezing one palette's value; an unknown token name
+-- is ignored (same policy as an unknown icon name or an unknown variant).
+function Button:_resolveTone(t)
+    local tone = self._cfg.tone
+    if not tone then return nil end
+    if type(tone) == "string" then tone = t and t[tone] end
+    if type(tone) ~= "table" or type(tone.r) ~= "number" then return nil end
+    return tone
+end
+
 -- ─── Theme ─────────────────────────────────────────────────────────────────
 function Button:_applyTheme(t)
     self._t = t
@@ -205,7 +242,7 @@ function Button:_applyTheme(t)
 
     -- Font
     if s then
-        Craft.Theme.applyFont(self._label, t.fontMedium or t.font, s.font or 12)  -- .cn-button font-medium
+        self._theme:applyFont(self._label, t.fontMedium or t.font, s.font or 12, self._cfg.fontFlags)  -- font-medium
     end
 
     -- Colors by variant (dark mode)
@@ -267,10 +304,23 @@ function Button:_applyTheme(t)
     -- when prog MOVES, and a theme change doesn't move it.
     self:_paintHoverBg(self._prog and self._prog:peek() or 0)
 
+    -- Tone override (FR-077): applied AFTER the variant chain so it wins over the
+    -- variant's text colour, and BEFORE the icon tint so the icon inherits it —
+    -- which is the point of the request. No new state behaviour: hover/disabled
+    -- keep working exactly as they do for the colour it replaces (only the bg
+    -- animates on hover, and `disabled` is a frame-wide alpha).
+    local tone = self:_resolveTone(t)
+    if tone then
+        self._label:SetTextColor(tone.r, tone.g, tone.b, tone.a or 1)
+        if v == "link" then
+            self._underline:SetColorTexture(tone.r, tone.g, tone.b, tone.a or 1)
+        end
+    end
+
     -- Icon: inherits text color via SetVertexColor
     if self._cfg.icon then
-        local r, g, b = self._label:GetTextColor()
-        self._icon:SetVertexColor(r, g, b, 1)
+        local r, g, b, a = self._label:GetTextColor()
+        self._icon:SetVertexColor(r, g, b, a or 1)
     end
 
     self:_recalcWidth()
@@ -385,12 +435,41 @@ function Button:SetEnabled(enabled)
     else
         -- disabled:opacity-50 (button.md)
         self.frame:SetAlpha(0.5)
-        self.frame:EnableMouse(false)
+        -- FR-020: keep the mouse ON when a tooltip is configured so hover can still
+        -- explain the greyed-out button; clicks and hover states stay ignored via
+        -- the disabled guards in OnClick/_onEnter/_onLeave.
+        self.frame:EnableMouse(self._cfg.tooltip ~= nil)
     end
 end
 
 function Button:SetVariant(variant)
     self._cfg.variant = variant
+    if self._t then
+        self:_applyTheme(self._t)
+    end
+end
+
+-- Sets or clears (nil) the label+icon tone (FR-077). Accepts a theme token name
+-- (string) or a literal {r,g,b,a}; nil restores the variant's own text colour.
+-- Hot-swappable like SetIcon/SetVariant: re-runs the theme pass, which resolves
+-- the token and re-tints both the label and the icon.
+function Button:SetTone(tone)
+    self._cfg.tone = tone
+    if self._t then
+        self:_applyTheme(self._t)
+    end
+end
+
+function Button:GetTone()
+    return self._cfg.tone
+end
+
+-- Swaps the icon (Lucide name) after Create; nil removes it (FR-023).
+-- Re-runs the theme pass: _applyTheme already re-tints the icon from the label
+-- colour, re-measures (_recalcWidth) and re-positions (_positionChildren re-reads
+-- _cfg.icon and shows/hides + re-applies the atlas).
+function Button:SetIcon(icon)
+    self._cfg.icon = icon
     if self._t then
         self:_applyTheme(self._t)
     end
@@ -411,8 +490,11 @@ end
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Button:Destroy()
     if not self.frame then return end
+    if self._cfg.tooltip then
+        Craft.Tooltip.Detach(self.frame)       -- FR-020: cancels any pending delayed show
+    end
     Craft.Reactive.disposeAll(self)            -- cut the hover tween + effect (ghost updates)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

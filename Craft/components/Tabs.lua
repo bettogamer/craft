@@ -6,16 +6,27 @@
 --
 -- List: h=32px (single row), padding=3px
 -- Trigger: px=6px, py=2px, text-xs=12px, border-transparent default
--- Active: bg=t.secondary, text=t.foreground
--- Inactive: text=t.mutedForeground
+-- Active: bg=input/30 (white@15% × 0.30 ≈ 0.045, very subtle) + border=input (white@15%),
+--         text=t.foreground. Inactive: text=t.mutedForeground. Hover: text→foreground, no bg.
 -- List bg: t.muted
--- No underline indicator (Lyra uses data-active bg change only)
+-- No underline indicator in the DEFAULT variant (Lyra uses data-active bg change only)
+--
+-- variant="line" (FR-042, data-variant="line"): transparent bar + full-width
+-- border-b; the active trigger is marked by a 2px underline in t.foreground (no
+-- bg fill). No internal padding (triggers hug the border), gap-1 between triggers,
+-- hover:text-foreground. Layout engine, wrap, show/hide and public API are shared.
 --
 -- Sizing model: each trigger is content-width (text + horizontal padding), laid
 -- out left-aligned via Craft.Flex (grow=0, shrink=0). When the triggers no longer
 -- fit on one line they wrap to additional rows (flex wrap="wrap") and the list bar
 -- grows in height to fit them. Faithful to shadcn (triggers size to content) and
 -- degrades gracefully with few or many tabs. See docs/components/tabs.md.
+--
+-- fill (FR-043, config.fill=true): the shadcn `TabsList w-full` + trigger `flex-1`
+-- pattern — triggers stop being content-width and split the list into EQUAL columns
+-- (segmented control). Only the Flex item params change (grow=1, shrink=1, basis=0)
+-- and the label centers in its cell; the border-b, underline, theming and API are
+-- untouched, so it composes with variant="line". Default false (no regression).
 
 local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
@@ -34,11 +45,24 @@ local TRIGGER_H    = LIST_H - LIST_PAD * 2  -- 26px inner trigger height
 local ICON_SIZE    = 16  -- size-4 — Lucide 16px atlas
 local ICON_GAP     = 6   -- gap-1.5 between icon and label
 
+-- variant="line" (FR-042): transparent bar, no internal padding (triggers hug the
+-- bottom border-b), gap-1 between triggers, active tab marked by a 2px underline.
+local LINE_GAP     = 4   -- gap-1 between triggers in the line variant
+local UNDERLINE_H  = 2   -- after:h-0.5 = 2px active indicator
+
 -- ─── Create ────────────────────────────────────────────────────────────────
 function Tabs:Create(parent, config)
     local self = setmetatable({}, Tabs)
 
     config = config or {}
+
+    -- Variant (FR-042): "default" (bg-muted bar) or "line" (transparent bar +
+    -- underline indicator). Set before the flex/textures below branch on it.
+    self._variant    = (config.variant == "line") and "line" or "default"
+
+    -- fill (FR-043): full-width bar with equal-width triggers (flex-1). Read before
+    -- AddTab so the flex item params and label anchoring below branch on it.
+    self._fill       = config.fill == true
 
     self._tabs       = {}      -- array of {id, label}
     self._frames     = {}      -- id → content Frame
@@ -57,6 +81,7 @@ function Tabs:Create(parent, config)
 
     -- Root frame
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
 
     -- Tab list: 32px tall, full width, bg=t.muted
     self._list = CreateFrame("Frame", nil, self.frame)
@@ -65,15 +90,18 @@ function Tabs:Create(parent, config)
     self._list:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
 
     -- Flex layout: row, content-width triggers, left-aligned, wrap to new rows on
-    -- overflow. align=stretch fits each trigger to its line height.
+    -- overflow. align=stretch fits each trigger to its line height. The line variant
+    -- drops the p-[3px] (triggers hug the bottom border) and uses gap-1 between them.
+    local listPad = (self._variant == "line") and 0 or LIST_PAD
+    local triggerGap = (self._variant == "line") and LINE_GAP or 0
     self._flex = Craft.Flex.new(self._list, {
         direction = "row",
         wrap      = "wrap",
         justify   = "flex-start",
         align     = "stretch",
-        paddingH  = LIST_PAD,
-        paddingV  = LIST_PAD,
-        gap       = 0,
+        paddingH  = listPad,
+        paddingV  = listPad,
+        gap       = triggerGap,
     })
 
     self._listBg = self._list:CreateTexture(nil, "BACKGROUND")
@@ -97,8 +125,8 @@ function Tabs:Create(parent, config)
     self._list:SetScript("OnSizeChanged", function() self:_relayout() end)
 
     -- Register theming
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     -- Add initial tabs from config
     if config.tabs then
@@ -110,16 +138,22 @@ function Tabs:Create(parent, config)
     -- Set default active tab. A reactive defaultTab is not a literal id: seed
     -- the classic default (first tab) through the no-callback sink and let the
     -- bind below apply the signal's value on top (unknown ids keep the seed).
+    --
+    -- BOTH branches seed through _applyActiveTab, i.e. SILENTLY: painting the
+    -- initial tab is not a tab CHANGE, so it must not fire onTabChange. Firing it
+    -- from inside Create ran the consumer's callback before Create had returned —
+    -- against forward-declared locals that were still nil (the usual Lua builder
+    -- shape), which is a Lua error in the user's face on the very first open. It
+    -- also contradicted the rest of the library: ToggleGroup (`value`), Select
+    -- (`value`) and Checkbox/Switch (`checked`) all paint their initial value
+    -- without notifying. Anyone who does want the initial effect calls their own
+    -- function after Create, where everything is built. FR-070.
     local defaultId = (not activeSource) and config.defaultTab or nil
     if not defaultId and config.tabs and config.tabs[1] then
         defaultId = config.tabs[1].id
     end
     if defaultId then
-        if activeSource then
-            self:_applyActiveTab(defaultId)
-        else
-            self:SetActiveTab(defaultId)
-        end
+        self:_applyActiveTab(defaultId)
     end
 
     -- Reactive bind — after the tabs above exist so the bound id can resolve.
@@ -151,7 +185,7 @@ function Tabs:AddTab(id, label, opts)
 
     local btnText = btn:CreateFontString(nil, "OVERLAY")
     if self._t then
-        Craft.Theme.applyFont(btnText, self._t.fontMedium or self._t.font, FONT_SIZE)
+        self._theme:applyFont(btnText, self._t.fontMedium or self._t.font, FONT_SIZE)
     end
     btnText:SetText(label or id)
 
@@ -170,8 +204,15 @@ function Tabs:AddTab(id, label, opts)
     -- hugs the content + TRIGGER_PX on each side, it ends up horizontally centered.
     local textW = math.max(btnText:GetStringWidth(), 1)
     if icon then
-        icon:SetPoint("LEFT", btn, "LEFT", TRIGGER_PX, 0)
-        btnText:SetPoint("LEFT", icon, "RIGHT", ICON_GAP, 0)
+        if self._fill then
+            -- Equal-width cell: center the icon+label pair. Text sits at center
+            -- shifted right by half the icon slot so the pair straddles the middle.
+            btnText:SetPoint("CENTER", btn, "CENTER", math.floor((ICON_SIZE + ICON_GAP) / 2), 0)
+            icon:SetPoint("RIGHT", btnText, "LEFT", -ICON_GAP, 0)
+        else
+            icon:SetPoint("LEFT", btn, "LEFT", TRIGGER_PX, 0)
+            btnText:SetPoint("LEFT", icon, "RIGHT", ICON_GAP, 0)
+        end
         btn:SetWidth(ICON_SIZE + ICON_GAP + textW + TRIGGER_PX * 2)
     else
         btnText:SetPoint("CENTER", btn, "CENTER")
@@ -184,6 +225,18 @@ function Tabs:AddTab(id, label, opts)
     local borderLeft   = btn:CreateTexture(nil, "BORDER")
     local borderRight  = btn:CreateTexture(nil, "BORDER")
 
+    -- Active-tab underline (line variant only): 2px, full trigger width, anchored to
+    -- the bottom edge so it sits on the bar's border-b. Follows the trigger across
+    -- wrapped rows for free. Hidden until the tab is active (after:opacity-0 default).
+    local underline
+    if self._variant == "line" then
+        underline = btn:CreateTexture(nil, "OVERLAY")
+        Craft.Theme.SetPixelHeight(underline, UNDERLINE_H)
+        underline:SetPoint("BOTTOMLEFT",  btn, "BOTTOMLEFT",  0, 0)
+        underline:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, 0)
+        underline:Hide()
+    end
+
     -- Store references on button for refresh
     btn._text        = btnText
     btn._icon        = icon
@@ -191,6 +244,7 @@ function Tabs:AddTab(id, label, opts)
     btn._borderBottom = borderBottom
     btn._borderLeft  = borderLeft
     btn._borderRight = borderRight
+    btn._underline   = underline
     btn._id          = id
 
     -- Click: activate this tab
@@ -205,8 +259,14 @@ function Tabs:AddTab(id, label, opts)
     self._buttons[id] = btn
     table.insert(self._tabs, { id = id, label = label or id })
 
-    -- Register with Flex (content width: no grow, no shrink → wraps on overflow)
-    self._flex:Add(btn, { grow = 0, shrink = 0, basis = "auto" })
+    -- Register with Flex. Default: content width (no grow/shrink → wraps on
+    -- overflow). fill (FR-043): flex-1 (grow=1, shrink=1, basis=0) so the triggers
+    -- split the list into equal columns. basis=0 is truthy in Lua, so Flex keeps it.
+    if self._fill then
+        self._flex:Add(btn, { grow = 1, shrink = 1, basis = 0 })
+    else
+        self._flex:Add(btn, { grow = 0, shrink = 0, basis = "auto" })
+    end
     self:_relayout()
 
     -- Apply theme to the new button
@@ -240,7 +300,26 @@ function Tabs:_styleButton(btn, isActive)
     if not t then return end
 
     -- Font (.cn-tabs-trigger font-medium)
-    Craft.Theme.applyFont(btn._text, t.fontMedium or t.font, FONT_SIZE)
+    self._theme:applyFont(btn._text, t.fontMedium or t.font, FONT_SIZE)
+
+    -- Line variant: no bg fill, no border box; active = 2px underline in t.foreground.
+    if self._variant == "line" then
+        if btn._bg then btn._bg:SetColorTexture(0, 0, 0, 0) end
+        btn._borderTop:SetColorTexture(0, 0, 0, 0)
+        btn._borderBottom:SetColorTexture(0, 0, 0, 0)
+        btn._borderLeft:SetColorTexture(0, 0, 0, 0)
+        btn._borderRight:SetColorTexture(0, 0, 0, 0)
+
+        local c = isActive and t.foreground or t.mutedForeground
+        btn._text:SetTextColor(c.r, c.g, c.b)
+        if btn._icon then btn._icon:SetVertexColor(c.r, c.g, c.b, 1) end
+
+        if btn._underline then
+            btn._underline:SetColorTexture(t.foreground.r, t.foreground.g, t.foreground.b, 1)
+            btn._underline:SetShown(isActive)
+        end
+        return
+    end
 
     -- Pixel-perfect 4-texture border (corner-safe)
     Craft.Theme.AnchorBorder(btn, btn._borderTop, btn._borderBottom,
@@ -248,14 +327,18 @@ function Tabs:_styleButton(btn, isActive)
 
     if isActive then
         -- Active (dark mode): dark:data-active:bg-input/30 + dark:data-active:border-input
-        -- bg-input/30 = white at 30% opacity — lighter than t.muted, creates a "raised" effect
+        -- Lyra compiles bg-input/30 to color-mix(in oklab, var(--input) 30%, transparent).
+        -- --input is white@15% alpha, so the result is white @ (0.15 * 0.30) ≈ 0.045 — a
+        -- VERY subtle raised fill; the segment is delineated mainly by border-input (the
+        -- 1px white@15% highlight below) plus a drop shadow (WoW textures can't do shadows).
+        -- (bg-input/30 is NOT "white at 30%" — that was Tailwind v3 semantics; v4 multiplies.)
         -- border-input = t.input = white at 15% opacity — subtle 1px highlight border
         btn:SetNormalTexture("")
         if not btn._bg then
             btn._bg = btn:CreateTexture(nil, "BACKGROUND")
             btn._bg:SetAllPoints(btn)
         end
-        btn._bg:SetColorTexture(1, 1, 1, 0.30)
+        btn._bg:SetColorTexture(t.input.r, t.input.g, t.input.b, (t.input.a or 0.15) * 0.30)
         btn._bg:Show()
 
         btn._text:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
@@ -284,17 +367,20 @@ function Tabs:_onTriggerEnter(btn)
     if btn._id == self._activeId then return end
     if not self._t then return end
     local t = self._t
-    if not btn._bg then
-        btn._bg = btn:CreateTexture(nil, "BACKGROUND")
-        btn._bg:SetAllPoints(btn)
-    end
-    btn._bg:SetColorTexture(t.accent.r, t.accent.g, t.accent.b, 0.5)
+    -- Both variants: the shadcn trigger only has hover:text-foreground — no hover bg
+    -- fill. (Painting an accent bg here read louder than the subtle active fill.)
+    btn._text:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
+    if btn._icon then btn._icon:SetVertexColor(t.foreground.r, t.foreground.g, t.foreground.b, 1) end
 end
 
 function Tabs:_onTriggerLeave(btn)
     if btn._id == self._activeId then return end
-    if btn._bg then
-        btn._bg:SetColorTexture(0, 0, 0, 0)
+    -- Restore muted text (no hover bg was set on enter, in either variant).
+    local t = self._t
+    if t then
+        local mf = t.mutedForeground
+        btn._text:SetTextColor(mf.r, mf.g, mf.b)
+        if btn._icon then btn._icon:SetVertexColor(mf.r, mf.g, mf.b, 1) end
     end
 end
 
@@ -302,8 +388,13 @@ end
 function Tabs:_applyTheme(t)
     self._t = t
 
-    -- List background
-    self._listBg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 1)
+    -- List background: muted in default, transparent in the line variant (the
+    -- bar is bg-transparent; only the border-b below remains).
+    if self._variant == "line" then
+        self._listBg:SetColorTexture(0, 0, 0, 0)
+    else
+        self._listBg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 1)
+    end
 
     -- 1px separator border below tab list
     if self._listBorder then
@@ -476,7 +567,7 @@ end
 function Tabs:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

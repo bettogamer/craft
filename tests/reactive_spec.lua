@@ -33,6 +33,7 @@ dofile("Craft/layout/Flex.lua")
 dofile("Craft/components/Slider.lua")
 dofile("Craft/components/Checkbox.lua")
 dofile("Craft/components/Input.lua")
+dofile("Craft/components/ScrollBar.lua")
 dofile("Craft/components/Textarea.lua")
 dofile("Craft/components/Select.lua")
 dofile("Craft/components/RadioGroup.lua")
@@ -810,7 +811,7 @@ describe("Craft.Theme font warm-up", function()
         local got
         Craft.Theme.onFontsReady(function(changed) got = changed end)
         assert.is_nil(got) -- probe still pending, callback queued
-        for _ = 1, 205 do C_Timer._flush() end -- window is ~200 ticks (MAX_TRIES)
+        for _ = 1, 205 do C_Timer._flush() end -- fast window is ~200 ticks (FAST_TRIES)
         assert.is_true(Craft.Theme._fontsReady)
         assert.is_false(got) -- mock metrics never change → no re-notify needed
     end)
@@ -819,5 +820,47 @@ describe("Craft.Theme font warm-up", function()
         local ran = false
         Craft.Theme.onFontsReady(function() ran = true end)
         assert.is_true(ran)
+    end)
+
+    it("probes every distinct TTF file, not just the regular weight", function()
+        -- Inter ships three separate files (Regular/Medium/Bold) that load
+        -- independently; the original single-probe design missed Medium
+        -- (Button labels) settling after Regular.
+        assert.is_true(#Craft.Theme._fontProbes >= 3)
+    end)
+
+    it("a late settle re-notifies listeners and fires onFontMetricsChanged", function()
+        -- _fontsReady is already true (fast window elapsed above): the
+        -- watchdog must still catch a straggler TTF and re-notify.
+        local straggler
+        for _, p in ipairs(Craft.Theme._fontProbes) do
+            if not p.settled then straggler = p; break end
+        end
+        assert.is_not_nil(straggler)
+        local themed, changed = false, 0
+        local h = Craft.Theme.register(function() themed = true end)
+        Craft.Theme.onFontMetricsChanged(function() changed = changed + 1 end)
+        straggler.fs.GetStringWidth = function() return 999 end -- font finally rendered
+        C_Timer._flush()
+        assert.is_true(straggler.settled)
+        assert.is_true(themed)      -- components re-ran _applyTheme → re-measured
+        assert.equals(1, changed)   -- container re-layout hook fired
+        Craft.Theme.unregister(h)
+    end)
+
+    it("a theme switch to a new font family arms probes for its TTFs", function()
+        -- Order-independent on purpose: all specs share one Lua state and the
+        -- probe set is cumulative per TTF path, so an earlier spec that already
+        -- switched to Geist (label_spec) makes "the count grew" false even
+        -- though the behaviour is correct. Assert the invariant instead: every
+        -- TTF of the family in use has a probe.
+        Craft.Theme.use(Craft.Theme.build({ font = "geist" }))
+        local t = Craft.Theme.get()
+        local probed = {}
+        for _, p in ipairs(Craft.Theme._fontProbes) do probed[p.path] = true end
+        assert.is_true(probed[t.font])       -- Geist TTFs now probed
+        assert.is_true(probed[t.fontMedium])
+        assert.is_true(probed[t.fontBold])
+        Craft.Theme.use("lyra-dark") -- restore for later specs
     end)
 end)

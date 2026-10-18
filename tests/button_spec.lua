@@ -29,6 +29,7 @@ dofile("Craft/theme/Theme.lua")
 dofile("Craft/icons/Atlas.lua")
 dofile("Craft/icons/Icons.lua")
 dofile("Craft/components/Button.lua")
+dofile("Craft/components/Tooltip.lua")  -- FR-020: config.tooltip attaches Craft.Tooltip
 
 local Craft = LibStub("Craft-2.0")
 
@@ -246,6 +247,25 @@ describe("Craft.Button", function()
             btn:SetSize("xs")
             assert.equals(24, btn:GetFrame():GetHeight())
         end)
+
+        -- FR-097: the icon square used to be mistaken for an external (Flex) width.
+        it("icon-sm → sm re-measures the width from the text", function()
+            local btn = newBtn({ size="sm", text="Activate", icon="eye" })
+            local textW = btn:GetFrame():GetWidth()
+            btn:SetText("")
+            btn:SetSize("icon-sm")
+            assert.equals(28, btn:GetFrame():GetWidth())
+            btn:SetSize("sm")
+            btn:SetText("Activate")
+            assert.equals(textW, btn:GetFrame():GetWidth())
+        end)
+
+        it("a width imposed from outside on a text size is still respected", function()
+            local btn = newBtn({ size="sm", text="Activate" })
+            btn:GetFrame():SetWidth(200)
+            btn:SetText("Go")
+            assert.equals(200, btn:GetFrame():GetWidth())
+        end)
     end)
 
     -- ── onClick ───────────────────────────────────────────────────────────
@@ -317,6 +337,63 @@ describe("Craft.Button", function()
         end)
     end)
 
+    -- ── Tooltip (FR-020) ──────────────────────────────────────────────────
+
+    describe("tooltip (FR-020)", function()
+        -- The Tooltip singleton is a named child of UIParent (the mock does not
+        -- register frame names in _G, so we look it up by _name).
+        local function tooltipFrame()
+            for _, child in ipairs(UIParent._children) do
+                if child._name == "CraftTooltipFrame" then return child end
+            end
+        end
+
+        it("without config.tooltip hover never creates the tooltip singleton", function()
+            local btn = newBtn({ size="icon", icon="check" })
+            btn:GetFrame():_fire("OnEnter")
+            C_Timer._flush()
+            assert.is_nil(tooltipFrame())
+            btn:GetFrame():_fire("OnLeave")
+        end)
+
+        it("config.tooltip shows the tooltip after the hover delay", function()
+            local btn = newBtn({ size="icon", icon="check", tooltip="Banco" })
+            btn:GetFrame():_fire("OnEnter")
+            C_Timer._flush()                       -- fires the 300ms delayed show
+            local tt = tooltipFrame()
+            assert.is_not_nil(tt)
+            assert.is_true(tt:IsShown())
+            assert.equals("Banco", tt._text:GetText())
+            btn:GetFrame():_fire("OnLeave")
+        end)
+
+        it("disabled + tooltip keeps the mouse enabled and still shows the tooltip", function()
+            local btn = newBtn({ size="icon", icon="check", tooltip="Gris", disabled=true })
+            assert.is_true(btn:GetFrame():IsMouseEnabled())
+            btn:GetFrame():_fire("OnEnter")
+            C_Timer._flush()
+            assert.equals("Gris", tooltipFrame()._text:GetText())
+            btn:GetFrame():_fire("OnLeave")
+        end)
+
+        it("disabled + tooltip still ignores clicks", function()
+            local called = false
+            local btn = newBtn({ tooltip="T", disabled=true, onClick=function() called = true end })
+            btn:GetFrame():_fire("OnClick")
+            assert.is_false(called)
+        end)
+
+        it("disabled WITHOUT tooltip keeps the mouse disabled (no behavior change)", function()
+            local btn = newBtn({ disabled=true })
+            assert.is_false(btn:GetFrame():IsMouseEnabled())
+        end)
+
+        it("Destroy() detaches the tooltip without error", function()
+            local btn = newBtn({ tooltip="Bye" })
+            assert.has_no_errors(function() btn:Destroy() end)
+        end)
+    end)
+
     -- ── Live theme switching ──────────────────────────────────────────────
 
     describe("live theme switching", function()
@@ -365,12 +442,93 @@ describe("Craft.Button", function()
             end)
         end)
 
+        -- FR-023: SetIcon — swap/remove the icon post-Create
+        it("SetIcon() swaps the icon post-Create (mutates _cfg.icon, atlas re-applied)", function()
+            local btn = newBtn({ size="icon", icon="layout-grid" })
+            local beforeL, beforeT = btn._icon._texCoords[1], btn._icon._texCoords[3]
+            btn:SetIcon("list")
+            assert.equals("list", btn._cfg.icon)
+            assert.is_true(btn._icon:IsShown())
+            local after = btn._icon._texCoords
+            assert.is_true(beforeL ~= after[1] or beforeT ~= after[3])
+        end)
+
+        it("SetIcon() on a text button adds the icon and re-measures the width", function()
+            local btn = newBtn({ text="View" })
+            local w0 = btn:GetFrame():GetWidth()
+            btn:SetIcon("layout-grid")
+            assert.is_true(btn._icon:IsShown())
+            assert.is_true(btn:GetFrame():GetWidth() > w0)  -- icon + gap added
+        end)
+
+        it("SetIcon(nil) removes the icon (hidden + width back to text-only)", function()
+            local btn = newBtn({ text="View", icon="layout-grid" })
+            local w0 = btn:GetFrame():GetWidth()
+            btn:SetIcon(nil)
+            assert.is_false(btn._icon:IsShown())
+            assert.is_nil(btn._cfg.icon)
+            assert.is_true(btn:GetFrame():GetWidth() < w0)
+        end)
+
         -- FR-014 (won't-do): the icon side keeps the reduced optical inset (padHIcon),
         -- which compensates for the glyph's own transparent margin. See docs/components/button.md.
         it("xs icon+text: icon anchored at the reduced padHIcon (6px), not padH", function()
             local btn = newBtn({ size="xs", icon="check", text="New" })
             local point = btn._icon._points[1]  -- {"LEFT", frame, "LEFT", offsetX, offsetY}
             assert.equals(6, point[4])
+        end)
+    end)
+
+    -- FR-077: a ghost button is not always chrome. When it is the action of a
+    -- coloured block, label+icon must be able to carry that block's accent.
+    describe("tone (FR-077)", function()
+        it("a literal {r,g,b} overrides the variant's text colour", function()
+            local btn = newBtn({ text="Seen", variant="ghost", tone={ r=0.3, g=0.7, b=0.9 } })
+            local r, g, b = btn._label:GetTextColor()
+            assert.equals(0.3, r); assert.equals(0.7, g); assert.equals(0.9, b)
+        end)
+
+        it("the icon inherits the tone instead of staying chrome-grey", function()
+            local btn = newBtn({ icon="check-check", size="icon-xs", variant="ghost",
+                                 tone={ r=0.3, g=0.7, b=0.9 } })
+            local vc = btn._icon._vertexColor
+            assert.equals(0.3, vc.r); assert.equals(0.7, vc.g); assert.equals(0.9, vc.b)
+        end)
+
+        it("a string is a THEME TOKEN, re-resolved on every theme pass", function()
+            local t = Craft.Theme.get()
+            local btn = newBtn({ text="Seen", variant="ghost", tone="sidebarPrimary" })
+            local r = btn._label:GetTextColor()
+            assert.equals(t.sidebarPrimary.r, r)
+            btn:_applyTheme(t)                    -- a theme pass must not lose it
+            r = btn._label:GetTextColor()
+            assert.equals(t.sidebarPrimary.r, r)
+        end)
+
+        it("an unknown token name is ignored (variant colour stands)", function()
+            local t = Craft.Theme.get()
+            local btn = newBtn({ text="Seen", variant="ghost", tone="notAToken" })
+            local r = btn._label:GetTextColor()
+            assert.equals(t.foreground.r, r)
+        end)
+
+        it("SetTone() hot-swaps; SetTone(nil) restores the variant colour", function()
+            local t = Craft.Theme.get()
+            local btn = newBtn({ text="Seen", variant="ghost" })
+            btn:SetTone({ r=0.3, g=0.7, b=0.9 })
+            local r = btn._label:GetTextColor()
+            assert.equals(0.3, r)
+            assert.equals(0.3, btn:GetTone().r)
+            btn:SetTone(nil)
+            r = btn._label:GetTextColor()
+            assert.equals(t.foreground.r, r)
+        end)
+
+        it("no tone leaves every variant exactly as it was", function()
+            local t = Craft.Theme.get()
+            local btn = newBtn({ text="Save", variant="default" })
+            local r = btn._label:GetTextColor()
+            assert.equals(t.primaryForeground.r, r)
         end)
     end)
 

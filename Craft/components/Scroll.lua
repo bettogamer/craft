@@ -3,10 +3,23 @@
 -- Design: shadcn Lyra — ScrollArea custom component
 --   Native WoW ScrollFrame + custom scrollbar overlay
 --
--- Scrollbar track: 8px wide, transparent bg
--- Scrollbar thumb: 6px wide, bg=t.secondary; hover=t.accent; drag=t.primary
--- Thumb minimum height: 32px
+-- The rail itself (track, thumb, drag, auto-hide, reserved-corner handling) lives in
+-- Craft.ScrollBar since FR-091, so Craft.Textarea draws the SAME bar over its internal
+-- ScrollFrame. This file owns the viewport, the scroll child and the mouse wheel; the
+-- bar owns everything that is painted on the right-hand rail.
+--
+-- Scrollbar track: 8px wide (Craft.ScrollBar.WIDTH), thumb 6px, min thumb 32px.
 -- Mouse wheel: 20px per tick
+--
+-- Orientation (FR-100) — shadcn ScrollArea with `<ScrollBar orientation="horizontal" />`:
+--   "vertical"   (default) unchanged: the child is forced to the viewport WIDTH, the
+--                dev sets its height, rail on the right, onScroll(offsetY).
+--   "horizontal" mirror image: the child is forced to the viewport HEIGHT, the dev sets
+--                its width, rail at the bottom, the plain wheel scrolls sideways,
+--                onScroll(offsetX, offsetY).
+--   "both"       the child is not forced in either axis (dev sets both), two rails with
+--                the bottom-right 8×8 corner reserved, wheel = vertical and
+--                Shift+wheel = horizontal, onScroll(offsetX, offsetY).
 
 local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
@@ -15,219 +28,195 @@ local Scroll = {}
 Scroll.__index = Scroll
 
 -- Constants
-local SCROLLBAR_W   = 8     -- track width
-local THUMB_W       = 6     -- thumb width (inset 1px each side in track)
-local THUMB_MIN_H   = 32    -- minimum thumb height
+local SCROLLBAR_W   = 8     -- rail width (mirrors Craft.ScrollBar.WIDTH)
 local WHEEL_STEP    = 20    -- pixels per mouse wheel tick
+
+local ORIENTATIONS = { vertical = true, horizontal = true, both = true }
 
 -- ─── Create ────────────────────────────────────────────────────────────────
 function Scroll:Create(parent, config)
     local self = setmetatable({}, Scroll)
 
     config = config or {}
+    local orientation = ORIENTATIONS[config.orientation] and config.orientation or "vertical"
+    self._orientation = orientation
+    self._hasV = orientation ~= "horizontal"
+    self._hasH = orientation ~= "vertical"
     self._cfg = {
         onScroll = config.onScroll,
     }
 
     -- Root frame — sized by dev
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     if config.width  then self.frame:SetWidth(config.width)   end
     if config.height then self.frame:SetHeight(config.height) end
 
-    -- ScrollFrame: inset SCROLLBAR_W on the right to leave room for scrollbar
+    -- ScrollFrame: inset SCROLLBAR_W on each side that hosts a rail (right for the
+    -- vertical one, bottom for the horizontal one) — reserved ALWAYS, see ScrollBar.
     self._scrollFrame = CreateFrame("ScrollFrame", nil, self.frame)
     self._scrollFrame:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     0, 0)
-    self._scrollFrame:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -SCROLLBAR_W, 0)
+    self._scrollFrame:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT",
+                               self._hasV and -SCROLLBAR_W or 0, self._hasH and SCROLLBAR_W or 0)
 
     -- ScrollChild: the frame the dev uses to add their widgets
     self._child = CreateFrame("Frame", nil, self._scrollFrame)
-    self._child:SetWidth(self._scrollFrame:GetWidth() or 1)
-    self._child:SetHeight(1)  -- dev must call _child:SetHeight() or it auto-sizes
+    if orientation == "vertical" then
+        self._child:SetWidth(self._scrollFrame:GetWidth() or 1)
+        self._child:SetHeight(1)  -- dev must call _child:SetHeight() or it auto-sizes
+    elseif orientation == "horizontal" then
+        self._child:SetWidth(1)   -- dev sets the width that overflows
+        self._child:SetHeight(self._scrollFrame:GetHeight() or 1)
+    else
+        self._child:SetSize(1, 1) -- dev sets both
+    end
     self._scrollFrame:SetScrollChild(self._child)
 
-    -- Keep child width in sync with scrollFrame width
-    self._scrollFrame:SetScript("OnSizeChanged", function(_, w, _)
-        if w and w > 0 then
+    -- Keep the child in sync with the viewport on the axis that does NOT scroll
+    -- (none in "both"), and keep the horizontal offset inside the new range so a
+    -- resize never leaves the content parked past its end.
+    self._scrollFrame:SetScript("OnSizeChanged", function(_, w, h)
+        if orientation == "vertical" and w and w > 0 then
             self._child:SetWidth(w)
+        elseif orientation == "horizontal" and h and h > 0 then
+            self._child:SetHeight(h)
         end
+        self:_clampOffsets()
         self:_updateScrollbar()
     end)
 
-    -- Scrollbar container: 8px on the right edge
-    self._scrollbar = CreateFrame("Frame", nil, self.frame)
-    self._scrollbar:SetPoint("TOPRIGHT",    self.frame, "TOPRIGHT",    0,  0)
-    self._scrollbar:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0,  0)
-    self._scrollbar:SetWidth(SCROLLBAR_W)
-
-    -- Track texture: subtle background so the rail is always visible
-    self._track = self._scrollbar:CreateTexture(nil, "BACKGROUND")
-    self._track:SetAllPoints(self._scrollbar)
-    -- color applied in _applyTheme (t.secondary at low alpha)
-
-    -- Thumb: 6px wide Button, positioned dynamically
-    self._scrollThumb = CreateFrame("Button", nil, self._scrollbar)
-    self._scrollThumb:SetWidth(THUMB_W)
-    self._scrollThumb:SetPoint("LEFT", self._scrollbar, "LEFT", 1, 0)  -- 1px inset
-
-    self._thumbTex = self._scrollThumb:CreateTexture(nil, "BACKGROUND")
-    self._thumbTex:SetAllPoints(self._scrollThumb)
-
-    -- Track drag state
-    self._thumbDragging = false
-    self._thumbDragStartY = 0
-    self._thumbDragStartScroll = 0
-
-    -- Thumb interaction
-    self._scrollThumb:SetScript("OnEnter", function() self:_onThumbEnter() end)
-    self._scrollThumb:SetScript("OnLeave", function() self:_onThumbLeave() end)
-
-    self._scrollThumb:SetScript("OnMouseDown", function()
-        self._thumbDragging = true
-        if self._t then
-            self._thumbTex:SetColorTexture(self._t.primary.r, self._t.primary.g, self._t.primary.b, 1)
-        end
-        self._thumbDragStartY      = select(2, GetCursorPosition()) / self._scrollbar:GetEffectiveScale()
-        self._thumbDragStartScroll = self._scrollFrame:GetVerticalScroll()
-        self._scrollThumb:SetScript("OnUpdate", function()
-            if not self._thumbDragging then return end
-            local curY     = select(2, GetCursorPosition()) / self._scrollbar:GetEffectiveScale()
-            local deltaY   = self._thumbDragStartY - curY  -- positive = scrolled down
-            local trackH   = self._scrollbar:GetHeight() or 0
-            local childH   = self._child:GetHeight() or 0
-            local viewH    = self._scrollFrame:GetHeight() or 0
-            local scrollRange = math.max(0, childH - viewH)
-            if trackH <= THUMB_MIN_H then return end
-            local thumbH   = self:_calcThumbHeight()
-            local movable  = trackH - thumbH
-            if movable <= 0 then return end
-            local scrollDelta = (deltaY / movable) * scrollRange
-            local newScroll   = math.max(0, math.min(scrollRange, self._thumbDragStartScroll + scrollDelta))
-            self._scrollFrame:SetVerticalScroll(newScroll)
-            self:_updateScrollbar()
-        end)
-    end)
-
-    self._scrollThumb:SetScript("OnMouseUp", function()
-        self._thumbDragging = false
-        self._scrollThumb:SetScript("OnUpdate", nil)
-        -- Restore hover state
-        if self._t then
-            local t = self._t
-            self._thumbTex:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 1)
-        end
-    end)
+    -- ── The rails (Craft.ScrollBar) ───────────────────────────────────────
+    -- Flush with the root frame, so a Scroll sitting in the bottom-right corner of a
+    -- resizable Window still gets the corner reserve. With two rails each one stops
+    -- SCROLLBAR_W short of the shared corner.
+    if self._hasV then
+        self._bar = Craft.ScrollBar:Create(self.frame, {
+            scrollFrame = self._scrollFrame,
+            anchorTo    = self.frame,
+            insetBottom = self._hasH and SCROLLBAR_W or 0,
+            content     = function() return self._child:GetHeight() or 0 end,
+        })
+    end
+    if self._hasH then
+        self._hbar = Craft.ScrollBar:Create(self.frame, {
+            scrollFrame = self._scrollFrame,
+            anchorTo    = self.frame,
+            orientation = "horizontal",
+            insetRight  = self._hasV and SCROLLBAR_W or 0,
+            content     = function() return self._child:GetWidth() or 0 end,
+        })
+    end
+    -- Back-compat aliases: the rail's regions used to be Scroll's own fields. They
+    -- name the primary rail (the horizontal one in a horizontal-only Scroll).
+    local primary = self._bar or self._hbar
+    self._scrollbar   = primary.frame
+    self._scrollThumb = primary.thumb
+    self._track       = primary.track
+    self._thumbTex    = primary.thumbTex
 
     -- Mouse wheel on scroll frame
     self._scrollFrame:EnableMouseWheel(true)
-    self._scrollFrame:SetScript("OnMouseWheel", function(_, delta)
-        local current = self._scrollFrame:GetVerticalScroll()
-        local childH  = self._child:GetHeight() or 0
-        local viewH   = self._scrollFrame:GetHeight() or 0
-        local maxScroll = math.max(0, childH - viewH)
-        local newScroll = math.max(0, math.min(maxScroll, current - delta * WHEEL_STEP))
-        self._scrollFrame:SetVerticalScroll(newScroll)
-        self:_updateScrollbar()
-    end)
+    self._scrollFrame:SetScript("OnMouseWheel", function(_, delta) self:_wheel(delta) end)
 
     -- Also accept mouse wheel on root frame for convenience
     self.frame:EnableMouseWheel(true)
-    self.frame:SetScript("OnMouseWheel", function(_, delta)
-        local current = self._scrollFrame:GetVerticalScroll()
-        local childH  = self._child:GetHeight() or 0
-        local viewH   = self._scrollFrame:GetHeight() or 0
-        local maxScroll = math.max(0, childH - viewH)
-        local newScroll = math.max(0, math.min(maxScroll, current - delta * WHEEL_STEP))
-        self._scrollFrame:SetVerticalScroll(newScroll)
+    self.frame:SetScript("OnMouseWheel", function(_, delta) self:_wheel(delta) end)
+
+    -- Sync scrollbar when scroll position or range changes. A range change can come
+    -- from the content shrinking under a view scrolled to the end: clamp first, or
+    -- the view keeps showing empty space until something else moves it (FR-113).
+    self._scrollFrame:SetScript("OnScrollRangeChanged", function()
+        self:_clampOffsets()
         self:_updateScrollbar()
     end)
-
-    -- Sync scrollbar when scroll position or range changes
-    self._scrollFrame:SetScript("OnScrollRangeChanged", function() self:_updateScrollbar() end)
     self._scrollFrame:SetScript("OnVerticalScroll", function()
         self:_updateScrollbar()
-        if self._cfg.onScroll then
-            self._cfg.onScroll(self._scrollFrame:GetVerticalScroll())
-        end
+        self:_notify()
     end)
+    if self._hasH then
+        self._scrollFrame:SetScript("OnHorizontalScroll", function()
+            self:_updateScrollbar()
+            self:_notify()
+        end)
+    end
 
     -- Re-check scrollbar visibility when the container gets its real size (post-layout)
-    self._scrollbar:SetScript("OnSizeChanged", function() self:_updateScrollbar() end)
     self.frame:SetScript("OnShow", function() self:_updateScrollbar() end)
 
     -- Register theming
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     return self
 end
 
--- ─── Thumb height calculation ──────────────────────────────────────────────
-function Scroll:_calcThumbHeight()
-    local trackH  = self._scrollbar:GetHeight() or 0
-    local childH  = self._child:GetHeight() or 0
-    local viewH   = self._scrollFrame:GetHeight() or 0
-    if childH <= 0 or viewH >= childH then return trackH end
-    local ratio  = viewH / childH
-    return math.max(THUMB_MIN_H, math.floor(trackH * ratio))
+-- onScroll contract: vertical-only Scrolls keep the historical onScroll(offsetY);
+-- horizontal / both report onScroll(offsetX, offsetY) (FR-100).
+function Scroll:_notify()
+    local cb = self._cfg.onScroll
+    if not cb then return end
+    local y = self._scrollFrame:GetVerticalScroll()
+    if self._hasH then
+        cb(self._scrollFrame:GetHorizontalScroll(), y)
+    else
+        cb(y)
+    end
 end
 
--- ─── Scrollbar sync ────────────────────────────────────────────────────────
-function Scroll:_updateScrollbar()
-    local childH  = self._child:GetHeight() or 0
-    local viewH   = self._scrollFrame:GetHeight() or 0
-    local trackH  = self._scrollbar:GetHeight() or 0
-
-    -- Hide the WHOLE scrollbar (track rail + thumb) when content fits: a page shorter
-    -- than the viewport must not show a rail. Hiding only the thumb (as before) left
-    -- the always-drawn track visible on short pages. A hidden frame still reports its
-    -- anchored height, so trackH stays correct for the next call when content grows.
-    if childH <= viewH or trackH <= 0 then
-        self._scrollbar:Hide()
+-- ─── Wheel ─────────────────────────────────────────────────────────────────
+-- Plain wheel = vertical; Shift+wheel = horizontal (web and client convention). A
+-- horizontal-only Scroll has nothing to scroll vertically, so its plain wheel goes
+-- sideways too. A vertical-only Scroll ignores Shift (behaviour unchanged).
+function Scroll:_wheel(delta)
+    local sideways = self._orientation == "horizontal"
+        or (self._hasH and IsShiftKeyDown and IsShiftKeyDown())
+    if sideways then
+        self:SetHorizontalScroll(self:GetHorizontalScroll() - delta * WHEEL_STEP)
         return
     end
-
-    self._scrollbar:Show()
-    self._scrollThumb:Show()
-
-    local thumbH     = self:_calcThumbHeight()
-    self._scrollThumb:SetHeight(thumbH)
-
-    local scrollRange = math.max(0, childH - viewH)
-    local current     = self._scrollFrame:GetVerticalScroll()
-    local ratio       = scrollRange > 0 and (current / scrollRange) or 0
-    ratio = math.max(0, math.min(1, ratio))
-
-    local movable = trackH - thumbH
-    local thumbTop = -(movable * ratio)  -- negative = offset from top anchor
-
-    self._scrollThumb:ClearAllPoints()
-    self._scrollThumb:SetPoint("TOP",  self._scrollbar, "TOP",  0, thumbTop)
-    self._scrollThumb:SetPoint("LEFT", self._scrollbar, "LEFT", 1, 0)
-end
-
--- ─── _applyTheme ──────────────────────────────────────────────────────────
-function Scroll:_applyTheme(t)
-    self._t = t
-    -- Track: barely visible rail (secondary at 30% alpha)
-    self._track:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 0.3)
-    -- Thumb: secondary by default
-    self._thumbTex:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 1)
+    local maxScroll = self._bar:GetMaxScroll()
+    local current   = self._scrollFrame:GetVerticalScroll()
+    self._scrollFrame:SetVerticalScroll(math.max(0, math.min(maxScroll, current - delta * WHEEL_STEP)))
     self:_updateScrollbar()
 end
 
--- ─── Thumb hover ──────────────────────────────────────────────────────────
-function Scroll:_onThumbEnter()
-    if not self._t then return end
-    local t = self._t
-    -- hover = t.accent (same values as muted/secondary in lyra-dark, but semantically correct)
-    self._thumbTex:SetColorTexture(t.accent.r, t.accent.g, t.accent.b, 1)
+function Scroll:_clampVertical()
+    local maxY = self._bar:GetMaxScroll()
+    local cur  = self._scrollFrame:GetVerticalScroll() or 0
+    if cur > maxY then self._scrollFrame:SetVerticalScroll(maxY) end
 end
 
-function Scroll:_onThumbLeave()
-    if self._thumbDragging then return end
-    if not self._t then return end
-    local t = self._t
-    self._thumbTex:SetColorTexture(t.secondary.r, t.secondary.g, t.secondary.b, 1)
+-- Keep both offsets inside the current range (resize or content change).
+function Scroll:_clampOffsets()
+    if self._hasV then self:_clampVertical()   end
+    if self._hasH then self:_clampHorizontal() end
+end
+
+function Scroll:_clampHorizontal()
+    local maxX = self._hbar:GetMaxScroll()
+    local cur  = self._scrollFrame:GetHorizontalScroll() or 0
+    if cur > maxX then self._scrollFrame:SetHorizontalScroll(maxX) end
+end
+
+-- ─── Rail forwarders ───────────────────────────────────────────────────────
+-- Kept as methods of Scroll: they were part of its (private) surface before the
+-- rail moved out, and the call sites above read better this way. The single-rail
+-- helpers answer for the primary rail.
+function Scroll:_updateScrollbar()
+    if self._bar  then self._bar:Update()  end
+    if self._hbar then self._hbar:Update() end
+end
+function Scroll:_primary()          return self._bar or self._hbar           end
+function Scroll:_cornerInset()      return self:_primary():_cornerInset()      end
+function Scroll:_trackHeight()      return self:_primary():_trackHeight()      end
+function Scroll:_calcThumbHeight()  return self:_primary():_calcThumbHeight()  end
+
+-- ─── _applyTheme ──────────────────────────────────────────────────────────
+-- The rail paints itself (it registers its own theme listener); this pass only
+-- re-syncs the thumb once the theme change has settled.
+function Scroll:_applyTheme(t)
+    self._t = t
+    self:_updateScrollbar()
 end
 
 -- ─── Public API ────────────────────────────────────────────────────────────
@@ -238,34 +227,67 @@ function Scroll:GetScrollChild()
     return self._child
 end
 
+-- Alias (FR-100's proposed name): same frame as GetScrollChild.
+Scroll.GetContent = Scroll.GetScrollChild
+
+function Scroll:GetOrientation()
+    return self._orientation
+end
+
 -- Reparents a frame into the scroll child and updates the child height so
 -- the scroll range works correctly.
 function Scroll:SetScrollChild(frame)
     frame:SetParent(self._child)
     frame:SetPoint("TOPLEFT", self._child, "TOPLEFT", 0, 0)
-    -- Update _child height so the scroll range works correctly
-    self._child:SetHeight(math.max(self._scrollFrame:GetHeight(), frame:GetHeight()))
+    -- Grow _child on every scrolling axis so the scroll range works correctly
+    if self._hasV then
+        self._child:SetHeight(math.max(self._scrollFrame:GetHeight(), frame:GetHeight()))
+    end
+    if self._hasH then
+        self._child:SetWidth(math.max(self._scrollFrame:GetWidth() or 0, frame:GetWidth() or 0))
+    end
+    self:_updateScrollbar()
 end
 
+-- Vertical offset API — no-ops on a horizontal-only Scroll (there is no vertical range).
 function Scroll:ScrollToTop()
+    if not self._bar then return end
     self._scrollFrame:SetVerticalScroll(0)
     self:_updateScrollbar()
 end
 
 function Scroll:ScrollToBottom()
-    local childH  = self._child:GetHeight() or 0
-    local viewH   = self._scrollFrame:GetHeight() or 0
-    local maxScroll = math.max(0, childH - viewH)
-    self._scrollFrame:SetVerticalScroll(maxScroll)
+    if not self._bar then return end
+    self._scrollFrame:SetVerticalScroll(self._bar:GetMaxScroll())
     self:_updateScrollbar()
 end
 
 function Scroll:SetScrollOffset(n)
-    local childH  = self._child:GetHeight() or 0
-    local viewH   = self._scrollFrame:GetHeight() or 0
-    local maxScroll = math.max(0, childH - viewH)
-    self._scrollFrame:SetVerticalScroll(math.max(0, math.min(maxScroll, n)))
+    if not self._bar then return end
+    local maxScroll = self._bar:GetMaxScroll()
+    self._scrollFrame:SetVerticalScroll(math.max(0, math.min(maxScroll, n or 0)))
     self:_updateScrollbar()
+end
+
+-- Horizontal offset API (FR-100) — no-ops on a vertical-only Scroll.
+function Scroll:SetHorizontalScroll(n)
+    if not self._hbar then return end
+    local maxX = self._hbar:GetMaxScroll()
+    self._scrollFrame:SetHorizontalScroll(math.max(0, math.min(maxX, n or 0)))
+    self:_updateScrollbar()
+end
+
+function Scroll:GetHorizontalScroll()
+    return self._scrollFrame:GetHorizontalScroll() or 0
+end
+
+function Scroll:ScrollToLeft()
+    self:SetHorizontalScroll(0)
+end
+
+function Scroll:ScrollToRight()
+    if not self._hbar then return end
+    self:SetHorizontalScroll(self._hbar:GetMaxScroll())
 end
 
 function Scroll:GetScrollOffset()
@@ -279,7 +301,9 @@ end
 -- ─── Destructor ────────────────────────────────────────────────────────────
 function Scroll:Destroy()
     if not self.frame then return end
-    Craft.Theme.unregister(self._themeHandle)
+    if self._bar  then self._bar:Destroy()  end   -- each rail keeps its OWN theme listener
+    if self._hbar then self._hbar:Destroy() end
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

@@ -1,4 +1,4 @@
-## Interface: 120000
+## Interface: 120105
 ## Title: Craft Browser
 ## Title-esMX: Craft Browser
 ## Notes: Interactive showcase of Craft UI components
@@ -12,7 +12,7 @@
 # generado en CI: descargado directo a libs/LibStub/LibStub.lua (no pasa por Craft/libs/)
 libs\LibStub\LibStub.lua
 
-# Weave v0.7.0 (embedded — copied from Craft/libs/Weave in CI/deploy, not in repo)
+# Weave v0.9.0 (embedded — copied from Craft/libs/Weave in CI/deploy, not in repo)
 libs\Weave\Weave.lua
 libs\Weave\core\Core.lua
 libs\Weave\core\Reconcile.lua
@@ -45,9 +45,14 @@ libs\Craft\Craft.lua
 libs\Craft\Reactive.lua
 libs\Craft\theme\Presets.lua
 libs\Craft\theme\Theme.lua
+libs\Craft\theme\Shapes.lua
 libs\Craft\icons\Atlas.lua
 libs\Craft\icons\Icons.lua
 libs\Craft\layout\Flex.lua
+libs\Craft\layout\Grid.lua
+libs\Craft\components\ScrollBar.lua
+libs\Craft\components\Avatar.lua
+libs\Craft\components\Badge.lua
 libs\Craft\components\Button.lua
 libs\Craft\components\Checkbox.lua
 libs\Craft\components\ColorSwatch.lua
@@ -56,28 +61,43 @@ libs\Craft\components\DragList.lua
 libs\Craft\components\Input.lua
 libs\Craft\components\RadioGroup.lua
 libs\Craft\components\Label.lua
+libs\Craft\components\Field.lua
+libs\Craft\components\Empty.lua
 libs\Craft\components\Panel.lua
 libs\Craft\components\Scroll.lua
 libs\Craft\components\Select.lua
 libs\Craft\components\Menu.lua
+libs\Craft\components\Popover.lua
+libs\Craft\components\Progress.lua
+libs\Craft\components\ProgressRing.lua
+libs\Craft\components\Combobox.lua
 libs\Craft\components\Separator.lua
 libs\Craft\components\Section.lua
+libs\Craft\components\Toggle.lua
 libs\Craft\components\ToggleGroup.lua
 libs\Craft\components\Sidebar.lua
 libs\Craft\components\Slider.lua
+libs\Craft\components\Switch.lua
+libs\Craft\components\Toast.lua
 libs\Craft\components\Textarea.lua
+libs\Craft\components\CodeEditor.lua
 libs\Craft\components\Tabs.lua
 libs\Craft\components\Tooltip.lua
 libs\Craft\components\Window.lua
 
 # Showcase
 Browser.lua
+pages\Avatar.lua
+pages\Badge.lua
 pages\Button.lua
 pages\Checkbox.lua
+pages\Combobox.lua
 pages\ColorSwatch.lua
 pages\Dialog.lua
 pages\DragList.lua
+pages\Empty.lua
 pages\Flex.lua
+pages\Grid.lua
 pages\Icons.lua
 pages\Input.lua
 pages\RadioGroup.lua
@@ -85,15 +105,23 @@ pages\Label.lua
 pages\Panel.lua
 pages\Scroll.lua
 pages\Section.lua
+pages\Field.lua
+pages\Toggle.lua
 pages\ToggleGroup.lua
 pages\Select.lua
 pages\Menu.lua
+pages\Popover.lua
+pages\Progress.lua
+pages\ProgressRing.lua
 pages\Separator.lua
 pages\Sidebar.lua
 pages\Slider.lua
+pages\Switch.lua
 pages\Textarea.lua
+pages\CodeEditor.lua
 pages\Tabs.lua
 pages\Theme.lua
+pages\Toast.lua
 pages\Reactive.lua
 pages\Async.lua
 pages\Tooltip.lua

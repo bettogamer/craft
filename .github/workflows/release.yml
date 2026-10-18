@@ -4,6 +4,19 @@ on:
   push:
     tags:
       - 'v*'
+  # Re-publicar un tag cuyo release falló (backfill). Un push de tag ejecuta el
+  # workflow DEL COMMIT TAGEADO, así que un tag viejo no se arregla re-pusheándolo:
+  # este disparo usa el workflow de la rama elegida y construye el tag dado.
+  #   gh workflow run release.yml --ref master -f tag=v2.20.0 -f skip_tests=true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag a publicar (p. ej. v2.20.0)'
+        required: true
+      skip_tests:
+        description: 'Saltar lint+tests (tags anteriores al fix del sandbox de busted)'
+        type: boolean
+        default: false
 
 jobs:
   release:
@@ -15,10 +28,13 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       # ─── Lint + Test ──────────────────────────────────────────────────────
       - name: Install Lua tools
+        if: ${{ !inputs.skip_tests }}
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y luarocks lua5.1 liblua5.1-dev
@@ -26,9 +42,11 @@ jobs:
           sudo luarocks install busted
 
       - name: Lint
+        if: ${{ !inputs.skip_tests }}
         run: luacheck Craft/ --config .luacheckrc
 
       - name: Test
+        if: ${{ !inputs.skip_tests }}
         run: busted tests/ --verbose
 
       # ─── Generar assets ───────────────────────────────────────────────────
@@ -48,6 +66,9 @@ jobs:
 
       - name: Generate Lucide icon atlas
         run: python3 scripts/export-icons.py
+
+      - name: Generate rounded-shape atlas (ADR-0018)
+        run: python3 scripts/export-shapes.py
 
       - name: Cache Inter font
         id: cache-inter
@@ -94,15 +115,45 @@ jobs:
             -o Craft/media/Geist-Bold.ttf --update-name-table
           rm -f /tmp/Geist-var.ttf
 
+      - name: Cache Geist Mono font
+        id: cache-geist-mono
+        uses: actions/cache@v4
+        with:
+          path: Craft/media/GeistMono-*.ttf
+          key: geist-mono-font-v1
+
+      - name: Download + instance Geist Mono font (SIL OFL 1.1) — fontMono, FR-106
+        if: steps.cache-geist-mono.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p Craft/media
+          curl -L -o /tmp/GeistMono-var.ttf             "https://raw.githubusercontent.com/google/fonts/main/ofl/geistmono/GeistMono%5Bwght%5D.ttf"
+          python3 -m fontTools.varLib.instancer /tmp/GeistMono-var.ttf wght=400             -o Craft/media/GeistMono-Regular.ttf --update-name-table
+          rm -f /tmp/GeistMono-var.ttf
+
+      # Un backfill construye un tag viejo, que no tiene los assets añadidos después
+      # (BettoSans, Geist Mono, rings…): la lista de abajo es la del HEAD.
       - name: Verify assets
+        if: ${{ github.event_name == 'push' }}
         run: |
           [ -f "Craft/media/lucide.tga"        ] || (echo "❌ lucide.tga"        && exit 1)
+          [ -f "Craft/media/shape_pill_32x18.tga" ] || (echo "❌ shape_pill_32x18.tga" && exit 1)
+          [ -f "Craft/media/shape_pill_24x14.tga" ] || (echo "❌ shape_pill_24x14.tga" && exit 1)
+          [ -f "Craft/media/shape_circle.tga"     ] || (echo "❌ shape_circle.tga"     && exit 1)
+          for n in 4 6 8 12 16; do
+            [ -f "Craft/media/shape_ring_$n.tga" ] || (echo "❌ shape_ring_$n.tga" && exit 1)
+          done
           [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf" && exit 1)
           [ -f "Craft/media/Inter-Medium.ttf"  ] || (echo "❌ Inter-Medium.ttf"  && exit 1)
           [ -f "Craft/media/Inter-Bold.ttf"    ] || (echo "❌ Inter-Bold.ttf"    && exit 1)
           [ -f "Craft/media/Geist-Regular.ttf" ] || (echo "❌ Geist-Regular.ttf" && exit 1)
           [ -f "Craft/media/Geist-Medium.ttf"  ] || (echo "❌ Geist-Medium.ttf"  && exit 1)
           [ -f "Craft/media/Geist-Bold.ttf"    ] || (echo "❌ Geist-Bold.ttf"    && exit 1)
+          [ -f "Craft/media/GeistMono-Regular.ttf" ] || (echo "❌ GeistMono-Regular.ttf" && exit 1)
+          for fam in BettoSans BettoGeo; do
+            for w in Regular Medium Bold; do
+              [ -f "Craft/media/$fam-$w.ttf" ] || (echo "❌ $fam-$w.ttf (commiteada, no se descarga)" && exit 1)
+            done
+          done
           echo "✅ All assets present"
 
       # ─── Embeber Craft en Craft_Browser/libs/ ─────────────────────────────
@@ -125,7 +176,7 @@ jobs:
       # ─── Craft.zip para GitHub Release (para developers) ─────────────────
       - name: Build Craft.zip (for developers)
         run: |
-          VERSION=${GITHUB_REF_NAME}
+          VERSION=${{ inputs.tag || github.ref_name }}
           mkdir -p dist
           # Solo Craft/ — LibStub es responsabilidad del developer
           # (ya disponible en cualquier proyecto que use Ace3, o en CurseForge)
@@ -139,5 +190,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ env.CRAFT_ZIP }}
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          # Un backfill nunca pasa a ser «Latest»: lo es el último tag pusheado.
+          make_latest: ${{ github.event_name == 'push' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

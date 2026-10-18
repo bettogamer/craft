@@ -47,6 +47,10 @@ Frame (trigger root)                — MEDIUM strata
 Frame (dropdownPanel)               — TOOLTIP strata (siempre sobre otros frames)
 ├── Texture (bg)                    — BACKGROUND layer, t.popover fill
 ├── Frame (ring)                    — frame separado 1px outward, t.foreground a=0.10
+├── Frame (arrowUp)                 — banda 24px al borde superior, solo si hay contenido arriba
+│   ├── Texture (bg)                — BACKGROUND layer, t.popover opaco
+│   └── Texture (chevron-up)        — ARTWORK layer, 16×16px centrado
+├── Frame (arrowDown)               — ídem al borde inferior (solo si hay contenido abajo)
 └── ScrollFrame (itemScroll)        — ARTWORK layer
     └── Frame (scrollChild)
         └── Frame (item) × N        — 28px alto cada uno (py-2=8px + text-xs=12px + py-2=8px)
@@ -77,10 +81,37 @@ Width del trigger: 100% del parent por defecto (puede fijarse con `config.width`
 |----------------------|----------------------------------------------------------------|
 | Width                | igual al width del trigger (min-w-36 = 144px mínimo)          |
 | Height por item      | 28px (py-2=8 + text-xs=12 + py-2=8)                           |
-| Max items visibles   | 6 (max height ≈ 168px)                                         |
-| Scroll               | `ScrollFrame` activo cuando items > 6                          |
+| Max items visibles   | `config.maxItems`, default 6 (max-height ≈ 168px)              |
+| Scroll               | `ScrollFrame` activo cuando items > `maxItems`; rueda + flechas |
+| Height del panel     | `min(items, maxItems) × 28 + 2` — **no cambia** al scrollear   |
 | Padding interno      | 4px top/bottom del panel (antes del primer item)               |
 | Separación del trigger | 2px de gap (`SetPoint("TOPLEFT", trigger, "BOTTOMLEFT", 0, -2)`) |
+
+### Scroll del panel (FR-066)
+
+Cuando `#options > maxItems` el panel scrollea y lo anuncia. Tres vías, ninguna excluyente:
+
+| Vía | Comportamiento |
+|-----|----------------|
+| Rueda del ratón | 2 filas (56px) por muesca, clampeada. Enganchada en el `ScrollFrame`, en el panel y en las dos bandas de flecha → no hay zona muerta |
+| Flechas ▲/▼ (`SelectScrollUpButton` / `SelectScrollDownButton`) | Bandas de 24px (`py-1` + chevron `size-4`) pegadas al borde interior del panel. Hover = auto-scroll continuo a 112 px/s (`ITEM_HEIGHT × 4`) |
+| `Open()` | Abre desplazado hasta la fila seleccionada (scroll mínimo: si la fila ya entra bajo la banda inferior, el offset es 0) |
+
+**Semántica Radix, literal.** Cada banda existe **solo mientras hay contenido en su dirección**
+(la de arriba aparece al scrollear, la de abajo desaparece al final del recorrido) y **quita
+espacio al viewport** en vez de superponerse:
+
+| Offset | Bandas montadas | Viewport |
+|--------|-----------------|----------|
+| `0` (arriba del todo) | solo ▼ | `maxItems × 28 − 24` |
+| intermedio | ▲ y ▼ | `maxItems × 28 − 48` |
+| `_maxScroll()` (abajo del todo) | solo ▲ | `maxItems × 28 − 24` |
+
+De ahí que el recorrido máximo sea `contentH − maxItems×28 + 24` (el estado final tiene una sola
+banda) y que una lista que scrollea muestre una **fila parcial asomando** — la otra mitad del
+affordance de shadcn, junto con la flecha. La altura del panel no cambia nunca: `maxItems × 28`
+es el *max-height*, igual que en Radix. Los tres estados son auto-consistentes con el clamp
+(`canUp = offset > 0`, `canDown = offset < max`), así que no oscilan.
 
 ### Ring del panel (outline outward)
 
@@ -103,7 +134,7 @@ El trigger NO tiene ring propio — el estado "open" se expresa solo con cambio 
 | Trigger bg hover  | `t.input` a=0.50 ({r=1,g=1,b=1,a=0.075}) | —                                     | —                     |
 | Trigger border    | `t.input` (`border-input`)              | `t.ring`                                | `t.input`             |
 | selectedLabel     | `t.foreground`                          | `t.foreground`                          | `t.mutedForeground`   |
-| Chevron           | Normal (0°), `t.mutedForeground`        | Rotado 180°, `t.foreground`             | `t.mutedForeground`   |
+| Chevron           | Normal (0°), `t.mutedForeground`        | `chevron-up`, `t.mutedForeground` (swap de ícono, sin rotación — ver §Notas)             | `t.mutedForeground`   |
 
 Los fondos del trigger dark mode corresponden a `dark:bg-input/30` (default) y `dark:hover:bg-input/50` (hover), donde `input = {r=1,g=1,b=1,a=0.15}`:
 - `/30` → a=0.15×0.30 = 0.045
@@ -167,6 +198,7 @@ Item height: 28px (py-2=8px top + text-xs=12px + py-2=8px bottom). Padding: 8px 
 | `disabled`   | `boolean`  | `false`     | Deshabilita el trigger y cierra el panel si estaba abierto                  |
 | `onSelect`   | `function` | `nil`       | `fn(value, label)` — se dispara al seleccionar un item                      |
 | `width`      | `number`   | `nil`       | Ancho fijo en px. Si es nil, ocupa 100% del parent                          |
+| `maxItems`   | `number`   | `6`         | Filas visibles antes de scrollear (mínimo 1). No limita cuántas opciones se pueden elegir — el resto se alcanza con rueda/flechas (FR-066) |
 
 > **Props reactivas (ADR-0013):** `options`, `value`, `placeholder` y `disabled` aceptan una
 > señal/computed de Weave además del literal. `options` re-renderiza la lista reutilizando
@@ -191,7 +223,11 @@ Item height: 28px (py-2=8px top + text-xs=12px + py-2=8px bottom). Padding: 8px 
 - **Cierre al hacer click fuera**: registrar un frame invisible (`backdropCatcher`) de tamaño de pantalla completa en strata `DIALOG` pero debajo del panel. Al hacer click en él, cerrar el dropdown. Alternativa: hookear `WorldFrame` con `HookScript("OnMouseDown", ...)` y verificar si el click fue fuera del panel y el trigger. Usar `panel:IsMouseOver()` y `trigger:IsMouseOver()` para la comprobación.
 - **Posición del panel**: anclar con `SetPoint("TOPLEFT", trigger, "BOTTOMLEFT", 0, -2)`. Si el panel se sale de la pantalla por abajo, anclar con `SetPoint("BOTTOMLEFT", trigger, "TOPLEFT", 0, 2)` en su lugar. Verificar con `GetBottom()` vs `GetScreenHeight() * 0` (0 = bottom de pantalla).
 - **Chevron abierto/cerrado**: se usan dos íconos Lucide distintos — `chevron-down` (cerrado) y `chevron-up` (abierto) — intercambiados con `Craft.Icons.Apply` en `Open()`/`Close()`. No se rota la textura.
-- **ScrollFrame de items**: cuando `#options > 6`, activar el `ScrollFrame` con altura fija ≈ 168px (6 × 28px). El `scrollChild` tiene `SetHeight(#options * 28)`. Cada item usa `SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -(i-1) * 28)`.
+- **ScrollFrame de items**: cuando `#options > maxItems`, el `ScrollFrame` se re-ancla en cada cambio de offset (`_layoutViewport`), porque sus insets dependen de qué bandas están montadas. El `scrollChild` tiene `SetHeight(#options * 28)`. Cada item usa `SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -(i-1) * 28)`.
+- **Recorrido del scroll**: las alturas se **calculan** (`maxItems × 28` menos las bandas montadas), NO se leen del `ScrollFrame` — un frame anclado por esquinas no tiene altura resuelta hasta el frame siguiente, y `GetHeight()` devolvería 0 en el mismo tick en que se abre el panel.
+- **Bandas de flecha**: `Frame` (no `Button`) con `EnableMouse(true)` — solo necesitan hover y tragarse el clic que caería en el item de debajo. El auto-scroll vive en un `OnUpdate` que arma `OnEnter` y desarma `OnLeave`; `Close()` y el `OnHide` del panel también lo desarman (si el panel desaparece bajo el cursor, `OnLeave` no dispara). Las bandas pierden el mouse durante el fade-out igual que los items.
+- **Ancho del label del item**: `_itemTextWidth()` es la **única** fuente (`max(anchoTrigger, 144) − 2 − pl-2 − pr-8`), y `_updatePanelSize` la re-aplica a todas las filas pooleadas en cada `Open()`. Imprescindible porque el patrón normal del consumidor es `Create(...)` y **después** `SetWidth(...)`: la primera pasada de `_buildItems` (dentro de `_applyTheme`, en `Create`) mide un trigger de ancho 0 y cae al suelo `min-w-36`, así que sin re-aplicar, un Select de 240px trunca sus labels como si midiera 144.
+- **Una sola línea por fila**: el label del item lleva ancho explícito (`availW`) y el del trigger lo hereda de sus anclas LEFT+RIGHT — y un `FontString` **con ancho envuelve por defecto**, así que sin `SetWordWrap(false)` + `SetNonSpaceWrap(false)` una etiqueta larga dibuja una segunda línea que se sale de la fila de 28px y pisa el item siguiente. Con el wrap desactivado WoW trunca con elipsis, que es el equivalente del item flex de shadcn y del `[&>span]:line-clamp-1` del trigger.
 - **Item hover**: usar `OnEnter`/`OnLeave` en cada frame de item para cambiar el color del `itemBg`. El item selected se marca visualmente aunque el panel se cierre y reabra — recordar el índice seleccionado y aplicar color `t.primary` al crear los items.
 - **Borde 1px trigger**: cuatro texturas de 1px o `SetBackdrop` con `edgeSize=1`.
 - **Ring del panel (1px outward)**: frame hermano del panel, anclado con −1px en cada lado. Usar `Craft.Theme.SetPixelHeight/Width` para las cuatro aristas. Color: {r=0.980, g=0.980, b=0.980, a=0.10}.
@@ -200,6 +236,15 @@ Item height: 28px (py-2=8px top + text-xs=12px + py-2=8px bottom). Padding: 8px 
 - **Sin focus ring en trigger**: WoW es mouse-only (ADR-0011) — no implementar ring de keyboard en el trigger.
 
 ### Diferencias conocidas vs shadcn (fuera de MVP)
+
+**Ancho del panel: Craft lo capa, shadcn lo deja crecer.** En shadcn el viewport lleva
+`min-w-[var(--radix-select-trigger-width)]`, o sea que el ancho del trigger es un **mínimo**: el
+content crece hasta el ancho intrínseco del label más largo y **nunca trunca**. Craft usa
+`max(anchoTrigger, 144)` como ancho **fijo**, así que un label que no cabe se corta con elipsis
+(una sola línea — ver "Una sola línea por fila"). Decisión del owner (2026-07-28): se mantiene el
+cap; un panel más ancho que su trigger descuadraría las columnas de formulario de los
+consumidores. Si algún día se quiere paridad, el cambio es medir con `GetStringWidth` en
+`_buildItems` y usar ese máximo, topado al borde de pantalla.
 
 Craft.Select solo soporta una **lista plana** de opciones `{value, label}`. shadcn
 ofrece además `SelectGroup`, `SelectLabel` y `SelectSeparator` (opciones agrupadas

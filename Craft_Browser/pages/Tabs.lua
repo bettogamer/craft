@@ -36,6 +36,10 @@ CraftBrowserPages["Tabs"] = {
             end
         end
 
+        -- Raw FontStrings are regions: Navigate only hides child FRAMES, so they
+        -- are tracked separately and hidden by hand in cleanup.
+        local looseFS = {}
+
         local function newContainer(w, h, yOff)
             local c = CreateFrame("Frame", nil, parent)
             c:SetSize(w, h)
@@ -84,7 +88,115 @@ CraftBrowserPages["Tabs"] = {
         })
         y = y + 152
 
-        -- ── 3. Wrap: many tabs in a narrow bar wrap to extra rows ────────────
+        -- ── 3. Line variant: active tab marked by a 2px underline ────────────
+        y = addLabel('variant="line" — transparent bar + 2px underline indicator', y)
+        local c3l = newContainer(400, 140, y)
+        local tabs3l = Craft.Tabs:Create(c3l, {
+            variant = "line",
+            tabs = {
+                { id="lo", label="Overview" },
+                { id="la", label="Analytics" },
+                { id="lr", label="Reports"  },
+                { id="ls", label="Settings" },
+            },
+            defaultTab = "lo",
+        })
+        tabs3l:GetFrame():SetAllPoints(c3l)
+        table.insert(comps, tabs3l)
+        fillContent(tabs3l, {
+            { id="lo", text="Overview content"  },
+            { id="la", text="Analytics content" },
+            { id="lr", text="Reports content"   },
+            { id="ls", text="Settings content"  },
+        })
+        y = y + 152
+
+        -- ── 4. Line variant with icons ───────────────────────────────────────
+        y = addLabel('variant="line" with icons', y)
+        local c4l = newContainer(400, 140, y)
+        local tabs4l = Craft.Tabs:Create(c4l, {
+            variant = "line",
+            tabs = {
+                { id="lig", label="General", icon="settings" },
+                { id="liu", label="Account", icon="user"     },
+                { id="lif", label="Search",  icon="search"   },
+            },
+            defaultTab = "lig",
+        })
+        tabs4l:GetFrame():SetAllPoints(c4l)
+        table.insert(comps, tabs4l)
+        fillContent(tabs4l, {
+            { id="lig", text="General settings" },
+            { id="liu", text="Account details"  },
+            { id="lif", text="Search options"   },
+        })
+        y = y + 152
+
+        -- ── 5. Fill: equal-width triggers (segmented control) ────────────────
+        y = addLabel("fill = true — full-width bar, equal-width triggers", y)
+        local c5f = newContainer(400, 140, y)
+        local tabs5f = Craft.Tabs:Create(c5f, {
+            fill = true,
+            tabs = {
+                { id="fa", label="Account"  },
+                { id="fp", label="Password" },
+                { id="ft", label="Team"     },
+            },
+            defaultTab = "fa",
+        })
+        tabs5f:GetFrame():SetAllPoints(c5f)
+        table.insert(comps, tabs5f)
+        fillContent(tabs5f, {
+            { id="fa", text="Account content"  },
+            { id="fp", text="Password content" },
+            { id="ft", text="Team content"     },
+        })
+        y = y + 152
+
+        -- ── 6. Fill + line: equal-width underlined triggers ──────────────────
+        y = addLabel("fill = true + variant=\"line\" — equal-width underlined", y)
+        local c6fl = newContainer(400, 140, y)
+        local tabs6fl = Craft.Tabs:Create(c6fl, {
+            fill    = true,
+            variant = "line",
+            tabs = {
+                { id="fla", label="All"      },
+                { id="flm", label="Mine"     },
+                { id="flr", label="Reviewed" },
+            },
+            defaultTab = "fla",
+        })
+        tabs6fl:GetFrame():SetAllPoints(c6fl)
+        table.insert(comps, tabs6fl)
+        fillContent(tabs6fl, {
+            { id="fla", text="All items"      },
+            { id="flm", text="My items"       },
+            { id="flr", text="Reviewed items" },
+        })
+        y = y + 152
+
+        -- ── 7. Fill + icons: equal-width triggers with icons ─────────────────
+        y = addLabel("fill = true with icons — centered icon+label per cell", y)
+        local c7fi = newContainer(400, 140, y)
+        local tabs7fi = Craft.Tabs:Create(c7fi, {
+            fill = true,
+            tabs = {
+                { id="fig", label="Settings", icon="settings" },
+                { id="fiu", label="Profile",  icon="user"     },
+                { id="fib", label="Alerts",   icon="bell"     },
+            },
+            defaultTab = "fig",
+        })
+        tabs7fi:GetFrame():SetAllPoints(c7fi)
+        table.insert(comps, tabs7fi)
+        fillContent(tabs7fi, {
+            { id="fig", text="Settings panel" },
+            { id="fiu", text="Profile panel"  },
+            { id="fib", text="Alerts panel"   },
+        })
+        y = y + 152
+
+        -- ── 8. Wrap: many tabs in a narrow bar wrap to extra rows ────────────
         y = addLabel("Many tabs in a narrow bar → wrap to multiple rows", y)
         local c3 = newContainer(260, 150, y)
         local tabs3 = Craft.Tabs:Create(c3, {
@@ -104,7 +216,7 @@ CraftBrowserPages["Tabs"] = {
         fillContent(tabs3, {})
         y = y + 162
 
-        -- ── 4. RemoveTab ────────────────────────────────────────────────────
+        -- ── 9. RemoveTab ────────────────────────────────────────────────────
         y = addLabel("RemoveTab — button removes the active tab", y)
         local c4 = newContainer(400, 140, y)
         local tabs4 = Craft.Tabs:Create(c4, {
@@ -134,9 +246,51 @@ CraftBrowserPages["Tabs"] = {
         table.insert(comps, removeBtn)
         y = y + 40
 
+        -- ── Seeding the default tab is SILENT (FR-070) ───────────────────────
+        -- This is the FR's exact reproduction: a forward-declared local assigned
+        -- AFTER Create, with onTabChange closing over it. Firing during Create ran
+        -- the callback while `report` was still nil → "attempt to call a nil value"
+        -- in the user's face on the very first open.
+        --
+        -- PASS: the page loads with no Lua error and the counter reads 0. Clicking
+        -- a tab then bumps it — a real switch still notifies.
+        y = addLabel("Default tab does NOT fire onTabChange (FR-070)", y)
+
+        local seedStatus = parent:CreateFontString(nil, "OVERLAY")
+        seedStatus:SetFont(t.font, t.fontSizeSm)
+        seedStatus:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+        table.insert(looseFS, seedStatus)
+
+        local fired  = 0
+        local report                      -- forward-declared, assigned below
+        local c5 = newContainer(400, 120, y)
+        local tabs5 = Craft.Tabs:Create(c5, {
+            tabs = {
+                { id="general",  label="General"  },
+                { id="advanced", label="Advanced" },
+            },
+            defaultTab  = "general",
+            onTabChange = function(id) report(id) end,   -- nil during Create → used to blow up
+        })
+        report = function(id)
+            fired = fired + 1
+            seedStatus:SetText(("onTabChange fired %d time(s) — last: %s"):format(fired, id))
+        end
+        seedStatus:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(y + 96))
+        seedStatus:SetText("onTabChange fired 0 time(s) — seeded '"
+            .. tostring(tabs5:GetActiveTab()) .. "' silently")
+
+        fillContent(tabs5, {
+            { id="general",  text="General settings" },
+            { id="advanced", text="Advanced settings" },
+        })
+        table.insert(comps, tabs5)
+        y = y + 130
+
         return {
             height  = y + 24,
             cleanup = function()
+                for _, fs in ipairs(looseFS) do fs:Hide() end
                 for _, c in ipairs(comps) do if c.Destroy then c:Destroy() end end
                 for _, c in ipairs(containers) do
                     c:Hide()

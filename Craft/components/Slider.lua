@@ -56,6 +56,9 @@ function Slider:Create(parent, config)
     self._value    = config.value    or self._min
     self._disabled = config.disabled or false
     self._onChange = config.onChange
+    self._format   = config.format   or tostring
+    -- Mouse wheel is OPT-IN (FR-069). See the SetWheelEnabled block below.
+    self._wheel    = config.wheel    or false
     self._dragging = false
 
     -- Reactive props (ADR-0013): a callable prop binds through the public
@@ -87,7 +90,15 @@ function Slider:Create(parent, config)
 
     -- ── Root frame ───────────────────────────────────────────────────────────
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetHeight(frameH)
+    -- `config.width` was documented but never applied: the height was set here and
+    -- the width silently wasn't, so a caller who passed `width` (and reasonably
+    -- trusted the spec) got a 0-wide root frame — an INVISIBLE slider, with no
+    -- error. Callers who size the frame themselves after Create are unaffected:
+    -- their SetWidth still lands last and wins, and `width = nil` keeps the old
+    -- "caller owns the width" behaviour.
+    if config.width then self.frame:SetWidth(config.width) end
 
     local fl = self.frame:GetFrameLevel()
 
@@ -180,20 +191,36 @@ function Slider:Create(parent, config)
         if self._disabled or button ~= "LeftButton" then return end
         if hasHeader then
             local frameTop = self.frame:GetTop()
-            local scale    = UIParent:GetEffectiveScale()
+            local scale    = self.frame:GetEffectiveScale()
             local _, cy    = GetCursorPosition()
             -- Ignore clicks in the label row (above the track area)
             if frameTop and (cy / scale) > frameTop - self._trackTopFromFrameTop then return end
         end
+        -- Radix: pointerdown on the track jumps AND keeps following the pointer
+        -- until release (FR-110), not a one-shot jump.
         self:_updateFromCursor()
+        self:_beginDrag()
     end)
+    self.frame:SetScript("OnMouseUp", function() self:_endDrag() end)
+    -- A drag must never outlive the slider's visibility (FR-110).
+    self.frame:SetScript("OnHide", function() self:_endDrag() end)
 
-    -- ── Mouse wheel ───────────────────────────────────────────────────────────
-    self.frame:EnableMouseWheel(true)
+    -- ── Mouse wheel — OPT-IN (config.wheel, default false) ────────────────────
+    -- In WoW the wheel goes to the TOPMOST frame under the cursor that has it
+    -- enabled and does NOT propagate down the stack. A slider is a full-width form
+    -- control, and the whole point of a scrollable settings page is that it holds
+    -- more controls than fit — so the cursor crosses sliders on every scroll
+    -- gesture. With the wheel always on, the page stopped scrolling and the slider
+    -- silently changed the user's setting instead: no error, no feedback, and the
+    -- damage is asymmetric (lost scroll is noticed and undone, a changed value is
+    -- not). shadcn/Radix Slider has no wheel handling at all, and dragging the
+    -- thumb / clicking the track remain the primary gestures, so off is both the
+    -- faithful and the safe default. Consumers whose slider lives on a
+    -- non-scrollable surface opt in with `wheel = true`. FR-069.
     self.frame:SetScript("OnMouseWheel", function(_, delta)
         if self._disabled then return end
         local v = self._value + delta * self._step
-        v = math.floor(v / self._step + 0.5) * self._step
+        v = self._min + math.floor((v - self._min) / self._step + 0.5) * self._step
         v = math.max(self._min, math.min(self._max, v))
         if v ~= self._value then
             self._value = v
@@ -202,6 +229,7 @@ function Slider:Create(parent, config)
             if self._onChange then self._onChange(v) end
         end
     end)
+    self:SetWheelEnabled(self._wheel)
 
     -- ── Thumb hover ───────────────────────────────────────────────────────────
     self._thumb:SetScript("OnEnter", function() self:_onThumbEnter() end)
@@ -210,24 +238,13 @@ function Slider:Create(parent, config)
     -- ── Thumb drag ────────────────────────────────────────────────────────────
     self._thumb:SetScript("OnMouseDown", function(_, button)
         if button ~= "LeftButton" then return end
-        self._dragging = true
-        self._thumbRing:Show()
-        self._thumb:SetScript("OnUpdate", function()
-            self:_updateFromCursor()
-        end)
+        self:_beginDrag()
     end)
-
-    self._thumb:SetScript("OnMouseUp", function()
-        self._dragging = false
-        self._thumb:SetScript("OnUpdate", nil)
-        if not self._thumb:IsMouseOver() then
-            self._thumbRing:Hide()
-        end
-    end)
+    self._thumb:SetScript("OnMouseUp", function() self:_endDrag() end)
 
     -- ── Theme + initial render ────────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     -- ── Reactive binds — after the theme pass (SetText needs the font set) ────
     R.applyOrBind(self, labelSource,    function(s, text) s:SetLabel(text) end)
@@ -246,10 +263,15 @@ function Slider:_updateFromCursor()
     local trackLeft  = self._trackFrame:GetLeft()
     local trackRight = self._trackFrame:GetRight()
     if not trackLeft or not trackRight or trackRight <= trackLeft then return end
-    local cx    = GetCursorPosition() / UIParent:GetEffectiveScale()
+    -- GetLeft/GetRight are in the TRACK's own coordinate space (already divided by
+    -- its effective scale), so the cursor must be converted with the SAME scale — not
+    -- UIParent's. They only match when the slider's effective scale == UIParent's;
+    -- under any ancestor SetScale (e.g. Craft_Browser's zoom control) the ratio was
+    -- off by that factor and the slider read as dead (ADR-0011).
+    local cx    = GetCursorPosition() / self._trackFrame:GetEffectiveScale()
     local ratio = math.max(0, math.min(1, (cx - trackLeft) / (trackRight - trackLeft)))
     local v = self._min + ratio * (self._max - self._min)
-    v = math.floor(v / self._step + 0.5) * self._step
+    v = self._min + math.floor((v - self._min) / self._step + 0.5) * self._step
     v = math.max(self._min, math.min(self._max, v))
     if v ~= self._value then
         self._value = v
@@ -257,6 +279,14 @@ function Slider:_updateFromCursor()
         if self._valueSignal then self._valueSignal:set(v) end
         if self._onChange then self._onChange(v) end
     end
+end
+
+-- ─── _fmt ──────────────────────────────────────────────────────────────────
+-- Format a numeric value for display. config.format receives (value, context)
+-- where context is "value" | "min" | "max"; callers that don't care about the
+-- context just ignore the second arg. Default is tostring.
+function Slider:_fmt(v, context)
+    return self._format(v, context)
 end
 
 -- ─── _updateVisuals ────────────────────────────────────────────────────────
@@ -294,7 +324,7 @@ function Slider:_updateVisuals()
         self._label:SetText(self._cfg.label or "")
     end
     if self._valueLabel then
-        self._valueLabel:SetText(tostring(self._value))
+        self._valueLabel:SetText(self:_fmt(self._value, "value"))
     end
 
     if self._cfg.showMinMax then
@@ -302,8 +332,8 @@ function Slider:_updateVisuals()
         self._maxLabel:ClearAllPoints()
         self._minLabel:SetPoint("TOPLEFT",  self._trackFrame, "BOTTOMLEFT",  0, -LABEL_PAD_BOT)
         self._maxLabel:SetPoint("TOPRIGHT", self._trackFrame, "BOTTOMRIGHT", 0, -LABEL_PAD_BOT)
-        self._minLabel:SetText(tostring(self._min))
-        self._maxLabel:SetText(tostring(self._max))
+        self._minLabel:SetText(self:_fmt(self._min, "min"))
+        self._maxLabel:SetText(self:_fmt(self._max, "max"))
         self._minLabel:Show()
         self._maxLabel:Show()
     end
@@ -361,25 +391,53 @@ function Slider:_applyTheme(t)
     Craft.Theme.SetPixelWidth(self._thumbRingRight, 1)
 
     if self._label then
-        Craft.Theme.applyFont(self._label, t.font, t.fontSizeSm)
+        self._theme:applyFont(self._label, t.font, t.fontSizeSm)
         self._label:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
         self._label:SetText(self._cfg.label or "")
     end
     if self._valueLabel then
-        Craft.Theme.applyFont(self._valueLabel, t.font, t.fontSizeSm)
+        self._theme:applyFont(self._valueLabel, t.font, t.fontSizeSm)
         self._valueLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
-        self._valueLabel:SetText(tostring(self._value))
+        self._valueLabel:SetText(self:_fmt(self._value, "value"))
     end
     if self._minLabel then
-        Craft.Theme.applyFont(self._minLabel, t.font, t.fontSizeSm)
+        self._theme:applyFont(self._minLabel, t.font, t.fontSizeSm)
         self._minLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     end
     if self._maxLabel then
-        Craft.Theme.applyFont(self._maxLabel, t.font, t.fontSizeSm)
+        self._theme:applyFont(self._maxLabel, t.font, t.fontSizeSm)
         self._maxLabel:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     end
 
     self:_updateVisuals()
+end
+
+-- ─── Drag (FR-110) ──────────────────────────────────────────────────────────
+-- OnMouseUp only reaches the frame under the cursor at release time: let go of
+-- the button over another control and the thumb never hears it. So the drag
+-- tick polls the real button state and ends itself — the WoW stand-in for the
+-- pointer capture Radix gets from setPointerCapture. OnMouseUp stays as the
+-- fast path; _endDrag is idempotent.
+function Slider:_beginDrag()
+    if self._disabled or self._dragging then return end
+    self._dragging = true
+    self._thumbRing:Show()
+    self._thumb:SetScript("OnUpdate", function()
+        if not IsMouseButtonDown("LeftButton") then
+            self:_endDrag()
+            return
+        end
+        self:_updateFromCursor()
+    end)
+end
+
+function Slider:_endDrag()
+    if not self._dragging then return end
+    self._dragging = false
+    self._thumb:SetScript("OnUpdate", nil)
+    if not self._thumb:IsMouseOver() then
+        self._thumbRing:Hide()
+    end
 end
 
 -- ─── Hover ─────────────────────────────────────────────────────────────────
@@ -397,7 +455,7 @@ end
 -- ─── Public API ────────────────────────────────────────────────────────────
 function Slider:SetValue(v)
     v = math.max(self._min, math.min(self._max, v))
-    v = math.floor(v / self._step + 0.5) * self._step
+    v = self._min + math.floor((v - self._min) / self._step + 0.5) * self._step
     v = math.max(self._min, math.min(self._max, v))
     self._value = v
     self:_updateVisuals()
@@ -421,11 +479,29 @@ function Slider:SetEnabled(enabled)
     self.frame:EnableMouse(enabled)
 end
 
+-- Turns the mouse wheel gesture on/off at runtime (FR-069). Disabled is the
+-- default and the safe state inside a Craft.Scroll: WoW skips a frame that has
+-- the wheel disabled, so the notch reaches the ScrollFrame underneath and the
+-- page scrolls as the user expects.
+function Slider:SetWheelEnabled(enabled)
+    self._wheel = enabled and true or false
+    self.frame:EnableMouseWheel(self._wheel)
+end
+
+function Slider:IsWheelEnabled()
+    return self._wheel
+end
+
 function Slider:SetLabel(text)
     if self._label then
         self._cfg.label = text or ""
         self._label:SetText(self._cfg.label)
     end
+end
+
+function Slider:SetFormat(fn)
+    self._format = fn or tostring
+    self:_updateVisuals()
 end
 
 function Slider:GetFrame()
@@ -436,7 +512,8 @@ end
 function Slider:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
+    self:_endDrag()
     self.frame:Hide()
     self.frame = nil
 end

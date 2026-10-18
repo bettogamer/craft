@@ -57,10 +57,11 @@ togglegroup.frame            (Frame — h-8, w-fit; ancho = Σ segmentos + gaps)
 
 | Clave | Tipo | Default | Descripción |
 |---|---|---|---|
-| `options` | table | `{}` | Lista de `{ value, label, icon? }` |
+| `options` | table | `{}` | Lista de `{ value, label, icon?, tooltip? }` |
 | `value` | any | nil | Valor seleccionado inicial |
 | `disabled` | boolean | false | Deshabilita el control |
 | `onChange` | function | nil | `fn(value)` al seleccionar |
+| `width` | number | nil | (FR-096) `w-full`: el grupo mide `width` y los segmentos se lo reparten a **partes iguales** (`flex-1` = `flex: 1 1 0%`), texto centrado. Un label que no cabe en su parte se **elide** (`…`), nunca envuelve. `nil` = `w-fit` (cada segmento a su label) |
 
 > **Props reactivas (ADR-0013):** `options`, `value` y `disabled` aceptan señal/computed.
 > `options` re-renderiza reutilizando segmentos por índice (un segmento reciclado puede
@@ -74,6 +75,7 @@ togglegroup.frame            (Frame — h-8, w-fit; ancho = Σ segmentos + gaps)
 | `GetValue()` | Valor seleccionado |
 | `SetOptions(options)` | Reemplaza la lista y re-renderiza (segmentos reutilizados). Conserva la selección si sigue presente; no dispara `onChange` |
 | `SetEnabled(bool)` | Habilita/deshabilita |
+| `SetWidth(w)` | (FR-096) Pasa a `w-full` con ese ancho, re-llamable cuando el contenedor cambie; `SetWidth(nil)` vuelve a `w-fit`. El ancho sobrevive a `SetOptions` |
 | `GetFrame()` | Frame raíz |
 
 ## Notas de implementación
@@ -86,5 +88,6 @@ togglegroup.frame            (Frame — h-8, w-fit; ancho = Σ segmentos + gaps)
   `t.foreground` siempre (los botones on/off solo difieren en `data-state`).
 - **font-medium** → `t.fontBold` (Craft solo trae Regular + Bold).
 - **Iconos** opcionales por segmento (`icon = "<lucide>"`), tintados al color del texto.
+- **Tooltips** opcionales por segmento (`tooltip = "texto"`); muestran `Craft.Tooltip` en hover, incluso si el segmento está disabled.
 - **Selección múltiple** y la variante **conectada** (`spacing=0`, bordes compartidos) del
   ToggleGroup no se implementan (sin caso de uso en Sentry); añadir si se necesitan.

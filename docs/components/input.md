@@ -121,7 +121,11 @@ Notas sobre estados:
 | `onTrailingClick`| `function`| `nil`       | `fn()` — hace `iconTrailing` clickeable (persistente). Excluyente con `clearable` |
 | `onChange`      | `function` | `nil`       | `fn(value)` — se dispara en `OnTextChanged`                              |
 | `onEnterPressed`| `function` | `nil`       | `fn(value)` — se dispara en `OnEnterPressed` del EditBox                 |
+| `onEscapePressed`| `function`| `nil`       | `fn(value)` — se dispara en `OnEscapePressed`. Si se pasa, **sustituye** al default (Craft no suelta además el foco: cerrar algo es decisión del consumidor). FR-072 |
+| `onFocusGained` | `function` | `nil`       | `fn()` — al ganar el foco, **después** del trabajo interno (placeholder oculto, anillo). FR-111 |
+| `onFocusLost`   | `function` | `nil`       | `fn()` — al perder el foco, después del trabajo interno (placeholder repuesto si vacío). FR-111 |
 | `width`         | `number`   | `nil`       | Ancho fijo en px. Si es nil, ocupa 100% del parent                       |
+| `fontFlags` | string | `nil` | FR-102: flags de fuente de texto y placeholder (4.º arg de `Theme.applyFont`; `""` = sin contorno, p. ej. texto claro sobre superficie oscura con el tema en `"OUTLINE"`). `nil` = el `t.fontFlags` global del tema. Se reaplica en cada re-tema. |
 
 > **Nota de fidelidad (FR-016).** El botón **clear ✕ dentro del input es una extensión de Craft**,
 > NO existe en shadcn: el Input de shadcn no tiene prop `clearable`. El patrón shadcn para búsqueda es
@@ -140,6 +144,11 @@ Notas sobre estados:
 | `SetError(bool)`         | Activa/desactiva variante error y actualiza color del borde                  |
 | `SetPlaceholder(text)`   | Actualiza el texto del placeholder                                           |
 | `Clear()`                | Vacía el campo, dispara `onChange("")` + `onClear()`, escribe `""` en la señal ligada y devuelve el foco (FR-016) |
+| `Focus()`                | Da el foco al EditBox (cursor listo para escribir). **No-op si el campo está `disabled`** (FR-059) |
+| `ClearFocus()`           | Suelta el foco del EditBox (FR-059)                                          |
+| `HasFocus()`             | `true` si el EditBox tiene el foco (FR-059)                                  |
+| `Insert(text)`           | Inserta `text` **en el cursor** (sustituye la selección, como teclear) y sigue el camino de una tecla: `onChange` (una vez), write-back a la señal ligada, placeholder y ✕. No-op si `disabled` o `text` vacío (FR-111) |
+| `GetCursorPosition()` / `SetCursorPosition(n)` | Passthrough al cursor del EditBox (FR-111) |
 | `GetFrame()`             | Retorna el frame raíz del componente                                         |
 
 ## Notas de implementación
@@ -154,4 +163,6 @@ Notas sobre estados:
 - **Sin variantes de tamaño**: Lyra define un único tamaño (`h-8` = 32px). Eliminar la lógica de `sm`/`lg` si existe de implementaciones anteriores.
 - **Disabled**: llamar `EditBox:EnableMouse(false)` y `EditBox:SetEnabled(false)`. El frame raíz también debe tener `EnableMouse(false)` para suprimir hover. Fondo disabled dark: {r=1,g=1,b=1,a=0.12} (`input/80`).
 - **OnTextChanged**: el script recibe `(self, userInput)`. Solo disparar `onChange` si `userInput == true` para evitar loops al llamar `SetText` programáticamente.
+- **Escape (FR-072)**: por defecto ESC **suelta el foco** (`ClearFocus`), igual que `Craft.Textarea`. **No burbujea** para cerrar la ventana padre: un `EditBox` con foco se come la tecla antes de que `UISpecialFrames`/`closeOnEscape` la vean, y cerrar algo es decisión del consumidor → `config.onEscapePressed`. Cuando ese callback existe, Craft **no** suelta además el foco (si lo hiciera, un search-box que se cierra a sí mismo pelearía con el default). Simétrico con `onEnterPressed`: mismo sitio, misma firma `fn(text)`.
 - **Hover alpha**: aplicar `OnEnter`/`OnLeave` solo si `not self.disabled`. La textura de bg es la única que cambia de alpha — no el frame completo, para no afectar al texto.
+- **Hit priority del botón trailing (FR-060)**: el EditBox tiene `EnableMouse(true)` y se ancla al ancho COMPLETO del frame — cubre también la zona del ✕ (`SetTextInsets` mueve el TEXTO, no el área de mouse). Como el `_trailBtn` y el EditBox son hijos del mismo frame, comparten frame level y WoW le da el click al creado **después** (el EditBox), que se traga el click del ✕. Tras crear el EditBox hay que subir el botón: `_trailBtn:SetFrameLevel(_edit:GetFrameLevel() + 1)`. Aplica igual a `clearable` y a `onTrailingClick`.

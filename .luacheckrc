@@ -24,17 +24,45 @@ globals = {
     "tinsert",
     "tremove",
     "tsort",
-    -- Mouse helpers
-    "MouseIsOver",
+    -- Mouse helpers. OJO: el global `MouseIsOver` (FrameXML) YA NO EXISTE en 12.1
+    -- (FR-074) — deliberadamente fuera de esta lista para que luacheck cace su
+    -- reintroducción. Usar el método de widget `region:IsMouseOver()`.
     "IsMouseButtonDown",
+    "IsShiftKeyDown",
+    "IsControlKeyDown",
+    "IsAltKeyDown",
+    "InCombatLockdown",
     -- Player/class info (used by consumers to feed Craft.Theme; ADR-0015 demo)
     "UnitClass",
     "RAID_CLASS_COLORS",
+    -- Sheet clásico de iconos de clase (demo `texCoord` del Browser — FR-064)
+    "CLASS_ICON_TCOORDS",
+    -- Retrato 3D del personaje (Craft.Avatar `unit` / SetPortraitUnit — FR-062)
+    "SetPortraitTexture",
+    "SetPortraitTextureFromCreatureDisplayID",   -- Avatar:SetCreatureDisplay (FR-094)
+    -- C_Texture.GetAtlasInfo: valida un atlas antes de pintarlo (Craft.Avatar
+    -- `atlas` / SetAtlas — FR-064). Se lee con guarda: puede no existir.
+    "C_Texture",
+    "C_Spell",
     -- Font global del juego (ElvUI y otros lo sobreescriben; ADR-0015 demo)
     "STANDARD_TEXT_FONT",
     -- Native color picker (Craft.ColorSwatch wraps it; mutated pre-Dragonflight style)
     "ColorPickerFrame",
+    -- 12.0+ secret values. Craft.Progress guards the numbers it must do arithmetic
+    -- on (the marker position) before touching them. Read with a nil-check: the API
+    -- does not exist on older clients (FR-075).
+    "issecretvalue",
     "OpacitySliderFrame",
+    -- Client tooltip. Craft.Menu hands a row's tip over to it when `tooltip` is a
+    -- table (an item's/spell's real tooltip is data no addon can fabricate as
+    -- text — FR-084). Always read with a guard: it is nil before FrameXML loads.
+    "GameTooltip",
+    -- Vertex indices for Texture:SetVertexOffset (Craft.ProgressRing clips the
+    -- annulus into a radial wedge — FR-087). Leídas con fallback numérico.
+    "UPPER_LEFT_VERTEX",
+    "LOWER_LEFT_VERTEX",
+    "UPPER_RIGHT_VERTEX",
+    "LOWER_RIGHT_VERTEX",
     -- Chat output
     "DEFAULT_CHAT_FRAME",
     "print",

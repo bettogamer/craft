@@ -43,12 +43,47 @@ Frame (root)                          — contenedor exterior, define el tamaño
 El `ScrollFrame` se ancla con `BOTTOMRIGHT` a −8px del root (deja el riel vertical de 8px
 a la derecha). No se reserva espacio inferior (no hay scroll horizontal).
 
+### Esquina reservada por el chrome del contenedor
+
+Un `Craft.Window` redimensionable flota su grip de resize sobre la esquina abajo-derecha
+de su área de contenido (`FrameLevel +10`) y estampa el tamaño reservado en
+`_content._craftCornerInset` (ver `docs/components/window.md`). En cada
+`_updateScrollbar`, el Scroll sube por la cadena de padres (máx. 12 niveles) buscando esa
+marca; si la encuentra **y** su propia esquina abajo-derecha coincide con la del ancestro
+(tolerancia 4px), acorta el riel por abajo esa cantidad. Sin marca, o si el Scroll no
+llega a la esquina, el riel va entero — cero configuración para el dev.
+
+Sólo se mueve el **riel**: el viewport conserva su altura completa, así que no se pierde
+contenido, sólo los últimos px de recorrido del thumb. El re-anclaje está guardado por
+igualdad (`_cornerInsetApplied`) porque redimensionar el riel dispara su propio
+`OnSizeChanged` → `_updateScrollbar`; sin el guard ese lazo no termina. `_trackHeight()`
+deriva la altura del root menos la reserva en vez de leer `_scrollbar:GetHeight()`, que
+puede venir stale en el mismo tick de un re-anclaje.
+
+Antes de esto el riel corría por debajo del grip y ambos se dibujaban encima.
+
 ### Diferencias conocidas vs shadcn (fuera de MVP)
 
-shadcn `scroll-area` soporta scroll **horizontal**; Craft.Scroll es **solo vertical**.
-No hay `config.horizontal` ni riel horizontal (omisión de alcance MVP — ver
-`docs/design-reference.md` §9.1). Si el contenido necesita scroll horizontal, el dev lo
-gestiona externamente.
+~~Solo vertical~~ — **cerrado por FR-100**: `config.orientation` = `"vertical"` (default) |
+`"horizontal"` | `"both"`, espejo de `<ScrollBar orientation="horizontal" />` de shadcn
+ScrollArea. Ver §Orientación.
+
+### Orientación (FR-100)
+
+| `orientation` | Hijo forzado a…           | El dev fija…   | Rieles                         | Rueda                                   | `onScroll`   |
+|---------------|---------------------------|----------------|--------------------------------|-----------------------------------------|--------------|
+| `"vertical"`  | ancho del viewport        | alto           | derecha                        | vertical (Shift se ignora)              | `fn(y)`      |
+| `"horizontal"`| alto del viewport         | ancho          | abajo                          | lateral (sin Shift)                     | `fn(x, y)`   |
+| `"both"`      | nada                      | ancho y alto   | derecha + abajo, esquina 8×8   | vertical; **Shift+rueda** = lateral     | `fn(x, y)`   |
+
+- El viewport reserva `ScrollBar.WIDTH` (8px) en cada lado con riel, **siempre** (contrato
+  del riel). En `"both"` cada riel se detiene 8px antes de la esquina común.
+- Un resize del viewport recorta el offset X al nuevo rango (sin contenido "aparcado"
+  pasado el final).
+- `onScroll` mantiene `fn(offsetY)` en vertical por compatibilidad; los modos con eje X
+  informan `fn(offsetX, offsetY)`.
+- `ScrollToX(px, {animate})` del FR no se implementó (el FR lo marcaba opcional; Craft.Scroll
+  no anima ningún offset hoy): `SetHorizontalScroll(px)` cubre el caso.
 
 ### Dimensiones generales
 
@@ -92,7 +127,8 @@ El scrollbar completo se oculta (`Hide()`) si el contenido no excede el área vi
 |--------------|------------|-----------|--------------------------------------------------------------------------------|
 | `width`      | `number`   | requerido | Ancho total del componente en px                                               |
 | `height`     | `number`   | requerido | Alto total del componente en px                                                |
-| `onScroll`   | `function` | `nil`     | `fn(offsetV)` — se dispara al cambiar el scroll vertical                        |
+| `onScroll`   | `function` | `nil`     | vertical: `fn(offsetY)`; horizontal/both: `fn(offsetX, offsetY)` (FR-100)      |
+| `orientation`| `string`   | `"vertical"` | `"vertical"` \| `"horizontal"` \| `"both"` (FR-100). Desconocido → vertical |
 
 ## API pública
 
@@ -104,9 +140,51 @@ El scrollbar completo se oculta (`Hide()`) si el contenido no excede el área vi
 | `ScrollToBottom()`        | Establece scroll vertical al máximo (`childH − viewH`)                           |
 | `SetScrollOffset(n)`      | Establece el scroll vertical a `n` px desde el top                               |
 | `GetScrollOffset()`       | Retorna el offset vertical actual (`GetVerticalScroll()`)                        |
+| `GetContent()`            | Alias de `GetScrollChild()` (FR-100)                                              |
+| `GetOrientation()`        | `"vertical"` \| `"horizontal"` \| `"both"`                                        |
+| `SetHorizontalScroll(n)`  | Offset X a `n` px, recortado a `[0, childW − viewW]`. No-op en vertical (FR-100)  |
+| `GetHorizontalScroll()`   | Offset X actual                                                                   |
+| `ScrollToLeft()` / `ScrollToRight()` | Extremos del eje X (FR-100)                                             |
+
+Los métodos verticales (`ScrollToTop/Bottom`, `SetScrollOffset`) son no-op en `"horizontal"`.
 | `GetFrame()`              | Retorna el frame root del componente                                              |
 
+## Riel compartido (`Craft.ScrollBar`)
+
+Desde FR-091 el riel —track, pulgar arrastrable, auto-ocultado y el manejo de la esquina
+reservada— vive en **`Craft/components/ScrollBar.lua`**, no en `Scroll.lua`. El motivo es
+`Craft.Textarea`: pedía la misma barra sobre su `ScrollFrame` interno, y una segunda
+implementación acabaría divergiendo. `Craft.Scroll` conserva su API, sus campos privados
+(`_scrollbar`, `_scrollThumb`, `_track`, `_thumbTex` son alias de las regiones del riel) y su
+comportamiento; lo único que cambió es quién dibuja.
+
+`Craft.ScrollBar` es **interno**: no lo crea un consumidor. No posee el viewport, ni el scroll
+child, ni la rueda — conduce un `ScrollFrame` que le da su dueño y lee el alto del contenido
+por un callback. Contrato con el dueño:
+
+| Obligación del dueño | Por qué |
+|---|---|
+| Reservar `Craft.ScrollBar.WIDTH` (8px) a la derecha del viewport, **siempre** | Un riel que aparece y desaparece cambiaría el ancho útil; en `Textarea` eso cambia el wrap, el alto del texto y vuelve a conmutar el riel |
+| Llamar `bar:Update()` al cambiar offset, alto de contenido o tamaño del viewport | El riel no observa el contenido, lo consulta |
+| Llamar `bar:Destroy()` desde su propio `Destroy()` | El riel registra **su propio** listener de tema |
+
+| Config | Descripción |
+|---|---|
+| `scrollFrame` | El `ScrollFrame` que conduce (requerido) |
+| `content` | `fn() → alto del contenido en px` (requerido) |
+| `anchorTo` | Frame cuyo borde derecho hospeda el riel y cuya esquina decide la reserva (default: `parent`) |
+| `insetTop` / `insetBottom` / `insetRight` | Offsets desde `anchorTo`. `Scroll` va a ras (todos 0); `Textarea` insetea por su borde y su `py-2` |
+
+Métodos: `Update()`, `GetMaxScroll()`, `Destroy()`.
+
+`Craft.Menu` mantiene su propio riel (FR-086): es otra geometría (panel flotante con filas
+pooleadas) y no comparte este código.
+
 ## Notas de implementación
+
+- **Acotar al encoger (FR-113)**: `OnScrollRangeChanged` y el `OnSizeChanged` del ScrollFrame llaman a
+  `_clampOffsets()` antes de repintar la barra: si el contenido encoge con la vista al fondo, el
+  desplazamiento baja al nuevo máximo en vez de enseñar espacio vacío hasta el siguiente gesto.
 
 - **ScrollFrame nativo**: usar `CreateFrame("ScrollFrame", nil, parent)`. La API nativa provee `SetScrollChild(frame)`, `GetVerticalScroll()`, `SetVerticalScroll(n)`, `GetVerticalScrollRange()`, `GetHorizontalScroll()`, `SetHorizontalScroll(n)`, `GetHorizontalScrollRange()`.
 - **ScrollChild height explícito**: el `scrollChild` debe tener `SetHeight` explícito para que WoW calcule correctamente el rango de scroll. Sin un height definido, `GetVerticalScrollRange()` retorna 0. El consumer del componente es responsable de llamar `scrollChild:SetHeight(contenidoTotal)` después de poblar el contenido, o de pasarle el frame ya dimensionado.

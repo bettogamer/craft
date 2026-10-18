@@ -55,6 +55,107 @@ CraftBrowserPages["Dialog"] = {
         table.insert(comps, openBtn)
         y = y + 48
 
+        -- ── Text measurement inside a closed dialog (FR-073) ─────────────────
+        -- The regression: the frame sat parked at motionZoomFrom (0.95) the whole
+        -- time it was closed, and GetStringWidth scales with the effective scale —
+        -- so text written BEFORE Show() measured ~5% short and every Label with
+        -- maxWidth elided. The labels below are filled while the dialog is closed
+        -- (exactly the `refresh(); dialog:Show()` order a consumer uses) and their
+        -- maxWidth is comfortably wider than the text.
+        --
+        -- PASS = no "…" anywhere. FAIL = trailing ellipsis, worse on longer lines.
+        y = addLabel("Text measure (FR-073) — labels written while CLOSED must not elide", y)
+
+        local measureDlg = Craft.Dialog:Create(UIParent, {
+            title       = "Elegir objeto",
+            description = "Ningun label de aqui deberia salir con puntos suspensivos",
+            size        = "xl",
+        })
+        table.insert(comps, measureDlg)
+
+        local mContent = measureDlg:GetContent()
+        local SAMPLES = {
+            "Ribbon of Coiled Malice",
+            "Chestguard of the Unhinged Chronicler",
+            "Bracers of Everlasting Contemplation and Woe",
+        }
+        local mLabels = {}
+        for i, text in ipairs(SAMPLES) do
+            -- maxWidth 400 over names that measure ~165-330px: only a mis-measure
+            -- can truncate these.
+            local l = Craft.Label:Create(mContent, {
+                text = "", maxWidth = 400,
+                color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+            })
+            l:GetFrame():SetPoint("TOPLEFT", mContent, "TOPLEFT", 0, -((i - 1) * 22))
+            -- SetText with the dialog still hidden — this is the failing moment.
+            l:SetText(text)
+            table.insert(comps, l)
+            mLabels[i] = l
+        end
+        mContent:SetHeight(#SAMPLES * 22 + 8)
+
+        local measureBtn = Craft.Button:Create(parent, { text="Open measure test", variant="outline" })
+        measureBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        measureBtn:GetFrame():SetScript("OnClick", function()
+            -- Re-write the text right before showing, the real consumer order.
+            for i, l in ipairs(mLabels) do l:SetText(SAMPLES[i]) end
+            measureDlg:Show()
+        end)
+        table.insert(comps, measureBtn)
+        y = y + 48
+
+        -- ── Header rule (FR-088) ─────────────────────────────────────────────
+        -- OPT-IN, because Lyra's `.cn-dialog-header` has no border-b. The case that
+        -- wants it is this one: content that starts with controls glued to the
+        -- header, where the title, its description and the first row read as a
+        -- single band. Open both and compare with the plain "Demo Dialog" above.
+        y = addLabel("Header rule (FR-088) — headerBorder = true; comparar con el Demo Dialog de arriba", y)
+
+        local ruledDlg = Craft.Dialog:Create(UIParent, {
+            title        = "Elegir objeto",
+            description  = "El separador marca donde acaba el encabezado",
+            headerBorder = true,
+        })
+        table.insert(comps, ruledDlg)
+
+        -- Controls glued to the header — without the rule the two bands merge.
+        local rContent = ruledDlg:GetContent()
+        local rSearch  = Craft.Input:Create(rContent, { placeholder = "Buscar objeto..." })
+        rSearch:GetFrame():SetPoint("TOPLEFT",  rContent, "TOPLEFT",  0, 0)
+        rSearch:GetFrame():SetPoint("TOPRIGHT", rContent, "TOPRIGHT", 0, 0)
+        table.insert(comps, rSearch)
+        rContent:SetHeight(40)
+
+        ruledDlg:ShowFooter(52)
+        local rFooter = ruledDlg:GetFooter()
+        if rFooter then
+            local rClose = Craft.Button:Create(rFooter, { text="Cerrar", variant="outline" })
+            rClose:GetFrame():SetPoint("RIGHT", rFooter, "RIGHT", -16, 0)
+            rClose:GetFrame():SetScript("OnClick", function() ruledDlg:Hide() end)
+            table.insert(comps, rClose)
+        end
+
+        local ruledBtn = Craft.Button:Create(parent, { text="Open ruled header", variant="outline" })
+        ruledBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        ruledBtn:GetFrame():SetScript("OnClick", function() ruledDlg:Show() end)
+        table.insert(comps, ruledBtn)
+        y = y + 48
+
+        -- ── FR-102: fontFlags on title + description ─────────────────────────
+        y = addLabel("FR-102 fontFlags = \"\" — activa 'Font outline' en Theme y compara con el Demo Dialog", y)
+        local flagsDlg = Craft.Dialog:Create(UIParent, {
+            title       = "Elegir plan",
+            description = "fontFlags = \"\": título y descripción sin contorno",
+            fontFlags   = "",
+        })
+        table.insert(comps, flagsDlg)
+        local flagsBtn = Craft.Button:Create(parent, { text="Open without outline", variant="outline" })
+        flagsBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        flagsBtn:GetFrame():SetScript("OnClick", function() flagsDlg:Show() end)
+        table.insert(comps, flagsBtn)
+        y = y + 48
+
         return {
             height  = y + 24,
             cleanup = function()

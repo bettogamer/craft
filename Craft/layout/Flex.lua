@@ -107,14 +107,19 @@ function Flex:Layout()
     local mainSize = isRow and (cW - pH * 2) or (cH - pV * 2)
     local crossSize = isRow and (cH - pV * 2) or (cW - pH * 2)
 
-    -- 1. Ordenar items por order (stably)
+    -- 1. Ordenar items por order (estable). table.sort de Lua es quicksort y NO
+    --    es estable: devolver false para iguales solo evita el error "invalid order
+    --    function", no preserva la inserción. Decoramos con el índice de inserción
+    --    (_seq) para que items con el mismo order mantengan su orden de Add (semántica
+    --    CSS flexbox: order es un override opcional sobre el orden de inserción). FR-032.
     local sorted = {}
-    for _, item in ipairs(self._items) do
-        table.insert(sorted, item)
+    for i, item in ipairs(self._items) do
+        sorted[i] = item
+        item._seq = i
     end
     table.sort(sorted, function(a, b)
         if a.order ~= b.order then return a.order < b.order end
-        return false  -- stable: preserve insertion order
+        return a._seq < b._seq
     end)
 
     -- 2. Resolve each item's basis

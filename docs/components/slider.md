@@ -82,6 +82,10 @@ El `trackFrame` es **full-width** del root frame (sin inset horizontal). La fór
 
 ### Altura total del root frame
 
+> **Nota:** `valueLabel`/`minLabel`/`maxLabel` son **extensiones Craft**, no parte de shadcn.
+> El Slider de shadcn/Lyra (`.cn-slider-track/range/thumb`) NO incluye display de valor ni
+> min/max; en su demo eso es markup externo de la app. Craft los ofrece integrados.
+
 Layout simétrico: todos los labels se anclan al `trackFrame`. El gap se deriva de shadcn:
 shadcn usa `gap-2` (8px) entre el label component y el slider, donde el slider comienza en el thumb.
 El thumb se extiende `THUMB_SZ/2 − TRACK_H/2 = 4px` sobre el track → `LABEL_PAD = 8 + 4 = 12px`.
@@ -111,9 +115,9 @@ Esto replica el `gap-2` de shadcn en ambos lados: label/value arriba, min/max ab
 | Label        | Anchor                                                              | Font size         | Color               | Origen |
 |--------------|---------------------------------------------------------------------|-------------------|---------------------|--------|
 | `label`      | `BOTTOMLEFT` de `trackFrame.TOPLEFT` + `(0, LABEL_PAD_TOP)` — L-align | `fontSizeSm` 11px | `t.foreground`      | **Craft extension** |
-| `valueLabel` | `BOTTOMRIGHT` de `trackFrame.TOPRIGHT` + `(0, LABEL_PAD_TOP)` — R-align | `fontSizeSm` 11px | `t.mutedForeground` | shadcn |
-| `minLabel`   | `TOPLEFT` de `trackFrame.BOTTOMLEFT` + `(0, -LABEL_PAD_BOT)`      | `fontSizeSm` 11px | `t.mutedForeground` | shadcn |
-| `maxLabel`   | `TOPRIGHT` de `trackFrame.BOTTOMRIGHT` + `(0, -LABEL_PAD_BOT)`    | `fontSizeSm` 11px | `t.mutedForeground` | shadcn |
+| `valueLabel` | `BOTTOMRIGHT` de `trackFrame.TOPRIGHT` + `(0, LABEL_PAD_TOP)` — R-align | `fontSizeSm` 11px | `t.mutedForeground` | **Craft extension** |
+| `minLabel`   | `TOPLEFT` de `trackFrame.BOTTOMLEFT` + `(0, -LABEL_PAD_BOT)`      | `fontSizeSm` 11px | `t.mutedForeground` | **Craft extension** |
+| `maxLabel`   | `TOPRIGHT` de `trackFrame.BOTTOMRIGHT` + `(0, -LABEL_PAD_BOT)`    | `fontSizeSm` 11px | `t.mutedForeground` | **Craft extension** |
 
 Cuando `label` y `showValue` están presentes simultáneamente, forman un row justify-between justo encima del track, replicando el demo oficial de shadcn.
 
@@ -161,11 +165,17 @@ En estado disabled (shadcn `disabled:opacity-50`): `frame:SetAlpha(0.5)` + `fram
 | `showValue`  | `boolean`  | `false`   | Muestra el valor actual en el header row (TOPRIGHT), `t.mutedForeground`. Si `label` también está presente, comparten el mismo row (justify-between). |
 | `showMinMax` | `boolean`  | `false`   | Muestra `minLabel` y `maxLabel` en los extremos del track                    |
 | `onChange`   | `function` | `nil`     | `fn(value)` — se dispara al cambiar el valor (click/rueda/drag)             |
-| `width`      | `number`   | `nil`     | Ancho fijo en px. Si es nil, ocupa 100% del parent                           |
+| `wheel`      | `boolean`  | `false`   | Habilita la rueda del ratón. **Apagada por defecto** (FR-069) — ver §Rueda. |
+| `width`      | `number`   | `nil`     | Ancho fijo en px, aplicado en `Create`. Si es `nil` **el frame nace sin ancho** y lo dimensiona el caller (`GetFrame():SetWidth(w)`, o anclas LEFT+RIGHT) — no ocupa el parent por sí solo |
 | `height`     | `number`   | `nil`     | Altura del frame root en px. Si es nil usa el valor por defecto (ver tabla de alturas). **Corrección post-testing en WoW:** necesario para embeber el slider en containers con altura variable (e.g. footer del Browser). |
 | `label`      | `string`   | `nil`     | **Craft extension** — texto descriptivo sobre el track. Agrega 20px al `topPad` (LABEL_H=12 + LABEL_PAD_TOP=8). No está en shadcn Lyra; shadcn usa `<Label>` externo. |
+| `format`     | `function` | `tostring`| **Craft extension** (FR-034) — formatea value/min/max al pintarlos. Firma `format(v, context) → string`; `context` es `"value"`, `"min"` o `"max"` (los callers que no lo necesiten ignoran el 2º arg). Ej: moneda `function(v) return ("$%.2f"):format(v) end`, porcentaje `function(v) return v.."%" end`. |
 
 No hay parámetro `size` — el slider tiene un único tamaño de thumb (12×12px).
+
+> **Snap relativo a `min` (FR-034):** el step snapea sobre una rejilla anclada en `min`
+> (`min + round((v-min)/step)*step`), no en múltiplos absolutos de 0. Así `min` siempre es
+> alcanzable aunque no sea múltiplo de `step` (ej. `min=20, step=15` → 20, 35, 50, 65, 80).
 
 ## API pública
 
@@ -176,7 +186,28 @@ No hay parámetro `size` — el slider tiene un único tamaño de thumb (12×12p
 | `SetEnabled(bool)`      | Habilita/deshabilita. `SetAlpha(0.5)` en el frame + corta el mouse (no recolorea) |
 | `SetRange(min, max)`    | Actualiza `self._min`/`_max`, reclampa el valor y reposiciona el thumb (`_updateVisuals`) |
 | `SetLabel(text)`        | **Craft extension** — actualiza el texto del label en runtime. Solo funciona si `config.label` fue provisto en `Create`. |
+| `SetFormat(fn)`         | **Craft extension** (FR-034) — cambia el formateador en runtime y re-pinta value/min/max. `fn=nil` vuelve a `tostring`. |
+| `SetWheelEnabled(bool)` | Enciende/apaga la rueda en runtime (FR-069)                                   |
+| `IsWheelEnabled()`      | `true` si la rueda está habilitada                                            |
 | `GetFrame()`            | Retorna el frame root del componente                                          |
+
+## Rueda del ratón — apagada por defecto (FR-069)
+
+En WoW la rueda va al frame **más alto bajo el cursor** que la tenga habilitada, y **no
+se propaga** hacia abajo. Con la rueda siempre encendida, un Slider dentro de un
+`Craft.Scroll` **secuestraba el gesto**: la página dejaba de desplazarse y lo que se movía
+era el ajuste — sin error ni aviso. Y es un choque garantizado, no un caso raro: una página
+con scroll existe justamente porque hay más controles que alto, y un slider ocupa la fila
+entera, así que el cursor los cruza en cada gesto. El daño es asimétrico: el scroll perdido
+se nota y se corrige, el valor cambiado no.
+
+Por eso `wheel` es **opt-in**, que además es lo fiel: el Slider de shadcn/Radix no maneja la
+rueda en absoluto, y arrastrar el thumb o clicar la pista siguen siendo los gestos
+principales del componente.
+
+- Dentro de un `Craft.Scroll` (o cualquier superficie desplazable): dejarla apagada. WoW se
+  salta el frame y la muesca llega al `ScrollFrame` de debajo.
+- En una superficie no desplazable: `wheel = true`, o `SetWheelEnabled(true)` en runtime.
 
 ## Notas de implementación
 
@@ -190,7 +221,8 @@ No hay parámetro `size` — el slider tiene un único tamaño de thumb (12×12p
   thumb:SetPoint("CENTER", trackFrame, "LEFT", posX, 0)
   ```
   La fórmula constraina el thumb a `[THUMB_SZ/2, trackW - THUMB_SZ/2]` → borde LEFT flush en min, RIGHT flush en max.
-- **Interacción**: click en el track (`frame:OnMouseDown`) salta al valor bajo el cursor (ignorando la fila de labels); rueda (`OnMouseWheel`) incrementa por `step`; drag del thumb (`thumb:OnMouseDown`+`OnUpdate` leyendo `GetCursorPosition()`, fin en `OnMouseUp`). Todo vía `_updateFromCursor`, que snapea al `step`.
+- **Interacción**: click en el track (`frame:OnMouseDown`) salta al valor bajo el cursor (ignorando la fila de labels) **y sigue al cursor hasta soltar**, como el `pointerdown` de Radix (FR-110); rueda (`OnMouseWheel`) incrementa por `step`; drag del thumb (`thumb:OnMouseDown`+`OnUpdate` leyendo `GetCursorPosition()`). Todo vía `_updateFromCursor`, que snapea al `step`.
+- **Fin del arrastre (FR-110)**: `OnMouseUp` solo llega al frame que está bajo el cursor al soltar — soltando sobre otro control (otro slider, un input) el thumb nunca se enteraba y seguía al cursor. El tick del drag (`_beginDrag`) consulta `IsMouseButtonDown("LeftButton")` y termina solo (`_endDrag`, idempotente): es el sustituto en WoW del `setPointerCapture` de Radix. `OnMouseUp` del thumb y del root siguen como vía rápida; `OnHide` del root y `Destroy()` cortan un drag vivo.
 - **Hit area del thumb**: `thumb:SetHitRectInsets(-8, -8, -8, -8)` agranda el área de click 8px por lado (réplica de `after:-inset-2`) para que el thumb de 12px sea fácil de agarrar.
 - **Ring del thumb (hover/drag)**: `hover:ring-1`/`active:ring-1` = `OnEnter`/drag en WoW (mouse-only, ADR-0011). `thumbRing` es un `Frame` hermano (fl+3) anclado al thumb con −1px por lado; 4 aristas de 1px vía `Craft.Theme.SetPixelHeight/Width`, color `t.ring` a=0.5. Visible en hover y durante drag; oculto al salir si no se está arrastrando.
 - **trackW tardío**: `trackFrame:GetWidth()` puede ser 0 en `Create` (el ancho se resuelve después). `_updateVisuals` reintenta vía `OnUpdate` hasta que el width sea > 0.

@@ -38,13 +38,14 @@ panel.frame          (Frame, strata=MEDIUM, level=BACKGROUND -1)
 ├── panel._ring      (Frame, 1px outward)        ring perimetral 1px (ADR-0011)
 ├── panel._header    (Frame, opcional)           zona superior
 │   ├── panel._title   (FontString)             título principal
-│   └── panel._desc    (FontString, opcional)   descripción secundaria
+│   ├── panel._desc    (FontString, opcional)   descripción secundaria
+│   └── panel._action  (Frame, opcional)         slot CardAction, esquina sup-derecha (FR-039)
 ├── panel._content   (Frame)                    área editable por el dev
 └── panel._footer    (Frame, opcional)           zona inferior de acciones
     └── panel._footerBorder (Frame, 1px alto)   línea separadora top (ADR-0011)
 ```
 
-**Notas de stacking:** `_ring` es un Frame hijo que cubre el `panel.frame` completo (outward 0px en todos los lados), pintado con `t.border` ({r=0.980,g=0.980,b=0.980,a=0.10}). `_bg` ocupa el área interna completa del frame. El ring se dibuja sobre el fondo sin afectar el layout.
+**Notas de stacking:** `_ring` es un Frame hijo que cubre el `panel.frame` completo (outward 0px en todos los lados), pintado con `t.foreground` a=0.10 (Lyra `ring-foreground/10`; {r=0.980,g=0.980,b=0.980,a=0.10}). `_bg` ocupa el área interna completa del frame. El ring se dibuja sobre el fondo sin afectar el layout.
 
 ### Patrón ring-1 ring-foreground/10 (ADR-0011)
 
@@ -80,7 +81,9 @@ panel._bg:SetPoint("BOTTOMRIGHT", panel.frame, "BOTTOMRIGHT", -1,  1)
 | Gap título → descripción | 4px (`t.spacingXs`) | `gap-1` |
 | Title font size | 14px (`t.fontSizeLg`) | `text-sm` |
 | Description font size | 12px (`t.fontSize`) | `text-xs` |
-| Content padding horizontal | 16px (`t.spacingLg`) | `px-4` |
+| Description line-height | `leading-relaxed` 1.625 → `SetSpacing ≈ size*0.625` (8px @12px) | `text-xs/relaxed` |
+| Content padding horizontal | 16px (`t.spacingLg`), override `padding` | `px-4` |
+| Content padding vertical | 16px (`t.spacingLg`), override `paddingY`/`flush` (FR-046) | `py-4` |
 | Footer padding (todos los lados) | 16px (`t.spacingLg`) | `p-4` |
 | Footer borde-top | 1px | `border-t` (ADR-0011) |
 
@@ -95,12 +98,24 @@ panel._bg:SetPoint("BOTTOMRIGHT", panel.frame, "BOTTOMRIGHT", -1,  1)
 | Con footer | `_content` termina sobre el footer; `_footer` tiene borde-top 1px |
 | Completo | Header + content + footer |
 
-### Diferencias conocidas vs shadcn (fuera de MVP)
+### CardAction — slot de acción en el header (FR-039)
 
 shadcn Card ofrece el slot **`CardAction`** — un área en la esquina superior derecha
-del header para acciones/badges/iconos complementarios. Craft.Panel **no** lo
-implementa (omisión de alcance MVP, no bug — ver `docs/design-reference.md` §9.1).
-Si se decide añadir, requiere aprobación del maintainer (cambio de API).
+del header para acciones/badges/iconos complementarios (típicamente un ✕ de cerrar).
+Craft.Panel lo implementa vía `config.action` / `SetHeaderAction()` (FR-039).
+
+Cuando hay una acción, el header se maqueta como una rejilla `[1fr auto]` con
+**`Craft.Grid`** (en vez del layout de ancla única): la columna `1fr` apila
+título + descripción, y la columna `auto` lleva la acción anclada arriba-derecha
+(`justify-self:end`, `self-start`, `row-span` completo) — el mapeo directo de
+`CardAction = col-start-2 row-span-2 self-start justify-self-end` del `card.tsx`.
+El título pasa a una sola línea (`SetWordWrap(false)`, `truncate`) porque su ancho
+queda acotado a la columna `1fr`. Sin acción, el header conserva el layout histórico
+sin cambios. **Acción fijada antes de dar ancho (FR-115):** `Grid:Layout()` no hace nada con
+un contenedor de ancho 0, así que la cabecera re-maqueta en su `OnSizeChanged` cuando su ancho
+real llega (guardado contra el ancho de la última pasada para no entrar en bucle con su propio
+`SetHeight`). El caller instancia su propio widget (p. ej. `Craft.Button` variant
+`ghost` size `icon` con el icono `x`), igual que con el footer.
 
 ## Estados
 
@@ -117,12 +132,12 @@ Si se decide añadir, requiere aprobación del maintainer (cambio de API).
 | Elemento | Token | Valor dark mode |
 |---|---|---|
 | Fondo del panel | `t.card` | {r=0.091, g=0.091, b=0.091} |
-| Ring perimetral | `t.border` | {r=1, g=1, b=1, a=0.10} |
+| Ring perimetral | `t.foreground` a=0.10 (`ring-foreground/10`) | {r=0.980, g=0.980, b=0.980, a=0.10} |
 | Separador footer-top | `t.border` | {r=1, g=1, b=1, a=0.10} |
 | Texto del título | `t.cardForeground` | {r=0.980, g=0.980, b=0.980} |
-| Fuente del título | `t.fontBold`, `t.fontSizeLg` (14px) | — |
+| Fuente del título | `t.fontHeading or t.fontMedium`, `t.fontSizeLg` (14px) — Lyra NO usa bold/semibold (`text-sm font-medium`) | — |
 | Texto de descripción | `t.mutedForeground` | {r=0.630, g=0.630, b=0.630} |
-| Fuente de descripción | `t.font`, `t.fontSize` (12px) | — |
+| Fuente de descripción | `t.font`, `t.fontSize` (12px); line-height `leading-relaxed` 1.625 (`SetSpacing ≈ size*0.625` = 8px @12px, `text-xs/relaxed`) | — |
 | Padding content / header / footer | `t.spacingLg` (16px) | — |
 
 ## Config — `Create(parent, config)`
@@ -134,7 +149,11 @@ Si se decide añadir, requiere aprobación del maintainer (cambio de API).
 | `title` | string | nil | Texto del título en el header; omitir oculta el header |
 | `description` | string | nil | Texto de descripción bajo el título |
 | `footer` | Frame | nil | Frame a insertar en la zona footer; omitir oculta el footer |
-| `padding` | number | 16 | Override del padding de content (todos los lados) |
+| `action` | Frame | nil | Widget de acción del header (CardAction, FR-039); reparentado y anclado arriba-derecha. Fuerza el layout de header con `Craft.Grid` `[1fr auto]` |
+| `padding` | number | 16 | Override del padding **horizontal** de content (`px-4`) |
+| `paddingY` | number | nil (=`lg`, 16) | Override del padding **vertical** de content (`py-4`). **Solo** aplica a la rama sin header y sin footer (con header el gap es `header:BOTTOM − lg`, con footer `footer:TOP + lg`; no se tocan). `paddingY=0` → content pegado arriba/abajo (FR-046) |
+| `titleWeight` | string | nil (=`"medium"`) | Peso del título: `"regular"` \| `"medium"` \| `"bold"` (FR-112). Equivale a `<CardTitle className="font-bold">` de shadcn. `"medium"` usa el eje de fuente de títulos (`fontHeading`); `"bold"`/`"regular"` salen de la fuente de cuerpo (`fontBold`/`font`; una fuente sin negrita registra su regular como `fontBold`). Si es nil manda el token de contexto `cardTitleWeight` y luego `"medium"` |
+| `flush` | boolean | false | Full-bleed: azúcar que fuerza `padding=0` **y** `paddingY=0` — el hijo cuelga del ring por los 4 lados (Card como marco: sidebar, imagen, tabla, mapa). FR-046 |
 
 ## API pública
 
@@ -146,7 +165,10 @@ Si se decide añadir, requiere aprobación del maintainer (cambio de API).
 | `GetContent()` | Frame | Retorna `panel._content` — aquí se agregan frames hijos |
 | `GetHeader()` | Frame \| nil | Retorna `panel._header` o nil si no existe |
 | `GetFooter()` | Frame \| nil | Retorna `panel._footer` o nil si no existe |
+| `GetHeaderAction()` | Frame \| nil | Retorna el widget de acción del header (FR-039) o nil |
+| `SetHeaderAction(frame)` | void | Setea/reemplaza la acción del header; `nil` la limpia. Re-maqueta el header como grid `[1fr auto]` |
 | `SetTitle(text)` | void | Actualiza el texto de `panel._title`; crea el header si no existía |
+| `SetTitleWeight(weight)` | void | Cambia el peso del título en caliente; `nil` vuelve al token/default (FR-112) |
 | `SetDescription(text)` | void | Actualiza `panel._desc`; expande el header si es necesario |
 
 ## Notas de implementación
@@ -174,7 +196,7 @@ El frame exterior (`panel.frame`) se pinta con el color del ring:
 ```lua
 panel._ringTex = panel.frame:CreateTexture(nil, "BACKGROUND", nil, -1)
 panel._ringTex:SetAllPoints(panel.frame)
-panel._ringTex:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
+panel._ringTex:SetColorTexture(t.foreground.r, t.foreground.g, t.foreground.b, 0.10)
 ```
 
 **Scroll:** el Panel no scrollea por sí mismo. Para contenido largo, el dev debe agregar un `Craft.Scroll` dentro de `GetContent()`.
@@ -183,6 +205,34 @@ panel._ringTex:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
 
 **overflow-hidden:** el frame usa `SetClipsChildren(true)` (`.cn-card overflow-hidden`) — el contenido que exceda los límites del panel se recorta. Los popovers (p.ej. el panel de `Craft.Select`) van en UIParent, no como hijos del panel, así que no se recortan.
 
-**Footer externo:** `config.footer` es un Frame ya construido que se reparenta a `panel._footer`. El dev es responsable de dimensionarlo; el footer lo ancla con padding H de 16px y centra verticalmente.
+**Footer externo:** `config.footer` es un Frame ya construido que se reparenta a `panel._footer`. El dev es responsable de dimensionarlo; el footer lo inseta con `p-4` (16px en los 4 lados, `.cn-card-footer p-4`) sobre el separador `border-t`.
+
+**Header con ancla única (bug #2, CLAUDE.md):** el título usa ancla única `TOPLEFT` para que WoW auto-dimensione el string desde su contenido — nunca doble ancla horizontal (deriva el ancho del padre y deja el texto invisible hasta `/reload` si el header tiene width=0 al anclar). La descripción usa `TOPLEFT` único + `SetWidth` explícito (ancho del panel − `2·lg`) dentro de `_applyTheme` para que `SetWordWrap(true)` reparta el texto en varias líneas. El gap header→content es un único `gap-4` (16px): el alto del header NO incluye padding inferior; el espaciado lo aporta el `-lg` del ancla del content.
+
+**Header con acción — grid `[1fr auto]` (FR-039):** cuando hay `action`, el header usa
+`Craft.Grid` en lugar del layout de ancla única. Filas en **px** (`titleH`/`descH`) — no
+`auto` — para no depender del alto natural de un FontString (aún no medido cuando `Grid:Add`
+cachea `_naturalH`); replica el supuesto de descripción de una línea del path manual. La
+instancia de Grid se recrea en cada `_layoutFrames` (Grid no retiene frames y el nº de filas
+depende de si hay descripción). El alto del header es `lg + max(bloque de texto, alto de la
+acción)`: con `self-start`, una acción más alta que título+descripción deja el hueco debajo.
+
+**Re-layout en resize (`OnSizeChanged`):** el Panel engancha `OnSizeChanged` de `panel.frame`
+para recomputar el header (grid + ancho de word-wrap de la descripción) si el frame se
+dimensiona **después** de `Create()` — el `Grid:Layout()` hace `return` temprano si el header
+tiene ancho 0 (mismo guard que Flex). Es idempotente: recomputa geometría idéntica cuando el
+tamaño no cambia.
 
 **Radius = 0:** ninguna textura usa `SetTexCoord` para esquinas redondeadas. Todas las texturas son rectangulares sin modificación (`rounded-none` en Lyra).
+
+### Peso del título para todas las tarjetas de un addon (FR-112)
+
+Token de contexto opcional `cardTitleWeight` (no está en los presets: default `"medium"`, Lyra
+`.cn-card-title font-medium`). Un consumidor lo fija una vez en su contexto de tema y aplica a
+todas sus tarjetas; `config.titleWeight` de una tarjeta lo pisa:
+
+```lua
+local ctx = Craft.Theme.context("SMRT", { overrides = { cardTitleWeight = "bold" } })
+Craft.Panel:Create(parent, { theme = ctx, title = "Icon Settings" })   -- bold
+```
+

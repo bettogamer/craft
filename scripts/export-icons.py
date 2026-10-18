@@ -1,12 +1,21 @@
 #!/usr/bin/env python3
 """
-export-icons.py — Generates Lucide icon TGA atlases for Craft
+export-icons.py — Generates the full-set Lucide icon TGA atlas for Craft
 Spec: docs/components/icons.md
-ADR:  docs/adr/0003-iconos-lucide-first-class.md
+ADR:  docs/adr/0003-iconos-lucide-first-class.md (bundled assets)
+      docs/adr/0016-atlas-lucide-completo.md (full-set import, pinned release)
 
 Outputs:
-  Craft/media/lucide.tga       — 512×512 atlas, 8×8 grid, 64px cells (supersampled)
-  Craft/icons/Atlas.lua        — coordinate table {col, row} per icon
+  Craft/media/lucide.tga       — 2048×4096 atlas, 32×64 grid, 64px cells
+                                 (supersampled, RLE-compressed TGA — lossless)
+  Craft/icons/Atlas.lua        — coordinate table {col, row} per icon + alias map
+
+Catalog (ADR-0016):
+  The FULL Lucide set of the pinned release (LUCIDE_TAG) — enumerated from the
+  official tarball, not a hand-maintained list. The 8 system icons required by
+  Craft components keep row 0, cols 0–7; everything else is alphabetical.
+  Deprecated Lucide aliases (filter → funnel, …) come from the per-icon JSON
+  metadata and are emitted as Craft.Icons._aliases.
 
 Supersampling:
   Icons render at INNER (56px) centered in 64px cells with a transparent gutter,
@@ -15,12 +24,13 @@ Supersampling:
   at any scale, where pixel-exact 16/24px atlases blurred. See docs/components/icons.md.
 
 Requirements:
-  pip install Pillow cairosvg requests
+  pip install Pillow cairosvg
 
 Usage:
   python3 scripts/export-icons.py
-  python3 scripts/export-icons.py --dry-run    # download SVGs only, no TGA generated
-  python3 scripts/export-icons.py --no-cache   # force re-download of SVGs
+  python3 scripts/export-icons.py --dry-run    # sync tarball + catalog only, no TGA
+  python3 scripts/export-icons.py --no-cache   # force re-download of the tarball
+  python3 scripts/export-icons.py --no-rle     # uncompressed TGA (plan B, ADR-0016 §6)
 """
 
 import os
@@ -56,13 +66,25 @@ except (ImportError, OSError):
         print("  Option B (Windows):     pip install pycairo svg.path")
         sys.exit(1)
 
-# ─── Icon catalog ─────────────────────────────────────────────────────────────
-# Exact order defines the position (col, row) in the atlas.
-# System (0-7) in row=0 col=0-7 — required by Craft components.
-# Convenience (8-23) in row=0 col=8-23.
-# Source: docs/components/icons.md
+# ─── Icon catalog (ADR-0016: full Lucide set, pinned release) ─────────────────
+# The catalog is ENUMERATED from the pinned Lucide release tarball — there is no
+# hand-maintained list anymore. Order defines the (col, row) position:
+#   - SYSTEM_ICONS first (row 0, cols 0-7) — required by Craft components.
+#   - Everything else (remaining Lucide set + LOCAL_SVGS) alphabetical.
+# Bumping LUCIDE_TAG is the only step to sync with upstream; record the new tag
+# in docs/components/icons.md (its hash keys the CI .icon-cache).
 
-ICONS = [
+LUCIDE_TAG  = "1.24.0"
+TARBALL_URL = f"https://github.com/lucide-icons/lucide/archive/refs/tags/{LUCIDE_TAG}.tar.gz"
+
+# Stroke weight. Lucide ships stroke-width="2" on the 24×24 viewBox. We bake it a hair
+# heavier to counter the thinning that mipmap/TRILINEAR minification applies to thin
+# line-art at small display sizes (see Icons.lua) — the goal is that a 24px icon reads as
+# a solid ~2px. Deliberate legibility choice by the owner, a small deviation from exact
+# shadcn fidelity. Tune against the 24px display; set to 2 for pixel-exact Lucide.
+ICON_STROKE_WIDTH = 2.25
+
+SYSTEM_ICONS = [
     # System — required by Craft components
     "check",          # col=0  Checkbox checked
     "minus",          # col=1  Checkbox indeterminate
@@ -72,66 +94,6 @@ ICONS = [
     "x",              # col=5  Dialog close
     "eye",            # col=6  Input password show
     "eye-off",        # col=7  Input password hide
-    # Convenience — for devs using Craft
-    "info",           # col=8
-    "circle-check",   # col=9
-    "circle-alert",   # col=10
-    "triangle-alert", # col=11
-    "loader-circle",  # col=12
-    "search",         # col=13
-    "plus",           # col=14
-    "chevron-left",   # col=15
-    "arrow-left",     # col=16
-    "arrow-right",    # col=17
-    "settings",       # col=18
-    "user",           # col=19
-    "menu",           # col=20
-    "panel-left",     # col=21
-    "grip-vertical",  # col=22
-    "square-check",   # col=23
-    # Consumer-requested (FR-004 — Sentry config UI: tree, editors, actions)
-    "folder",         # Pack (folder) closed
-    "folder-open",    # Pack (folder) open
-    "star",           # Aura (leaf)
-    "layers",         # "Paneles" subfolder
-    "trash-2",        # Delete
-    "download",       # Export pack
-    "upload",         # Import pack
-    "clipboard-copy", # Copy export string
-    "move",           # "Move on screen" / sizer
-    "clock",          # BossMod Timer trigger
-    "megaphone",      # BossMod Announce trigger
-    "flag",           # BossMod Stage trigger
-    "code",           # Custom (code) trigger
-    "palette",        # Color picker
-    "chart-column",   # Panel type: Bar (Lucide renamed bar-chart-3 → chart-column)
-    "image",          # Panel type: Icon
-    "type",           # Panel type: Text
-    # Craft-synthesized (not Lucide) — see LOCAL_SVGS
-    "disc",           # Filled circle for round controls (RadioGroup) — supersampled = crisp
-    # Consumer-requested (FR-012 — Beacon: test-fire / selector de historial)
-    "circle-play",    # Disparar test-fire (acción de fila; toolbar "Probar")
-    "circle-stop",    # Detener el test-fire
-    "rotate-ccw",     # Re-disparar el último evento
-    # Consumer-requested (FR-013 — Beacon: toggles de edit-mode del header de opciones)
-    "lock",           # Toggle "Lock Positions" (estado activo)
-    "lock-open",      # Toggle "Lock Positions" (estado inactivo)
-    "magnet",         # Toggle "Magnetically Align"
-    # Consumer-requested (FR-017 — Coffer: dominio bolsas/inventario). Núcleo (8).
-    "landmark",       # Banco de personaje (rail/tab)
-    "vault",          # Warbank / account bank (rail/tab)
-    "users",          # Guild bank (rail/tab)
-    "coins",          # Panel de monedas (rail/tab) + moneda genérica
-    "shopping-cart",  # Botón "Sell Trash" (merchant)
-    "sparkles",       # Botón "Disenchant"
-    "backpack",       # Identidad de bolsas / "volver a bolsas de WoW"
-    "funnel",         # Filtro activo (búsqueda / categorías) — Lucide renombró filter → funnel
-    # FR-017 nice-to-have (mejoran, no bloquean)
-    "tag",            # Etiquetas de UI
-    "package",        # Categoría/grupo "Containers"
-    "combine",        # Combinar stacks (área 8)
-    "arrow-up-narrow-wide",   # Indicador sort ascendente
-    "arrow-down-wide-narrow", # Indicador sort descendente
 ]
 
 # ─── Local (non-Lucide) glyphs ────────────────────────────────────────────────
@@ -145,6 +107,21 @@ LOCAL_SVGS = {
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="0">'
         '<circle cx="12" cy="12" r="12" fill="white"/></svg>'
     ),
+    # Bottom-right resize grip (Craft.Window). Lucide has no corner-grip glyph: its
+    # `grip*` family is the drag-to-reorder dot grid (DragList) and `move-diagonal*`
+    # are ↖↘ arrows, which read as "expand/fullscreen". This is the universal desktop
+    # affordance instead — three strokes of decreasing length parallel to the corner,
+    # perpendicular to the NW-SE axis the handle actually resizes along.
+    # Drawn on the standard 24×24 Lucide viewBox with stroke-width="2" so prepare_svg
+    # bumps it to ICON_STROKE_WIDTH like every other icon.
+    "resize-corner": (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+        'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        '<line x1="20" y1="4" x2="4" y2="20"/>'
+        '<line x1="20" y1="10" x2="10" y2="20"/>'
+        '<line x1="20" y1="16" x2="16" y2="20"/>'
+        '</svg>'
+    ),
 }
 
 # ─── Atlas configuration ──────────────────────────────────────────────────────
@@ -152,45 +129,99 @@ LOCAL_SVGS = {
 # in a CELL px cell, leaving a GUTTER of transparent pixels on every side so that
 # WoW's bilinear filtering can't bleed neighbouring cells when downscaling.
 
-ATLAS_SIZE = 512            # Square TGA 512×512 (power-of-two — required by WoW)
+# Non-square atlas: WoW's conservative texture requirement is power-of-two PER
+# SIDE, not square. History: 512×512 (FR-022) → 512×1024 (curated catalog) →
+# 2048×4096 (ADR-0016: full Lucide set — 32×64 = 2048 slots for ~1750 icons,
+# ~300 free for upstream growth). Cell/gutter/supersampling are UNCHANGED, so
+# per-icon quality is identical; there are just more cells.
+ATLAS_W    = 2048           # atlas width in px (power-of-two — required by WoW)
+ATLAS_H    = 4096           # atlas height in px (power-of-two — required by WoW)
 CELL       = 64             # cell size in the atlas grid
 GUTTER     = 4              # transparent margin inside each cell
 INNER      = CELL - GUTTER * 2   # 56px — the icon render size
-CPR        = ATLAS_SIZE // CELL  # 8 cells per row → 64 slots
-
-# Base URL for Lucide SVGs (main branch, canonical names)
-LUCIDE_URL = "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/{name}.svg"
+CPR        = ATLAS_W // CELL     # 32 cells per row (columns)
+ROWS       = ATLAS_H // CELL     # 64 rows → 2048 slots
 
 # ─── Output paths ─────────────────────────────────────────────────────────────
 
 REPO_ROOT  = Path(__file__).parent.parent
 MEDIA_DIR  = REPO_ROOT / "Craft" / "media"
 ATLAS_LUA  = REPO_ROOT / "Craft" / "icons" / "Atlas.lua"
-SVG_CACHE  = REPO_ROOT / ".icon-cache"    # local cache of downloaded SVGs
+SVG_CACHE  = REPO_ROOT / ".icon-cache"    # local cache of the extracted tarball
 
-# ─── SVG download ─────────────────────────────────────────────────────────────
+# ─── Lucide sync (pinned release tarball) ─────────────────────────────────────
 
-def download_svg(name: str, force: bool = False) -> str:
-    """Downloads the Lucide SVG and returns it as a string. Uses local cache.
-    Craft-synthesized glyphs (LOCAL_SVGS) are returned inline without a network call."""
+def sync_lucide(force: bool = False) -> Path:
+    """Downloads the pinned Lucide release tarball (once) and extracts icons/
+    (SVGs + JSON metadata) into the cache. Returns the extracted icons/ dir.
+    One 3 MB request instead of ~1750 raw.githubusercontent calls (rate limits)."""
+    import io
+    import tarfile
+
+    icons_dir = SVG_CACHE / f"lucide-{LUCIDE_TAG}" / "icons"
+    if icons_dir.is_dir() and not force and any(icons_dir.glob("*.svg")):
+        return icons_dir
+
+    print(f"  ↓ {TARBALL_URL}")
+    with urllib.request.urlopen(TARBALL_URL, timeout=60) as resp:
+        data = resp.read()
+
+    icons_dir.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
+        for member in tar.getmembers():
+            parts = member.name.split("/")
+            # lucide-<tag>/icons/<name>.{svg,json} → flat extract, no path traversal
+            if len(parts) == 3 and parts[1] == "icons" and member.isfile() \
+                    and (parts[2].endswith(".svg") or parts[2].endswith(".json")):
+                content = tar.extractfile(member).read()
+                (icons_dir / Path(parts[2]).name).write_bytes(content)
+    return icons_dir
+
+# ─── Catalog + aliases ────────────────────────────────────────────────────────
+
+def build_catalog(icons_dir: Path) -> list:
+    """Full catalog in atlas order: SYSTEM_ICONS (row 0, cols 0-7) first, then
+    the rest of the Lucide set plus LOCAL_SVGS, alphabetical."""
+    names = {p.stem for p in icons_dir.glob("*.svg")}
+    missing = [n for n in SYSTEM_ICONS if n not in names]
+    if missing:
+        print(f"ERROR: system icons missing from Lucide {LUCIDE_TAG}: {', '.join(missing)}")
+        sys.exit(1)
+    rest = sorted((names | set(LOCAL_SVGS)) - set(SYSTEM_ICONS))
+    return list(SYSTEM_ICONS) + rest
+
+def load_aliases(icons_dir: Path, catalog: list) -> dict:
+    """Deprecated-name → canonical-name map from Lucide's per-icon JSON metadata
+    (e.g. filter → funnel). Aliases that collide with a canonical name are skipped."""
+    import json
+
+    catalog_set = set(catalog)
+    aliases = {}
+    for jf in sorted(icons_dir.glob("*.json")):
+        canonical = jf.stem
+        if canonical not in catalog_set:
+            continue
+        try:
+            meta = json.loads(jf.read_text(encoding="utf-8"))
+        except ValueError:
+            continue
+        for entry in meta.get("aliases") or []:
+            name = entry.get("name") if isinstance(entry, dict) else entry
+            if name and name not in catalog_set:
+                aliases[name] = canonical
+    return aliases
+
+# ─── SVG read ─────────────────────────────────────────────────────────────────
+
+def read_svg(icons_dir: Path, name: str) -> str:
+    """Returns the SVG source for an icon: Craft-synthesized glyphs (LOCAL_SVGS)
+    inline, everything else from the extracted tarball."""
     if name in LOCAL_SVGS:
         return LOCAL_SVGS[name]
-
-    cache_file = SVG_CACHE / f"{name}.svg"
-    if not force and cache_file.exists():
-        return cache_file.read_text(encoding="utf-8")
-
-    url = LUCIDE_URL.format(name=name)
-    try:
-        with urllib.request.urlopen(url, timeout=10) as resp:
-            svg = resp.read().decode("utf-8")
-    except Exception as e:
-        print(f"  ✗ {name}: download error — {e}")
+    svg_file = icons_dir / f"{name}.svg"
+    if not svg_file.exists():
         return None
-
-    SVG_CACHE.mkdir(parents=True, exist_ok=True)
-    cache_file.write_text(svg, encoding="utf-8")
-    return svg
+    return svg_file.read_text(encoding="utf-8")
 
 def prepare_svg(svg: str) -> str:
     """
@@ -200,6 +231,11 @@ def prepare_svg(svg: str) -> str:
     """
     svg = re.sub(r'stroke="currentColor"', 'stroke="white"', svg)
     svg = re.sub(r'fill="currentColor"',   'fill="white"',   svg)
+    # Bump the stroke weight (ICON_STROKE_WIDTH). Target exactly "2" so Craft-local
+    # glyphs that set their own width (LOCAL_SVGS `disc` uses stroke-width="0") stay
+    # untouched. Lucide is uniform stroke-width="2" on the root, so this is a clean swap.
+    if ICON_STROKE_WIDTH != 2:
+        svg = re.sub(r'stroke-width="2"', f'stroke-width="{ICON_STROKE_WIDTH}"', svg)
     # Ensure transparent background
     svg = re.sub(r'<svg([^>]*?)>', r'<svg\1>', svg)
     return svg
@@ -267,7 +303,27 @@ def _rasterize_pycairo(svg: str, size: int) -> Image.Image:
             cx = float(el.get("cx", 0))
             cy = float(el.get("cy", 0))
             r  = float(el.get("r",  0))
-            ctx.arc(cx, cy, r, 0, 2 * 3.14159265)
+            ctx.new_sub_path()
+            ctx.arc(cx, cy, r, 0, 2 * math.pi)
+            fill = el.get("fill", "none")
+            if fill not in ("none", "transparent", ""):
+                ctx.fill_preserve()
+            ctx.stroke()
+
+        elif tag == "ellipse":
+            # Full Lucide set uses <ellipse> (database family, cone, drum, …).
+            # Build the unit-circle path under a scaled CTM, then restore BEFORE
+            # stroking so the stroke width stays uniform (not scaled per-axis).
+            cx  = float(el.get("cx", 0))
+            cy  = float(el.get("cy", 0))
+            erx = float(el.get("rx", 0))
+            ery = float(el.get("ry", erx) or erx)
+            ctx.save()
+            ctx.translate(cx, cy)
+            ctx.scale(erx, ery)
+            ctx.new_sub_path()
+            ctx.arc(0, 0, 1, 0, 2 * math.pi)
+            ctx.restore()
             fill = el.get("fill", "none")
             if fill not in ("none", "transparent", ""):
                 ctx.fill_preserve()
@@ -293,7 +349,32 @@ def _rasterize_pycairo(svg: str, size: int) -> Image.Image:
         elif tag == "rect":
             x = float(el.get("x", 0)); y = float(el.get("y", 0))
             w = float(el.get("width", 0)); h = float(el.get("height", 0))
-            ctx.rectangle(x, y, w, h)
+            # SVG spec: if only one of rx/ry is specified, the other mirrors it
+            rrx = float(el.get("rx") or 0)
+            rry = float(el.get("ry") or 0)
+            if rrx == 0: rrx = rry
+            if rry == 0: rry = rrx
+            if rrx > 0 or rry > 0:
+                # Rounded rect (~320 icons in the full set use rx=). Elliptical
+                # corners: unit arcs under a scaled CTM (restored per corner so
+                # the stroke width stays uniform); cairo joins arcs with lines.
+                rrx = min(rrx, w / 2); rry = min(rry, h / 2)
+
+                def _corner(ccx, ccy, a0, a1):
+                    ctx.save()
+                    ctx.translate(ccx, ccy)
+                    ctx.scale(rrx, rry)
+                    ctx.arc(0, 0, 1, a0, a1)
+                    ctx.restore()
+
+                ctx.new_sub_path()
+                _corner(x + w - rrx, y + rry,     -math.pi / 2, 0)
+                _corner(x + w - rrx, y + h - rry, 0,            math.pi / 2)
+                _corner(x + rrx,     y + h - rry, math.pi / 2,  math.pi)
+                _corner(x + rrx,     y + rry,     math.pi,      3 * math.pi / 2)
+                ctx.close_path()
+            else:
+                ctx.rectangle(x, y, w, h)
             fill = el.get("fill", "none")
             if fill not in ("none", "transparent", ""):
                 ctx.fill_preserve()
@@ -325,20 +406,20 @@ def rasterize_svg(svg: str, size: int) -> Image.Image:
 
 # ─── Atlas construction ───────────────────────────────────────────────────────
 
-def build_atlas(icons_imgs: dict) -> tuple[Image.Image, dict]:
+def build_atlas(catalog: list, icons_imgs: dict) -> tuple[Image.Image, dict]:
     """
     Builds the single supersampled TGA atlas and returns (image, {name: (col, row)}).
 
     Layout:
-      - 8×8 grid of CELL px cells (64 slots)
+      - CPR×ROWS grid of CELL px cells (32×64 = 2048 slots)
       - Each INNER px icon is pasted centered in its cell, leaving GUTTER px of
         transparent margin so bilinear downscaling can't bleed adjacent cells.
-      - Icons are placed in ICONS catalog order.
+      - Icons are placed in catalog order.
     """
-    atlas  = Image.new("RGBA", (ATLAS_SIZE, ATLAS_SIZE), (0, 0, 0, 0))
+    atlas  = Image.new("RGBA", (ATLAS_W, ATLAS_H), (0, 0, 0, 0))
     coords = {}
 
-    for idx, name in enumerate(ICONS):
+    for idx, name in enumerate(catalog):
         img = icons_imgs.get(name)
         if img is None:
             print(f"  ⚠ {name}: icon not available, empty cell")
@@ -349,7 +430,7 @@ def build_atlas(icons_imgs: dict) -> tuple[Image.Image, dict]:
         x   = col * CELL + GUTTER
         y   = row * CELL + GUTTER
 
-        if col >= CPR or row * CELL + CELL > ATLAS_SIZE:
+        if col >= CPR or row >= ROWS:
             print(f"  ✗ {name}: outside atlas bounds (col={col}, row={row})")
             continue
 
@@ -360,31 +441,40 @@ def build_atlas(icons_imgs: dict) -> tuple[Image.Image, dict]:
 
 # ─── Save TGA ─────────────────────────────────────────────────────────────────
 
-def save_tga(atlas: Image.Image, path: Path):
+def save_tga(atlas: Image.Image, path: Path, rle: bool = True):
     """Saves the atlas as TGA. WoW expects BGRA; Pillow writes TGA as RGBA
-    but WoW accepts both formats without issue on modern versions."""
+    but WoW accepts both formats without issue on modern versions.
+    RLE (lossless, measured ratio ~7% on line-art) keeps the full-set atlas at
+    ~4-5 MB instead of 32 MB; --no-rle is the plan B if the client rejects it
+    (ADR-0016 §6/§7 — verify in-game after any atlas layout change)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     # Convert RGBA → BGRA for maximum WoW compatibility
     r, g, b, a = atlas.split()
     bgra = Image.merge("RGBA", (b, g, r, a))
-    bgra.save(str(path), format="TGA")
-    print(f"  ✅ {path.relative_to(REPO_ROOT)} ({atlas.size[0]}×{atlas.size[1]}px)")
+    if rle:
+        bgra.save(str(path), format="TGA", compression="tga_rle")
+    else:
+        bgra.save(str(path), format="TGA")
+    size_mb = os.path.getsize(path) / (1024 * 1024)
+    print(f"  ✅ {path.relative_to(REPO_ROOT)} ({atlas.size[0]}×{atlas.size[1]}px, "
+          f"{size_mb:.1f} MB, {'RLE' if rle else 'uncompressed'})")
 
 # ─── Generate Atlas.lua ───────────────────────────────────────────────────────
 
-def generate_atlas_lua(coords: dict):
+def generate_atlas_lua(catalog: list, coords: dict, aliases: dict):
     """
     Generates Craft/icons/Atlas.lua with the (col, row) of each icon in the single
-    supersampled atlas. Overwrites the existing file.
+    supersampled atlas, plus the deprecated-alias map. Overwrites the existing file.
     """
     lines = [
         "-- Atlas.lua — grid coordinates of the Lucide icon TGA atlas",
         "-- AUTO-GENERATED by scripts/export-icons.py",
         "-- DO NOT edit manually — overwritten on each release",
         "--",
-        f"-- Layout: {ATLAS_SIZE}×{ATLAS_SIZE}px, grid {CPR}×{CPR}, {CELL}px cells",
+        f"-- Catalog: FULL Lucide set, release {LUCIDE_TAG} pinned (ADR-0016)",
+        f"-- Layout: {ATLAS_W}×{ATLAS_H}px, grid {CPR}×{ROWS} (cols×rows), {CELL}px cells",
         f"--   ({INNER}px icon centered with a {GUTTER}px transparent gutter — supersampled)",
-        f"--   UV: left=col/{CPR}, right=(col+1)/{CPR}, top=row/{CPR}, bottom=(row+1)/{CPR}",
+        f"--   UV: left=col/{CPR}, right=(col+1)/{CPR}, top=row/{ROWS}, bottom=(row+1)/{ROWS}",
         "",
         'local Craft = LibStub("Craft-2.0")',
         "local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)",
@@ -395,17 +485,19 @@ def generate_atlas_lua(coords: dict):
         "if Craft.Icons and Craft.Icons._buildOwner and Craft.Icons._buildOwner >= _BUILD then return end",
         "Craft.Icons = { _buildOwner = _BUILD }",
         "",
-        f"Craft.Icons._div = {CPR}  -- cells per row/column (for UV math in Icons.lua)",
+        f'Craft.Icons._lucide = "{LUCIDE_TAG}"  -- pinned Lucide release this atlas was built from',
+        f"Craft.Icons._div  = {CPR}  -- columns (horizontal UV divisor in Icons.lua)",
+        f"Craft.Icons._rows = {ROWS}  -- rows (vertical UV divisor in Icons.lua — atlas is non-square)",
         "",
         "Craft.Icons._atlas = {",
     ]
 
-    # Group by system / convenience section
-    for i, name in enumerate(ICONS):
+    for i, name in enumerate(catalog):
         if i == 0:
-            lines.append("    -- System — required by Craft components")
-        elif i == 8:
-            lines.append("    -- Convenience — for devs using Craft")
+            lines.append("    -- System — required by Craft components (row 0, cols 0-7)")
+        elif i == len(SYSTEM_ICONS):
+            lines.append(f"    -- Full Lucide {LUCIDE_TAG} import (ADR-0016) — alphabetical"
+                         " (+ Craft-local glyphs)")
 
         if name in coords:
             col, row = coords[name]
@@ -415,64 +507,80 @@ def generate_atlas_lua(coords: dict):
 
     lines.append("}")
     lines.append("")
+    lines.append("-- Deprecated Lucide names → canonical (from upstream JSON metadata).")
+    lines.append("-- Icons.Get/Has/Apply resolve these; List() returns canonical names only.")
+    lines.append("Craft.Icons._aliases = {")
+    for old in sorted(aliases):
+        lines.append(f'    ["{old}"] = "{aliases[old]}",')
+    lines.append("}")
+    lines.append("")
 
     ATLAS_LUA.write_text("\n".join(lines), encoding="utf-8")
-    print(f"  ✅ {ATLAS_LUA.relative_to(REPO_ROOT)}")
+    print(f"  ✅ {ATLAS_LUA.relative_to(REPO_ROOT)} "
+          f"({len(coords)} icons, {len(aliases)} aliases)")
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="Generates Lucide icon TGA atlases for Craft")
-    parser.add_argument("--dry-run",  action="store_true", help="Download SVGs only, do not generate TGA")
-    parser.add_argument("--no-cache", action="store_true", help="Force re-download of SVGs")
+    parser = argparse.ArgumentParser(description="Generates the full-set Lucide icon TGA atlas for Craft")
+    parser.add_argument("--dry-run",  action="store_true", help="Sync tarball + build catalog only, no TGA")
+    parser.add_argument("--no-cache", action="store_true", help="Force re-download of the Lucide tarball")
+    parser.add_argument("--no-rle",   action="store_true", help="Save uncompressed TGA (plan B, ADR-0016 §6)")
     args = parser.parse_args()
 
-    print(f"Craft icon atlas generator — {len(ICONS)} icons")
-    print(f"  Source: Lucide (github.com/lucide-icons/lucide)")
-    print(f"  Output: Craft/media/lucide.tga ({ATLAS_SIZE}×{ATLAS_SIZE}, {CELL}px cells, supersampled)")
+    print(f"Craft icon atlas generator — full Lucide set, release {LUCIDE_TAG} (ADR-0016)")
+    print(f"  Source: {TARBALL_URL}")
+    print(f"  Output: Craft/media/lucide.tga ({ATLAS_W}×{ATLAS_H}, {CELL}px cells, supersampled)")
     print()
 
-    # 1. Download SVGs
-    print("1. Downloading SVGs from Lucide...")
-    svgs = {}
-    failed = []
-    for name in ICONS:
-        svg = download_svg(name, force=args.no_cache)
-        if svg:
-            svgs[name] = prepare_svg(svg)
-            print(f"  ✓ {name}")
-        else:
-            failed.append(name)
+    # 1. Sync the pinned Lucide release and enumerate the catalog
+    print("1. Syncing Lucide tarball...")
+    icons_dir = sync_lucide(force=args.no_cache)
+    catalog   = build_catalog(icons_dir)
+    aliases   = load_aliases(icons_dir, catalog)
+    print(f"  ✓ {len(catalog)} icons in catalog ({len(LOCAL_SVGS)} Craft-local), "
+          f"{len(aliases)} deprecated aliases")
 
-    if failed:
-        print(f"\n⚠ {len(failed)} icons not downloaded: {', '.join(failed)}")
+    if len(catalog) > CPR * ROWS:
+        print(f"ERROR: catalog ({len(catalog)}) exceeds atlas slots ({CPR * ROWS}) — "
+              f"grow ATLAS_H (power-of-two) and re-run.")
+        sys.exit(1)
 
     if args.dry_run:
-        print("\nDry-run complete. SVGs in .icon-cache/")
+        print(f"\nDry-run complete. Tarball extracted in {SVG_CACHE.relative_to(REPO_ROOT)}/")
         return
 
     # 2. Rasterize supersampled (INNER px)
-    print(f"\n2. Rasterizing to {INNER}px (supersampled)...")
+    print(f"\n2. Rasterizing {len(catalog)} icons to {INNER}px ({_RASTER_BACKEND})...")
     imgs = {}
-    for name, svg in svgs.items():
+    failed = []
+    for name in catalog:
+        svg = read_svg(icons_dir, name)
+        if not svg:
+            failed.append(name)
+            continue
         try:
-            imgs[name] = rasterize_svg(svg, INNER)
-            print(f"  ✓ {name}")
+            imgs[name] = rasterize_svg(prepare_svg(svg), INNER)
         except Exception as e:
             print(f"  ✗ {name}: {e}")
+            failed.append(name)
+    print(f"  ✓ {len(imgs)} rasterized" + (f", {len(failed)} FAILED: {', '.join(failed)}" if failed else ""))
+    if failed:
+        print("ERROR: full-set import must not have missing cells — fix the rasterizer/tarball and re-run.")
+        sys.exit(1)
 
     # 3. Build the single atlas
     print(f"\n3. Building atlas...")
-    atlas, coords = build_atlas(imgs)
-    print(f"  Grid: {CPR}×{CPR} cells ({CELL}px), {len(coords)}/{len(ICONS)} icons placed")
+    atlas, coords = build_atlas(catalog, imgs)
+    print(f"  Grid: {CPR}×{ROWS} cells ({CELL}px), {len(coords)}/{len(catalog)} icons placed")
 
     # 4. Save TGA
     print(f"\n4. Saving TGA...")
-    save_tga(atlas, MEDIA_DIR / "lucide.tga")
+    save_tga(atlas, MEDIA_DIR / "lucide.tga", rle=not args.no_rle)
 
     # 5. Generate Atlas.lua
     print("\n5. Generating Atlas.lua...")
-    generate_atlas_lua(coords)
+    generate_atlas_lua(catalog, coords, aliases)
 
     print(f"\n✅ Done. {len(coords)} icons in a single {CELL}px supersampled atlas.")
     print("   Run 'git diff Craft/icons/Atlas.lua' to verify coordinate changes.")

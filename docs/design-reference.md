@@ -155,6 +155,11 @@ WoW no sintetiza pesos (toma un TTF por peso), así que Craft bundlea tres archi
 | `--sidebar-accent-foreground` | oklch(0.985 0 0) | #fafafa | neutral-50 | `{r=0.980, g=0.980, b=0.980, a=1}` |
 | `--sidebar-border` | oklch(1 0 0 / 10%) | white 10% | — | `{r=1.000, g=1.000, b=1.000, a=0.100}` |
 | `--sidebar-ring` | oklch(0.556 0 0) | #737373 | neutral-500 | `{r=0.452, g=0.452, b=0.452, a=1}` |
+| `--chart-1` | oklch(0.87 0 0) | #d4d4d4 | neutral-300 | `{r=0.831, g=0.831, b=0.831, a=1}` |
+| `--chart-2` | oklch(0.556 0 0) | #737373 | neutral-500 | `{r=0.452, g=0.452, b=0.452, a=1}` |
+| `--chart-3` | oklch(0.439 0 0) | #525252 | neutral-600 | `{r=0.322, g=0.322, b=0.322, a=1}` |
+| `--chart-4` | oklch(0.371 0 0) | #404040 | neutral-700 | `{r=0.250, g=0.250, b=0.250, a=1}` |
+| `--chart-5` | oklch(0.269 0 0) | #262626 | neutral-800 | `{r=0.149, g=0.149, b=0.149, a=1}` |
 | `--radius` | — | 0 | — | `0` |
 
 ---
@@ -201,10 +206,13 @@ el contexto WoW (sin CSS box model):
 | Token | Valor (px WoW) | Uso |
 |-------|---------------|-----|
 | `spacingXs` | 4 | Gap mínimo entre elementos en Flex |
+| `spacingXs2` | 6 | `gap-1.5` base `.tsx` del `Craft.Field` content horizontal. **RESERVADO** — Lyra recalibra `.cn-field-content` a `gap-0.5`=2px (hardcode, sin token); sin uso actual. **FR-041**. |
 | `spacingSm` | 8 | Padding interno de badges, separators |
 | `spacingMd` | 12 | Padding de Button, Input |
 | `spacingLg` | 16 | Padding de Panel, Dialog content |
+| `spacingLg2` | 20 | Gap top-level de `Craft.FieldGroup` (`gap-5`). **FR-041** — Lyra devtools (`.cn-field-group { gap: calc(var(--spacing)*5) }`); Lyra baja el `gap-7` del `.tsx` base. |
 | `spacingXl` | 24 | Padding de Dialog header/footer |
+| `spacing2Xl` | 28 | `gap-7` base `.tsx`. **RESERVADO** — Lyra recalibra el FieldGroup a `gap-5`=`spacingLg2`; sin uso actual. |
 | `borderWidth` | 1 | Grosor de bordes en todos los componentes |
 | `focusRingWidth` | 2 | **RESERVADO** — WoW es mouse-only, no usado en MVP. Disponible para addons con navegación propia. |
 | `iconSizeSm` | 16 | Íconos Lucide pequeños (atlas supersampleado `media/lucide.tga`) |
@@ -212,6 +220,26 @@ el contexto WoW (sin CSS box model):
 | `fontSize` | 12 | `text-xs` de Lyra — tamaño base de todos los componentes |
 | `fontSizeSm` | 11 | **CRAFT ADAPTATION** — no existe en Lyra CSS (mínimo Lyra = `text-xs` = 12px). Añadido para texto compacto en WoW (helper text, captions). |
 | `fontSizeLg` | 14 | `text-sm` de Lyra — títulos de Card y Dialog |
+
+**`Craft.Field` — tipografía CONFIRMADA (Lyra devtools/auditoría CSS, FR-041):**
+- **FieldGroup gap** = 20px (`gap-5` = `spacingLg2`).
+- **Field gap interno** (vertical + label↔content horizontal) = 8px (`gap-2` = `spacingSm`;
+  Lyra baja el `gap-3` base).
+- **FieldContent gap horizontal** (control↔desc) = 2px (`gap-0.5`, hardcode sin token;
+  Lyra baja el `gap-1.5` base → `spacingXs2`=6 queda RESERVADO).
+- **FieldDescription** = 12px (`text-xs`), `t.mutedForeground`, **line-height `leading-normal` = 1.5**
+  (multilínea) → en WoW se implementa con `SetSpacing ≈ size×0.5` (6px @12px, px extra entre líneas).
+- **FieldError** = 12px (`text-xs`), `t.destructive`, mismo `leading-normal` 1.5 que description.
+- **FieldLabel** = 12px (`text-xs`), **line-height `leading-snug` = 1.375**
+  (`.cn-field-label { line-height: var(--leading-snug,1.375) }`, auditoría CSS). Visualmente
+  IRRELEVANTE para labels de 1 línea (`Craft.Label` no envuelve), por eso NO se aplica
+  `SetSpacing` al label — es solo exactitud de doc.
+
+**`Craft.Panel` — tipografía de Card (CSS Lyra confirmado):**
+- **card-title** = 14px (`text-sm`), `font-medium`, single-line (sin `SetSpacing`).
+- **card-description** = 12px (`text-xs`), `t.mutedForeground`, **line-height `leading-relaxed` = 1.625**
+  (`.cn-card-description { text-xs/relaxed }`, `--leading-relaxed:1.625`). Multilínea → en WoW se
+  implementa con `SetSpacing ≈ size×0.625` (8px @12px, px extra entre líneas; AFINAR in-game).
 
 ---
 
@@ -227,8 +255,8 @@ el contexto WoW (sin CSS box model):
 
 | Estado | Cómo implementar en WoW | Token base |
 |--------|------------------------|------------|
-| Button hover | Aumentar alpha: `primary` con `a=0.85` | `t.primary` |
-| Ghost button hover | Usar `accent` como fondo | `t.accent` |
+| Button hover | Aumentar alpha: `primary` con `a=0.80` (Lyra `hover:bg-primary/80`) | `t.primary` |
+| Ghost button hover | `muted` como fondo con `a=0.50` (Lyra `dark:hover:bg-muted/50`) | `t.muted` |
 | Input focus ring | Frame separado, 2px outward, color `ring` | `t.ring` |
 | Disabled (texto) | `mutedForeground` + suprimir eventos | `t.mutedForeground` |
 | Disabled (fondo) | `muted` semitransparente: `a=0.5` | `t.muted` |
@@ -252,9 +280,9 @@ aprobación explícita del maintainer — la divergencia es intencional, no un g
 
 | Componente | shadcn | Craft (decisión) | Razón |
 |---|---|---|---|
-| **Tabs** — overflow de triggers | Triggers ancho-contenido en una sola fila; el overflow se desborda / el dev usa `grid` o `scroll-area`. shadcn **no** hace wrap. | Triggers ancho-contenido que **hacen wrap a filas adicionales** cuando no caben; la barra (`_list`) crece en alto por fila. | WoW no tiene `text-overflow: ellipsis` ni scroll-area nativo. El fill a ancho igual aplastaba el texto (muchos tabs) o lo dejaba flotando (pocos). Wrap degrada bien en ambos extremos y `Craft.Flex` ya lo soporta. Ver `docs/components/tabs.md`. |
+| **Tabs** — overflow de triggers | Triggers ancho-contenido en una sola fila; el overflow se desborda / el dev usa `grid` o `scroll-area`. shadcn **no** hace wrap. | Triggers ancho-contenido que **hacen wrap a filas adicionales** cuando no caben; la barra (`_list`) crece en alto por fila. **Opt-in** `fill=true` (FR-043) reproduce el patrón shadcn `w-full`+`flex-1` (columnas iguales). | WoW no tiene `text-overflow: ellipsis` ni scroll-area nativo. El fill a ancho igual aplastaba el texto (muchos tabs) o lo dejaba flotando (pocos), por eso el **default** es wrap; `fill` queda como opción explícita para el caso segmented-control (pocos tabs). Ver `docs/components/tabs.md`. |
 | **Slider** — gaps de labels | Gaps simétricos derivados del line-height/espaciado de Radix. | Gaps **asimétricos** (`LABEL_PAD_TOP=8`, `LABEL_PAD_BOT=6`). | Ajuste óptico para los FontStrings de WoW (métricas de fuente distintas a CSS). Ver `Craft/components/Slider.lua`. |
-| **Texto** — outline / contorno | No existe: la tipografía es familia + peso + tamaño (no hay `text-stroke` de primera clase). | Token opcional `fontFlags` (`""`\|`OUTLINE`\|`THICKOUTLINE`\|`MONOCHROME`), default `""` (sin contorno = idéntico a shadcn). Aplicado por `Craft.Theme.applyFont`. | Legibilidad de texto sobre fondos variables (uso tipo HUD/overlay in-world), un caso propio de WoW que shadcn (web) no tiene. Opt-in del consumidor; el default no diverge. Ver ADR-0015 §Fase 3. |
+| **Texto** — outline / contorno | No existe: la tipografía es familia + peso + tamaño (no hay `text-stroke` de primera clase). | Token opcional `fontFlags` (`""`\|`OUTLINE`\|`THICKOUTLINE`\|`MONOCHROME`), default `""` (sin contorno = idéntico a shadcn). Aplicado por `Craft.Theme.applyFont`. | Legibilidad de texto sobre fondos variables (uso tipo HUD/overlay in-world), un caso propio de WoW que shadcn (web) no tiene. Opt-in del consumidor; el default no diverge. Ver ADR-0015 §Fase 3. Desde FR-092 `Craft.Label` acepta además `flags` **por instancia** (4º arg de `applyFont`), que manda sobre el token global; el resto de componentes siguen solo con el global. | 
 
 ### 9.1 Features de shadcn no implementadas en el MVP (omisiones conocidas)
 
@@ -267,7 +295,7 @@ cada spec bajo "Diferencias conocidas vs shadcn".
 
 | Componente | Feature shadcn no implementada | Impacto |
 |---|---|---|
-| **Tabs** | Variante `line`, orientación **vertical** (icon slots ✅ implementados v1.1) | Medio |
+| **Tabs** | Orientación **vertical** (variante `line` ✅ implementada FR-042, icon slots ✅ v1.1) | Medio |
 | **Sidebar** | Variantes `floating`/`inset`, collapse modes (`offcanvas`/`icon`), `SidebarTrigger`, `SidebarRail`, slots action/badge, skeleton (el árbol colapsable / sub-menús **ya se implementa** — FR-008) | Medio (simplificación MVP deliberada) |
 | **Panel** | Slot `CardAction` (área top-right del header para acciones/badges) | Medio |
 | **Dialog** | `DialogClose` como sub-componente reutilizable (Craft integra el botón de cierre en el header) | Bajo |

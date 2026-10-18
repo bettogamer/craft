@@ -37,6 +37,7 @@ local DOT_TEX  = DOT_SIZE         * GUTTER_COMP   -- visible 8
 -- ─── Create ───────────────────────────────────────────────────────────────────
 function RadioGroup:Create(parent, config)
     local self = setmetatable({}, RadioGroup)
+    self._theme = Craft.Theme.resolve(parent, config)  -- FR-104 (frame marked below)
 
     config = config or {}
     self._cfg = {
@@ -72,16 +73,17 @@ function RadioGroup:Create(parent, config)
     -- Motion tokens are captured once (durations are theme-constant, like Dialog).
     self._selected = Weave.signal(self._value)
     self._effects  = self._effects or {}
-    local motion = Craft.Theme.get()
+    local motion = self._theme:get()
     self._motionDur  = motion.motionFast
     self._motionEase = Weave.easing[motion.motionEasing]
 
     self.frame = CreateFrame("Frame", nil, parent)
+    self.frame._craftTheme = self._theme  -- FR-104: children inherit
 
     self:_buildItems()
 
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
 
     -- ── Reactive binds — after the theme pass. ────────────────────────────────
     -- options binds FIRST so the value bind resolves against the real list. Rows
@@ -238,7 +240,7 @@ function RadioGroup:_applyTheme(t)
     self._t = t
 
     -- Cache the tween endpoints (input → primary; input/30 → primary; dot color).
-    -- _paintRow reads only these, never Craft.Theme.get(); _refresh below re-applies
+    -- _paintRow reads only these, never self._theme:get(); _refresh below re-applies
     -- them with each row's current prog so a theme change repaints mid-animation.
     self._paint = {
         ir = t.input.r, ig = t.input.g, ib = t.input.b, ia = t.input.a,
@@ -250,7 +252,7 @@ function RadioGroup:_applyTheme(t)
     local maxW = 0
     for i = 1, self._count do
         local item = self._items[i]
-        Craft.Theme.applyFont(item.fs, t.font, FONT_SIZE)
+        self._theme:applyFont(item.fs, t.font, FONT_SIZE)
         local c = self._cfg.disabled and t.mutedForeground or t.foreground
         item.fs:SetTextColor(c.r, c.g, c.b)
         item.fs:SetText(item.label)
@@ -303,7 +305,7 @@ end
 function RadioGroup:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
     self._items = nil

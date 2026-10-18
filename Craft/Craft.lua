@@ -4,7 +4,7 @@
 
 local ADDON_NAME, _addonTable = ...  -- "Craft" standalone, or the embedding addon's name + its per-addon table
 local CRAFT_NAME  = "Craft-2.0"  -- API name. Bumped from Craft-1.0 on the v2.0.0 break (ADR-0010 §3.2).
-local CRAFT_BUILD = 5            -- Integer. Reset to 1 with the MAJOR (new LibStub name); +1 per release.
+local CRAFT_BUILD = 37            -- Integer. Reset to 1 with the MAJOR (new LibStub name); +1 per release.
 
 -- Propagate THIS copy's build to its sibling files via the per-addon table (2nd vararg).
 -- Done BEFORE the early return below so that even when this Craft.lua bails (a newer
@@ -16,7 +16,7 @@ if _addonTable then _addonTable.CRAFT_BUILD = CRAFT_BUILD end
 local Craft = LibStub:NewLibrary(CRAFT_NAME, CRAFT_BUILD)
 if not Craft then return end  -- a newer build is already loaded; nothing to do
 
-Craft.VERSION = "2.4.0"
+Craft.VERSION = "2.35.0"
 Craft.BUILD   = CRAFT_BUILD
 _G.Craft      = Craft  -- global convenience accessor for consumer addons (e.g. Craft_Browser pages)
 
@@ -38,6 +38,38 @@ function Craft.register(name, impl, build)
     return impl
 end
 
+-- ─── Layering scale (FR-033) ────────────────────────────────────────────────
+-- Semantic z-order for the WHOLE library, mapped onto WoW's fixed frame stratas.
+-- WoW strata order (low → high):
+--   BACKGROUND < LOW < MEDIUM < HIGH < DIALOG < FULLSCREEN < FULLSCREEN_DIALOG < TOOLTIP
+-- Components pick a LAYER, not a raw strata, so the invariant
+--     page (Window) < modal backdrop < modal frame < popover
+-- holds no matter how a consumer nests them. In particular a modal opened FROM a
+-- Craft.Window must float ABOVE it and its backdrop must dim it — the bug FR-033
+-- fixes (before, both Window and Dialog sat at DIALOG and the backdrop at HIGH,
+-- BELOW the window, so the modal was buried and the backdrop never covered it).
+--
+-- IMPORTANT: the modal frame and its backdrop live in DIFFERENT stratas (frame one
+-- rung above the backdrop), NOT the same strata separated by frame-level. The
+-- backdrop uses EnableMouse(true) to swallow clicks to the UI behind; if it shared
+-- the frame's strata it would also swallow the dialog's own buttons/close (only Esc
+-- would work). A strictly-higher strata for the frame guarantees its children win
+-- the mouse — the same relationship the original DIALOG-over-HIGH setup had.
+--   BACKGROUND/LOW/MEDIUM  content
+--   DIALOG                 page          (Craft.Window)
+--   FULLSCREEN             modalOverlay  (Craft.Dialog backdrop — above any Window)
+--   FULLSCREEN_DIALOG      modal         (Craft.Dialog frame — above its own backdrop)
+--   TOOLTIP                popover       (Select/Combobox/Menu/Popover/Tooltip panels)
+--   TOOLTIP (high level)   toast         (Craft.Toast — above popovers via frame level, FR-093)
+Craft.Strata = {
+    content      = "MEDIUM",             -- default in-page content (Panels inherit their parent)
+    page         = "DIALOG",             -- Craft.Window — the addon's main frame / "page"
+    modalOverlay = "FULLSCREEN",         -- Craft.Dialog backdrop (above any Window, below its frame)
+    modal        = "FULLSCREEN_DIALOG",  -- Craft.Dialog frame (above its own backdrop + any Window)
+    popover      = "TOOLTIP",            -- Select/Combobox/Menu/Popover/Tooltip panels (topmost)
+    toast        = "TOOLTIP",            -- Craft.Toast; sits over popovers by frame level (sonner z-index max)
+}
+
 -- mediaPath: absolute WoW path to Craft/media/. Changes when Craft is embedded in another addon.
 -- Standalone:  Interface\AddOns\Craft\media\
 -- Embedded:    Interface\AddOns\<hostAddon>\libs\Craft\media\  (per .pkgmeta convention)
@@ -53,4 +85,5 @@ Craft.mediaPath = _mediaRoot .. "\\media\\"
 --   icons/Atlas.lua    → Craft.Icons internal atlas tables
 --   icons/Icons.lua    → Craft.Icons
 --   layout/Flex.lua    → Craft.Flex
+--   layout/Grid.lua    → Craft.Grid
 --   components/*.lua   → Craft.Button, Craft.Input, etc.

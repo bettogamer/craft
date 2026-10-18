@@ -15,15 +15,18 @@ Icons **no crea frames**. Es una tabla de resolución de nombres.
 
 ```
 Craft.Icons
-├── _atlas  (table)   — mapa nombre→{col,row} (de icons/Atlas.lua)
-├── _div    (number)  — celdas por fila/columna del grid (de icons/Atlas.lua)
+├── _atlas   (table)   — mapa nombre→{col,row} (de icons/Atlas.lua)
+├── _aliases (table)   — nombres Lucide deprecados → canónico (de icons/Atlas.lua)
+├── _div     (number)  — columnas del grid (de icons/Atlas.lua)
+├── _rows    (number)  — filas del grid (de icons/Atlas.lua — atlas no cuadrado)
+├── _lucide  (string)  — release de Lucide pinneado del que se generó el atlas
 ├── Get(name, size?)
 ├── Apply(texture, name, size?)
 ├── Has(name)
 └── List()
 ```
 
-`icons/Atlas.lua` declara la tabla `_atlas` con coordenadas de celda (col/row, base-0) y `_div`. Se carga antes que cualquier componente en `Craft.toc`. `Craft.Icons` construye los descriptores UV en runtime.
+`icons/Atlas.lua` declara la tabla `_atlas` con coordenadas de celda (col/row, base-0), `_aliases` y los divisores. Se carga antes que cualquier componente en `Craft.toc`. `Craft.Icons` construye los descriptores UV en runtime; `Get`/`Has`/`Apply` resuelven aliases deprecados al nombre canónico automáticamente.
 
 ### Ruta del atlas
 
@@ -31,11 +34,17 @@ Craft.Icons
 |------|
 | `"Interface\\AddOns\\Craft\\media\\lucide.tga"` (vía `Craft.mediaPath`) |
 
-### Layout del atlas (supersampled — un solo atlas)
+### Layout del atlas (supersampled — un solo atlas, set Lucide completo)
 
 | Resolución TGA | Grid | Celda | Icono renderizado | Gutter | Fórmula UV (col/row base-0) |
 |---|---|---|---|---|---|
-| 512×512 px | 8×8 (64 slots) | 64px | 56px centrado | 4px transparente | `left=col/8, right=(col+1)/8, top=row/8, bottom=(row+1)/8` |
+| 2048×4096 px | 32×64 (2048 slots) | 64px | 56px centrado | 4px transparente | celda ± inset: `left=col/32 + I`, `right=(col+1)/32 - I` (ídem row con `/64`), donde el inset `I` recorta gutter + medio texel — ver abajo |
+
+> Historia: 512×512 (MVP) → 512×1024 (FR-022, catálogo curado) → **2048×4096 (ADR-0016,
+> set Lucide completo)**. Potencia-de-2 por lado (requisito de WoW); los divisores UV por
+> eje viven en `Atlas.lua` (`_div`/`_rows`). La celda, el supersampling y el gutter no
+> cambiaron en ningún salto — la calidad por icono es idéntica, solo hay más celdas.
+> El TGA se guarda con compresión **RLE** (sin pérdida, ~4.2 MB vs 32 MB sin comprimir).
 
 **Supersampling**: cada ícono se rasteriza a 56px y se centra en una celda de 64px con
 4px de gutter transparente. WoW lo reduce al tamaño de display (16/24/…) en runtime. Como
@@ -44,31 +53,65 @@ resolución se ve nítida a cualquier escala — donde los atlas pixel-exactos d
 veían borrosos/pixelados. El gutter + un inset de medio texel en `Get()` evitan que el
 filtrado bilineal "sangre" celdas vecinas al reducir.
 
+**El UV recorta el gutter (FR-057)**: `Get()` no muestrea la celda entera sino la región
+INTERNA (el glyph de 56px). Muestrear los 64px metería la celda completa —gutter incluido—
+dentro del `size` pedido, así que el glyph se dibujaría a `size × 56/64` = **87.5% de lo
+pedido**: todos los iconos salían un 12.5% pequeños y el contrato de `size` no se cumplía.
+Recortando, el viewBox de 24 unidades mapea al `size` completo. El inset por lado queda en
+`(GUTTER + 0.5) / (DIV * CELL)` — gutter **más** el medio texel bilineal de siempre. El
+footprint de la textura no cambia (`SetSize` sigue usando `size`), así que ningún ancla ni
+gap de ningún componente se mueve; el gutter sigue existiendo físicamente en el TGA
+separando vecinos, solo deja de mostrarse.
+
+**Filtrado `TRILINEAR` (mipmaps)**: `Apply()` pasa `SetTexture(path, "CLAMP", "CLAMP",
+"TRILINEAR")`. El atlas es power-of-two → WoW auto-genera el mip chain y el trilinear lo
+muestrea en la minificación (el ícono se ve ≤24px desde una celda de 56px) → downscale
+liso y sin shimmer, la misma técnica que las shapes del Switch (ADR-0018 §5, CLAUDE.md
+bug #5). Es seguro sobre un atlas porque en el rango de display (mip 0-2) el gutter de 4px
+aún deja ≥1px transparente entre celdas; el bleed solo aparecería por debajo de ~10px
+(mips profundos), que no ocurre.
+
 ### Formato del descriptor retornado por `Get()`
 
 ```lua
 {
   path   = "Interface\\AddOns\\Craft\\media\\lucide.tga",
   size   = 16,       -- tamaño de DISPLAY pedido (16, 24, … — el atlas es agnóstico)
-  left   = 0.0012,   -- UV normalizadas [0–1], con inset de medio texel
-  right  = 0.1238,   -- ≈ 1/8 para col=0
-  top    = 0.0012,
-  bottom = 0.1238,
+  left   = 0.0002,   -- UV normalizadas [0–1], con inset de medio texel
+  right  = 0.0310,   -- ≈ 1/32 para col=0 (eje X divide entre 32 columnas)
+  top    = 0.0001,
+  bottom = 0.0155,   -- ≈ 1/64 para row=0 (eje Y divide entre 64 filas — atlas no cuadrado)
 }
 ```
 
 ---
 
-## Catálogo de íconos
+## Catálogo de íconos — set Lucide completo (ADR-0016)
 
-> **Todos los nombres son los canónicos de Lucide.** Los íconos renombrados en versiones
-> recientes ya aparecen con su nombre nuevo (`triangle-alert`, no `alert-triangle`, etc.).
-> El script `scripts/export-icons.py` usa estos nombres exactos para generar el atlas TGA.
+> Desde **ADR-0016** el atlas contiene **todo el set de Lucide** de un release pinneado, no
+> un catálogo curado por FR. Cualquier nombre canónico de [lucide.dev](https://lucide.dev)
+> funciona en `Get`/`Apply`/`Has` — y los nombres deprecados resuelven vía aliases. Los FRs
+> de iconos (FR-004, FR-012, FR-013, FR-017, FR-022, FR-030, FR-031) quedan como registro
+> histórico de por qué existía cada icono del catálogo curado; dejan de ser el mecanismo de
+> entrada.
 
-### Sistema — usados por Craft internamente
+| | |
+|---|---|
+| **Release pinneado** | **Lucide 1.24.0** — constante `LUCIDE_TAG` en `scripts/export-icons.py` |
+| Íconos canónicos | 1748 (1746 de Lucide + 2 Craft-sintetizados: `disc`, `resize-corner`) |
+| Aliases deprecados | 249 (`filter`→`funnel`, `bar-chart-3`→`chart-column`, …) |
+| Slots libres | ~300 de 2048 (crecimiento de upstream sin cambiar el layout) |
 
-Estos íconos son requeridos por los propios componentes de la librería. Sin ellos, algunos
-componentes no renderizan correctamente.
+> **Bump del pin** (sync con upstream, 1–2×/año): editar `LUCIDE_TAG` en
+> `scripts/export-icons.py`, regenerar, y actualizar la versión en la tabla de arriba —
+> el hash de ESTE archivo es la key del cache `.icon-cache` en CI, así el cache se
+> invalida solo cuando cambia el pin documentado.
+
+### Sistema — usados por Craft internamente (fila 0, cols 0–7)
+
+Estos íconos son requeridos por los propios componentes de la librería y conservan
+posición fija en la fila 0 del grid. Sin ellos, algunos componentes no renderizan
+correctamente (el spec `tests/icons_spec.lua` lo garantiza).
 
 | # | Nombre Lucide | Componente que lo usa | Rol |
 |---|---|---|---|
@@ -81,118 +124,25 @@ componentes no renderizan correctamente.
 | 7 | `eye` | Input (password show) | Ojo abierto |
 | 8 | `eye-off` | Input (password hide) | Ojo cerrado |
 
-### Conveniencia — para addons que usan Craft
+El resto del set va **alfabético** a partir de la col 8 de la fila 0. Las coordenadas
+concretas no son contrato — la API es por nombre; `Atlas.lua` se regenera entero en
+cada release.
 
-Estos íconos no son requeridos por ningún componente de la librería, pero son los más
-usados en addons WoW y se incluyen en el atlas para que los devs los tengan disponibles.
+### Glyphs Craft-sintetizados (no Lucide)
 
-| # | Nombre Lucide | Uso típico en addons WoW |
+| Nombre | Uso | Por qué no es Lucide |
 |---|---|---|
-| 9 | `info` | Tooltip informativo, Alert info |
-| 10 | `circle-check` | Feedback de éxito (¹) |
-| 11 | `circle-alert` | Feedback de error (¹) |
-| 12 | `triangle-alert` | Feedback de warning (¹) |
-| 13 | `loader-circle` | Spinner en Button loading, estado pending |
-| 14 | `search` | Input de búsqueda |
-| 15 | `plus` | Botones de agregar |
-| 16 | `chevron-left` | Navegación atrás, paginación |
-| 17 | `arrow-left` | Navegación, breadcrumb |
-| 18 | `arrow-right` | Navegación, breadcrumb, forward |
-| 19 | `settings` | Configuración general |
-| 20 | `user` | Avatar fallback, perfil |
-| 21 | `menu` | Hamburger, sidebar toggle |
-| 22 | `panel-left` | Toggle sidebar |
-| 23 | `grip-vertical` | Handle de drag/resize |
-| 24 | `square-check` | Checkbox alternativo visual |
+| `disc` | Círculo relleno para controles redondos (RadioGroup) | Lucide es stroke-only, sin formas rellenas. Definido inline en `scripts/export-icons.py` (`LOCAL_SVGS`) y rasterizado por el mismo pipeline supersampleado |
+| `resize-corner` | Grip de resize abajo-derecha (`Craft.Window`) | Lucide no tiene glifo de corner-grip: su familia `grip*` es la rejilla de puntos de *arrastrar para reordenar* (`Craft.DragList`) y `move-diagonal*` son flechas ↖↘ que se leen como "expandir/pantalla completa". Tres trazos de longitud decreciente paralelos a la esquina, perpendiculares al eje NW-SE del resize (convención de escritorio). `stroke-width="2"` en el viewBox 24×24 para heredar `ICON_STROKE_WIDTH` como el resto |
 
-> (¹) Nombres canónicos actuales en Lucide. Los nombres anteriores (`check-circle`,
-> `alert-circle`, `alert-triangle`) son aliases deprecados — no usar en Atlas.lua.
+### Aliases deprecados
 
-### Solicitados por consumers (FR-004 — UI de config de Sentry)
-
-Añadidos para el árbol de packs, editores de trigger/panel y barra de acciones.
-
-| # | Nombre Lucide | Uso |
-|---|---|---|
-| 25 | `folder` | Pack (carpeta) cerrada |
-| 26 | `folder-open` | Pack (carpeta) abierta |
-| 27 | `star` | Aura (hoja) |
-| 28 | `layers` | Subcarpeta "Paneles" |
-| 29 | `trash-2` | Borrar |
-| 30 | `download` | Exportar pack |
-| 31 | `upload` | Importar pack |
-| 32 | `clipboard-copy` | Copiar string de export |
-| 33 | `move` | Mover en pantalla / sizer |
-| 34 | `clock` | Trigger BossMod Timer |
-| 35 | `megaphone` | Trigger BossMod Aviso |
-| 36 | `flag` | Trigger BossMod Fase |
-| 37 | `code` | Trigger Custom (código) |
-| 38 | `palette` | Selector de color |
-| 39 | `chart-column` | Tipo de panel Barra (Lucide renombró `bar-chart-3`) |
-| 40 | `image` | Tipo de panel Icono |
-| 41 | `type` | Tipo de panel Texto |
-| 42 | `disc` | Círculo relleno (Craft-sintetizado, no Lucide) — controles redondos (RadioGroup) |
-
-### Solicitados por consumers (FR-012 — Beacon: test-fire / selector de historial)
-
-Iconos de acción para el clúster de creación de auras de Beacon (Modo prueba / Selector).
-
-| # | Nombre Lucide | Uso |
-|---|---|---|
-| 43 | `circle-play` | Disparar test-fire (acción de fila; botón "Probar" de la toolbar) |
-| 44 | `circle-stop` | Detener el test-fire |
-| 45 | `rotate-ccw` | Re-disparar el último evento |
-
-> La acción "usar / insertar en el trigger" del Selector se cubre con `chevron-right` (ya en el
-> atlas); `corner-down-left` se excluyó del FR-012 — ver `docs/requests/FR-012-action-icons-beacon.md`.
-
-### Solicitados por consumers (FR-013 — Beacon: toggles de edit-mode del header)
-
-Glyphs para los dos toggles globales del header de opciones de Beacon (`OptionsFrame.lua`).
-
-| # | Nombre Lucide | Uso |
-|---|---|---|
-| 46 | `lock` | Toggle "Lock Positions" (estado activo) |
-| 47 | `lock-open` | Toggle "Lock Positions" (estado inactivo) |
-| 48 | `magnet` | Toggle "Magnetically Align" |
-
-### Solicitados por consumers (FR-017 — Coffer: dominio bolsas/inventario)
-
-Núcleo del set de bolsas/inventario para el rail lateral de paneles y los botones del footer
-de Coffer. Todos son iconos Lucide reales.
-
-| # | Nombre Lucide | Uso |
-|---|---|---|
-| 49 | `landmark` | Banco de personaje (rail/tab) |
-| 50 | `vault` | Warbank / account bank (rail/tab) |
-| 51 | `users` | Guild bank (rail/tab) |
-| 52 | `coins` | Panel de monedas (rail/tab) + moneda genérica |
-| 53 | `shopping-cart` | Botón "Sell Trash" (merchant) |
-| 54 | `sparkles` | Botón "Disenchant" |
-| 55 | `backpack` | Identidad de bolsas / "volver a bolsas de WoW" |
-| 56 | `funnel` | Filtro activo (búsqueda / categorías) — Lucide renombró `filter` → `funnel` |
-
-> **`funnel`**: el icono de filtro de Lucide fue renombrado de `filter` a `funnel` en upstream
-> (igual que `bar-chart-3` → `chart-column`). Se cataloga con el nombre nuevo; los consumidores
-> usan `icon="funnel"`.
-
-Nice-to-have (FR-017): mejoran la semántica, no bloquean.
-
-| # | Nombre Lucide | Uso |
-|---|---|---|
-| 57 | `tag` | Etiquetas de UI |
-| 58 | `package` | Categoría/grupo "Containers" |
-| 59 | `combine` | Combinar stacks (área 8) |
-| 60 | `arrow-up-narrow-wide` | Indicador de sort ascendente |
-| 61 | `arrow-down-wide-narrow` | Indicador de sort descendente |
-
-**Total**: 61 glyphs (60 Lucide + 1 Craft-sintetizado `disc`). Ocupan 8 filas del grid 8×8
-(61 de 64 slots disponibles → 3 libres). Al agotarse el margen, crecer el grid (p. ej. 1024² →
-16×16) es decisión del owner.
-
-> **`disc`** no es de Lucide (que es stroke-only, sin formas rellenas). Se define inline en
-> `scripts/export-icons.py` (`LOCAL_SVGS`) y se rasteriza por el mismo pipeline supersampleado,
-> así que un círculo de 16px queda nítido (un disco enmascarado a 16px 1:1 se ve pixelado).
+Lucide renombra íconos entre releases (`filter`→`funnel`, `alert-triangle`→`triangle-alert`,
+`bar-chart-3`→`chart-column`…). El generador emite `Craft.Icons._aliases` desde la metadata
+JSON de upstream y `Get`/`Has`/`Apply` resuelven el alias al canónico automáticamente:
+`Apply(tex, "filter")` pinta `funnel`. `List()` devuelve **solo canónicos**. En código nuevo
+usar siempre el nombre canónico; los aliases existen para no romper consumers cuando
+upstream renombra.
 
 ---
 
@@ -200,10 +150,10 @@ Nice-to-have (FR-017): mejoran la semántica, no bloquean.
 
 | Función | Firma | Descripción |
 |---------|-------|-------------|
-| `Craft.Icons.Get(name, size?)` | `(string, number?) → table\|nil` | Descriptor UV o nil si no existe. `size` = tamaño de display en px (default 16); el atlas es agnóstico al tamaño. |
+| `Craft.Icons.Get(name, size?)` | `(string, number?) → table\|nil` | Descriptor UV o nil si no existe. `size` = tamaño de display en px del **glyph** (default 16) — el UV recorta el gutter para que se cumpla (FR-057); el atlas es agnóstico al tamaño. |
 | `Craft.Icons.Apply(tex, name, size?)` | `(Texture, string, number?) → void` | Aplica ícono a una Texture al tamaño de display. No-op si name=nil o no existe. |
-| `Craft.Icons.Has(name)` | `(string) → bool` | true si el nombre existe en `_atlas`. |
-| `Craft.Icons.List()` | `() → string[]` | Array de todos los nombres disponibles, orden alfabético. |
+| `Craft.Icons.Has(name)` | `(string) → bool` | true si el nombre existe en `_atlas` o resuelve vía `_aliases`. |
+| `Craft.Icons.List()` | `() → string[]` | Array de todos los nombres canónicos (sin aliases), orden alfabético. |
 
 ---
 
@@ -247,7 +197,7 @@ iconTex:SetVertexColor(t.foreground.r, t.foreground.g, t.foreground.b, 1)
 ```lua
 local icon = Craft.Icons.Get("circle-check")
 if icon then
-    tex:SetTexture(icon.path)
+    tex:SetTexture(icon.path, "CLAMP", "CLAMP", "TRILINEAR")  -- mipmapped downscale
     tex:SetTexCoord(icon.left, icon.right, icon.top, icon.bottom)
     tex:SetSize(icon.size, icon.size)
 end
@@ -262,7 +212,7 @@ function Craft.Icons.Apply(texture, name, size)
     if not name then return end
     local desc = Craft.Icons.Get(name, size or 16)
     if not desc then return end
-    texture:SetTexture(desc.path)
+    texture:SetTexture(desc.path, "CLAMP", "CLAMP", "TRILINEAR")  -- mipmapped downscale
     texture:SetTexCoord(desc.left, desc.right, desc.top, desc.bottom)
     texture:SetSize(desc.size, desc.size)
 end
@@ -272,16 +222,9 @@ end
 
 ## Notas de implementación
 
-**Nombres canónicos Lucide — cambios recientes importantes:**
-
-| Nombre antiguo (deprecado) | Nombre canónico actual |
-|---|---|
-| `alert-triangle` | `triangle-alert` |
-| `alert-circle` | `circle-alert` |
-| `check-circle` | `circle-check` |
-| `loader` (ícono diferente) | `loader-circle` (spinner circular) |
-
-Usar siempre los nombres canónicos en `Atlas.lua` y en los argumentos de `Apply()`/`Get()`.
+**Nombres canónicos vs. aliases**: los nombres deprecados de Lucide (`alert-triangle`,
+`check-circle`, `filter`, `bar-chart-3`, …) resuelven automáticamente vía `_aliases`
+(ADR-0016) — pero en código nuevo usar siempre el canónico actual de lucide.dev.
 
 **nil silencioso, no error**: `Get()` retorna nil para nombres desconocidos. Los componentes que reciben un `config.icon` desconocido ocultan la textura con `iconTex:Hide()`.
 
@@ -294,6 +237,14 @@ casi nunca se muestra a 16 píxeles físicos. Un atlas pixel-exacto se magnifica
 y los trazos finos de Lucide (stroke 2 en viewBox 24) se ven delgados a 16px. Renderizar a
 alta resolución y dejar que WoW reduzca mantiene el ícono nítido a cualquier escala.
 
+**Peso del trazo (`ICON_STROKE_WIDTH`)**: Lucide es `stroke-width="2"` en el viewBox 24.
+El atlas se hornea un pelín más grueso (**2.25**) para compensar el adelgazamiento que el
+filtrado con mipmaps (`TRILINEAR`, ver arriba) aplica al line-art fino al minificar → así un
+ícono a 24px lee como un 2px sólido. Es una **decisión deliberada de legibilidad** (owner),
+una pequeña desviación de la fidelidad shadcn 1:1; ajustar contra el display de 24px, o poner
+`2` para Lucide pixel-exacto. Se aplica en `prepare_svg` reemplazando solo `stroke-width="2"`
+(los glifos locales como `disc`, con `stroke-width="0"`, quedan intactos).
+
 **SetTexCoord — orden WoW**: `SetTexCoord(left, right, top, bottom)`. No el orden CSS.
 
 **Colorización**: `SetVertexColor(r, g, b, a)` después de `Apply()`. El módulo no aplica color.
@@ -301,11 +252,15 @@ alta resolución y dejar que WoW reduzca mantiene el ícono nítido a cualquier 
 **Performance**: `_atlas` se carga una sola vez. `Get()` es O(1). No cachear el descriptor
 retornado (es una tabla nueva cada llamada) — si se necesita varias veces, guardar en local.
 
-**Generación del atlas**: `scripts/export-icons.py` toma los SVGs de Lucide por nombre
-canónico, los rasteriza a 56px y los empaqueta centrados en celdas de 64px (gutter de 4px) en
-un solo TGA `lucide.tga` + `icons/Atlas.lua`. No editar `Atlas.lua` manualmente — se
-sobreescribe en cada release. CI lo genera con `cairosvg` (curvas reales); el fallback local
-`pycairo` aproxima curvas con 64 segmentos (suficiente tras el downscale).
+**Generación del atlas**: `scripts/export-icons.py` descarga el tarball del release
+pinneado de Lucide (`LUCIDE_TAG`, un request de ~3 MB), enumera TODOS los SVGs, los
+rasteriza a 56px y los empaqueta centrados en celdas de 64px (gutter de 4px) en un solo
+TGA `lucide.tga` (RLE, sin pérdida; `--no-rle` como plan B) + `icons/Atlas.lua` (con
+`_aliases` desde la metadata JSON de upstream). No editar `Atlas.lua` manualmente — se
+sobreescribe en cada release. CI lo genera con `cairosvg` (curvas reales); el fallback
+local `pycairo` aproxima curvas con 64 segmentos (suficiente tras el downscale) y soporta
+todos los elementos que usa el set (`path`, `circle`, `ellipse`, `rect` con `rx`/`ry`,
+`line`, `polyline`, `polygon`). El spec `tests/icons_spec.lua` es el gate del output.
 
 **Íconos del sistema**: los 8 íconos requeridos por componentes ocupan la fila 0 (col 0–7),
 coordenadas UV predecibles.

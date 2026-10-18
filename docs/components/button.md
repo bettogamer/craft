@@ -165,6 +165,9 @@ inset 1px (padding-box). El borde se vuelve visible en `outline` (`dark:border-i
 | `disabled` | boolean | `false` | `SetAlpha(0.5)` + `EnableMouse(false)`. |
 | `icon` | string | `nil` | Nombre ícono Lucide. Activa padding reducido (`has-data-[icon]`). |
 | `iconPosition` | string | `"left"` | `"left"` (`inline-start`) o `"right"` (`inline-end`). |
+| `tooltip` | string | `nil` | Tooltip de `Craft.Tooltip` mostrado en hover. Visible aun si el botón está disabled. |
+| `tone` | string \| table | `nil` | **Color explícito del par label+icono** (FR-077). Un **string** es el nombre de un token del tema (`"sidebarPrimary"`) y se re-resuelve en cada pasada de tema; una **tabla** es un `{r,g,b,a}` literal. `nil` = el color de texto de la variante. Un token desconocido se ignora. |
+| `fontFlags` | string | `nil` | FR-102: flags de fuente de la etiqueta (4.º arg de `Theme.applyFont`; `""` = sin contorno, p. ej. texto claro sobre superficie oscura con el tema en `"OUTLINE"`). `nil` = el `t.fontFlags` global del tema. Se reaplica en cada re-tema. |
 | `onClick` | function | `nil` | `function(self)` en OnClick. |
 
 ---
@@ -176,12 +179,33 @@ inset 1px (padding-box). El borde se vuelve visible en `outline` (`dark:border-i
 | `SetText(text)` | `string → void` | Cambia texto, recalcula ancho. |
 | `SetEnabled(enabled)` | `boolean → void` | `SetAlpha(0.5/1)` + `EnableMouse`. |
 | `SetVariant(variant)` | `string → void` | Cambia variante y repinta. |
+| `SetTone(tone)` | `string\|table\|nil → void` | Cambia el tono de label+icono en caliente (FR-077); `nil` restaura el color de la variante. |
+| `GetTone()` | `→ string\|table\|nil` | El tono configurado, tal cual se pasó. |
+| `SetIcon(icon)` | `string\|nil → void` | Cambia el icono post-Create (FR-023); `nil` lo quita. Re-tinta, re-mide y re-posiciona. |
 | `SetSize(size)` | `string → void` | Cambia tamaño (dimensiones + padding). |
 | `GetFrame()` | `→ Frame` | Frame raíz para posicionamiento. |
 
 ---
 
 ## Notas de implementación
+
+**Tono (FR-077) — por qué existe.** Un botón `ghost` pinta su label con `t.foreground` y el
+icono **hereda ese color**, así que *todo* botón ghost era chrome: gris de interfaz. Pero a
+veces el botón no es chrome, sino la acción de un bloque de contenido que ya tiene color
+propio — el caso real es una cabecera de sección fijada, donde la acción quedaba
+indistinguible de la ✕ de la ventana (mismo glifo, misma variante, misma esquina). `variant =
+"link"` no sirve de sustituto: usa `t.primary`, que en las paletas Lyra dark es un color de
+**superficie** (pensado para llevar `primaryForeground` encima), ilegible como texto sobre
+fondo oscuro, y además monta el subrayado.
+
+El tono se aplica **al final de `_applyTheme`** — después de resolver la variante, para
+ganarle, y antes de tintar el icono, para que el icono lo herede (que es el punto de la
+petición). Consecuencias: un cambio de tema lo respeta sin que el consumidor re-pinte nada, y
+un `tone` en forma de **token** sigue al tema por sí solo. No añade comportamiento de estado:
+`hover` sigue animando solo el fondo y `disabled` sigue siendo el alfa del frame entero. En
+`link` el subrayado se tiñe con el mismo tono, para que no quede desparejado del texto. La
+alternativa que esto sustituye era re-tintar `_icon` —un campo privado— desde el listener de
+tema del consumidor, apoyándose en el orden de registro de los listeners.
 
 **Lyra es más compacto que new-york**: todos los tamaños son un step más pequeños (default=32px no 36px). El padding uniforme de 10px para sm/default/lg hace que los botones sean visualmente más densos.
 

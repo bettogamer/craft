@@ -61,7 +61,9 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
 │   ├── theme/
 │   │   ├── Theme.lua       ← Craft.Theme (register, use, get, extend)
 │   │   └── Presets.lua     ← lyra-dark (único preset built-in, dark mode solo)
-│   ├── layout/Flex.lua     ← Craft.Flex (motor CSS Flexbox en Lua)
+│   ├── layout/
+│   │   ├── Flex.lua       ← Craft.Flex (motor CSS Flexbox en Lua)
+│   │   └── Grid.lua       ← Craft.Grid (motor CSS Grid 2D en Lua — FR-040)
 │   ├── icons/
 │   │   ├── Icons.lua       ← Craft.Icons.Get/Apply/Has/List
 │   │   └── Atlas.lua       ← coordenadas UV del atlas TGA
@@ -88,7 +90,7 @@ Si la tarea toca un componente específico: leer también `docs/components/<nomb
 │   └── sidebar_spec.lua
 ├── scripts/
 │   ├── export-icons.py     ← genera lucide-*.tga
-│   └── bump-build.sh       ← incrementa CRAFT_BUILD en Craft.lua
+│   └── bump-build.sh       ← incrementa CRAFT_BUILD + actualiza Craft.VERSION en Craft.lua
 │
 └── docs/
     ├── design-reference.md ← FUENTE DE VERDAD de tokens de color (CSS shadcn Lyra)
@@ -153,7 +155,7 @@ herramientas, nunca** (`Co-Authored-By: Claude ...`, "Generated with..." — pro
 |------|------------|-------|
 | Lenguaje | Lua 5.1 | WoW sandbox — sin librerías externas |
 | Librería compartida | LibStub | `LibStub:NewLibrary("Craft-2.0", BUILD)` |
-| Reactividad | Weave **v0.5.0** vendoreada (`Craft/libs/Weave/`, READ-ONLY) | `LibStub("Weave-1.0")`; solo builds etiquetados `v*`; bugs → issue en repo Weave + re-vendoreo. Ver ADR-0013 |
+| Reactividad | Weave **v0.9.0** vendoreada (`Craft/libs/Weave/`, READ-ONLY) | `LibStub("Weave-1.0")`; solo builds etiquetados `v*`; bugs → issue en repo Weave + re-vendoreo. Ver ADR-0013 |
 | Diseño | shadcn Lyra dark | Style=Lyra (Radius=0), Base=**Neutral**, Theme=Emerald, Font=Inter, Icons=Lucide. Ver ADR-0002 + ADR-0014 (ejes/roadmap) |
 | Íconos | Lucide (atlas TGA bundled) | Ver ADR-0003 |
 | Fuente | Inter (TTF bundled) | `Craft/media/Inter-Regular.ttf` |
@@ -248,7 +250,7 @@ setter público (`SetOptions` / `SetItems`). Reglas:
 
 - **MUST**: todo componente implementa el contrato §5 completo.
 - **MUST**: los valores visuales de un componente (tamaños, paddings, colores, variantes) se derivan **exclusivamente** de `docs/components/<nombre>.md` y `docs/design-reference.md`. Nunca usar conocimiento de entrenamiento sobre shadcn, Tailwind o Lyra como fuente — ese conocimiento puede estar desactualizado o ser incorrecto. Si un valor no está en los docs, ejecutar `/update-design-tokens` o preguntar al maintainer antes de asumir.
-- **MUST**: `CRAFT_BUILD` se incrementa antes de cada release (`scripts/bump-build.sh`).
+- **MUST**: `CRAFT_BUILD` **y `Craft.VERSION`** se actualizan antes de cada release: `bash scripts/bump-build.sh <X.Y.Z>` hace ambos en un solo commit. `Craft.VERSION` es el contrato runtime de versión que leen los consumidores (p. ej. `/coffer status`) y DEBE coincidir con el tag; el script aborta si quedaría igual al último tag `v*` (FR-029: v2.7.0 salió con `Craft.VERSION = "2.6.0"`).
 - **MUST**: colores desde tokens semánticos del tema, nunca hardcodeados.
 - **MUST**: usar `Craft.Icons.Apply(tex, name)` para íconos — nunca rutas TGA directas.
 - **MUST**: usar `Craft.Theme.getFont()` para fuentes — nunca rutas TTF directas.
@@ -285,7 +287,13 @@ setter público (`SetOptions` / `SetItems`). Reglas:
 
 ### Requiere aprobación del maintainer:
 - Cambiar API pública de un componente.
-- Agregar componente nuevo (requiere `.toc`, tests, docs, ADR si aplica).
+- Agregar componente nuevo (requiere **los DOS `.toc`**, tests, docs, ADR si aplica).
+  ⚠️ Son dos listas y hay que tocar las dos: `Craft/Craft.toc` **y** el bloque
+  `libs\Craft\components\…` de `Craft_Browser/Craft_Browser.toc`, que enumera uno a uno los
+  archivos del Craft **embebido** (el bloque `pages\…` de ese mismo `.toc` es solo la demo).
+  Si falta la línea del embed, `deploy-local.ps1` copia el archivo pero el cliente no lo
+  carga: `Craft.<Nuevo>` sale **nil** in-game y re-desplegar no arregla nada. _Visto en
+  FR-063 (Empty)._
 - Cambiar `Craft/theme/Presets.lua` (tokens de color).
 - Cambiar `.github/workflows/`.
 - Breaking change de API (MAJOR → `"Craft-2.0"`, `BUILD=1`).
@@ -349,13 +357,34 @@ La primerísima vez que una sesión del cliente usa un TTF bundled (Inter), el a
 async: `GetStringWidth()` medido justo tras `SetFont`/`SetText` devuelve métricas de la fuente
 aún no cargada, y todo componente de auto-ancho sale demasiado estrecho (los glifos luego se ven
 bien — solo los anchos quedaron congelados). Tras `/reload` el TTF ya está en la caché del
-proceso (carga síncrona) y no se reproduce. Mitigación en `theme/Theme.lua` (warm-up + sonda):
-FontStrings ocultos al cargar disparan la carga temprano, y una sonda re-mide un string fijo
-durante los primeros segundos — si su ancho cambia, re-notifica a los listeners de tema (los
-componentes re-ejecutan `_applyTheme`, que DEBE re-medir: `_recalcWidth`/`_layout`/
-`_recalcTriggerWidths`). Los layouts de contenedor que acumulan posiciones desde anchos medidos
-usan `Craft.Theme.onFontsReady(fn)` para re-renderizar (ver Craft_Browser). REGLA para
-componentes nuevos con auto-ancho: la re-medición debe vivir DENTRO de `_applyTheme`.
+proceso (carga síncrona) y no se reproduce. Dos trampas confirmadas in-game (12.0.7):
+**cada peso es un TTF separado que carga en su propio momento** (Regular puede asentar antes que
+Medium, el de los labels de Button — una sonda de un solo archivo que dispara una vez pierde a
+los demás), y **un FontString en un frame `Hide()`n puede no disparar la rasterización del TTF**
+(la sonda oculta nunca ve cambiar su ancho aunque la UI visible cargue la fuente por su cuenta).
+Mitigación en `theme/Theme.lua`: warm-up VISIBLE-imperceptible (frame 1×1 px en BOTTOMLEFT de
+UIParent, strata BACKGROUND, glifos alpha 0.02) + sonda POR ARCHIVO TTF que re-notifica a los
+listeners de tema en CADA asentamiento (los componentes re-ejecutan `_applyTheme`, que DEBE
+re-medir: `_recalcWidth`/`_layout`/`_recalcTriggerWidths`) + watchdog a 1s (~5 min) tras la
+ventana rápida de ~20s; `use()` re-arma sondas para TTFs nuevos (primer switch a Geist). Los
+layouts de contenedor que acumulan posiciones desde anchos medidos usan
+`Craft.Theme.onFontMetricsChanged(fn)` (persistente, dispara por cada asentamiento; ver
+Craft_Browser, que además tiene el diagnóstico `/craft fontprobe`); `onFontsReady(fn)` sigue
+existiendo como one-shot. REGLA para componentes nuevos con auto-ancho: la re-medición debe
+vivir DENTRO de `_applyTheme`.
+
+**Centrar texto verticalmente: ANCLA ÚNICA (LEFT/CENTER), nunca TOP+BOTTOM + `SetJustifyV`**
+Un FontString anclado TOP+BOTTOM con `SetJustifyV("MIDDLE")` renderiza Inter ópticamente
+descentrado dentro de la caja (el line-box incluye ascent/descent completos). El patrón
+verificado in-game es ancla única — `SetPoint("LEFT", ...)` o `SetPoint("CENTER", ...)` —
+que centra verticalmente en el punto de ancla (Toggle, Menu, Badge). _Visto en Badge (FR-026)._
+
+**ScrollFrame: el scroll child necesita ANCHO explícito**
+Las filas ancladas TOPLEFT/TOPRIGHT a un scroll child sin `SetWidth` quedan de 0-1px
+(invisibles) in-game — el child de un ScrollFrame no hereda ancho por anclas. Siempre
+`scrollChild:SetWidth(...)` derivado del panel (Select `_updatePanelSize`, Combobox
+`_buildRows`). El mock no lo detecta: verificar in-game toda lista nueva. _Visto en
+Combobox (FR-027)._
 
 **`frame:EnableMouse(true)` es obligatorio para bloquear eventos**
 Un frame con fondo visible NO bloquea clics/hover por defecto. Sin `EnableMouse(true)`, los eventos pasan al juego debajo. Aplicar en el frame raíz de cualquier ventana o panel que actúe como superficie interactiva.
@@ -434,8 +463,8 @@ lua tests/run.lua tests/button_spec.lua tests/sidebar_spec.lua tests/reactive_sp
 # Generar atlas TGA de Lucide (requiere Python + Pillow)
 python3 scripts/export-icons.py
 
-# Incrementar LibStub build antes de release
-bash scripts/bump-build.sh
+# Incrementar LibStub build + Craft.VERSION antes de release (X.Y.Z = versión del tag que se va a cortar)
+bash scripts/bump-build.sh <X.Y.Z>
 ```
 
 **Slash commands de Claude Code** (invocar con `/nombre`):
@@ -504,7 +533,10 @@ Todos los componentes usan `t.*` en `_applyTheme(t)`. **Fuente de verdad**: `doc
 | Nuevo componente o feature | `MINOR` → `v1.1.0`, incrementar `CRAFT_BUILD` |
 | Breaking change de API | `MAJOR` → `v2.0.0`, LibStub `"Craft-2.0"`, `CRAFT_BUILD = 1` |
 
-`CRAFT_BUILD` en `Craft.lua` es un integer siempre creciente. Usar `scripts/bump-build.sh`.
+`CRAFT_BUILD` en `Craft.lua` es un integer siempre creciente; `Craft.VERSION` es el string
+SemVer runtime y DEBE coincidir con el tag del release (es lo que verifican los consumidores
+al re-vendorear). `bash scripts/bump-build.sh <X.Y.Z>` actualiza ambos y aborta si
+`Craft.VERSION` fuera a quedar igual al último tag (FR-029).
 
 ---
 

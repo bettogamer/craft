@@ -74,7 +74,37 @@ CraftBrowserPages["Menu"] = {
         table.insert(comps, btn2)
         y = y + 44
 
-        -- ── Case 3 — Context menu (right-click), state rebuilt each open ────────────
+        -- ── Case 3 — Account switcher (avatar rows, FR-065) ─────────────────────────
+        -- Each row IS an identity: class-icon avatar (the source for OFFLINE alts) +
+        -- class-colored name + secondary data on the right + ✕ to forget the alt.
+        -- Rows with an avatar are 36px tall; the plain ones below stay at 28.
+        y = addLabel("Dropdown — account switcher (avatar rows, 36px; plain rows stay 28px)", y)
+
+        local switcher = Craft.Menu:Create({ items = {
+            { type="heading", label="Sanguino" },
+            { type="item", avatar={ atlas="classicon-mage",   fallback="Th" },
+              label="|cff3fc7ebThalindra|r", rightText="80 · Night Elf",
+              onClick=function() end, onDelete=function() end },
+            { type="item", avatar={ atlas="classicon-warrior", fallback="Bo" },
+              label="|cffc69b6dBorkaz|r",    rightText="74 · Orc",
+              onClick=function() end, onDelete=function() end },
+            { type="separator" },
+            { type="heading", label="Ragnaros" },
+            { type="item", avatar={ unit="player", fallback="Yo" },
+              label="This character", rightText="online",
+              onClick=function() end },
+            { type="separator" },
+            { type="item", label="Add character", icon="plus", onClick=function() end },
+        } })
+        table.insert(menus, switcher)
+
+        local btn3 = Craft.Button:Create(parent, { text="Switch character", icon="users",
+            onClick=function(b) switcher:Open(b:GetFrame(), { point="TOPLEFT", relativePoint="BOTTOMLEFT" }) end })
+        btn3:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, btn3)
+        y = y + 44
+
+        -- ── Case 4 — Context menu (right-click), state rebuilt each open ────────────
         y = addLabel("Context menu — right-click the box below", y)
 
         local box = CreateFrame("Frame", nil, parent)
@@ -105,6 +135,197 @@ CraftBrowserPages["Menu"] = {
         end)
         table.insert(menus, ctxMenu)
         y = y + 68
+
+        -- ── Case 4 — Row tooltips (FR-067) ───────────────────────────────────
+        -- The case the FR was filed for: toolbar actions collapsed into a menu
+        -- lose the tooltip the loose button had. Hover a row for ~300ms; the tip
+        -- anchors to the RIGHT so it never covers the neighbouring rows.
+        y = addLabel("Dropdown — per-row tooltip, incl. a DISABLED row explaining why", y)
+
+        local sold = 0
+        local menu4 = Craft.Menu:Create({ items = {
+            { type="heading", label="Bag actions" },
+            { type="item", icon="brush-cleaning", label="Clean up", rightText="Ctrl+C",
+              tooltip = "Sorts and stacks every bag.\nHold Shift to include the bank.",
+              onClick=function() end },
+            -- Function form: re-evaluated on every hover, so the number is live.
+            { type="item", icon="banknote-arrow-up", label="Sell junk", rightText="12g 40s",
+              tooltip = function()
+                  return "12 items, 12g 40s\n(sold " .. sold .. " times this session)"
+              end,
+              onClick=function() sold = sold + 1 end },
+            { type="separator" },
+            -- The row that most needs a tooltip: greyed out, and the tip is the
+            -- only place the reason fits. It still receives hover (FR-067).
+            { type="item", icon="lock", label="Deposit reagents", disabled = true,
+              tooltip = "Requires an open bank window.",
+              onClick=function() end },
+            { type="checkbox", label="Auto-sell on vendor", checked = false,
+              tooltip = "Runs 'Sell junk' automatically when you open a merchant.",
+              onToggle=function() end },
+            -- No tooltip: hovering this one must show nothing at all.
+            { type="item", icon="settings", label="Settings (no tooltip)",
+              onClick=function() end },
+        } })
+        table.insert(menus, menu4)
+
+        local btn4 = Craft.Button:Create(parent, { text="Actions", icon="tag",
+            onClick=function(b) menu4:Open(b:GetFrame(), { point="TOPLEFT", relativePoint="BOTTOMLEFT" }) end })
+        btn4:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, btn4)
+        y = y + 44
+
+        -- ── Case 5 — Submenus (FR-085) + native GameTooltip rows (FR-084) ──────────
+        -- The case both FRs were filed for: one right-click configures a whole piece
+        -- of gear. Each branch is a single-choice list whose rows carry the REAL item
+        -- texture *and* the selection mark (FR-084 hueco 1) — the combination the
+        -- component could not express — and explain themselves with the CLIENT's
+        -- tooltip (FR-084 hueco 2), which no addon can rebuild as text.
+        y = addLabel("Context menu with submenus — hover a ▸ row (branches build on open)", y)
+
+        local gear = { gem = "ruby", enchant = "speed", catalyzed = false }
+        local GEMS = {
+            { value="ruby",     label="Bold Ruby",        item=213743, atlas="classicon-mage" },
+            { value="onyx",     label="Solid Onyx",       item=213746, atlas="classicon-warrior" },
+            { value="sapphire", label="Sparkling Sapphire", item=213749, atlas="classicon-mage" },
+        }
+        local gemName = function()
+            for _, g in ipairs(GEMS) do if g.value == gear.gem then return g.label end end
+        end
+
+        local slot = CreateFrame("Frame", nil, parent)
+        slot:SetSize(280, 56)
+        slot:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        local slotBg = slot:CreateTexture(nil, "BACKGROUND")
+        slotBg:SetAllPoints(slot)
+        slotBg:SetColorTexture(t.input.r, t.input.g, t.input.b, (t.input.a or 1) * 0.30)
+        local slotLbl = Craft.Label:Create(slot, { text="Right-click this slot",
+            color = { r=t.mutedForeground.r, g=t.mutedForeground.g, b=t.mutedForeground.b, a=1 } })
+        slotLbl:GetFrame():SetPoint("CENTER", slot, "CENTER")
+        table.insert(comps, slotLbl)
+
+        local gearMenu = Craft.Menu:AttachContextMenu(slot, function()
+            return { items = {
+                { type="item", label="Change item…", icon="package", onClick=function() end },
+                { type="separator" },
+                -- `builder` (not `items`): the 3 gem rows are built the moment this
+                -- branch opens, not on every right-click of the slot.
+                { type="submenu", label="Gem", icon="gem", rightText=gemName(),
+                  builder=function()
+                      local rows = {}
+                      for _, g in ipairs(GEMS) do
+                          rows[#rows+1] = {
+                              type="radio", group="gem", value=g.value, label=g.label,
+                              avatar={ atlas=g.atlas, fallback=g.label:sub(1,1) },
+                              checked = (gear.gem == g.value),
+                              tooltip = { item = g.item },     -- the client's own tooltip
+                              onSelect=function(v) gear.gem = v end,
+                          }
+                      end
+                      return rows
+                  end },
+                { type="submenu", label="Enchant", icon="wand-sparkles", rightText="Whisper of Speed",
+                  items = {
+                      { type="radio", group="ench", value="speed", label="Whisper of Speed",
+                        checked = (gear.enchant == "speed"), tooltip = { spell = 7301 },
+                        onSelect=function(v) gear.enchant = v end },
+                      { type="radio", group="ench", value="armor", label="Council's Guile",
+                        checked = (gear.enchant == "armor"),
+                        onSelect=function(v) gear.enchant = v end },
+                  } },
+                -- A branch nested inside a branch: depth is free (the child IS a Menu).
+                { type="submenu", label="Item level", rightText="Mythic 723", items = {
+                    { type="submenu", label="Raid", items = {
+                        { type="item", label="Mythic 723",  onClick=function() end },
+                        { type="item", label="Heroic 710",  onClick=function() end },
+                        { type="item", label="Normal 697",  onClick=function() end },
+                    } },
+                    { type="submenu", label="Delve", items = {
+                        { type="item", label="Tier 11 704", onClick=function() end },
+                        { type="item", label="Tier 8 691",  onClick=function() end },
+                    } },
+                } },
+                -- A checkbox in the root keeps the menu open, as it always did.
+                { type="checkbox", label="Catalyzed", checked=gear.catalyzed,
+                  onToggle=function(on) gear.catalyzed = on end },
+                { type="separator" },
+                { type="item", label="Remove item", icon="trash-2", variant="destructive",
+                  onClick=function() end },
+            } }
+        end)
+        table.insert(menus, gearMenu)
+        y = y + 68
+
+        -- ── Case 6 — A branch longer than the height cap (FR-086) ──────────────────
+        -- The case the FR was filed for: 39 gems, a 320px cap, ~11 rows visible. The
+        -- wheel moves the panel (3 rows a notch), the rail says there IS more, and the
+        -- menu opens landing on the stone actually socketed — row 27 of a list that
+        -- used to look like it ended at row 11. Both panels scroll: the same list is
+        -- offered inline (root) and behind a ▸ (child), each with its own rail.
+        y = addLabel("Long list — wheel over the panel; opens on the current choice", y)
+
+        local STATS = { "Critical Strike", "Haste", "Mastery", "Versatility" }
+        local socketed = "gem-27"
+        local longMenu = Craft.Menu:Create({ maxHeight = 320, items = {} })
+        table.insert(menus, longMenu)
+
+        local function gemRows()
+            local rows = {}
+            for i = 1, 39 do
+                rows[#rows + 1] = {
+                    type = "radio", group = "stone", value = "gem-" .. i,
+                    label = "Rank " .. i .. " · " .. STATS[(i - 1) % #STATS + 1],
+                    checked = (socketed == "gem-" .. i),
+                    onSelect = function(v) socketed = v end,
+                }
+            end
+            return rows
+        end
+
+        local btn6 = Craft.Button:Create(parent, { text = "Gem (39 stones)", icon = "gem",
+            onClick = function(b)
+                local items = {
+                    { type = "heading", label = "Socket" },
+                    { type = "submenu", label = "All stones", items = gemRows() },
+                    { type = "separator" },
+                }
+                for _, row in ipairs(gemRows()) do items[#items + 1] = row end
+                longMenu:SetItems(items)
+                longMenu:Open(b:GetFrame(), { point = "TOPLEFT", relativePoint = "BOTTOMLEFT" })
+            end })
+        btn6:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, btn6)
+        y = y + 44
+
+        -- FR-102: per-menu fontFlags; the ▸ branch inherits the root's flag.
+        y = addLabel("FR-102 fontFlags — activa 'Font outline' en Theme y compara (el submenú hereda)", y)
+        local function planItems()
+            return {
+                { type = "heading", label = "Planes" },
+                { type = "item", label = "Mítico — Tindral", rightText = "M" },
+                { type = "submenu", label = "Heroico", items = {
+                    { type = "item", label = "Fyrakk", rightText = "H" },
+                    { type = "item", label = "Smolderon", rightText = "H" },
+                } },
+            }
+        end
+        local themedMenu = Craft.Menu:Create({ items = planItems() })
+        local cleanMenu  = Craft.Menu:Create({ items = planItems(), fontFlags = "" })
+        table.insert(menus, themedMenu)
+        table.insert(menus, cleanMenu)
+        local btn7 = Craft.Button:Create(parent, { text = "Theme flag", variant = "outline",
+            onClick = function(b)
+                themedMenu:Open(b:GetFrame(), { point = "TOPLEFT", relativePoint = "BOTTOMLEFT" })
+            end })
+        btn7:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, btn7)
+        local btn8 = Craft.Button:Create(parent, { text = "fontFlags = \"\"", variant = "outline",
+            onClick = function(b)
+                cleanMenu:Open(b:GetFrame(), { point = "TOPLEFT", relativePoint = "BOTTOMLEFT" })
+            end })
+        btn8:GetFrame():SetPoint("LEFT", btn7:GetFrame(), "RIGHT", 8, 0)
+        table.insert(comps, btn8)
+        y = y + 44
 
         return {
             height  = y + 24,

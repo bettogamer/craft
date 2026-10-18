@@ -36,6 +36,23 @@ function A.near(exp, act, tol)
     end
 end
 
+-- Deep equality (luassert's assert.same): tables compared key by key, recursively.
+local function same(a, b)
+    if type(a) ~= "table" or type(b) ~= "table" then return a == b end
+    for k, v in pairs(a) do if not same(v, b[k]) then return false end end
+    for k in pairs(b) do if a[k] == nil then return false end end
+    return true
+end
+local function dump(v)
+    if type(v) ~= "table" then return fmt(v) end
+    local parts = {}
+    for k, x in pairs(v) do parts[#parts + 1] = tostring(k) .. "=" .. dump(x) end
+    return "{" .. table.concat(parts, ", ") .. "}"
+end
+function A.same(exp, act)
+    if not same(exp, act) then fail("expected " .. dump(exp) .. " but got " .. dump(act)) end
+end
+
 function A.is_true(v)    if v ~= true  then fail("expected true, got " .. fmt(v)) end end
 function A.is_false(v)   if v ~= false then fail("expected false, got " .. fmt(v)) end end
 function A.is_nil(v)     if v ~= nil   then fail("expected nil, got " .. fmt(v)) end end
@@ -84,8 +101,20 @@ if #specs == 0 then
 end
 
 assert = A  -- luassert-style global while specs run
+-- Each spec runs in its OWN environment (reads fall through to _G), like busted:
+-- a spec that writes `GetCursorPosition = …` changes only its own environment,
+-- never the _G that the components (loaded with dofile) read. To stub a global
+-- for the code under test, a spec must write `_G.Name = …`. Without this sandbox
+-- the local runner passed tests that failed in CI (busted).
+local loadIn = setfenv and function(path, env)       -- Lua 5.1
+    local chunk = rawassert(loadfile(path))
+    return setfenv(chunk, env)
+end or function(path, env)                           -- Lua 5.2+
+    return rawassert(loadfile(path, "t", env))
+end
 for _, spec in ipairs(specs) do
-    dofile(spec)
+    local env = setmetatable({}, { __index = _G })
+    loadIn(spec, env)()
 end
 assert = rawassert
 

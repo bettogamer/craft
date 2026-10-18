@@ -41,7 +41,13 @@ function Input:Create(parent, config)
         onTrailingClick= config.onTrailingClick,           -- makes iconTrailing clickable
         onChange       = config.onChange,
         onEnterPressed = config.onEnterPressed,
+        onEscapePressed= config.onEscapePressed,           -- FR-072: default clears focus
+        onFocusGained  = config.onFocusGained,             -- FR-111: after internal focus work
+        onFocusLost    = config.onFocusLost,               -- FR-111
         width          = config.width,
+        -- FR-102: override of the theme's outline (t.fontFlags), applyFont's 4th arg —
+        -- "" = no outline, nil = theme flag. Re-applied on every re-theme.
+        fontFlags      = config.fontFlags,
     }
 
     -- Reactive props (ADR-0013): a callable prop binds through the setters
@@ -60,6 +66,7 @@ function Input:Create(parent, config)
 
     -- ── Root frame ────────────────────────────────────────────────────────────
     self.frame = CreateFrame("Frame", nil, parent)
+    self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetHeight(HEIGHT)
     if self._cfg.width then
         self.frame:SetWidth(self._cfg.width)
@@ -157,6 +164,15 @@ function Input:Create(parent, config)
     self._edit:SetTextInsets(self:_leftPad(), self:_rightPad(), 0, 0)
     self._edit:SetText(self._cfg.value)
 
+    -- FR-060 — hit priority: the EditBox is mouse-enabled and spans the FULL inner
+    -- width (it covers the trailing slot too; SetTextInsets moves the TEXT, not the
+    -- mouse area). Both frames are children of self.frame, so they share a frame
+    -- level and WoW hands the click to the one created LAST — the EditBox, which
+    -- swallowed the ✕. Lift the trailing button above it so it owns its own hit area.
+    if self._trailBtn then
+        self._trailBtn:SetFrameLevel(self._edit:GetFrameLevel() + 1)
+    end
+
     -- ── _placeholder: FontString OVERLAY ──────────────────────────────────────
     -- Placeholder is a FontString (no internal WoW margin) so normal anchors work.
     self._placeholder = self.frame:CreateFontString(nil, "OVERLAY")
@@ -187,6 +203,7 @@ function Input:Create(parent, config)
     self._edit:SetScript("OnEditFocusGained", function()
         self._placeholder:Hide()
         self._focused:set(true)   -- tween fades the border → ring (see focus-ring fade)
+        if self._cfg.onFocusGained then self._cfg.onFocusGained() end
     end)
 
     self._edit:SetScript("OnEditFocusLost", function()
@@ -194,24 +211,17 @@ function Input:Create(parent, config)
             self._placeholder:Show()
         end
         self._focused:set(false)  -- tween fades the border back → idle
+        if self._cfg.onFocusLost then self._cfg.onFocusLost() end
     end)
 
     -- OnTextChanged also fires on programmatic SetText (the reactive bind's
     -- SetValue path) — the userInput guard keeps the signal writeback strictly
     -- user-driven, so a bind sync never echoes back into the signal.
     self._edit:SetScript("OnTextChanged", function(editbox, userInput)
-        if userInput then
-            local text = editbox:GetText()
-            if self._valueSignal then self._valueSignal:set(text) end
-            if self._cfg.onChange then
-                self._cfg.onChange(text)
-            end
-            -- Update placeholder visibility
-            if text == "" then
-                self._placeholder:Show()
-            else
-                self._placeholder:Hide()
-            end
+        -- Insert() runs the user path itself, once, whatever userInput the
+        -- client reports for a code-driven Insert.
+        if userInput and not self._inserting then
+            self:_onUserText(editbox:GetText())
         end
         -- Clear ✕ visibility tracks the text on both user input and programmatic
         -- SetText (fires OnTextChanged with userInput=false), so it stays in sync.
@@ -224,13 +234,26 @@ function Input:Create(parent, config)
         end
     end)
 
+    -- Escape releases focus (same courtesy as Textarea.lua). It does NOT bubble up
+    -- to close a parent Window/Dialog: a focused EditBox swallows the key before
+    -- UISpecialFrames sees it anyway, and closing something is the consumer's call
+    -- (that is what onEscapePressed is for — e.g. a reveal-on-demand search bar,
+    -- which wants "close the bar", not "drop the caret"). FR-072.
+    self._edit:SetScript("OnEscapePressed", function(editbox)
+        if self._cfg.onEscapePressed then
+            self._cfg.onEscapePressed(editbox:GetText())
+        else
+            editbox:ClearFocus()
+        end
+    end)
+
     -- ── Focus-ring fade (Weave.tween) ─────────────────────────────────────────
     -- shadcn v4 `transition-[color,box-shadow]`: instead of snapping the 4 border
     -- textures between the idle color and the focus-ring color, ease them. Private
     -- signal flips in the focus scripts (above); the tween drives an effect that
     -- lerps each border color between the cached endpoints. Mirrors the Dialog fade.
     self._focused = Weave.signal(false)
-    local m = Craft.Theme.get()
+    local m = self._theme:get()
     local prog = Weave.tween(
         Weave.computed(function() return self._focused() and 1 or 0 end),
         { duration = m.motionFast, easing = Weave.easing[m.motionEasing] })
@@ -245,8 +268,8 @@ function Input:Create(parent, config)
     self._effects[#self._effects + 1] = prog  -- dispose the tween (effect + driver reg)
 
     -- ── Theme registration ────────────────────────────────────────────────────
-    self._themeHandle = Craft.Theme.register(function(t) self:_applyTheme(t) end)
-    self:_applyTheme(Craft.Theme.get())
+    self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
+    self:_applyTheme(self._theme:get())
     self._placeholder:SetText(self._cfg.placeholder)  -- after SetFont in _applyTheme
 
     -- ── Reactive binds — after the theme pass (SetText needs the font set). ──
@@ -303,18 +326,22 @@ end
 -- default) and RE-APPLIES the color at the live tween progress. Called from
 -- _applyTheme (AGENTS §9: a theme change re-applies with the vigente prog, it
 -- must NOT snap the border back to idle mid-fade) and from SetError.
--- Does NOT call Craft.Theme.get() — uses self._t.
+-- Does NOT call self._theme:get() — uses self._t.
 function Input:_updateBorderEndpoints()
     local t = self._t
     if not t then return end
 
     if self._cfg.error then
-        self._borderIdle = { r = t.destructive.r, g = t.destructive.g, b = t.destructive.b, a = 1 }
+        -- FR-037: aria-invalid keeps border-destructive even when focused
+        -- (in shadcn `aria-invalid:border-destructive` wins over
+        -- `focus-visible:border-ring`), so BOTH endpoints are destructive.
+        self._borderIdle  = { r = t.destructive.r, g = t.destructive.g, b = t.destructive.b, a = 1 }
+        self._borderFocus = { r = t.destructive.r, g = t.destructive.g, b = t.destructive.b, a = 1 }
     else
         -- border-input (not --border): white @ 0.15, same token as Checkbox / Button outline
-        self._borderIdle = { r = t.input.r, g = t.input.g, b = t.input.b, a = t.input.a }
+        self._borderIdle  = { r = t.input.r, g = t.input.g, b = t.input.b, a = t.input.a }
+        self._borderFocus = { r = t.ring.r, g = t.ring.g, b = t.ring.b, a = t.ring.a or 0.5 }
     end
-    self._borderFocus = { r = t.ring.r, g = t.ring.g, b = t.ring.b, a = t.ring.a or 0.5 }
 
     self:_paintBorder(self._prog and self._prog() or 0)
 end
@@ -324,8 +351,9 @@ function Input:_applyTheme(t)
     self._t = t
 
     -- Font for EditBox and placeholder
-    Craft.Theme.applyFont(self._edit, t.font, FONT_SIZE)  -- EditBox requires flags arg (FontString does not)
-    Craft.Theme.applyFont(self._placeholder, t.font, FONT_SIZE)
+    -- (applyFont always passes a flags string — the EditBox requires it.)
+    self._theme:applyFont(self._edit, t.font, FONT_SIZE, self._cfg.fontFlags)
+    self._theme:applyFont(self._placeholder, t.font, FONT_SIZE, self._cfg.fontFlags)
 
     -- Text colors
     if self._cfg.disabled then
@@ -383,6 +411,41 @@ function Input:SetValue(text)
     self:_updateClear()
 end
 
+-- The path a keystroke takes: signal writeback + onChange + placeholder.
+function Input:_onUserText(text)
+    if self._valueSignal then self._valueSignal:set(text) end
+    if self._cfg.onChange then
+        self._cfg.onChange(text)
+    end
+    if text == "" then
+        self._placeholder:Show()
+    else
+        self._placeholder:Hide()
+    end
+end
+
+-- ─── Insert at the caret (FR-111) ─────────────────────────────────────────────
+-- Inserts `text` where the caret is (replacing a selection, like typing) and
+-- takes the same path as a keystroke: onChange fires, a bound value signal is
+-- written back, placeholder and clear ✕ update. Use case: a "codes" panel that
+-- drops `%p` into the field without losing the caret. No-op when disabled.
+function Input:Insert(text)
+    if self._cfg.disabled or text == nil or text == "" then return end
+    self._inserting = true
+    self._edit:Insert(text)
+    self._inserting = false
+    self:_onUserText(self._edit:GetText())
+    self:_updateClear()
+end
+
+function Input:GetCursorPosition()
+    return self._edit:GetCursorPosition()
+end
+
+function Input:SetCursorPosition(n)
+    self._edit:SetCursorPosition(n)
+end
+
 -- ─── Clear (FR-016) ───────────────────────────────────────────────────────────
 -- Empties the field, fires onChange("") + onClear(), writes back into a bound
 -- value signal, and returns focus to the EditBox. SetText("") itself fires
@@ -410,6 +473,25 @@ end
 
 function Input:GetValue()
     return self._edit:GetText()
+end
+
+-- ─── Programmatic focus (FR-059) ──────────────────────────────────────────────
+-- Public passthrough to the inner EditBox so callers don't reach into `_edit`.
+-- Use case: a search bar revealed by a button must be ready to type without a
+-- second click ("toggle search → type"); closing it releases the focus.
+-- `Focus()` is a no-op on a disabled field (a disabled EditBox can't be typed
+-- in, so taking the caret there would only hide the placeholder).
+function Input:Focus()
+    if self._cfg.disabled then return end
+    self._edit:SetFocus()
+end
+
+function Input:ClearFocus()
+    self._edit:ClearFocus()
+end
+
+function Input:HasFocus()
+    return self._edit:HasFocus() and true or false   -- always a boolean
 end
 
 function Input:SetEnabled(enabled)
@@ -449,7 +531,7 @@ end
 function Input:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
-    Craft.Theme.unregister(self._themeHandle)
+    self._theme:unregister(self._themeHandle)
     self.frame:Hide()
     self.frame = nil
 end

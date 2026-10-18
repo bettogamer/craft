@@ -18,6 +18,11 @@
 --   Craft.Tooltip.Detach(frame)
 --   Craft.Tooltip.Show(anchor, config)
 --   Craft.Tooltip.Hide()
+--
+-- config.fontFlags (FR-101): per-show override of the theme's global outline
+--   (t.fontFlags), passed as applyFont's 4th arg — "" = no outline. nil = theme flag.
+--   The tooltip is a singleton, so it is re-resolved on EVERY Show: a later Show
+--   without the option goes back to the theme flag (it never sticks).
 
 local Craft = LibStub("Craft-2.0")
 local Weave = LibStub("Weave-1.0")
@@ -37,6 +42,11 @@ local WRAP_SLACK = 2  -- px of text-box headroom so the zoom animation never re-
 -- ─── Singleton frame ───────────────────────────────────────────────────────
 local _tooltip       = nil   -- the shared Frame, created lazily
 local _visible       = nil   -- Weave.signal(false): internal show/hide state (fade driver)
+local _fontFlags     = nil   -- current Show's config.fontFlags (nil = theme flag, FR-101)
+-- FR-104: the singleton listens to ONE theme context — the one it was last shown
+-- with (config.theme > the anchor's context). Starts on the default context.
+TT._ctx    = Craft.Theme
+TT._handle = nil
 
 local function _getTooltipFrame()
     if _tooltip then return _tooltip end
@@ -73,6 +83,8 @@ local function _getTooltipFrame()
     -- The singleton lives forever → no destructor / disposal (see Attach note).
     _visible = Weave.signal(false)
 
+    -- Motion is built once for the singleton's whole life: it uses the default
+    -- context's tokens (FR-104 re-themes colors/fonts per Show, not the tween).
     local motion = Craft.Theme.get()
     local alpha = Weave.tween(
         Weave.computed(function() return _visible() and 1 or 0 end),
@@ -111,7 +123,14 @@ local function _getTooltipFrame()
         if not sl then return end
         local off = slidePx * (1 - prog) * sl.sign
         _tooltip:ClearAllPoints()
-        _tooltip:SetPoint(sl.point, sl.anchor, sl.relPoint, sl.x, sl.baseY + off)
+        -- The slide runs along the anchor-facing axis, which is horizontal for the
+        -- left/right sides (shadcn slide-in-from-left / -right) and vertical for
+        -- top/bottom. `axis` is stashed by _positionTooltip alongside the resting point.
+        if sl.axis == "x" then
+            _tooltip:SetPoint(sl.point, sl.anchor, sl.relPoint, sl.baseX + off, sl.y)
+        else
+            _tooltip:SetPoint(sl.point, sl.anchor, sl.relPoint, sl.x, sl.baseY + off)
+        end
     end)
 
     -- Bind alpha + shown to the singleton frame, plus the derived scale/slide
@@ -127,16 +146,24 @@ local function _getTooltipFrame()
         slideFx,
     }
 
-    -- Register global theme listener (once, never unregistered — singleton lives forever)
-    Craft.Theme.register(function(t)
-        TT._applyThemeToFrame(t)
-    end)
-    TT._applyThemeToFrame(Craft.Theme.get())
+    -- Listen to the current context (moved by _bindTheme when a Show changes it)
+    TT._handle = TT._ctx:register(function(t) TT._applyThemeToFrame(t) end)
+    TT._applyThemeToFrame(TT._ctx:get())
 
     return _tooltip
 end
 
+TT._getFrame = _getTooltipFrame  -- internal (specs): the singleton frame
+
 -- ─── Internal theme application ────────────────────────────────────────────
+-- FR-104 (ADR-0019 §3.4): moves the singleton's listener to `ctx` if it changed.
+function TT._bindTheme(ctx)
+    if ctx == TT._ctx then return end
+    if TT._handle then TT._ctx:unregister(TT._handle) end
+    TT._ctx    = ctx
+    TT._handle = ctx:register(function(t) TT._applyThemeToFrame(t) end)
+end
+
 function TT._applyThemeToFrame(t)
     TT._t = t
     if not _tooltip then return end
@@ -156,7 +183,7 @@ function TT._applyThemeToFrame(t)
         _tooltip._bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
     end
 
-    Craft.Theme.applyFont(_tooltip._text, t.font, FONT_SIZE)
+    TT._ctx:applyFont(_tooltip._text, t.font, FONT_SIZE, _fontFlags)
     _tooltip._text:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
 end
 
@@ -217,7 +244,7 @@ local function _layoutTooltip(config)
         f._text:SetPoint("TOPLEFT", f._icon, "TOPRIGHT", ICON_GAP, 0)
 
         -- Tint icon with popover foreground
-        local t = TT._t or Craft.Theme.get()
+        local t = TT._t or TT._ctx:get()
         f._icon:SetVertexColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b, 1)
         f._icon:Show()
     else
@@ -229,15 +256,32 @@ end
 
 -- ─── Positioning logic ─────────────────────────────────────────────────────
 -- Tries to place tooltip above the anchor. Falls back to below if no room.
-local function _positionTooltip(anchor)
+local function _positionTooltip(anchor, side)
     local f = _tooltip
     f:ClearAllPoints()
+
+    -- Explicit side (shadcn `side` prop). Without it Craft keeps its auto
+    -- behaviour: prefer above, flip below when there is no room. The side
+    -- matters when the anchor is one row of a stacked surface (a menu): a
+    -- vertical tooltip would cover its neighbours, so those callers ask for
+    -- "right" and the tip lands outside the panel. FR-067.
+    if side == "right" or side == "left" then
+        local toRight  = (side == "right")
+        local point    = toRight and "LEFT"  or "RIGHT"
+        local relPoint = toRight and "RIGHT" or "LEFT"
+        local baseX    = toRight and OFFSET or -OFFSET
+        f:SetPoint(point, anchor, relPoint, baseX, 0)
+        -- Enter from the anchor side: start closer to it, ease outward.
+        f._slide = { point = point, anchor = anchor, relPoint = relPoint,
+                     axis = "x", baseX = baseX, y = 0, sign = toRight and -1 or 1 }
+        return
+    end
 
     -- Check space above
     local anchorTop = anchor:GetTop() or 0
     local tipH      = f:GetHeight()
 
-    if anchorTop - tipH - OFFSET >= 0 then
+    if side ~= "bottom" and (side == "top" or anchorTop - tipH - OFFSET >= 0) then
         -- Enough room above: BOTTOM of tooltip → TOP of anchor + OFFSET.
         -- Tooltip sits ABOVE the anchor (side=top) → shadcn slide-in-from-bottom:
         -- it enters from below (toward the anchor). Start slidePx lower (sign=-1)
@@ -274,8 +318,15 @@ function TT.Show(anchor, config)
     -- the zoom (frame is still ~invisible then, so there is no visible pop-jump).
     _tooltip:SetScale(1)
 
+    -- FR-101: resolve the flag for THIS show before measuring (outline changes glyph
+    -- metrics). Assigned unconditionally so a previous show's override never sticks.
+    _fontFlags = config.fontFlags
+    -- FR-104: this show's context — config.theme > the anchor's (parent chain).
+    TT._bindTheme(Craft.Theme.resolve(anchor, config))
+    TT._applyThemeToFrame(TT._ctx:get())
+
     _layoutTooltip(config)
-    _positionTooltip(anchor)
+    _positionTooltip(anchor, config.side)
 
     -- Fade in: the shown-computed reveals the frame, the tween eases alpha 0→1.
     -- (f is kept live above via _getTooltipFrame so layout/position ran already.)

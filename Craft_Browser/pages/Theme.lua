@@ -160,6 +160,12 @@ CraftBrowserPages["Theme"] = {
             { name="border",            color=t.border            },
             { name="input",             color=t.input             },
             { name="ring",              color=t.ring              },
+            -- FR-103: rampa del base (Lyra), no paleta categórica
+            { name="chart1",            color=t.chart1            },
+            { name="chart2",            color=t.chart2            },
+            { name="chart3",            color=t.chart3            },
+            { name="chart4",            color=t.chart4            },
+            { name="chart5",            color=t.chart5            },
         }
 
         y = addLabel("Token  →  cuadrado de color  +  valores RGBA", y)
@@ -201,6 +207,116 @@ CraftBrowserPages["Theme"] = {
                 y = y + ROW_H
             end
         end
+
+        -- ─── FR-103: mini bar chart con chart1..chart5 ──────────────────────
+        -- Lo que pinta un <BarChart> de shadcn con fill="var(--chart-N)": en Lyra
+        -- es una rampa monocroma del base (cambia con Base, NO con Accent).
+        y = addLabel("FR-103: chart1..chart5 (cambia el Base para ver la rampa)", y + 8)
+        local BAR_W, BAR_MAX = 28, 72
+        local heights = { 72, 56, 64, 40, 48 }
+        for i = 1, 5 do
+            local c = t["chart" .. i]
+            if c then
+                local bar = CreateFrame("Frame", nil, parent)
+                bar:SetSize(BAR_W, heights[i])
+                bar:SetPoint("TOPLEFT", parent, "TOPLEFT", 16 + (i - 1) * (BAR_W + 8),
+                    -(y + BAR_MAX - heights[i]))
+                local tex = bar:CreateTexture(nil, "BACKGROUND")
+                tex:SetAllPoints(bar)
+                tex:SetColorTexture(c.r, c.g, c.b, c.a or 1)
+                table.insert(comps, { Destroy = function()
+                    bar:Hide(); bar:SetParent(nil)
+                end })
+            end
+        end
+        y = y + BAR_MAX + 12
+
+        -- ─── FR-104: contextos de tema por addon (ADR-0019) ─────────────────
+        -- Dos paneles = dos "addons", cada uno con SU contexto. El accent de uno
+        -- no toca al otro ni al tema global de arriba. El contador cuenta cuántas
+        -- veces se notificó a cada contexto: cambiar A solo sube el de A. El
+        -- Menu es UNO compartido: sale con el tema del panel desde el que se abre.
+        y = addLabel("FR-104: un contexto de tema por addon (cada panel con el suyo)", y + 8)
+        local PANEL_W, PANEL_H, GAP = 300, 236, 16
+        local sharedMenu = Craft.Menu:Create({ items = {
+            { type = "heading", label = "Menu compartido" },
+            { type = "item",    label = "Sale con el tema del panel", icon = "palette" },
+            { type = "item",    label = "Otra acción" },
+        } })
+        table.insert(comps, sharedMenu)
+
+        local function contextPanel(name, defAccent, xOff)
+            local ctx = Craft.Theme.context(name, { accent = defAccent })
+            local panel = Craft.Panel:Create(parent, {
+                theme       = ctx,   -- raíz del "addon": todo lo de dentro lo hereda
+                title       = name,
+                description = "Craft.Theme.context(\"" .. name .. "\")",
+                width       = PANEL_W,
+                height      = PANEL_H,
+            })
+            panel:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", xOff, -y)
+            table.insert(comps, panel)
+            local content = panel:GetContent()
+
+            local notified = 0
+            local counter = Craft.Label:Create(content, { text = "Notificaciones de " .. name .. ": 0" })
+            counter:GetFrame():SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
+            table.insert(comps, counter)
+            local h = ctx:register(function()
+                notified = notified + 1
+                counter:SetText("Notificaciones de " .. name .. ": " .. notified)
+            end)
+            table.insert(comps, { Destroy = function() ctx:unregister(h) end })
+
+            local accents = {}
+            for _, a in ipairs(axisOpts.accent or {}) do
+                accents[#accents + 1] = { value = a, label = titleCase(a) }
+            end
+            local spec = ctx:getSpec()
+            local sel = Craft.Select:Create(content, {
+                options  = accents,
+                value    = spec and spec.accent or defAccent,
+                onSelect = function(v)
+                    ctx:use({ accent = v })   -- solo re-tematiza ESTE contexto
+                    print(("|cff88ccffCraft_Browser|r FR-104: %s:use{accent=%s}"):format(name, v))
+                end,
+            })
+            sel:GetFrame():SetPoint("TOPLEFT", content, "TOPLEFT", 0, -24)
+            sel:GetFrame():SetWidth(PANEL_W - 32)
+            table.insert(comps, sel)
+
+            local primary = Craft.Button:Create(content, {
+                text    = "Primario",
+                tooltip = "Tooltip con el tema de " .. name,
+            })
+            primary:GetFrame():SetPoint("TOPLEFT", content, "TOPLEFT", 0, -68)
+            table.insert(comps, primary)
+
+            local menuBtn
+            menuBtn = Craft.Button:Create(content, {
+                text    = "Menu",
+                variant = "outline",
+                onClick = function() sharedMenu:Open(menuBtn:GetFrame()) end,
+            })
+            menuBtn:GetFrame():SetPoint("LEFT", primary:GetFrame(), "RIGHT", 8, 0)
+            table.insert(comps, menuBtn)
+
+            local toastBtn = Craft.Button:Create(content, {
+                text    = "Toast",
+                variant = "secondary",
+                onClick = function()
+                    Craft.Toast.Show({ title = "Toast de " .. name,
+                                       description = "Toaster en el panel: su contexto",
+                                       container = panel })
+                end,
+            })
+            toastBtn:GetFrame():SetPoint("LEFT", menuBtn:GetFrame(), "RIGHT", 8, 0)
+            table.insert(comps, toastBtn)
+        end
+
+        contextPanel("Demo A", "blue",   16)
+        contextPanel("Demo B", "orange", 16 + PANEL_W + GAP)
+        y = y + PANEL_H + 12
 
         return {
             height  = y + 24,

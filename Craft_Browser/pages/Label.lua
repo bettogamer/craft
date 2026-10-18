@@ -62,6 +62,162 @@ CraftBrowserPages["Label"] = {
         table.insert(comps, lblTrunc)
         y = y + 28
 
+        -- ── FR-105 repro: maxWidth with text that FITS must not elide ────────
+        -- SMRT's boss cards: bold, flags="", maxWidth=148, SetText after Create.
+        -- Before the fix the short names came out "Sszor…" / "Ula't…".
+        y = addLabel("FR-105: maxWidth=148, short names must NOT elide; long one elides at 148", y)
+        local NAMES = { "Sszorak", "Ula'tek", "Nek'zali the Soulcoiler of the Deep" }
+        local x = 16
+        for _, name in ipairs(NAMES) do
+            local lblName = Craft.Label:Create(parent, {
+                weight = "bold", flags = "", maxWidth = 148,
+            })
+            lblName:SetText(name)
+            lblName:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", x, -y)
+            table.insert(comps, lblName)
+            x = x + 164
+        end
+        y = y + 24
+
+        local lblToggle = Craft.Label:Create(parent, { weight = "bold", flags = "", maxWidth = 148 })
+        lblToggle:SetText("Sszorak")
+        lblToggle:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, lblToggle)
+        local short = true
+        local btnToggle = Craft.Button:Create(parent, {
+            text = "FR-105: toggle short/long", variant = "outline", size = "sm",
+            onClick = function()
+                short = not short
+                lblToggle:SetText(short and "Sszorak" or "Nek'zali the Soulcoiler of the Deep")
+                print(("FR-105: text=%q frame=%.1f string=%.1f"):format(
+                    lblToggle._text:GetText() or "", lblToggle:GetFrame():GetWidth(),
+                    lblToggle._text:GetWidth()))
+            end,
+        })
+        btnToggle:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 180, -y + 4)
+        table.insert(comps, btnToggle)
+        y = y + 36
+
+        -- ── Wrap box (FR-071) ────────────────────────────────────────────────
+        -- The SAME text in the three width modes, stacked, so the difference is
+        -- the only variable: hug (overflows), maxWidth (elides), wrap (fits).
+        local LONG = "Coffer now has profiles - set them up in Settings > Profiles "
+                  .. "to keep separate layouts per character."
+
+        y = addLabel("Wrap box (FR-071) — width + wrap = true: fixed width, grows in height", y)
+        local lblWrap = Craft.Label:Create(parent, {
+            text  = LONG,
+            width = 260,
+            wrap  = true,
+            color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+        })
+        lblWrap:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, lblWrap)
+        y = y + (lblWrap:GetFrame():GetHeight() or 14) + 12
+
+        y = addLabel("Same text with maxWidth=260 — elides (this is the OLD only option)", y)
+        local lblElide = Craft.Label:Create(parent, {
+            text     = LONG,
+            maxWidth = 260,
+            color    = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+        })
+        lblElide:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, lblElide)
+        y = y + 28
+
+        -- Re-flow: the slider drives Label:SetWidth, which is what a consumer
+        -- would call from its container's OnSizeChanged.
+        y = addLabel("SetWidth() re-flows the box — drag to re-wrap live", y)
+        local lblFlow = Craft.Label:Create(parent, {
+            text  = LONG,
+            width = 260,
+            wrap  = true,
+            color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 },
+        })
+        lblFlow:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, lblFlow)
+        local flowTop = y
+        y = y + 56
+
+        local flowSlider = Craft.Slider:Create(parent, {
+            min = 120, max = 380, step = 10, value = 260, width = 200,
+            label = "width", showValue = true,
+            onChange = function(v) lblFlow:SetWidth(v) end,
+        })
+        flowSlider:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 300, -flowTop)
+        table.insert(comps, flowSlider)
+        y = y + 16
+
+        -- ── Font family / size / outline (FR-092) ────────────────────────────
+        -- The case this exists for is text painted over the 3D world (a raid-note
+        -- panel), where the theme font with no outline competes with the scenery.
+        -- The bands below stand in for that: the same string crosses a dark, a
+        -- mid and a light strip, so the outline is either doing its job or not.
+        y = addLabel("Font, size and outline per label (FR-092) — over a busy background", y)
+
+        local stage = CreateFrame("Frame", nil, parent)
+        stage:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        stage:SetSize(300, 44)
+        for i, shade in ipairs({ 0.06, 0.45, 0.78 }) do
+            local band = stage:CreateTexture(nil, "BACKGROUND")
+            band:SetColorTexture(shade, shade * 0.9, shade * 0.8, 1)
+            band:SetPoint("TOPLEFT",  stage, "TOPLEFT",  (i - 1) * 100, 0)
+            band:SetSize(100, 44)
+        end
+        table.insert(comps, { Destroy = function() stage:Hide() end })
+
+        local lblWorld = Craft.Label:Create(stage, {
+            text  = "Raid note over the world",
+            flags = "OUTLINE",
+            color = { r = 1, g = 1, b = 1, a = 1 },
+        })
+        lblWorld:GetFrame():SetPoint("LEFT", stage, "LEFT", 8, 0)
+        table.insert(comps, lblWorld)
+
+        -- One state, one setter: SetFontOptions takes the COMPLETE font state, so
+        -- the three controls below write into the same table and re-apply it —
+        -- no destroy + re-create per tweak (which is what the consumer did before).
+        local fontState = { flags = "OUTLINE" }
+        local function applyFontState() lblWorld:SetFontOptions(fontState) end
+
+        local tgFlags = Craft.ToggleGroup:Create(parent, {
+            value = "OUTLINE",
+            options = {
+                { value = "",             label = "None" },
+                { value = "OUTLINE",      label = "Outline" },
+                { value = "THICKOUTLINE", label = "Thick" },
+            },
+            onChange = function(v) fontState.flags = v; applyFontState() end,
+        })
+        tgFlags:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 330, -y)
+        table.insert(comps, tgFlags)
+
+        -- A family from OUTSIDE the theme: this is the slot a consumer fills with
+        -- LibSharedMedia (`LSM:Fetch("font", name)`); the Browser has no LSM, so
+        -- it uses a font that ships with the client.
+        local tgFamily = Craft.ToggleGroup:Create(parent, {
+            value = "theme",
+            options = {
+                { value = "theme", label = "Theme font" },
+                { value = "friz",  label = "Friz Quadrata" },
+            },
+            onChange = function(v)
+                fontState.font = (v == "friz") and "Fonts\\FRIZQT__.TTF" or nil
+                applyFontState()
+            end,
+        })
+        tgFamily:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 330, -(y + 40))
+        table.insert(comps, tgFamily)
+
+        local sizeSlider = Craft.Slider:Create(parent, {
+            min = 10, max = 24, step = 1, value = t.fontSize or 12, width = 160,
+            label = "size", showValue = true,
+            onChange = function(v) fontState.size = v; applyFontState() end,
+        })
+        sizeSlider:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 330, -(y + 80))
+        table.insert(comps, sizeSlider)
+        y = y + 124
+
         return {
             height  = y + 24,
             cleanup = function()

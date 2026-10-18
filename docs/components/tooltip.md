@@ -76,10 +76,22 @@ El cálculo de posición ocurre **cada vez** que el tooltip se muestra — no se
 | `icon`     | string   | `nil`    | Nombre Lucide (e.g. `"info"`, `"alert-triangle"`). Usa `Craft.Icons`.   |
 | `delay`    | number   | `300`    | Milisegundos antes de que el tooltip aparezca tras OnEnter.              |
 | `maxWidth` | number   | `240`    | Ancho máximo en px antes de hacer wrap del texto.                        |
+| `side`     | string   | `nil`    | Lado forzado (`side` de shadcn): `"top"`\|`"bottom"`\|`"left"`\|`"right"`. `nil` = automático (arriba si cabe, si no abajo). Ver §Lado. |
+| `fontFlags`| string   | `nil`    | FR-101: flags de fuente SOLO para este tooltip (4.º arg de `Theme.applyFont`; `""` = sin contorno). `nil` = el `t.fontFlags` global del tema. Se re-resuelve en cada `Show`: no se "pega" al siguiente. |
 
 ## Notas de implementación
 
 **Singleton pattern**: `Craft.Tooltip._frame` se crea una sola vez en `Craft.Tooltip._init()`, llamado al cargar el addon. Los consumidores nunca crean ni destruyen el frame — solo llaman a `Attach` / `Show` / `Hide`.
+
+**Lado (`side`)** — paridad con el prop `side` de shadcn. Sin `side`, Craft decide solo:
+arriba si hay hueco, si no abajo. Con `"left"`/`"right"` el tooltip se ancla al lateral del
+ancla y la animación de entrada **desliza en horizontal** (el `_slide` guarda un `axis`; el
+efecto aplica el offset en X o en Y según ese campo, siempre hacia el ancla, como
+`slide-in-from-{side}` de shadcn v4). `"top"`/`"bottom"` fuerzan la variante vertical
+correspondiente.
+
+El caso que lo motivó (FR-067): las filas de un `Craft.Menu` están apiladas, así que un
+tooltip arriba o abajo taparía las filas vecinas; ancladas a la derecha caen fuera del panel.
 
 **Delay con C_Timer**: El delay se gestiona con `C_Timer.After(delay / 1000, fn)`. La función `fn` verifica que el anchor todavía esté bajo el cursor antes de mostrar (`anchor:IsMouseOver()`). La referencia al timer se guarda en `Craft.Tooltip._pendingTimer` para poder cancelarlo en `Hide()` o en OnLeave. Cancelar con `_pendingTimer:Cancel()` si el timer aún no disparó.
 

@@ -1,4 +1,4 @@
-## Interface: 120000
+## Interface: 120105
 ## Title: Craft
 ## Title-esMX: Craft
 ## Notes: Modern UI component library for WoW addons (shadcn Lyra style)
@@ -11,7 +11,7 @@
 # Libraries — LibStub en su propio folder (convención estándar WoW)
 libs\LibStub\LibStub.lua
 
-# Weave v0.7.0 (vendored, READ-ONLY) — reactive signals; load order mirrors its Weave.xml
+# Weave v0.9.0 (vendored, READ-ONLY) — reactive signals; load order mirrors its Weave.xml
 libs\Weave\Weave.lua
 libs\Weave\core\Core.lua
 libs\Weave\core\Reconcile.lua
@@ -36,31 +36,49 @@ Reactive.lua
 theme\Presets.lua
 theme\Theme.lua
 
+# Shapes — prefab rounded-shape UV descriptor (ADR-0018; consumed by Switch)
+theme\Shapes.lua
+
 # Icons
 icons\Atlas.lua
 icons\Icons.lua
 
 # Layout
 layout\Flex.lua
+layout\Grid.lua
 
 # Components
+# ScrollBar first: the shared rail that Scroll and Textarea both build on (FR-091)
+components\ScrollBar.lua
+components\Avatar.lua
+components\Badge.lua
 components\Button.lua
 components\Checkbox.lua
 components\ColorSwatch.lua
 components\Input.lua
 components\RadioGroup.lua
 components\Textarea.lua
+components\CodeEditor.lua
 components\Label.lua
+components\Field.lua
+components\Empty.lua
 components\Panel.lua
 components\Dialog.lua
 components\DragList.lua
 components\Select.lua
 components\Menu.lua
+components\Popover.lua
+components\Progress.lua
+components\ProgressRing.lua
+components\Combobox.lua
 components\Separator.lua
 components\Sidebar.lua
 components\Slider.lua
+components\Switch.lua
+components\Toast.lua
 components\Scroll.lua
 components\Section.lua
+components\Toggle.lua
 components\ToggleGroup.lua
 components\Tabs.lua
 components\Tooltip.lua

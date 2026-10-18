@@ -1,6 +1,6 @@
 name: Package (dev build)
 
-# Genera 2 zips instalables en WoW en cada push a dev o main.
+# Genera 2 zips instalables en WoW en cada push a dev o master.
 # NO publica en CurseForge ni Wago — solo artefactos en GitHub Actions.
 # Para descargar: Actions → run → Artifacts → craft-dev-<sha>
 
@@ -13,7 +13,7 @@ jobs:
     name: Build artifacts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # ─── Assets ─────────────────────────────────────────────────────────
       - name: Set up Python
@@ -32,6 +32,9 @@ jobs:
 
       - name: Generate Lucide icon atlas
         run: python3 scripts/export-icons.py
+
+      - name: Generate rounded-shape atlas (ADR-0018)
+        run: python3 scripts/export-shapes.py
 
       - name: Cache Inter font
         id: cache-inter
@@ -78,15 +81,42 @@ jobs:
             -o Craft/media/Geist-Bold.ttf --update-name-table
           rm -f /tmp/Geist-var.ttf
 
+      - name: Cache Geist Mono font
+        id: cache-geist-mono
+        uses: actions/cache@v4
+        with:
+          path: Craft/media/GeistMono-*.ttf
+          key: geist-mono-font-v1
+
+      - name: Download + instance Geist Mono font (SIL OFL 1.1) — fontMono, FR-106
+        if: steps.cache-geist-mono.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p Craft/media
+          curl -L -o /tmp/GeistMono-var.ttf             "https://raw.githubusercontent.com/google/fonts/main/ofl/geistmono/GeistMono%5Bwght%5D.ttf"
+          python3 -m fontTools.varLib.instancer /tmp/GeistMono-var.ttf wght=400             -o Craft/media/GeistMono-Regular.ttf --update-name-table
+          rm -f /tmp/GeistMono-var.ttf
+
       - name: Verify assets
         run: |
           [ -f "Craft/media/lucide.tga"        ] || (echo "❌ lucide.tga"        && exit 1)
+          [ -f "Craft/media/shape_pill_32x18.tga" ] || (echo "❌ shape_pill_32x18.tga" && exit 1)
+          [ -f "Craft/media/shape_pill_24x14.tga" ] || (echo "❌ shape_pill_24x14.tga" && exit 1)
+          [ -f "Craft/media/shape_circle.tga"     ] || (echo "❌ shape_circle.tga"     && exit 1)
+          for n in 4 6 8 12 16; do
+            [ -f "Craft/media/shape_ring_$n.tga" ] || (echo "❌ shape_ring_$n.tga" && exit 1)
+          done
           [ -f "Craft/media/Inter-Regular.ttf" ] || (echo "❌ Inter-Regular.ttf" && exit 1)
           [ -f "Craft/media/Inter-Medium.ttf"  ] || (echo "❌ Inter-Medium.ttf"  && exit 1)
           [ -f "Craft/media/Inter-Bold.ttf"    ] || (echo "❌ Inter-Bold.ttf"    && exit 1)
           [ -f "Craft/media/Geist-Regular.ttf" ] || (echo "❌ Geist-Regular.ttf" && exit 1)
           [ -f "Craft/media/Geist-Medium.ttf"  ] || (echo "❌ Geist-Medium.ttf"  && exit 1)
           [ -f "Craft/media/Geist-Bold.ttf"    ] || (echo "❌ Geist-Bold.ttf"    && exit 1)
+          [ -f "Craft/media/GeistMono-Regular.ttf" ] || (echo "❌ GeistMono-Regular.ttf" && exit 1)
+          for fam in BettoSans BettoGeo; do
+            for w in Regular Medium Bold; do
+              [ -f "Craft/media/$fam-$w.ttf" ] || (echo "❌ $fam-$w.ttf (commiteada, no se descarga)" && exit 1)
+            done
+          done
           echo "✅ All assets present"
 
       # ─── Embeber Craft en Craft_Browser/libs/ ────────────────────────────

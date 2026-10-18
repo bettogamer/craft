@@ -27,7 +27,7 @@ mismo objeto, y que `onClick` funcione sin reestructurar. El `_text` es un FontS
 
 **Caso con onClick**: el Frame raíz recibe `OnEnter`/`OnLeave`/`OnMouseDown`, ya que los FontStrings no pueden registrar eventos de ratón en WoW.
 
-**Caso con maxWidth**: El FontString se configura con `_text:SetWidth(maxWidth)` y `_text:SetNonSpaceWrap(false)` para truncar con "..." automáticamente vía `SetWordWrap(false)`.
+**Caso con maxWidth**: `SetWordWrap(false)` + `SetNonSpaceWrap(false)` siempre; `_text:SetWidth(maxWidth)` **solo si el ancho natural lo supera** (equivalente a `truncate` de shadcn: la elipsis aparece solo con overflow). Si el texto cabe, el string queda libre y el frame abraza su ancho natural (FR-105).
 
 ## Dimensiones
 
@@ -78,16 +78,23 @@ Las variantes `heading`, `caption`, `muted` del spec anterior **no existen en el
 | `text`     | string   | `""`     | Texto a mostrar.                                                                          |
 | `color`    | table    | `nil`    | Color RGBA explícito `{r,g,b,a}`. Si nil, hereda el color del contexto.                  |
 | `maxWidth` | number   | `nil`    | Ancho máximo en px. Si el texto supera este ancho, se trunca con "..." al final.          |
+| `width`    | number   | `nil`    | Ancho FIJO de la caja. Obligatorio con `wrap = true`; sin `wrap` no hace nada (FR-071).   |
+| `wrap`     | boolean  | `false`  | Modo caja multilínea: el texto envuelve dentro de `width` y el alto crece con las líneas. Gana sobre `maxWidth` si se pasan ambos (FR-071). |
+| `align`    | string   | `"LEFT"` | Justificado horizontal: `"LEFT"`\|`"CENTER"`\|`"RIGHT"`. Solo tiene efecto visible con `maxWidth` (caja más ancha que el texto) o texto multilínea; sin `maxWidth` NO constriñe el string (FR-025). |
 | `onClick`  | function | `nil`    | Callback `function(self)`. Activa cursor hand en hover y color `t.primary` en hover.     |
 | `weight`   | string   | `nil`    | Peso de fuente: `"normal"` (default), `"medium"` (`t.fontMedium`), `"bold"` (`t.fontBold`). Resuelto DENTRO de `_applyTheme` → sobrevive a cambios de tema. |
 | `size`     | number   | `nil`    | Tamaño en px. Default = `t.fontSize` (12). Persiste igual que `weight`.                    |
+| `font`     | string   | `nil`    | Ruta de un TTF (lo que devuelve `LSM:Fetch("font", name)`). `nil` = la familia del tema. **Gana sobre `weight`** (el path ya nombra el archivo). Resuelto en `_applyTheme` → sobrevive a cambios de tema (FR-092). |
+| `flags`    | string   | `nil`    | Flags de `SetFont`: `""`\|`"OUTLINE"`\|`"THICKOUTLINE"`\|`"MONOCHROME"` (y combinaciones). `nil` = hereda `t.fontFlags`; `""` es una decisión explícita (quita el contorno aunque el tema lo ponga) (FR-092). |
 
 ## API pública
 
 | Método           | Firma            | Descripción                                                                       |
 |------------------|------------------|-----------------------------------------------------------------------------------|
 | `SetText(text)`  | `string → void`  | Cambia el texto. Respeta el `maxWidth` si está configurado.                       |
+| `SetWidth(w)`    | `number → void`  | Re-fluye la caja (FR-071). En modo `wrap` cambia el ancho y re-mide el alto; en modo hug impone el cap de elide (y apaga el word-wrap la primera vez). Pensado para el `OnSizeChanged` del contenedor. |
 | `SetColor(color)`| `table → void`   | Cambia el color del texto `{r,g,b,a}`. `nil` restaura el comportamiento heredado. |
+| `SetFontOptions(opts)` | `table? → void` | Cambia familia/tamaño/contorno/peso en vivo, sin destruir y recrear el Label (FR-092). La tabla es el **estado completo** de fuente (`{font, size, flags, weight}`), no un parche: la clave ausente vuelve al tema, y sin tabla se resetean las cuatro. Re-aplica vía `_applyTheme` ⇒ re-mide (el alto sigue al texto) y restaura el color. |
 | `SetEnabled(b)`  | `boolean → void` | Habilita/deshabilita: `SetAlpha(1/0.5)` en el frame (`disabled:opacity-50`).      |
 | `GetFrame()`     | `→ Frame`        | Devuelve el `Frame` raíz para posicionamiento externo.                            |
 
@@ -95,15 +102,71 @@ Las variantes `heading`, `caption`, `muted` del spec anterior **no existen en el
 
 **Sin variantes semánticas**: Lyra CSS define Label como texto `text-xs` (`12px`) puro, sin variantes `heading`, `caption` o `muted`. El dev controla el color externamente (vía `config.color`) o lo hereda del contexto. `weight`/`size` NO son variantes semánticas: son primitivas de estilo que el consumidor combina (p. ej. el header del Browser usa `weight="bold"` + `size=t.fontSizeLg`). **Regla**: peso y tamaño deben pasarse por config —resueltos en `_applyTheme`— y NUNCA pokeando `label._text:SetFont(...)` después de `Create`, porque el siguiente `_applyTheme` (cambio de tema/fuente en runtime) lo pisaría con regular/12 (bug histórico del header del Browser).
 
+**Familia y contorno por instancia (FR-092)**: `font` y `flags` son la misma categoría
+que `weight`/`size` — primitivas de estilo que el consumidor compone, **no** variantes
+semánticas — y se resuelven en `_applyTheme` por el mismo motivo. El caso real es un panel
+de texto sobre el mundo 3D (nota de banda): ahí el consumidor necesita elegir fuente
+(LibSharedMedia, como NSRT/MRT/WeakAuras) y **contorno** para que el texto se lea sobre
+cualquier escenario, sin ponerle outline a toda su UI — que es lo único que permitía el
+token global `t.fontFlags` (ADR-0015 Fase 3). El default no cambia: sin `font` manda el
+tema, sin `flags` manda el token global. La aplicación sigue pasando por el chokepoint
+`Craft.Theme.applyFont(fs, path, size, flags)`, que además **cae a la fuente del tema si
+`SetFont` devuelve `false`** — una ruta ajena que no carga deja el FontString sin fuente,
+es decir texto invisible, y un fallo mudo es peor que ignorar la preferencia.
+
+Craft es LSM-agnóstico (ADR-0015 Fase 2): el consumidor pasa el path, no el nombre.
+
+⚠️ **Limitación conocida — la sonda de fuentes solo vigila los TTF del tema** (bug #4 de
+`CLAUDE.md`): una familia propia pasada por `font` no entra en el warm-up ni en la sonda por
+archivo, así que en el primerísimo arranque podría medirse antes de que ese TTF asiente. En la
+práctica se auto-cura, porque cada asentamiento de un TTF del tema re-dispara `_applyTheme` de
+**todos** los listeners y con él este `_recalcSize`; el caso residual es un TTF propio que
+asiente estrictamente después del último del tema. Si aparece, el consumidor fuerza el
+re-medido con `SetFontOptions` (mismo estado) desde su propio evento.
+
+```lua
+local note = Craft.Label:Create(panel, { text = txt, width = 260, wrap = true,
+                                         font = LSM:Fetch("font", db.font),
+                                         size = db.fontSize, flags = db.outline })
+-- al cambiar cualquiera de los tres en la página de opciones:
+note:SetFontOptions({ font = LSM:Fetch("font", db.font), size = db.fontSize, flags = db.outline })
+```
+
 **Solo texto (sin icon slot)**: el `gap-2` del CSS de Lyra es el espaciado flex para cuando el `<Label>` envuelve un ícono u otro hijo. Craft.Label es un componente de texto-hoja: no soporta íconos embebidos. Si se necesita ícono + label, se componen externamente.
 
 **Siempre Frame contenedor**: el componente crea siempre un `Frame` raíz + `FontString` hijo, independientemente de `onClick`/`maxWidth`. Se eligió uniformidad de API (tipo de retorno de `GetFrame()`, `SetAlpha()` para disabled, capacidad de `onClick` sin reestructurar) sobre el micro-ahorro de omitir el Frame en el caso simple.
 
 **Disabled**: `group-data-[disabled=true]:opacity-50` → aplicar `SetAlpha(0.5)` al frame del label (o directamente al FontString si no hay Frame padre) cuando el campo asociado entra en estado disabled. Esto es responsabilidad del Form/Field contenedor, no del Label en aislamiento.
 
-**Truncado con maxWidth**: Configurar `_text:SetWidth(config.maxWidth)` y `_text:SetWordWrap(false)`. WoW truncará el texto automáticamente con "..." cuando supere el ancho. Importante: `SetNonSpaceWrap(false)` evita que palabras largas sin espacios rompan el truncado.
+**Truncado con maxWidth**: `_text:SetWordWrap(false)` siempre y `_text:SetWidth(config.maxWidth)` solo cuando el ancho natural supera el tope. WoW truncará el texto con "..." al desbordar. **Nunca** fijar el string a su propio ancho medido cuando cabe: el redondeo sub-píxel hace que WoW elida el último glifo ("Sszorak" → "Sszor…", FR-105). Importante: `SetNonSpaceWrap(false)` evita que palabras largas sin espacios rompan el truncado.
 
 **Cursor hand en onClick**: En `OnEnter`, llamar `SetCursor("Interface\\CURSOR\\Point")`. En `OnLeave`, llamar `SetCursor(nil)`. Simultáneamente cambiar `_text:SetTextColor(t.primary.r, t.primary.g, t.primary.b)` en `OnEnter` y restaurar el color original en `OnLeave`.
+
+**`align` no constriñe el ancho (FR-025)**: `SetJustifyH` se aplica una vez en `Create`; `_recalcSize` solo hace `SetWidth` explícito cuando hay `maxWidth`. Pinear el string a su propio ancho medido por `align ~= "LEFT"` (comportamiento anterior) no aportaba nada visual y, con `WordWrap` activo, hacía que texturas embebidas `|T..|t` (`GetMoneyString`) saltaran a una segunda línea por redondeo sub-píxel. Para alinear un Label por la derecha sin `maxWidth`, basta anclar el frame por su punto `RIGHT` (el frame abraza el ancho natural).
+
+**Tres modos de ancho, decididos explícitamente (FR-071)**: `Create` elige UNO y lo fija
+en `_wrapMode`; nunca deja el word-wrap al default de WoW (CLAUDE.md bug #2b).
+
+| Config           | Comportamiento                                                        |
+|------------------|------------------------------------------------------------------------|
+| nada             | El frame **abraza** el texto: una línea, ancho natural (FR-024).       |
+| `maxWidth`       | Ancho tope; `SetWordWrap(false)` ⇒ WoW **elide** con "…".              |
+| `width` + `wrap` | Caja fija; `SetWordWrap(true)` ⇒ **multilínea**, alto = alto envuelto. |
+
+En modo `wrap` el orden importa: `_recalcSize` hace `SetWidth(width)` **antes** de
+`GetStringHeight()` — un FontString solo reporta el alto envuelto cuando ya sabe lo ancho
+que puede ser. Como `_recalcSize` también corre desde `_applyTheme`, la carga async de
+Inter (bug #4) **re-fluye** el párrafo en vez de congelarlo con el número de líneas
+equivocado. `width` + `wrap` es además lo que hace útil `align`: justificar dentro de una
+caja real.
+
+⚠️ **La medida depende de la escala del frame padre**: `GetStringWidth`/`GetStringHeight`
+escalan con la escala EFECTIVA. Un Label con `maxWidth` dentro de un frame escalado se mide
+en las unidades de ese frame y elide antes de tiempo — fue la causa de
+[FR-073](../requests/FR-073-dialog-zoom-breaks-child-text-measure.md) (`Craft.Dialog`
+aparcaba su frame cerrado a 0.95 y TODO label del modal elidía). Dialog y Window ya no
+aparcan la escala del zoom, pero la regla sigue aplicando a cualquier frame que el
+consumidor escale a mano.
 
 **Sin focus ring en WoW**: WoW es mouse-only. No implementar el frame `_ring` en el Label.
 

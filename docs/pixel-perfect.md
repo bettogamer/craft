@@ -235,8 +235,50 @@ frame:SetPoint("TOPLEFT", container, "TOPLEFT", x, -y)
 
 ---
 
-## 11. Registro de cambios
+## 11. Formas redondeadas — texturas prefabricadas (ADR-0018)
+
+WoW no tiene `border-radius` ni fills vectoriales: cualquier esquina redondeada es
+**alpha pre-renderizado** en una textura. Para las formas que el CSS Lyra declara
+intrínsecamente redondas (el `rounded-full` del `Craft.Switch`; el eje Radius=0 de
+ADR-0002 sigue vigente para las cajas), Craft usa shapes prefabricados **un archivo por
+forma**:
+
+- `Craft/media/shape_pill_32x18.tga`, `shape_pill_24x14.tga`, `shape_circle.tga` —
+  blancos anti-aliased, generados por `scripts/export-shapes.py`.
+- `Craft/theme/Shapes.lua` — descriptor auto-generado forma→archivo (`Craft.Shapes.Get`).
+
+> ⚠️ **Una `MaskTexture` ignora `SetTexCoord` en 12.0.7** — no se puede sub-samplear un
+> atlas compartido para masks: la textura entera se mapea sobre el rectángulo destino
+> (síntoma in-game: "garabatos"). Por eso **un archivo dedicado por forma, muestreado
+> completo, sin `SetTexCoord`**. Es el patrón estándar de addons para máscaras redondeadas.
+
+**Reglas de asset**:
+1. **Power-of-two** por lado (128×64 pills, 64×64 círculo) — se sabe que cargan.
+2. **Caps pre-distorsionados**: los tracks no son cuadrados, así que los caps del pill se
+   dibujan como elipses (rx según el aspect del track) para salir circulares tras el
+   estirado POT→tamaño real. El círculo del thumb es cuadrado → sin distorsión.
+3. **Mipmaps vía POT + `TRILINEAR`** (clave de la nitidez). El shape se muestra mucho más
+   chico que su tamaño nativo → *minification aliasing* ("pixelado"). WoW auto-genera un mip
+   chain para texturas **power-of-two**, y hay que pedir `SetTexture(file, wrapH, wrapV,
+   "TRILINEAR")` para que el minificado lo muestree (con `LINEAR`/bilineal seguía aliaseando).
+   Es la razón principal de que sean POT. Complementos: base de resolución moderada con
+   oversample interno alto (base+mips limpios) + **gutter transparente** (espacio para el
+   degradado; insetea ~0.5px ≈ el borde transparente de 1px real del switch en Lyra).
+   _Progresión: 8× LINEAR (pixelado) → 4× LINEAR (mejor) → 4× TRILINEAR/mipmaps (liso)._
+
+Dos técnicas de aplicación comparten los mismos assets (ver `Switch.lua`, `RENDER_MODE`):
+
+- **Máscara (`AddMaskTexture`)** — la forma recorta un `SetColorTexture`/`SetVertexColor`
+  plano; la ruta preferida (el código de color/animación no cambia). Es la técnica que
+  el eje Style (Mira, `radius > 0`) generalizará vía el chokepoint `applyFill` (RFC-002).
+- **Horneado (`SetTexture` + `SetVertexColor`)** — dibuja el shape blanco y lo tinta;
+  fallback si el cliente no soporta masks.
+
+**Un TGA nuevo/cambiado exige reinicio completo del cliente**, no `/reload` (lección FR-030).
+
+## 12. Registro de cambios
 
 | Versión | Fecha | Autor | Cambio |
 |---------|-------|-------|--------|
 | v0.1 | 30/05/2026 | Alberto Gomez | Versión inicial. Adaptado de CraftUI/docs/wow-units.md con estrategia específica de Craft. |
+| v0.2 | 20/07/2026 | bettogamer | §11 formas redondeadas con texturas prefabricadas (ADR-0018 / FR-053). |

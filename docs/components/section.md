@@ -43,11 +43,11 @@ altura; mantén ese handler barato e idempotente (el showcase solo llama `reflow
 
 ```
 section.frame            (Frame — alto = header + (content si expandido) )
-├── _header              (Button — trigger, alto 34 = py-2.5·2 + line)
-│   ├── _title           (FontString — text-xs font-medium, izquierda)
-│   └── _chevron         (Texture 16px — chevron-down (base) que rota 0°→180° al expandir, muted-fg)
+├── _header              (Button — trigger, alto DINÁMICO: mín 36 = py-2.5·2 + 16 line; crece si el título envuelve, FR-044)
+│   ├── _title           (FontString — text-xs font-medium, TOPLEFT, word-wrap; ancho = header − chevron − 8)
+│   └── _chevron         (Texture 16px — chevron-down (base) que rota 0°→180° al expandir, muted-fg; TOPRIGHT items-start)
 ├── _content             (Frame — bajo el header; alto = childH + pb-2.5; oculto si colapsado)
-│   └── [child]          (frame del consumidor vía SetContent)
+│   └── [child]          (frame del consumidor vía SetContent; ancla ÚNICA TOPLEFT + ancho explícito, FR-099)
 └── _border              (Texture 1px — not-last:border-b, t.border; opcional vía `divider`)
 ```
 
@@ -56,12 +56,15 @@ section.frame            (Frame — alto = header + (content si expandido) )
 | Elemento | Valor / Token |
 |---|---|
 | Trigger padding V | 10px (`py-2.5`) |
-| Header alto | 34px (10·2 + 14 line) |
+| Line-height título | 16px (`text-xs` line-height `1.33333` unitless × 12px — Lyra devtools 2026-07-19) |
+| Header alto | **dinámico** (FR-044): mín 36px (10·2 + 16 line, título de 1 línea); crece con el título envuelto |
+| Reserva ancho chevron | 8px de gap entre el título envuelto y el chevron (`headerW − 16 − 8`) |
 | Content padding bottom | 10px (`pb-2.5`), top 0 (`pt-0`) |
 | Chevron | 16px (`size-4`), rotación 0°→180° (duración `motionBase`, 200ms) |
 | Título | `t.fontBold` (font-medium), 12px (`text-xs`), `t.foreground` |
 | Chevron color | `t.mutedForeground` |
 | Divider | 1px `t.border` (`border-b`, white@0.10) |
+| Subrayado hover | 1px `t.foreground` bajo el título, solo con el cursor sobre el header (`hover:underline`, FR-045) |
 
 ## Config — `Create(parent, config)`
 
@@ -89,9 +92,35 @@ section.frame            (Frame — alto = header + (content si expandido) )
 
 - **Altura dinámica**: la Section dimensiona su `frame` a `header + content`. Como cambia al
   togglear, el consumidor que apila varias debe re-anclarlas en `onToggle` (ver showcase).
+- **Título envuelve (FR-044)**: el trigger de shadcn es `items-start` altura-auto; el título es
+  `flex` y envuelve cuando no cabe. En Craft el `_title` es FontString **ancla única `TOPLEFT`**
+  (bug #2) con `SetWordWrap(true)` y ancho reservado = `headerW − chevron(16) − gap(8)`. La altura
+  del header se **deriva** del alto del título envuelto (`_remeasureHeader`, piso `HEADER_MIN=36`)
+  y se publica en el signal reactivo `_headerH`, así el alto del frame (colapsado y expandido) se
+  re-deriva sin re-animar. Se re-mide en `OnSizeChanged` del header (el consumidor fija el ancho del
+  frame **después** de `Create`) y en `_applyTheme` (cubre la carga tardía de fuente, bug #4).
 - **Chevron**: una ÚNICA textura de `chevron-down` (base) que rota continuamente 0°→180°
   durante la animación de expand/collapse, reflejando el comportamiento de shadcn v4
   (`rotate-180 + transition-transform`). La rotación es manejada por `SetRotation()`, sincronizada
   al tween `prog` del expand/collapse.
+- **`hover:underline` en el trigger (FR-045)**: WoW no tiene decoración de texto en
+  FontString, así que el subrayado es una **textura de 1px** (`_titleUnderline`, capa
+  `OVERLAY`, color `t.foreground`, alto por `Craft.Theme.SetPixelHeight` — ADR-0011) anclada
+  `TOPLEFT` → `BOTTOMLEFT` del `_title`, oculta por defecto y mostrada en `OnEnter` del
+  header. Los scripts `OnEnter`/`OnLeave` **componen** con el `OnClick` ya existente, no lo
+  pisan. El ancho sigue al TEXTO (`_title:GetStringWidth()`, acotado al ancho reservado del
+  título), no al header entero — shadcn subraya la etiqueta, y el header llega hasta el
+  chevron. Se re-deriva desde `_remeasureHeader` (cambio de título, resize, fuente tardía).
+  **Degradación conocida:** con el título envuelto a 2+ líneas se subraya solo la ÚLTIMA
+  (`BOTTOMLEFT` del FontString); CSS subrayaría todas. Estos triggers son de una línea en la
+  práctica; el subrayado por-línea queda fuera de alcance salvo demanda.
 - **font-medium**: Craft solo trae Regular + Bold; se usa `t.fontBold` como aproximación.
+- **Anchos (FR-099):** header, content y child llevan **un solo ancla** (`TOPLEFT`) y un ancho
+  **explícito** que empuja `_syncWidth` desde el `OnSizeChanged` del frame de la sección (y en
+  `OnShow`, `SetContent` y `_applyTheme`). Con el par `TOPLEFT`+`TOPRIGHT` —el consumidor da el
+  ancho tras `Create`/`SetContent` con la ventana aún oculta— el header se quedaba **sin rect**
+  in-game: la sección ocupaba su sitio y respondía al clic pero no pintaba título, chevron ni
+  contenido (misma familia que el bug #2 de CLAUDE.md). Todo valor que llega a
+  `SetWidth`/`SetHeight` pasa por `finite()` (un NaN atraviesa `<= 0` y `< HEADER_MIN`).
+  Consecuencia: el child recibe `SetWidth(anchoSección)` en vez de heredarlo por anclas.
 - El contenido oculto usa `SetHeight(0.001)` (no 0) para evitar degeneración de anclas en WoW.

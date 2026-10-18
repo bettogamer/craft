@@ -23,6 +23,19 @@ local FONT_B = Craft.mediaPath .. "Inter-Bold.ttf"
 local GEIST   = Craft.mediaPath .. "Geist-Regular.ttf"
 local GEIST_M = Craft.mediaPath .. "Geist-Medium.ttf"
 local GEIST_B = Craft.mediaPath .. "Geist-Bold.ttf"
+-- BettoSans / BettoGeo (familias propias del owner). A diferencia de Inter/Geist NO
+-- las baja el CI: viajan commiteadas (excepción en .gitignore). Solo se referencian
+-- los 3 pesos que usa el eje (400/500/700); el resto de pesos/itálicas del paquete
+-- queda en media/ para consumidores que los pidan por path (Label `font`, FR-092).
+-- Geist Mono (SIL OFL 1.1) — la monoespaciada de la familia Geist; token `fontMono`
+-- (el `--font-mono` de shadcn). Solo la usa Craft.CodeEditor (FR-106). Un peso.
+local GEIST_MONO = Craft.mediaPath .. "GeistMono-Regular.ttf"
+local BSANS   = Craft.mediaPath .. "BettoSans-Regular.ttf"
+local BSANS_M = Craft.mediaPath .. "BettoSans-Medium.ttf"
+local BSANS_B = Craft.mediaPath .. "BettoSans-Bold.ttf"
+local BGEO    = Craft.mediaPath .. "BettoGeo-Regular.ttf"
+local BGEO_M  = Craft.mediaPath .. "BettoGeo-Medium.ttf"
+local BGEO_B  = Craft.mediaPath .. "BettoGeo-Bold.ttf"
 
 CraftThemeAxes = {}
 
@@ -37,10 +50,13 @@ CraftThemeAxes.style = {
         fontSizeSm              = 11,   -- CRAFT ADAPTATION (no existe en Lyra CSS; texto compacto)
         fontSizeLg              = 14,   -- text-sm (Lyra — títulos Card/Dialog)
         spacingXs               = 4,
+        spacingXs2              = 6,    -- gap-1.5 (Field content horizontal) — NUEVO FR-041 (base .tsx; Lyra pend.)
         spacingSm               = 8,
         spacingMd               = 12,
         spacingLg               = 16,
+        spacingLg2              = 20,   -- gap-5 (FieldGroup gap — Lyra devtools; corrige el placeholder spacing2Xl)
         spacingXl               = 24,
+        spacing2Xl              = 28,   -- gap-7 (base .tsx; Lyra usa gap-5=spacingLg2 en FieldGroup — reservado)
         borderWidth             = 1,
         focusRingWidth          = 2,    -- RESERVADO: WoW es mouse-only
         iconSizeSm              = 16,
@@ -65,6 +81,18 @@ CraftThemeAxes.style = {
 CraftThemeAxes.semantic = {
     destructive             = {r=1.000, g=0.391, b=0.404, a=1},  -- red-400 (dark), oklch(0.704 0.191 22.216)
     destructiveForeground   = {r=1.000, g=1.000, b=1.000, a=1},
+
+    -- FR-106 (Craft.CodeEditor). `--font-mono` no es un eje del create tool: Lyra no
+    -- lo cambia, así que vive aquí y no en el eje Font.
+    fontMono                = GEIST_MONO,
+    -- Resaltado de sintaxis: shadcn no tiene tokens de código; sus bloques de código
+    -- (ui.shadcn.com, rehype-pretty-code/shiki) usan el tema `github-dark`. Mismos hex.
+    -- El resto (identificadores, operadores) va en `foreground`.
+    syntaxKeyword           = {r=0.976, g=0.459, b=0.514, a=1},  -- #F97583
+    syntaxString            = {r=0.620, g=0.796, b=1.000, a=1},  -- #9ECBFF
+    syntaxNumber            = {r=0.475, g=0.722, b=1.000, a=1},  -- #79B8FF (números + true/false/nil)
+    syntaxComment           = {r=0.416, g=0.451, b=0.490, a=1},  -- #6A737D
+    syntaxFunction          = {r=0.702, g=0.573, b=0.941, a=1},  -- #B392F0
 }
 
 -- ─── Eje Base Color (grises neutrales) ───────────────────────────────────────
@@ -73,6 +101,13 @@ CraftThemeAxes.semantic = {
 -- sidebar. Añadidos: zinc (frío) y stone (cálido). slate/gray NO los ofrece el
 -- create tool para el style Lyra (verificado 2026-07); añadir más = nueva entrada
 -- aquí (valores del create tool vía /update-design-tokens base=<nombre>).
+--
+-- chart1..chart5 (FR-103): `--chart-1..5` del create tool para Lyra = RAMPA
+-- MONOCROMA del base (300/500/600/700/800), NO una paleta categórica — la de
+-- azul/verde/ámbar/violeta/rosa es el globals v4 previo al create tool y Lyra ya
+-- no la usa (verificado en shadcn-pages/*.mhtml: `.theme-neutral` dark =
+-- #d4d4d4 #737373 #525252 #404040 #262626). Fidelidad a Lyra: viven en el eje
+-- Base. Colores por elemento (categórico) quedan en el consumidor.
 CraftThemeAxes.base = {
     neutral = {
         background              = {r=0.039, g=0.039, b=0.039, a=1},   -- oklch(0.145 0 0)
@@ -96,6 +131,11 @@ CraftThemeAxes.base = {
         sidebarAccentForeground = {r=0.980, g=0.980, b=0.980, a=1},
         sidebarBorder           = {r=1.000, g=1.000, b=1.000, a=0.100},
         sidebarRing             = {r=0.452, g=0.452, b=0.452, a=1},   -- oklch(0.556 0 0)
+        chart1                  = {r=0.831, g=0.831, b=0.831, a=1},   -- neutral-300, oklch(0.87 0 0)
+        chart2                  = {r=0.452, g=0.452, b=0.452, a=1},   -- neutral-500, oklch(0.556 0 0)
+        chart3                  = {r=0.322, g=0.322, b=0.322, a=1},   -- neutral-600, oklch(0.439 0 0)
+        chart4                  = {r=0.250, g=0.250, b=0.250, a=1},   -- neutral-700, oklch(0.371 0 0)
+        chart5                  = {r=0.149, g=0.149, b=0.149, a=1},   -- neutral-800, oklch(0.269 0 0)
     },
     -- Zinc — grises fríos (leve hue azul). ui.shadcn.com/create (Lyra, dark, Base=Zinc).
     zinc = {
@@ -120,6 +160,11 @@ CraftThemeAxes.base = {
         sidebarAccentForeground = {r=0.980, g=0.980, b=0.980, a=1},
         sidebarBorder           = {r=1.000, g=1.000, b=1.000, a=0.100},
         sidebarRing             = {r=0.443, g=0.443, b=0.484, a=1},
+        chart1                  = {r=0.831, g=0.831, b=0.848, a=1},   -- zinc-300, oklch(0.871 0.006 286.286)
+        chart2                  = {r=0.443, g=0.443, b=0.484, a=1},   -- zinc-500, oklch(0.552 0.016 285.938)
+        chart3                  = {r=0.321, g=0.321, b=0.362, a=1},   -- zinc-600, oklch(0.442 0.017 285.786)
+        chart4                  = {r=0.246, g=0.246, b=0.276, a=1},   -- zinc-700, oklch(0.37 0.013 285.805)
+        chart5                  = {r=0.153, g=0.153, b=0.166, a=1},   -- zinc-800, oklch(0.274 0.006 286.033)
     },
     -- Stone — grises cálidos (leve hue marrón). ui.shadcn.com/create (Lyra, dark, Base=Stone).
     stone = {
@@ -144,6 +189,11 @@ CraftThemeAxes.base = {
         sidebarAccentForeground = {r=0.981, g=0.981, b=0.978, a=1},
         sidebarBorder           = {r=1.000, g=1.000, b=1.000, a=0.100},
         sidebarRing             = {r=0.473, g=0.442, b=0.420, a=1},
+        chart1                  = {r=0.841, g=0.828, b=0.818, a=1},   -- stone-300, oklch(0.869 0.005 56.366)
+        chart2                  = {r=0.473, g=0.442, b=0.420, a=1},   -- stone-500, oklch(0.553 0.013 58.071)
+        chart3                  = {r=0.343, g=0.325, b=0.302, a=1},   -- stone-600, oklch(0.444 0.011 73.639)
+        chart4                  = {r=0.268, g=0.250, b=0.232, a=1},   -- stone-700, oklch(0.374 0.01 67.558)
+        chart5                  = {r=0.162, g=0.144, b=0.140, a=1},   -- stone-800, oklch(0.268 0.007 34.298)
     },
     -- Mist — grises fríos con hue cian/teal (más saturado que zinc). ui.shadcn.com/create
     -- (Lyra, dark, Base=Mist). secondary/secondaryForeground conservan el zinc-800 del CSS.
@@ -169,6 +219,11 @@ CraftThemeAxes.base = {
         sidebarAccentForeground = {r=0.977, g=0.985, b=0.985, a=1},
         sidebarBorder           = {r=1.000, g=1.000, b=1.000, a=0.100},
         sidebarRing             = {r=0.404, g=0.470, b=0.486, a=1},
+        chart1                  = {r=0.816, g=0.839, b=0.847, a=1},   -- oklch(0.872 0.007 219.6)
+        chart2                  = {r=0.404, g=0.470, b=0.486, a=1},   -- oklch(0.56 0.021 213.5)
+        chart3                  = {r=0.294, g=0.345, b=0.357, a=1},   -- oklch(0.45 0.017 213.2)
+        chart4                  = {r=0.224, g=0.267, b=0.278, a=1},   -- oklch(0.378 0.015 216)
+        chart5                  = {r=0.132, g=0.161, b=0.169, a=1},   -- oklch(0.275 0.011 216.9)
     },
 }
 
@@ -223,6 +278,16 @@ CraftThemeAxes.font = {
         fontMedium              = GEIST_M,
         fontBold                = GEIST_B,
     },
+    bettosans = {
+        font                    = BSANS,
+        fontMedium              = BSANS_M,
+        fontBold                = BSANS_B,
+    },
+    bettogeo = {
+        font                    = BGEO,
+        fontMedium              = BGEO_M,
+        fontBold                = BGEO_B,
+    },
 }
 
 -- ─── Eje Heading Font (títulos) ──────────────────────────────────────────────────
@@ -233,6 +298,8 @@ CraftThemeAxes.font = {
 CraftThemeAxes.headingFont = {
     inter = { fontHeading = FONT_M },
     geist = { fontHeading = GEIST_M },
+    bettosans = { fontHeading = BSANS_M },
+    bettogeo  = { fontHeading = BGEO_M },
 }
 
 -- ─── compose(spec) → tabla de tokens plana ────────────────────────────────────

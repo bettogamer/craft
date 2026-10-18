@@ -41,7 +41,7 @@ tabs.frame              (Frame)                        raíz del componente
 
 Los content frames son los frames que el dev pasa en `config.tabs[i].content_frame`; se reparentan a `tabs._content` y se muestran u ocultan según la tab activa.
 
-**Sin indicador de línea activa**: Lyra tabs NO tienen el indicador de 2px bajo la tab activa (ese patrón corresponde a new-york/default variant, no a Lyra). El estado activo se expresa mediante fondo diferente de la tab activa vs inactiva.
+**Sin indicador de línea activa (solo `variant="default"`)**: en la variante **default**, Lyra tabs NO tienen el indicador de 2px bajo la tab activa; el estado activo se expresa mediante fondo diferente de la tab activa vs inactiva. La variante **`line`** (FR-042) **sí** dibuja el subrayado de 2px — ver [Variante `line`](#variante-line-fr-042).
 
 ## Dimensiones
 
@@ -54,7 +54,7 @@ Los content frames son los frames que el dev pasa en `config.tabs[i].content_fra
 | Tab padding vertical | 2px (`py-0.5`) |
 | Tab padding H con ícono | 4px (`pr-1` o `pl-1` según lado) |
 | Tab gap con ícono | 6px (`gap-1.5`) |
-| Tab width | automático según texto + padding horizontal (no se estira) |
+| Tab width | automático según texto + padding horizontal (no se estira). Con `fill=true`: igual ancho, reparto del ancho útil de la lista (FR-043) |
 | Tab height | igual a inner height del TabList (26px efectivo) |
 | ListBorder height | 1px — usar `Craft.Theme.SetPixelHeight(border, 1)` |
 | ListBorder posición | BOTTOM de `_list`, cubre todo el ancho |
@@ -65,19 +65,64 @@ Los content frames son los frames que el dev pasa en `config.tabs[i].content_fra
 
 Solo hay un tamaño de TabList: `h-8` = 32px. No existe variante `sm` separada en Lyra tabs.
 
+### Variante `line` (FR-042)
+
+`Create(parent, { variant = "line" })` (`data-[variant=line]`). Barra **transparente**
+con la línea inferior completa (`border-b`, la misma `_listBorder` que la default) y la
+tab activa marcada con un **subrayado de 2px** en `t.foreground` en vez de fondo. El
+modelo de layout, wrap, show/hide de content, icon slots y la API pública **no cambian**.
+
+| Aspecto | `default` | `line` |
+|---|---|---|
+| Fondo de la barra (`_listBg`) | `t.muted` | transparente (a=0) |
+| Línea inferior (`_listBorder`) | 1px `t.border` | 1px `t.border` (se conserva) |
+| Padding interno de la barra | `p-[3px]` | sin padding (triggers pegados al borde) |
+| Separación entre triggers | 0 (wrap Flex) | `gap-1` = 4px |
+| Estado activo | fondo diferenciado | **subrayado 2px** `t.foreground`, sin fondo |
+| Estado inactivo | texto `t.mutedForeground` | texto `t.mutedForeground`, subrayado oculto |
+| Hover | fondo `t.accent` | texto → `t.foreground` (sin fondo) |
+
+El subrayado es una textura `_underline` por trigger, de 2px pixel-perfect
+(`Craft.Theme.SetPixelHeight(_, 2)`, ADR-0011), anclada al borde inferior del trigger
+(`BOTTOMLEFT`+`BOTTOMRIGHT`) para que coincida con `_listBorder` y siga al trigger activo
+incluso si los triggers hacen wrap a otra fila. Visible solo bajo la tab activa.
+
+### `fill` — barra full-width, triggers de igual ancho (FR-043)
+
+`Create(parent, { fill = true })` reproduce el patrón shadcn `TabsList w-full` +
+trigger `flex-1`: la barra ocupa el ancho del frame (ya lo hace: `_list` ancla
+`TOPLEFT`/`TOPRIGHT`) y los triggers **dejan de ser ancho-contenido** para
+repartirse el ancho en **columnas iguales** (segmented control). El label se
+**centra** en su celda.
+
+| Aspecto | `fill=false` (default) | `fill=true` |
+|---|---|---|
+| Flex del trigger | `grow=0, shrink=0, basis="auto"` | `grow=1, shrink=1, basis=0` (`flex-1`) |
+| Ancho de cada trigger | contenido (texto + padding) | `(ancho útil de la lista) / n` iguales |
+| Alineación del label | centrado en su celda de contenido | centrado en su celda (igual ancho) |
+| Overflow | wrap a filas nuevas | 1 fila (con pocos tabs siempre caben) |
+
+Solo cambia el reparto horizontal del Flex; **el resto del motor no cambia**
+(show/hide, icon slots, subrayado de `line`, theming, API). Compone con `variant`:
+en `line` + `fill` los triggers reparten igual pero la barra sigue transparente
+con `border-b` y el subrayado sigue al trigger activo (ancho real de la celda).
+
+> **`basis=0` en Lua:** `0` es *truthy*, así que `Craft.Flex.Add` lo respeta
+> (`itemConfig.basis or "auto"` no lo pisa). Con `basis=0 + grow=1` el motor reparte
+> el `freeSpace` en partes iguales (`freeSpace/n`).
+
 ### Diferencias conocidas vs shadcn (fuera de MVP)
 
-shadcn ofrece estas features que Craft **aún no** implementa (omisiones de alcance,
-no bugs — ver `docs/design-reference.md` §9.1):
-- **Variante `line`** (`data-[variant=line]`): triggers con indicador de línea en vez
-  de fondo.
+shadcn ofrece esta feature que Craft **aún no** implementa (omisión de alcance,
+no bug — ver `docs/design-reference.md` §9.1):
 - **Orientación vertical** (`group-data-vertical/tabs`): TabList en columna a un lado
   del contenido.
 
-Si se decide implementar alguna, requiere aprobación del maintainer (cambio de API).
+Si se decide implementar, requiere aprobación del maintainer (cambio de API).
 
 **Implementado:** icon slots (`has-data-[icon=inline-start]`) — ícono Lucide antes
-del label vía `AddTab(id, label, { icon = "<name>" })` o `tabs[i].icon`.
+del label vía `AddTab(id, label, { icon = "<name>" })` o `tabs[i].icon`. Variante
+`line` (FR-042, ver arriba).
 
 ## Estados
 
@@ -117,8 +162,10 @@ del label vía `AddTab(id, label, { icon = "<name>" })` o `tabs[i].icon`.
 | `tabs[i].id` | string | — | Identificador único de la tab |
 | `tabs[i].label` | string | — | Texto visible en el Button de la tab |
 | `tabs[i].icon` | string | nil | Nombre de ícono Lucide opcional, mostrado antes del label |
-| `defaultTab` | string | primer id | Id de la tab activa al crear el componente |
-| `onTabChange` | function | nil | Callback `function(newId, oldId)` invocado al cambiar de tab |
+| `defaultTab` | string | primer id | Id de la tab activa al crear el componente. **Se siembra en SILENCIO: no dispara `onTabChange`** (FR-070) |
+| `onTabChange` | function | nil | Callback `function(newId, oldId)` invocado al **cambiar** de tab. Nunca corre dentro de `Create` (FR-070) |
+| `variant` | string | `"default"` | `"default"` (barra `bg-muted`) o `"line"` (barra transparente + subrayado activo, FR-042) |
+| `fill` | bool | `false` | `true` = barra full-width con triggers de **igual ancho** (`flex-1`, segmented control, FR-043). `false` (default) = triggers ancho-contenido con wrap |
 
 No hay parámetro `size` — el TabList tiene un único tamaño (32px `h-8`).
 
@@ -137,6 +184,21 @@ No hay parámetro `size` — el TabList tiene un único tamaño (32px `h-8`).
 
 ## Notas de implementación
 
+**Sembrar el valor inicial NO notifica (FR-070).** Las dos ramas de `Create` — la
+literal (`defaultTab = "a"`) y la reactiva (`defaultTab = signal`) — pintan la tab
+activa por `_applyActiveTab`, que es silencioso. Pintar el estado inicial no es un
+*cambio* de tab.
+
+Antes, la rama literal salía por `SetActiveTab`, así que `onTabChange` corría **dentro
+de `Create`**, antes de que `Create` hubiera devuelto: en el patrón normal de builder
+Lua (locales declaradas adelante y asignadas más abajo) el callback se ejecutaba contra
+locales todavía `nil` → error de Lua en la cara del usuario al primer uso. Además
+contradecía al resto de la librería: `ToggleGroup` (`value`), `Select` (`value`) y
+`Checkbox`/`Switch` (`checked`) siembran todos sin llamar a su callback.
+
+Quien quiera el efecto inicial llama a su propia función **después** de `Create`, que es
+donde ya tiene todo construido. `GetActiveTab()` devuelve la tab sembrada igualmente.
+
 **Modelo de dimensionamiento y overflow (decisión de diseño):**
 > ⚠️ **Divergencia deliberada de shadcn.** shadcn **no** hace wrap de los
 > triggers. Este wrap es una decisión Craft registrada en
@@ -150,7 +212,9 @@ items con `grow=0, shrink=0, basis="auto"`). Cuando los triggers ya no caben en
 una fila, **hacen wrap a filas adicionales** y la barra crece en alto. Es fiel a
 shadcn (los triggers se dimensionan al contenido) y degrada bien con pocos o
 muchos tabs. Se evaluaron scroll horizontal y fill con piso de ancho; se eligió
-wrap por simplicidad (Flex ya lo soporta) y consistencia visual.
+wrap **por defecto** por simplicidad (Flex ya lo soporta) y consistencia visual.
+El **fill a ancho igual** existe como opt-in explícito (`fill=true`, FR-043) para
+el caso segmented-control con pocos tabs — ver [`fill`](#fill--barra-full-width-triggers-de-igual-ancho-fr-043).
 
 **Auto-width de cada tab:**
 ```lua
@@ -165,7 +229,7 @@ padding incluido) y aplicarlo con `_list:SetHeight()`. Re-ejecutar en `OnShow` y
 `OnSizeChanged` del `_list` (un cambio de ancho puede añadir/quitar filas). Usar
 un guard de reentrancia porque `SetHeight` re-dispara `OnSizeChanged`.
 
-**Sin indicador activo**: no crear `_indicator` texture. El estado activo se expresa solo con color de texto (`t.foreground` vs `t.mutedForeground`) y fondo diferenciado de la tab activa.
+**Sin indicador activo (variante `default`)**: no crear `_indicator` texture. El estado activo se expresa solo con color de texto (`t.foreground` vs `t.mutedForeground`) y fondo diferenciado de la tab activa. La variante `line` **sí** crea un `_underline` de 2px por trigger (ver [Variante `line`](#variante-line-fr-042)).
 
 **Show/Hide de content frames:**
 Los content frames se reparentan a `tabs._content` al ser registrados. Al cambiar de tab activa:

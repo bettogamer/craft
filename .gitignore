@@ -13,9 +13,15 @@ Craft/libs/LibStub/
 # Assets generados por scripts/export-icons.py — no commitear binarios
 Craft/media/*.tga
 Craft/media/*.ttf
+# Excepción: familias propias del owner (BettoSans/BettoGeo) — sin origen público que el
+# CI pueda descargar, así que viajan commiteadas.
+!Craft/media/BettoSans-*.ttf
+!Craft/media/BettoGeo-*.ttf
 
 # Caché local del generador de íconos
 .icon-cache/
+
+shadcn-pages/
 
 # LibStub/Weave/Craft embebidos en Craft_Browser — generados en CI, no commitear.
 # Loom SÍ se vendorea (committed): solo Craft_Browser lo usa (no la librería Craft) y
