@@ -36,6 +36,23 @@ function A.near(exp, act, tol)
     end
 end
 
+-- Deep equality (luassert's assert.same): tables compared key by key, recursively.
+local function same(a, b)
+    if type(a) ~= "table" or type(b) ~= "table" then return a == b end
+    for k, v in pairs(a) do if not same(v, b[k]) then return false end end
+    for k in pairs(b) do if a[k] == nil then return false end end
+    return true
+end
+local function dump(v)
+    if type(v) ~= "table" then return fmt(v) end
+    local parts = {}
+    for k, x in pairs(v) do parts[#parts + 1] = tostring(k) .. "=" .. dump(x) end
+    return "{" .. table.concat(parts, ", ") .. "}"
+end
+function A.same(exp, act)
+    if not same(exp, act) then fail("expected " .. dump(exp) .. " but got " .. dump(act)) end
+end
+
 function A.is_true(v)    if v ~= true  then fail("expected true, got " .. fmt(v)) end end
 function A.is_false(v)   if v ~= false then fail("expected false, got " .. fmt(v)) end end
 function A.is_nil(v)     if v ~= nil   then fail("expected nil, got " .. fmt(v)) end end

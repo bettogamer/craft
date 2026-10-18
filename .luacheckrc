@@ -29,6 +29,9 @@ globals = {
     -- reintroducción. Usar el método de widget `region:IsMouseOver()`.
     "IsMouseButtonDown",
     "IsShiftKeyDown",
+    "IsControlKeyDown",
+    "IsAltKeyDown",
+    "InCombatLockdown",
     -- Player/class info (used by consumers to feed Craft.Theme; ADR-0015 demo)
     "UnitClass",
     "RAID_CLASS_COLORS",
@@ -40,6 +43,7 @@ globals = {
     -- C_Texture.GetAtlasInfo: valida un atlas antes de pintarlo (Craft.Avatar
     -- `atlas` / SetAtlas — FR-064). Se lee con guarda: puede no existir.
     "C_Texture",
+    "C_Spell",
     -- Font global del juego (ElvUI y otros lo sobreescriben; ADR-0015 demo)
     "STANDARD_TEXT_FONT",
     -- Native color picker (Craft.ColorSwatch wraps it; mutated pre-Dragonflight style)
