@@ -228,6 +228,7 @@ function CB._build()
     _nav:AddItem({ id="Progress",  label="Progress",  onClick=function() CB.Navigate("Progress")  end })
     _nav:AddItem({ id="ProgressRing", label="Progress Ring",
                    onClick=function() CB.Navigate("ProgressRing") end })
+    _nav:AddItem({ id="Shapes",    label="Shapes",    onClick=function() CB.Navigate("Shapes")    end })
     _nav:AddItem({ id="Theme",     label="Theme",     onClick=function() CB.Navigate("Theme")     end })
     _nav:AddItem({ id="Toast",     label="Toast",     onClick=function() CB.Navigate("Toast")     end })
     _nav:AddItem({ id="Tooltip",   label="Tooltip",   onClick=function() CB.Navigate("Tooltip")   end })

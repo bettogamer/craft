@@ -113,6 +113,7 @@ pages\Menu.lua
 pages\Popover.lua
 pages\Progress.lua
 pages\ProgressRing.lua
+pages\Shapes.lua
 pages\Separator.lua
 pages\Sidebar.lua
 pages\Slider.lua

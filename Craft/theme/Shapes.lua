@@ -24,6 +24,9 @@ Craft.Shapes._file = {
     ["ring_8"] = "shape_ring_8.tga",
     ["ring_12"] = "shape_ring_12.tga",
     ["ring_16"] = "shape_ring_16.tga",
+    ["arrow"] = "shape_arrow.tga",
+    ["chevron"] = "shape_chevron.tga",
+    ["arrow_curved"] = "shape_arrow_curved.tga",
 }
 
 -- Geometry of the shapes whose consumer has to do maths against the drawn

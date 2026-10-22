@@ -10,6 +10,9 @@ Outputs (one WHITE anti-aliased shape per file, on a transparent background):
   Craft/media/shape_pill_24x14.tga   256×128  — Switch sm track
   Craft/media/shape_circle.tga       128×128  — Switch thumb
   Craft/media/shape_ring_<n>.tga     128×128  — ProgressRing track/arc, band = D/n (FR-087)
+  Craft/media/shape_arrow.tga        256×256  — solid arrow pointing UP (FR-120)
+  Craft/media/shape_chevron.tga      256×256  — chevron (head, no shaft) pointing UP (FR-120)
+  Craft/media/shape_arrow_curved.tga 256×256  — U-turn arrow, head pointing UP (FR-120)
   Craft/theme/Shapes.lua             — name → filename descriptor (+ geometry for rings)
 
 Why ONE FILE PER SHAPE (not a sub-atlas):
@@ -97,6 +100,14 @@ SHAPES = [
     ("ring_%d" % n, "shape_ring_%d.tga" % n,
      RING_FILE_SIZE, RING_FILE_SIZE, "ring", (RING_FILE_SIZE, RING_FILE_SIZE), n)
     for n in RING_DENOMS
+] + [
+    # ─── Direction family (FR-120, consumer textures — e.g. SMRT aura picker) ─────
+    # Shown LARGE (up to ~200px, rotated freely by the consumer with SetRotation), so
+    # the files are 256² and drawn in a single orientation (UP). Square file, square
+    # rect: no pre-distortion. Never SetTexCoord'd (whole-file sampling, like masks).
+    ("arrow",        "shape_arrow.tga",        256, 256, "arrow",        (256, 256), None),
+    ("chevron",      "shape_chevron.tga",      256, 256, "chevron",      (256, 256), None),
+    ("arrow_curved", "shape_arrow_curved.tga", 256, 256, "arrow_curved", (256, 256), None),
 ]
 
 # ─── Drawing ──────────────────────────────────────────────────────────────────
@@ -154,6 +165,73 @@ def draw_ring(fw: int, fh: int, denom: int) -> Image.Image:
     draw = ImageDraw.Draw(img)
     draw.ellipse([G, G, W - G - 1, H - G - 1], fill=(255, 255, 255, 255))
     draw.ellipse([G + band, G + band, W - G - 1 - band, H - G - 1 - band], fill=(0, 0, 0, 0))
+    return img.resize((fw, fh), Image.LANCZOS)
+
+def _canvas(fw: int, fh: int):
+    os_ = RENDER_SCALE
+    img = Image.new("RGBA", (fw * os_, fh * os_), (255, 255, 255, 0))
+    return img, ImageDraw.Draw(img), os_
+
+def draw_arrow(fw: int, fh: int) -> Image.Image:
+    """Solid arrow pointing UP: a triangular head over a shaft, centred, the whole
+    figure inside a 1/16 margin (bigger than GUTTER: the consumer rotates it freely,
+    and a corner-touching tip would clip against the rect on the diagonal)."""
+    img, draw, os_ = _canvas(fw, fh)
+    W, H = fw * os_, fh * os_
+    m = W / 16.0
+    cx = W / 2.0
+    head_h = (H - 2 * m) * 0.48         # head takes ~half the height
+    half_w = (W - 2 * m) / 2.0          # head spans the full width
+    shaft = (W - 2 * m) * 0.36 / 2.0    # shaft half-width
+    top, base = m, m + head_h
+    draw.polygon([(cx, top), (cx + half_w, base), (cx - half_w, base)], fill=(255, 255, 255, 255))
+    draw.rectangle([cx - shaft, base - os_, cx + shaft, H - m], fill=(255, 255, 255, 255))
+    return img.resize((fw, fh), Image.LANCZOS)
+
+def draw_chevron(fw: int, fh: int) -> Image.Image:
+    """Chevron pointing UP (a head without a shaft, like lucide chevron-up but
+    solid-weight): the band between two nested carets, mitred at the tip."""
+    img, draw, os_ = _canvas(fw, fh)
+    W, H = fw * os_, fh * os_
+    m = W / 16.0
+    cx = W / 2.0
+    half_w = (W - 2 * m) / 2.0
+    tip, foot = H * 0.22, H * 0.74      # outer caret: tip and the feet's outer edge
+    band = H * 0.20                     # vertical thickness of the band
+    draw.polygon([
+        (cx, tip), (cx + half_w, foot), (cx + half_w, foot + band * 0.35),
+        (cx + half_w - band * 0.55, foot + band * 0.35),
+        (cx, tip + band * 1.25),
+        (cx - half_w + band * 0.55, foot + band * 0.35),
+        (cx - half_w, foot + band * 0.35), (cx - half_w, foot),
+    ], fill=(255, 255, 255, 255))
+    return img.resize((fw, fh), Image.LANCZOS)
+
+def draw_arrow_curved(fw: int, fh: int) -> Image.Image:
+    """U-turn arrow («gira» / «cambia de lado»): a half-ring band on the left that
+    comes back up into an arrowhead on the right, pointing UP like the others."""
+    img, draw, os_ = _canvas(fw, fh)
+    W, H = fw * os_, fh * os_
+    m = W / 16.0
+    band = W * 0.14
+    # Arc: the lower half of a ring whose outer box spans [m, ~0.80W] horizontally.
+    ox0, ox1 = m, W * 0.80
+    r_out = (ox1 - ox0) / 2.0
+    acx, acy = (ox0 + ox1) / 2.0, H * 0.56
+    white, clear = (255, 255, 255, 255), (0, 0, 0, 0)
+    draw.ellipse([acx - r_out, acy - r_out, acx + r_out, acy + r_out], fill=white)
+    r_in = r_out - band
+    draw.ellipse([acx - r_in, acy - r_in, acx + r_in, acy + r_in], fill=clear)
+    draw.rectangle([0, 0, W, acy], fill=clear)              # keep only the lower half
+    # Left leg: straight up from the arc to the top margin area (the "tail").
+    draw.rectangle([ox0, H * 0.30, ox0 + band, acy + os_], fill=white)
+    # Right leg: up from the arc into the head.
+    rx0 = ox1 - band
+    head_base = H * 0.40
+    draw.rectangle([rx0, head_base - os_, ox1, acy + os_], fill=white)
+    hcx = (rx0 + ox1) / 2.0
+    hw = band * 1.55
+    draw.polygon([(hcx, m), (hcx + hw, head_base), (hcx - hw, head_base)], fill=white)
     return img.resize((fw, fh), Image.LANCZOS)
 
 # ─── Save TGA ─────────────────────────────────────────────────────────────────
@@ -253,6 +331,12 @@ def main():
             img = draw_circle(fw, fh)
         elif kind == "ring":
             img = draw_ring(fw, fh, extra)
+        elif kind == "arrow":
+            img = draw_arrow(fw, fh)
+        elif kind == "chevron":
+            img = draw_chevron(fw, fh)
+        elif kind == "arrow_curved":
+            img = draw_arrow_curved(fw, fh)
         else:
             print(f"  ✗ {name}: unknown kind {kind}")
             sys.exit(1)
