@@ -191,6 +191,9 @@ y no ofrece un `Close` componible. Diferencia de alcance, no bug — ver
 | `closeOnEscape` | boolean | true | Si true, registrar el frame en `UISpecialFrames` |
 | `headerBorder` | boolean | **false** | (FR-088) Dibuja una regla de 1px `t.border` bajo el header, gemela de la del footer. **Opt-in a propósito:** Lyra no pinta `border-b` en `.cn-dialog-header`, así que el default es el shadcn fiel; se enciende en el modal cuyo contenido arranca con controles pegados al encabezado. No cambia la altura de nada. |
 | `fontFlags` | string | `nil` | FR-102: flags de fuente de título y descripción (4.º arg de `Theme.applyFont`; `""` = sin contorno, p. ej. texto claro sobre superficie oscura con el tema en `"OUTLINE"`). `nil` = el `t.fontFlags` global del tema. Se reaplica en cada re-tema. |
+| `modal` | string \| boolean | `"screen"` | (FR-119) Qué bloquea el backdrop: `"screen"`/`true` = toda la pantalla; `"window"` = solo la ventana que aloja el diálogo (la `Craft.Window` más cercana sobre `parent`, o el ancestro más externo bajo `UIParent`; abre centrado en ella y se cierra si se oculta); `false`/`"none"` = nada (diálogo no bloqueante, sin backdrop). |
+| `modalTarget` | Frame \| componente | nil | (FR-119) Ventana que bloquea un modal `"window"` en vez de la encontrada desde `parent` (p. ej. la main window desde una sub-ventana). |
+| `nudge` | boolean | true | (FR-119) Un clic en la zona bloqueada sacude el diálogo (`Nudge()`). |
 | `strata` | string | `Craft.Strata.modal` (`"FULLSCREEN_DIALOG"`) | Strata del **frame**. Default = capa `modal` (sobre cualquier `Craft.Window`). El overlay va siempre en `Craft.Strata.modalOverlay` (`"FULLSCREEN"`), una strata por debajo. Solo cambiarlo para casos avanzados. |
 
 ## API pública
@@ -204,6 +207,8 @@ y no ofrece un `Close` componible. Diferencia de alcance, no bug — ver
 | `Show()` | void | `dialog.frame:Show()` |
 | `Hide()` | void | `dialog.frame:Hide()` |
 | `Toggle()` | void | Alterna entre Show y Hide según estado actual |
+| `Nudge()` | void | (FR-119) Sacude el diálogo una vez (seno amortiguado, 3 vaivenes, 6 px, 0,4 s; vuelve a su sitio exacto). No-op cerrado o si ya se está sacudiendo |
+| `SetModalTarget(t)` | void | (FR-119) Cambia la ventana que bloquea un modal `"window"`; se aplica en el siguiente `Show()` |
 | `SetBaseScale(s)` / `GetBaseScale()` | void / number | Escala del diálogo (FR-068/FR-073). El zoom multiplica sobre ella; `GetFrame():SetScale()` NO funciona |
 
 ## ⚠️ Medir texto dentro de un Dialog (FR-073)
