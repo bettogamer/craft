@@ -296,3 +296,69 @@ describe("Craft.Input Insert / focus callbacks (FR-111)", function()
         i:Destroy()
     end)
 end)
+
+-- ─── prefix / suffix (FR-122) ─────────────────────────────────────────────────
+
+describe("Craft.Input prefix/suffix (FR-122)", function()
+
+    it("a plain input shows no addon and keeps its paddings", function()
+        local i = Craft.Input:Create(UIParent, {})
+        assert.is_false(i._prefix:IsShown())
+        assert.is_false(i._suffix:IsShown())
+        assert.equals(10, i:_leftPad())
+        assert.equals(10, i:_rightPad())
+        i:Destroy()
+    end)
+
+    it("suffix shows its text and shortens the editable area by its width", function()
+        local i = Craft.Input:Create(UIParent, { suffix = "s" })
+        assert.is_true(i._suffix:IsShown())
+        assert.equals("s", i._suffix:GetText())
+        local w = i._suffix:GetStringWidth()
+        assert.equals(8 + w + 4, i:_rightPad())     -- inset + text + gap
+        assert.equals(10, i:_leftPad())             -- left side untouched
+        assert.equals("", i:GetValue())             -- not part of the value
+        i:Destroy()
+    end)
+
+    it("prefix sits on the left and sits past a leading icon", function()
+        local i = Craft.Input:Create(UIParent, { prefix = "#" })
+        assert.equals(8 + i._prefix:GetStringWidth() + 4, i:_leftPad())
+        i:Destroy()
+        local j = Craft.Input:Create(UIParent, { prefix = "#", iconLeading = "search" })
+        assert.equals(8 + 16 + 4 + j._prefix:GetStringWidth() + 4, j:_leftPad())
+        j:Destroy()
+    end)
+
+    it("suffix sits before the clear ✕ slot", function()
+        local i = Craft.Input:Create(UIParent, { suffix = "%", clearable = true })
+        assert.equals(8 + 16 + 4 + i._suffix:GetStringWidth() + 4, i:_rightPad())
+        i:Destroy()
+    end)
+
+    it("SetSuffix/SetPrefix change and remove the addon", function()
+        local i = Craft.Input:Create(UIParent, {})
+        i:SetSuffix("px")
+        assert.is_true(i._suffix:IsShown())
+        assert.equals("px", i:GetSuffix())
+        i:SetSuffix(nil)
+        assert.is_false(i._suffix:IsShown())
+        assert.equals(10, i:_rightPad())
+        i:SetPrefix("$")
+        assert.is_true(i._prefix:IsShown())
+        i:SetPrefix("")
+        assert.is_false(i._prefix:IsShown())
+        assert.equals(10, i:_leftPad())
+        i:Destroy()
+    end)
+
+    it("the value stays the typed text, with or without addon", function()
+        local got
+        local i = Craft.Input:Create(UIParent, { suffix = "s", onChange = function(v) got = v end })
+        i._edit._text = "5"
+        i._edit:_fire("OnTextChanged", true)
+        assert.equals("5", got)
+        assert.equals("5", i:GetValue())
+        i:Destroy()
+    end)
+end)

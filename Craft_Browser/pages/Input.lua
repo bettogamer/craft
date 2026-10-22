@@ -52,6 +52,35 @@ CraftBrowserPages["Input"] = {
         y = addLabel("Clearable search (FR-016 — ✕ appears with text)", y)
         y = addInput({ placeholder="Search...", iconLeading="search", clearable=true, value="flask of power" }, y)
 
+        -- ── Prefix / suffix (FR-122, shadcn InputGroupAddon + InputGroupText) ──
+        y = addLabel("FR-122 suffix = \"s\" — the unit stays visible once the box has a value", y)
+        y = addInput({ placeholder="Seconds", suffix="s", value="5",
+            onChange=function(v) print("|cff88ccffCraft FR-122|r value: \"" .. v .. "\" (no unit)") end }, y)
+
+        y = addLabel("FR-122 prefix = \"#\" + suffix = \"%\"", y)
+        y = addInput({ prefix="#", suffix="%", value="42" }, y)
+
+        y = addLabel("FR-122 with icon + clearable — the addon sits inside the icon / ✕ slots", y)
+        y = addInput({ iconLeading="search", prefix="id:", suffix="px", clearable=true, value="128" }, y)
+
+        y = addLabel("FR-122 SetSuffix at runtime — click to cycle s → ms → (none)", y)
+        local cycleInput = Craft.Input:Create(parent, { value="250", suffix="s" })
+        cycleInput:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        cycleInput:GetFrame():SetWidth(inputW)
+        table.insert(comps, cycleInput)
+        local units, unitIdx = { "s", "ms", false }, 1
+        local cycleBtn = Craft.Button:Create(parent, {
+            text = "Cycle suffix", size = "sm", variant = "outline",
+            onClick = function()
+                unitIdx = unitIdx % #units + 1
+                cycleInput:SetSuffix(units[unitIdx] or nil)
+                print("|cff88ccffCraft FR-122|r suffix → " .. tostring(cycleInput:GetSuffix()))
+            end,
+        })
+        cycleBtn:GetFrame():SetPoint("LEFT", cycleInput:GetFrame(), "RIGHT", 8, 0)
+        table.insert(comps, cycleBtn)
+        y = y + 44
+
         y = addLabel("Error", y)
         y = addInput({ placeholder="Required field", error=true }, y)
 

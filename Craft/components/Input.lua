@@ -22,6 +22,7 @@ local ICON_PAD    = 8     -- distance from frame edge to icon left edge
 local ICON_DELTA  = ICON_PAD + ICON_SIZE - PAD_H + 4
                           -- positions text 4px after icon right edge:
                           -- leftPad = PAD_H + ICON_DELTA = ICON_PAD + ICON_SIZE + 4 = 28px
+local ADDON_GAP   = 4     -- FR-122: prefix/suffix text ↔ editable text (same as icon → text)
 
 -- ─── Create ───────────────────────────────────────────────────────────────────
 function Input:Create(parent, config)
@@ -45,6 +46,10 @@ function Input:Create(parent, config)
         onFocusGained  = config.onFocusGained,             -- FR-111: after internal focus work
         onFocusLost    = config.onFocusLost,               -- FR-111
         width          = config.width,
+        -- FR-122: shadcn InputGroupAddon + InputGroupText — muted text inside the
+        -- border ("s", "%", "#") that is NOT part of the value.
+        prefix         = config.prefix,
+        suffix         = config.suffix,
         -- FR-102: override of the theme's outline (t.fontFlags), applyFont's 4th arg —
         -- "" = no outline, nil = theme flag. Re-applied on every re-theme.
         fontFlags      = config.fontFlags,
@@ -149,6 +154,19 @@ function Input:Create(parent, config)
         end
     end
 
+    -- ── _prefix / _suffix: addon text (FR-122) — OVERLAY ─────────────────────
+    -- Single anchor + no wrap (CLAUDE.md bugs #2/#2b): auto-sized one-line
+    -- strings. Their width feeds _leftPad/_rightPad, re-measured in _applyTheme
+    -- (bug #4: the TTF can settle after Create). FontStrings take no mouse, so a
+    -- click on them lands on the EditBox below and focuses the field.
+    self._prefix = self.frame:CreateFontString(nil, "OVERLAY")
+    self._suffix = self.frame:CreateFontString(nil, "OVERLAY")
+    for _, fs in ipairs({ self._prefix, self._suffix }) do
+        fs:SetWordWrap(false)
+        fs:SetNonSpaceWrap(false)
+        fs:Hide()
+    end
+
     -- ── EditBox — OVERLAY ─────────────────────────────────────────────────────
     self._edit = CreateFrame("EditBox", nil, self.frame)
     self._edit:SetAutoFocus(false)
@@ -193,11 +211,7 @@ function Input:Create(parent, config)
     -- frame. If the frame has width 0 at Create (no config.width, parent sized later)
     -- WoW caches that and the text stays invisible until /reload. Re-anchoring when
     -- the frame's size resolves forces a recompute.
-    self.frame:HookScript("OnSizeChanged", function()
-        self._placeholder:ClearAllPoints()
-        self._placeholder:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",      self:_leftPad(),  -PAD_V)
-        self._placeholder:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -self:_rightPad(),  PAD_V)
-    end)
+    self.frame:HookScript("OnSizeChanged", function() self:_anchorPlaceholder() end)
 
     -- ── EditBox scripts ───────────────────────────────────────────────────────
     self._edit:SetScript("OnEditFocusGained", function()
@@ -291,16 +305,58 @@ function Input:Create(parent, config)
 end
 
 -- ─── Padding helpers ──────────────────────────────────────────────────────────
+-- Where the left/right addon slot starts: past the icon when there is one, else
+-- at the icon's own inset (the addon takes the place the icon would).
+function Input:_prefixX()
+    return self._cfg.iconLeading and (ICON_PAD + ICON_SIZE + ADDON_GAP) or ICON_PAD
+end
+
+function Input:_hasTrailing()
+    return self._cfg.iconTrailing or self._cfg.clearable or self._cfg.onTrailingClick
+end
+
+function Input:_suffixX()
+    return self:_hasTrailing() and (ICON_PAD + ICON_SIZE + ADDON_GAP) or ICON_PAD
+end
+
 function Input:_leftPad()
+    if self._prefixW then return self:_prefixX() + self._prefixW + ADDON_GAP end
     return self._cfg.iconLeading and (PAD_H + ICON_DELTA) or PAD_H
 end
 
 function Input:_rightPad()
+    if self._suffixW then return self:_suffixX() + self._suffixW + ADDON_GAP end
     -- Reserve the trailing slot for a decorative icon OR the interactive button
     -- (clearable/onTrailingClick). Reserved always for `clearable` so the text
     -- doesn't shift when the ✕ appears/disappears.
-    local hasTrailing = self._cfg.iconTrailing or self._cfg.clearable or self._cfg.onTrailingClick
-    return hasTrailing and (PAD_H + ICON_DELTA) or PAD_H
+    return self:_hasTrailing() and (PAD_H + ICON_DELTA) or PAD_H
+end
+
+function Input:_anchorPlaceholder()
+    self._placeholder:ClearAllPoints()
+    self._placeholder:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",      self:_leftPad(),  -PAD_V)
+    self._placeholder:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -self:_rightPad(),  PAD_V)
+end
+
+-- FR-122: (re)measures the addon texts and re-derives everything that depends
+-- on their width (text insets + placeholder). Needs the font already applied.
+function Input:_layoutAddons()
+    local function place(fs, text, point, x)
+        if text == nil or text == "" then
+            fs:Hide()
+            return nil
+        end
+        fs:SetText(text)
+        fs:ClearAllPoints()
+        fs:SetPoint(point, self.frame, point, x, 0)
+        fs:Show()
+        return math.ceil(fs:GetStringWidth() or 0)
+    end
+    self._prefixW = place(self._prefix, self._cfg.prefix, "LEFT", self:_prefixX())
+    self._suffixW = place(self._suffix, self._cfg.suffix, "RIGHT", -self:_suffixX())
+    local px1 = Craft.Theme.px(1, self.frame)
+    self._edit:SetTextInsets(self:_leftPad() - px1, self:_rightPad() - px1, 0, 0)
+    self:_anchorPlaceholder()
 end
 
 -- ─── Focus-ring fade: endpoints + painter ────────────────────────────────────
@@ -379,6 +435,12 @@ function Input:_applyTheme(t)
         self._trailIcon:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)
     end
 
+    -- Addon text (FR-122): InputGroupText = text-muted-foreground font-medium, same size.
+    for _, fs in ipairs({ self._prefix, self._suffix }) do
+        self._theme:applyFont(fs, t.fontMedium or t.font, FONT_SIZE, self._cfg.fontFlags)
+        fs:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+    end
+
     -- Pixel-perfect 4-texture border (corner-safe)
     Craft.Theme.AnchorBorder(self.frame, self._borderTop, self._borderBottom,
                              self._borderLeft, self._borderRight)
@@ -391,8 +453,9 @@ function Input:_applyTheme(t)
     -- Border color endpoints (re-applies at the live tween progress)
     self:_updateBorderEndpoints()
 
-    -- Update TextInsets for the EditBox (may change when theme is re-applied)
-    self._edit:SetTextInsets(self:_leftPad() - px1, self:_rightPad() - px1, 0, 0)
+    -- Update TextInsets for the EditBox (may change when theme is re-applied) —
+    -- through the addon layout: a re-theme / font settle re-measures their width.
+    self:_layoutAddons()
 end
 
 -- ─── Public API ───────────────────────────────────────────────────────────────
@@ -522,6 +585,21 @@ function Input:SetPlaceholder(text)
     self._cfg.placeholder = text or ""
     self._placeholder:SetText(self._cfg.placeholder)
 end
+
+-- ─── Prefix / suffix (FR-122) ─────────────────────────────────────────────────
+-- nil or "" removes the addon; the editable area grows back.
+function Input:SetPrefix(text)
+    self._cfg.prefix = text
+    self:_layoutAddons()
+end
+
+function Input:SetSuffix(text)
+    self._cfg.suffix = text
+    self:_layoutAddons()
+end
+
+function Input:GetPrefix() return self._cfg.prefix end
+function Input:GetSuffix() return self._cfg.suffix end
 
 function Input:GetFrame()
     return self.frame
