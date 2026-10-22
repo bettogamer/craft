@@ -6,6 +6,22 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.36.0] - 2026-10-21
+
+> **Release v2.36.0 — `Craft.Dialog`: alcance del modal y aviso al clicar fuera (FR-119).**
+> Pedido del owner (diálogos y sub-ventanas de los consumidores bloqueaban toda la pantalla).
+>
+> **API compatible:** todo opt-in salvo la sacudida al clicar el backdrop, que va ON por defecto
+> (`nudge = false` para el comportamiento anterior). Verificado in-game.
+
+### Added
+
+- **`Craft.Dialog` — alcance del modal y aviso al clicar fuera (FR-119).** `config.modal`:
+  `"screen"` (default, sin cambios), `"window"` (bloquea solo la ventana que aloja el diálogo, o la de
+  `config.modalTarget` / `SetModalTarget`) o `false` (no bloquea nada). Un clic en la zona bloqueada
+  sacude el diálogo (`Nudge()`, público; `config.nudge = false` lo apaga). `Craft.Window` marca su frame
+  (`_craftWindow`) para que el diálogo encuentre su ventana.
+
 ## [2.35.0] - 2026-10-18
 
 > **Release v2.35.0 — `Craft.Sidebar` como lista editable estilo WeakAuras: selección múltiple
