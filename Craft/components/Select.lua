@@ -20,6 +20,11 @@ Select.__index = Select
 -- h-8=32, h-7=28, pl-2.5=10, pr-2=8, py-2=8, gap-1.5=6, text-xs=12
 -- pl-2=8, pr-8=32 (item: pr-8 reserves space for the checkmark)
 -- Max visible items: 6 → panel max height = 6 * 28 = 168... but py-2 adds 8px
+--
+-- Multiple selection (FR-121): shadcn's Base UI Select takes `multiple` — same
+-- trigger, same items with the same check indicator, but a click toggles the
+-- row WITHOUT closing the popup, and the trigger lists the picked labels
+-- comma-separated (one line, truncated). No checkbox: that is Base UI's markup.
 -- item height: py-2 (8px top + 8px bottom) + 12px text ≈ 28px total
 local SIZES = {
     default = { h = 32 },
@@ -62,6 +67,12 @@ function Select:Create(parent, config)
         -- Rows visible before the panel scrolls (FR-066). Everything past it is
         -- still reachable — wheel + scroll arrows — this only sets the panel height.
         maxItems    = math.max(math.floor(tonumber(config.maxItems) or MAX_ITEMS_VIS), 1),
+        -- FR-121: multiple selection. `values` is a set { [value] = true }, copied
+        -- in and out (the caller's table is never mutated); onChange(values) gets
+        -- a NEW table on every toggle. value/onSelect are the single-mode pair.
+        multiple    = config.multiple and true or false,
+        values      = {},
+        onChange    = config.onChange,
     }
     -- self._open is a Weave.signal (created below, once self._panel exists) — the
     -- private open/close state that drives the dropdown fade. NOT a public prop.
@@ -74,6 +85,11 @@ function Select:Create(parent, config)
     local valueSource       = R.isCallable(config.value)       and config.value       or nil
     local disabledSource    = R.isCallable(config.disabled)    and config.disabled    or nil
     local placeholderSource = R.isCallable(config.placeholder) and config.placeholder or nil
+    local valuesSource      = R.isCallable(config.values)      and config.values      or nil
+    if not valuesSource then self._cfg.values = Select._copySet(config.values) end
+    if valuesSource and R.isWritableSignal(valuesSource) then
+        self._valuesSignal = valuesSource -- two-way: user toggles write back (FR-121)
+    end
     if optionsSource     then self._cfg.options     = {} end -- empty until the bind runs
     if valueSource       then self._cfg.value       = nil end -- no selection until the bind runs
     if disabledSource    then self._cfg.disabled    = false end
@@ -123,10 +139,14 @@ function Select:Create(parent, config)
     self._chevron:SetPoint("RIGHT", self._trigger, "RIGHT", -TRIGGER_PR, 0)
     Craft.Icons.Apply(self._chevron, "chevron-down", 16)
 
-    -- ── _panel: Frame strata TOOLTIP, parent UIParent ────────────────────────
+    -- ── _panel: Frame strata TOOLTIP, parent UIParent, NAMED (UISpecialFrames/Esc) ─
     -- Anchored to UIParent to avoid clipping by the addon container.
-    -- Scale is corrected dynamically in Open().
-    self._panel = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    -- Scale is corrected dynamically in Open(). Named so Esc can close it (Radix /
+    -- Base UI dismiss on Escape — FR-121); see _escRegister.
+    Craft._selectCount = (Craft._selectCount or 0) + 1
+    self._panelName = "CraftSelectPanel" .. Craft._selectCount
+    self._panel = CreateFrame("Frame", self._panelName, UIParent, "BackdropTemplate")
+    self:_escRegister(true)
     self._panel:SetFrameStrata("TOOLTIP")
     self._panel:Hide()
     self._panel:SetClipsChildren(true)
@@ -176,6 +196,9 @@ function Select:Create(parent, config)
     -- component feels consistent. Open()/Close() flip this signal; the binds below
     -- drive the panel's visibility, replacing the old imperative Show()/Hide().
     self._open = Weave.signal(false)  -- private open/close state (NOT a public prop)
+    -- Esc hides the panel DIRECTLY (CloseSpecialWindows → Hide), skipping the fade;
+    -- this flag keeps the `shown` bind from re-showing it for the fade-out. Open() resets it.
+    self._escHidden = Weave.signal(false)
 
     local motion = self._theme:get()
     local alpha = Weave.tween(
@@ -184,7 +207,7 @@ function Select:Create(parent, config)
 
     -- Stay visible through the CLOSE fade, then hide once the tween settles.
     local shown = Weave.computed(function()
-        return self._open() or alpha:animating()
+        return (not self._escHidden()) and (self._open() or alpha:animating())
     end)
 
     -- Collect on the SAME self._effects list that the reactive props use, so
@@ -265,6 +288,13 @@ function Select:Create(parent, config)
     end)
     self._panel:SetScript("OnHide", function()
         self._panel:SetScript("OnUpdate", nil)
+        -- Esc (Blizzard hid the panel while still logically open): reconcile so the
+        -- trigger border/chevron restore. A graceful Close() already flipped _open,
+        -- so the fade's own Hide lands here with open=false and does nothing.
+        if self._open:peek() then
+            self._escHidden:set(true)
+            self:Close()
+        end
         -- Stop an arrow's auto-scroll if the panel closed while hovering it
         -- (OnLeave doesn't fire for a frame that disappears under the cursor).
         self._arrowUp.frame:SetScript("OnUpdate", nil)
@@ -289,6 +319,7 @@ function Select:Create(parent, config)
     -- placeholder has no public setter — inline sink, no API change.
     R.applyOrBind(self, optionsSource,     function(s, v) s:SetOptions(v) end)
     R.applyOrBind(self, valueSource,       function(s, v) s:SetValue(v) end)
+    R.applyOrBind(self, valuesSource,      function(s, v) s:SetValues(v) end)
     R.applyOrBind(self, placeholderSource, function(s, text)
         s._cfg.placeholder = text or "Select..."
         s:_updateTriggerText()
@@ -354,6 +385,10 @@ function Select:_makeItem()
         if tt then itemText:SetTextColor(tt.popoverForeground.r, tt.popoverForeground.g, tt.popoverForeground.b) end
     end)
     itemFrame:SetScript("OnClick", function()
+        if self._cfg.multiple then
+            self:_toggleValue(item.value)
+            return   -- the popup stays open: toggle as many as needed
+        end
         self:SetValue(item.value)
         self:Close()
         if self._valueSignal then self._valueSignal:set(item.value) end
@@ -435,7 +470,7 @@ function Select:_refreshItemStates()
     -- shadcn marks the selected item with the check indicator only — no bg highlight.
     -- The row differs from the others solely by the visible checkmark.
     for _, item in ipairs(self._items) do
-        if item.value == self._cfg.value then
+        if item.value ~= nil and self:_isSelected(item.value) then
             item.checkmark:Show()
         else
             item.checkmark:Hide()
@@ -520,7 +555,16 @@ function Select:_updateTriggerText()
     local t = self._t
     if not t then return end
 
-    if self._cfg.value then
+    if self._cfg.multiple then
+        local text = self:_valuesText()
+        if text then
+            self._selectedText:SetText(text)
+            self._selectedText:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
+        else
+            self._selectedText:SetText(self._cfg.placeholder)
+            self._selectedText:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
+        end
+    elseif self._cfg.value then
         -- Look up the label corresponding to the value
         local label = self._cfg.value
         for _, opt in ipairs(self._cfg.options) do
@@ -621,10 +665,10 @@ end
 function Select:_scrollToSelected()
     local maxS   = self:_maxScroll()
     local target = 0
-    if maxS > 0 and self._cfg.value ~= nil then
+    if maxS > 0 then
         local inner = self._innerH or 0
         for i, opt in ipairs(self._cfg.options) do
-            if opt.value == self._cfg.value then
+            if opt.value ~= nil and self:_isSelected(opt.value) then  -- multi: first picked
                 local bottom = i * ITEM_HEIGHT
                 if bottom > inner - ARROW_H then     -- doesn't fit at rest → scroll
                     -- Scrolled state: both bands mounted (the clamp drops the
@@ -738,6 +782,9 @@ function Select:Open()
     self._arrowUp.frame:EnableMouse(true)
     self._arrowDown.frame:EnableMouse(true)
 
+    -- A previous Esc's forced hide is lifted.
+    self._escHidden:set(false)
+
     -- Flip the signal: the shown/alpha binds fade the panel in.
     self._open:set(true)
 end
@@ -771,7 +818,83 @@ function Select:Close()
     end
 end
 
+-- ─── Esc registration ─────────────────────────────────────────────────────────
+-- Registered for the Select's whole life (CloseSpecialWindows skips hidden frames),
+-- like Popover/Menu: toggling it on Open/Close would mutate UISpecialFrames from
+-- the OnHide that CloseSpecialWindows itself triggers, mid-iteration.
+function Select:_escRegister(on)
+    for i = #UISpecialFrames, 1, -1 do
+        if UISpecialFrames[i] == self._panelName then table.remove(UISpecialFrames, i) end
+    end
+    if on then table.insert(UISpecialFrames, self._panelName) end
+end
+
+-- ─── Multiple selection helpers (FR-121) ──────────────────────────────────────
+-- Shallow copy of a { [value] = true } set, dropping false entries. Also takes
+-- an array of values ({ "pull", "cast" }) as a convenience.
+function Select._copySet(src)
+    local out = {}
+    if type(src) ~= "table" then return out end
+    for k, v in pairs(src) do
+        if v == true then
+            out[k] = true
+        elseif type(k) == "number" and v ~= false then
+            out[v] = true          -- array form
+        end
+    end
+    return out
+end
+
+function Select:_isSelected(v)
+    if self._cfg.multiple then return self._cfg.values[v] == true end
+    return v == self._cfg.value
+end
+
+-- Trigger text: the picked labels in OPTION order, ", "-joined; values that are not
+-- in the options list (yet) follow as their raw value, the way SetValue degrades.
+-- nil when nothing is picked (→ placeholder).
+function Select:_valuesText()
+    local parts, seen = {}, {}
+    for _, opt in ipairs(self._cfg.options) do
+        if opt.value ~= nil and self._cfg.values[opt.value] then
+            parts[#parts + 1] = tostring(opt.label or opt.value)
+            seen[opt.value] = true
+        end
+    end
+    local extra = {}
+    for v in pairs(self._cfg.values) do
+        if not seen[v] then extra[#extra + 1] = tostring(v) end
+    end
+    table.sort(extra)
+    for _, v in ipairs(extra) do parts[#parts + 1] = v end
+    if #parts == 0 then return nil end
+    return table.concat(parts, ", ")
+end
+
+-- A user click on a row: flip it, repaint, write back and report a NEW table.
+function Select:_toggleValue(v)
+    if v == nil then return end
+    local values = Select._copySet(self._cfg.values)
+    if values[v] then values[v] = nil else values[v] = true end
+    self._cfg.values = values
+    self:_updateTriggerText()
+    self:_refreshItemStates()
+    if self._valuesSignal then self._valuesSignal:set(Select._copySet(values)) end
+    if self._cfg.onChange then self._cfg.onChange(Select._copySet(values)) end
+end
+
 -- ─── Public API ───────────────────────────────────────────────────────────────
+-- Multiple mode (FR-121). Programmatic: never fires onChange (like SetValue).
+function Select:SetValues(values)
+    self._cfg.values = Select._copySet(values)
+    self:_updateTriggerText()
+    self:_refreshItemStates()
+end
+
+function Select:GetValues()
+    return Select._copySet(self._cfg.values)
+end
+
 function Select:SetValue(v)
     self._cfg.value = v
     self:_updateTriggerText()
@@ -810,6 +933,7 @@ function Select:Destroy()
     if not self.frame then return end
     Craft.Reactive.disposeAll(self)
     self:Close()
+    self:_escRegister(false)
     self._theme:unregister(self._themeHandle)
     if self._panel then
         self._panel:Hide()

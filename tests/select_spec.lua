@@ -311,3 +311,123 @@ describe("Craft.Select outside-click watcher", function()
         s:Destroy()
     end)
 end)
+
+-- ─── Multiple selection (FR-121) ──────────────────────────────────────────────
+
+describe("Craft.Select multiple (FR-121)", function()
+
+    local BARS = {
+        { value = "pull",    label = "Pull" },
+        { value = "break",   label = "Break" },
+        { value = "ability", label = "Ability" },
+        { value = "cast",    label = "Cast" },
+    }
+
+    it("shows the placeholder with nothing picked", function()
+        local s = Craft.Select:Create(UIParent, { multiple = true, options = BARS, placeholder = "Any" })
+        assert.equals("Any", s._selectedText:GetText())
+        assert.same({}, s:GetValues())
+        s:Destroy()
+    end)
+
+    it("the trigger lists the picked labels in option order, comma-separated", function()
+        local s = Craft.Select:Create(UIParent, { multiple = true, options = BARS,
+            values = { cast = true, pull = true } })
+        assert.equals("Pull, Cast", s._selectedText:GetText())
+        assert.is_true(s._items[1].checkmark:IsShown())
+        assert.is_false(s._items[2].checkmark:IsShown())
+        assert.is_true(s._items[4].checkmark:IsShown())
+        s:Destroy()
+    end)
+
+    it("a click toggles the row WITHOUT closing and reports a new table", function()
+        local got = {}
+        local seed = { pull = true }
+        local s = Craft.Select:Create(UIParent, { multiple = true, options = BARS, values = seed,
+            onChange = function(v) got[#got + 1] = v end })
+        s:Open()
+        s._items[3].frame:_fire("OnClick")             -- + ability
+        assert.is_true(s._open:peek())                 -- still open
+        assert.same({ pull = true, ability = true }, got[1])
+        assert.equals("Pull, Ability", s._selectedText:GetText())
+        s._items[1].frame:_fire("OnClick")             -- − pull
+        assert.same({ ability = true }, got[2])
+        assert.is_false(s._items[1].checkmark:IsShown())
+        assert.same({ pull = true }, seed)             -- caller's table untouched
+        got[2].cast = true                             -- mutating the report…
+        assert.same({ ability = true }, s:GetValues()) -- …doesn't leak in
+        s:Destroy()
+    end)
+
+    it("SetValues is silent and accepts the array form", function()
+        local fired = 0
+        local s = Craft.Select:Create(UIParent, { multiple = true, options = BARS,
+            onChange = function() fired = fired + 1 end })
+        s:SetValues({ "break", "cast" })
+        assert.same({ ["break"] = true, cast = true }, s:GetValues())
+        assert.equals("Break, Cast", s._selectedText:GetText())
+        s:SetValues(nil)
+        assert.equals("Select...", s._selectedText:GetText())
+        assert.equals(0, fired)
+        s:Destroy()
+    end)
+
+    it("a value missing from the options degrades to its raw value", function()
+        local s = Craft.Select:Create(UIParent, { multiple = true, options = BARS,
+            values = { pull = true, zzz = true } })
+        assert.equals("Pull, zzz", s._selectedText:GetText())
+        s:Destroy()
+    end)
+
+    it("a writable values signal gets the user toggles back", function()
+        local Weave = LibStub("Weave-1.0")
+        local sig = Weave.signal({ cast = true })
+        local s = Craft.Select:Create(UIParent, { multiple = true, options = BARS, values = sig })
+        assert.equals("Cast", s._selectedText:GetText())
+        s:Open()
+        s._items[1].frame:_fire("OnClick")
+        assert.same({ pull = true, cast = true }, sig:peek())
+        sig:set({ ["break"] = true })                  -- programmatic → trigger follows
+        assert.equals("Break", s._selectedText:GetText())
+        s:Destroy()
+    end)
+
+    it("single mode is unchanged: a click picks and closes", function()
+        local picked
+        local s = Craft.Select:Create(UIParent, { options = BARS, onSelect = function(v) picked = v end })
+        s:Open()
+        s._items[2].frame:_fire("OnClick")
+        assert.equals("break", picked)
+        assert.is_false(s._open:peek())
+        s:Destroy()
+    end)
+end)
+
+-- ─── Esc (FR-121) ─────────────────────────────────────────────────────────────
+
+describe("Craft.Select Esc", function()
+
+    it("registers its named panel in UISpecialFrames and drops it on Destroy", function()
+        local s = Craft.Select:Create(UIParent, { options = THREE })
+        local name = s._panelName
+        local function listed()
+            for _, n in ipairs(UISpecialFrames) do if n == name then return true end end
+            return false
+        end
+        assert.is_true(listed())
+        s:Destroy()
+        assert.is_false(listed())
+    end)
+
+    it("an Esc hide while open closes it logically (no fade-out re-show)", function()
+        local s = Craft.Select:Create(UIParent, { options = THREE })
+        s:Open()
+        s._panel:Hide()                                   -- what CloseSpecialWindows does
+        s._panel:_fire("OnHide")
+        assert.is_false(s._open:peek())
+        assert.is_true(s._escHidden:peek())
+        s:Open()                                          -- reopening lifts it
+        assert.is_false(s._escHidden:peek())
+        s:Destroy()
+    end)
+end)

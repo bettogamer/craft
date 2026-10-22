@@ -71,6 +71,56 @@ CraftBrowserPages["Select"] = {
         y = addLabel("Scrolls, value on the 9th row (opens scrolled to it)", y)
         y = addSelect({ options=manyOpts, value="g9" }, y)
 
+        -- FR-121: multiple = true (Base UI Select `multiple`). A click toggles the
+        -- row's check WITHOUT closing; Esc or a click outside closes. The trigger
+        -- lists the picks in option order; onChange prints the new set.
+        local function printSet(tag, values)
+            local keys = {}
+            for k in pairs(values) do keys[#keys + 1] = tostring(k) end
+            table.sort(keys)
+            print("|cff88ccffCraft FR-121|r " .. tag .. " { " .. table.concat(keys, ", ") .. " }")
+        end
+        local bars = {
+            { value="pull", label="Pull" }, { value="break", label="Break" },
+            { value="ability", label="Ability" }, { value="cast", label="Cast" },
+        }
+        y = addLabel("FR-121 multiple — Boss mod \"Bar Type\": click toggles, stays open, Esc closes", y)
+        y = addSelect({ options=bars, multiple=true, values={ pull=true, cast=true },
+            placeholder="Any bar type", onChange=function(v) printSet("onChange", v) end }, y)
+
+        y = addLabel("FR-121 multiple, long picks truncate with \"…\"; 9 options scroll", y)
+        y = addSelect({ options=manyOpts, multiple=true, values={ "g1", "g3", "g5", "g8", "g9" },
+            placeholder="Group modes...", onChange=function(v) printSet("onChange", v) end }, y)
+
+        y = addLabel("FR-121 SetValues — the buttons replace the set (silent: no onChange)", y)
+        local classes = {
+            { value="WARRIOR", label="Warrior" }, { value="PALADIN", label="Paladin" },
+            { value="PRIEST", label="Priest" }, { value="MAGE", label="Mage" },
+            { value="DRUID", label="Druid" },
+        }
+        local classSel = Craft.Select:Create(parent, { options=classes, multiple=true,
+            placeholder="Any class", onChange=function(v) printSet("onChange", v) end })
+        classSel:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        classSel:GetFrame():SetWidth(selectW)
+        table.insert(comps, classSel)
+        local bx = 16 + selectW + 8
+        for _, preset in ipairs({
+            { "Healers", { "PALADIN", "PRIEST", "DRUID" } },
+            { "None",    {} },
+        }) do
+            local b = Craft.Button:Create(parent, {
+                text = preset[1], size = "sm", variant = "outline",
+                onClick = function()
+                    classSel:SetValues(preset[2])
+                    printSet("GetValues()", classSel:GetValues())
+                end,
+            })
+            b:GetFrame():SetPoint("LEFT", classSel:GetFrame(), "LEFT", bx - 16, 0)
+            bx = bx + b:GetFrame():GetWidth() + 4
+            table.insert(comps, b)
+        end
+        y = y + 44
+
         y = addLabel("maxItems = 3 — the cap also works downward", y)
         y = addSelect({ options=opts, value="opt1", maxItems=3 }, y)
 
