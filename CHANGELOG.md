@@ -6,6 +6,35 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.37.0] - 2026-10-22
+
+> **Release v2.37.0 — `Craft.Select` con selección múltiple (FR-121), `Craft.Input` con prefijo /
+> sufijo de texto (FR-122) y formas de flecha en `Craft.Shapes` (FR-120).**
+> Pedidos de SMRT (editor de auras: trigger «Boss mod», campos en segundos, selector de texturas).
+>
+> **API compatible:** todo lo nuevo es opt-in. **Un cambio visible:** Esc ahora cierra el panel de
+> cualquier `Craft.Select` abierto (antes no hacía nada). Verificado in-game.
+
+### Added
+
+- **`Craft.Select` — selección múltiple (FR-121).** `config.multiple = true` (el `Select multiple` de
+  Base UI): clicar un item alterna su check **sin cerrar** el popup; el trigger lista los labels
+  elegidos en el orden de `options`, separados por comas y truncados, o el placeholder. `values`
+  (`{ [v] = true }` o array, también señal two-way), `onChange(values)` con una tabla nueva,
+  `SetValues` / `GetValues`. Mismos items, check, tamaño, tema y animación que el modo simple.
+- **`Craft.Input` — prefijo / sufijo de texto (FR-122).** `config.prefix` / `config.suffix` (el
+  `InputGroupAddon` + `InputGroupText` de shadcn): texto muted y font-medium dentro del borde que no
+  forma parte del valor; el área editable se acorta lo que mida. `SetPrefix` / `SetSuffix` (`nil`
+  lo quita), `GetPrefix` / `GetSuffix`. Convive con iconos y con el ✕ de `clearable`.
+- **`Craft.Shapes` — formas de dirección (FR-120).** `arrow`, `chevron` y `arrow_curved`: un
+  fichero 256×256 por forma, apuntando **arriba**, para girarlas con `SetRotation` (texturas de
+  auras de SMRT). Nueva página **Shapes** en Craft_Browser con el catálogo completo.
+
+### Changed
+
+- **`Craft.Select` — Esc cierra el panel** (Radix/Base UI dismiss on Escape), en ambos modos. El
+  panel pasa a ser un frame con nombre (`CraftSelectPanelN`) registrado en `UISpecialFrames`.
+
 ## [2.36.0] - 2026-10-21
 
 > **Release v2.36.0 — `Craft.Dialog`: alcance del modal y aviso al clicar fuera (FR-119).**
