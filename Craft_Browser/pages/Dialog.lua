@@ -156,6 +156,46 @@ CraftBrowserPages["Dialog"] = {
         table.insert(comps, flagsBtn)
         y = y + 48
 
+        -- ── FR-119: modal scope + nudge ──────────────────────────────────────
+        -- Three dialogs, one per scope. Click OUTSIDE each one while it is open:
+        -- "screen" and "window" shake (and print to chat); "none" lets the click through.
+        y = addLabel("FR-119 modal — clic fuera del diálogo: screen/window se sacuden, none deja pasar el clic", y)
+        local function scopeDialog(modal, desc)
+            local dlg = Craft.Dialog:Create(parent, {
+                title       = "modal = " .. tostring(modal),
+                description = desc,
+                modal       = modal,
+            })
+            dlg:ShowFooter(52)
+            local footer = dlg:GetFooter()
+            local close = Craft.Button:Create(footer, { text = "Cerrar", variant = "outline" })
+            close:GetFrame():SetPoint("RIGHT", footer, "RIGHT", -16, 0)
+            close:GetFrame():SetScript("OnClick", function() dlg:Hide() end)
+            table.insert(comps, close)
+            if dlg._overlay then
+                dlg._overlay:HookScript("OnMouseDown", function()
+                    print("|cff88ccff[Craft FR-119]|r clic bloqueado por modal = " .. tostring(modal) .. " → Nudge()")
+                end)
+            end
+            table.insert(comps, dlg)
+            return dlg
+        end
+        local scopes = {
+            { "screen", "Bloquea toda la pantalla (default)" },
+            { "window", "Bloquea solo la ventana del Browser; el resto de la UI sigue usable" },
+            { false,    "No bloquea nada: puedes seguir usando el Browser con el diálogo abierto" },
+        }
+        local x = 16
+        for _, s in ipairs(scopes) do
+            local dlg = scopeDialog(s[1], s[2])
+            local btn = Craft.Button:Create(parent, { text = "modal = " .. tostring(s[1]), variant = "outline" })
+            btn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", x, -y)
+            btn:GetFrame():SetScript("OnClick", function() dlg:Show() end)
+            table.insert(comps, btn)
+            x = x + btn:GetFrame():GetWidth() + 8
+        end
+        y = y + 48
+
         return {
             height  = y + 24,
             cleanup = function()

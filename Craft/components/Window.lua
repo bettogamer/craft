@@ -117,6 +117,7 @@ function Window:Create(parent, config)
     self.frame = CreateFrame("Frame", frameName, parent or UIParent)
     self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self.frame:SetFrameStrata(self._cfg.strata)
+    self.frame._craftWindow = true   -- FR-119: lets a "window" Dialog find its host
     self.frame:SetSize(config.width or 640, config.height or 420)
     self.frame:SetClampedToScreen(true)
     self.frame:EnableMouse(true)   -- block click-through to the game world

@@ -25,6 +25,37 @@ local WIDTHS = {
 -- Auto-incrementing instance counter used for UISpecialFrames registration.
 local _instanceCount = 0
 
+-- Modal scope (FR-119): what the backdrop blocks. nil/true = the whole screen (the
+-- historical behaviour), "window" = only the window that hosts the dialog,
+-- false/"none" = nothing (a non-blocking dialog).
+local MODAL_MODES = { screen = "screen", window = "window", none = "none" }
+
+local function modalMode(v)
+    if v == nil or v == true then return "screen" end
+    if v == false then return "none" end
+    return MODAL_MODES[v] or "screen"
+end
+
+-- Accepts a Craft component (anything with GetFrame) or a raw frame.
+local function frameOf(x)
+    if type(x) == "table" and type(x.GetFrame) == "function" then return x:GetFrame() end
+    return x
+end
+
+-- Nudge (FR-119): a click on the blocked area shakes the dialog sideways — the
+-- de-facto "can't do that, deal with this first" cue (macOS sheets, login boxes).
+-- Damped sine: NUDGE_CYCLES full swings whose amplitude decays linearly to 0, so
+-- the dialog always lands exactly where it was. Short on purpose — it must read
+-- as a reminder, not as an animation the user has to wait for.
+local NUDGE_DURATION  = 0.4
+local NUDGE_AMPLITUDE = 6      -- px, before the dialog's own scale
+local NUDGE_CYCLES    = 3
+
+local function nudgeOffset(p)
+    if p >= 1 then return 0 end
+    return NUDGE_AMPLITUDE * math.sin(p * NUDGE_CYCLES * 2 * math.pi) * (1 - p)
+end
+
 -- ─── Create ────────────────────────────────────────────────────────────────
 function Dialog:Create(parent, config)
     local self = setmetatable({}, Dialog)
@@ -50,7 +81,14 @@ function Dialog:Create(parent, config)
         -- FR-102: override of the theme's outline (t.fontFlags), applyFont's 4th arg —
         -- "" = no outline, nil = theme flag. Title + description. Re-applied on every re-theme.
         fontFlags    = config.fontFlags,
+        -- FR-119: modal scope ("screen" | "window" | "none", see MODAL_MODES), the
+        -- frame/component a "window" modal blocks (default: the Craft.Window that
+        -- contains `parent`), and the shake on a blocked click (default on).
+        modal        = modalMode(config.modal),
+        modalTarget  = config.modalTarget,
+        nudge        = config.nudge ~= false,
     }
+    self._parent    = parent
     self._baseScale = self._cfg.scale
     self._lastZoom  = 1
 
@@ -88,14 +126,29 @@ function Dialog:Create(parent, config)
     -- so the backdrop's EnableMouse (which swallows clicks to the UI behind) does
     -- NOT eat the dialog's own buttons/close. Different stratas — never rely on
     -- frame-level within a shared strata for this (that broke every click). FR-033.
-    self._overlay = CreateFrame("Frame", nil, UIParent)
-    self._overlay:SetFrameStrata((Craft.Strata and Craft.Strata.modalOverlay) or "FULLSCREEN")
-    self._overlay:SetAllPoints(UIParent)
-    self._overlay:EnableMouse(true)   -- modal: swallow clicks to the UI behind
-    self._overlay:Hide()
-    local overlayTex = self._overlay:CreateTexture(nil, "BACKGROUND")
-    overlayTex:SetAllPoints(self._overlay)
-    overlayTex:SetColorTexture(0, 0, 0, 0.10)  -- bg-black/10
+    --
+    -- FR-119: modal = "none" builds no backdrop at all; "window" keeps it a UIParent
+    -- child in the same strata but anchors it to the target window's rectangle
+    -- (_placeOverlay, on every Show). It stays out of the window's own hierarchy on
+    -- purpose: a child overlay would have to win a frame-level race against the
+    -- window's children (and every toplevel Raise), while a strictly-higher strata
+    -- wins by construction — the FR-033 rule again. Trade-off: whatever else sits
+    -- under that rectangle at a lower strata is covered too.
+    if self._cfg.modal ~= "none" then
+        self._overlay = CreateFrame("Frame", nil, UIParent)
+        self._overlay:SetFrameStrata((Craft.Strata and Craft.Strata.modalOverlay) or "FULLSCREEN")
+        self._overlay:SetAllPoints(UIParent)
+        self._overlay:EnableMouse(true)   -- modal: swallow clicks to the UI behind
+        self._overlay:Hide()
+        local overlayTex = self._overlay:CreateTexture(nil, "BACKGROUND")
+        overlayTex:SetAllPoints(self._overlay)
+        overlayTex:SetColorTexture(0, 0, 0, 0.10)  -- bg-black/10
+        -- A swallowed click is a click the user meant for something: say why
+        -- nothing happened instead of failing silently.
+        self._overlay:SetScript("OnMouseDown", function()
+            if self._cfg.nudge then self:Nudge() end
+        end)
+    end
 
     -- ── Open/close fade (Weave.tween) ───────────────────────────────────────
     -- shadcn dialog fades in/out. ONLY alpha — NOT height: WoW won't repaint a
@@ -130,8 +183,25 @@ function Dialog:Create(parent, config)
     self._effects = self._effects or {}
     self._effects[#self._effects + 1] = Weave.bind(self.frame,    "alpha", alpha)
     self._effects[#self._effects + 1] = Weave.bind(self.frame,    "shown", shown)
-    self._effects[#self._effects + 1] = Weave.bind(self._overlay, "alpha", alpha)
-    self._effects[#self._effects + 1] = Weave.bind(self._overlay, "shown", shown)
+    if self._overlay then
+        self._effects[#self._effects + 1] = Weave.bind(self._overlay, "alpha", alpha)
+        self._effects[#self._effects + 1] = Weave.bind(self._overlay, "shown", shown)
+    end
+
+    -- ── Nudge (FR-119) ───────────────────────────────────────────────────────
+    -- Progress 0→1, linear; resting at 1 (= no offset). Nudge() snaps it to 0 and
+    -- the tween runs back to 1 on its own. The offset rides on the anchor captured
+    -- at the start (_nudgeBase) and the last tick puts it back exactly, so a shake
+    -- never drifts the dialog — and a dialog the user dragged shakes where it is.
+    self._nudge = Weave.tween(1, { duration = NUDGE_DURATION, easing = Weave.easing.linear })
+    self._effects[#self._effects + 1] = Weave.effect(function()
+        local p    = self._nudge()
+        local base = self._nudgeBase
+        if not self.frame or not base then return end
+        self.frame:SetPoint(base[1], base[2], base[3], base[4] + nudgeOffset(p), base[5])
+        if p >= 1 then self._nudgeBase = nil end
+    end)
+    self._effects[#self._effects + 1] = self._nudge
     -- Drive SetScale from the tween via an effect ("scale" is not a built-in Weave
     -- prop; SetScale is a frame-only method with no texture equivalent).
     --
@@ -167,6 +237,7 @@ function Dialog:Create(parent, config)
     -- equality-cut drops the no-op when already false). Escape-close is instant
     -- (acceptable); binds are reactive (no polling) so this Hide() won't re-show.
     self.frame:HookScript("OnHide", function()
+        self:_stopNudge()  -- FR-119: an Escape mid-shake must not leave it offset
         if self._open and self._open:peek() then
             self._open:set(false)
         end
@@ -178,7 +249,10 @@ function Dialog:Create(parent, config)
     self.frame:RegisterForDrag("LeftButton")
     -- Drag is started from the header area (see _header scripts below).
     -- Fallback: dragging the frame itself also works.
-    self.frame:SetScript("OnDragStart", function() self.frame:StartMoving() end)
+    self.frame:SetScript("OnDragStart", function()
+        self:_stopNudge(); self._userMoved = true
+        self.frame:StartMoving()
+    end)
     self.frame:SetScript("OnDragStop",  function() self.frame:StopMovingOrSizing() end)
 
     -- Center on first show
@@ -202,7 +276,11 @@ function Dialog:Create(parent, config)
     self._header:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, 0)
     self._header:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
     self._header:EnableMouse(true)
-    self._header:SetScript("OnMouseDown", function() self.frame:StartMoving() end)
+    self._header:SetScript("OnMouseDown", function()
+        -- Settle a shake first: StartMoving reads the anchor the shake is moving.
+        self:_stopNudge(); self._userMoved = true
+        self.frame:StartMoving()
+    end)
     self._header:SetScript("OnMouseUp",   function() self.frame:StopMovingOrSizing() end)
 
     -- Title: fontBold, text-sm = 14px, popoverForeground
@@ -508,6 +586,7 @@ end
 -- content/footer size the dev set after Create() (grow-to-fit).
 function Dialog:Show()
     if self._t then self:_layoutFrames(self._t) end
+    self:_placeOverlay()
     -- Raise to the top of its strata each open, so re-opening (or opening after
     -- another modal) lands above siblings without depending on creation order.
     if self.frame.Raise then self.frame:Raise() end
@@ -516,8 +595,78 @@ end
 
 -- Hides the dialog (fade out) without invoking onClose.
 function Dialog:Hide()
+    self:_stopNudge()
     self._open:set(false)
 end
+
+-- ─── Modal scope + nudge (FR-119) ─────────────────────────────────────────
+
+-- The frame a "window" modal blocks: config.modalTarget if given, else the nearest
+-- Craft.Window around `parent`, else the outermost ancestor below UIParent (a
+-- consumer's own main frame). nil = nothing to scope to (parent IS UIParent).
+function Dialog:_resolveModalTarget()
+    local explicit = frameOf(self._cfg.modalTarget)
+    if explicit then return explicit end
+    local f, outer = self._parent, nil
+    while f and f ~= UIParent do
+        if f._craftWindow then return f end
+        outer = f
+        f = f.GetParent and f:GetParent() or nil
+    end
+    return outer
+end
+
+-- Re-anchors the backdrop for the current mode. Runs on every Show, so a target
+-- resolved late (or swapped with SetModalTarget) is picked up on the next open.
+function Dialog:_placeOverlay()
+    local o = self._overlay
+    if not o then return end
+    local target = self._cfg.modal == "window" and self:_resolveModalTarget() or nil
+    self._modalTarget = target
+    o:ClearAllPoints()
+    o:SetAllPoints(target or UIParent)
+    if not target then return end
+    -- A modal for a window that is gone makes no sense: close with it. Hooked once
+    -- per target (HookScript cannot be undone); the guard keeps a stale hook inert.
+    self._hookedTargets = self._hookedTargets or {}
+    if not self._hookedTargets[target] and target.HookScript then
+        self._hookedTargets[target] = true
+        target:HookScript("OnHide", function()
+            if self.frame and self._modalTarget == target then self:Hide() end
+        end)
+    end
+    -- Open over the window it belongs to, until the user drags it elsewhere.
+    if not self._userMoved then
+        self.frame:ClearAllPoints()
+        self.frame:SetPoint("CENTER", target, "CENTER", 0, 0)
+    end
+end
+
+-- Points a "window" modal at another frame or component (e.g. the main window
+-- instead of the sub-window that hosts the dialog). Applies on the next Show.
+function Dialog:SetModalTarget(target)
+    self._cfg.modalTarget = target
+end
+
+-- Shakes the dialog once. Fired by a click on the blocked area; public so a
+-- consumer can use the same cue (e.g. a rejected Enter in a form). A nudge while
+-- one is running is dropped: hammering the backdrop must not restart the swing
+-- forever. No-op while closed.
+function Dialog:Nudge()
+    if not self.frame or not self._open:peek() then return end
+    if self._nudge:animating() then return end
+    local point, rel, relPoint, x, y = self.frame:GetPoint(1)
+    if not point then return end
+    self._nudgeBase = { point, rel, relPoint, x or 0, y or 0 }
+    self._nudge:snap(0)
+end
+
+-- Ends a running shake at its rest position (before a drag or a close).
+function Dialog:_stopNudge()
+    if self._nudgeBase and self._nudge then self._nudge:snap(1) end
+end
+
+Dialog._nudgeOffset = nudgeOffset  -- exposed for the spec (pure curve)
 
 -- Toggles visibility (fade in/out).
 function Dialog:Toggle()
