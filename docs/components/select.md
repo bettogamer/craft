@@ -199,10 +199,27 @@ Item height: 28px (py-2=8px top + text-xs=12px + py-2=8px bottom). Padding: 8px 
 | `onSelect`   | `function` | `nil`       | `fn(value, label)` — se dispara al seleccionar un item                      |
 | `width`      | `number`   | `nil`       | Ancho fijo en px. Si es nil, ocupa 100% del parent                          |
 | `maxItems`   | `number`   | `6`         | Filas visibles antes de scrollear (mínimo 1). No limita cuántas opciones se pueden elegir — el resto se alcanza con rueda/flechas (FR-066) |
+| `multiple`   | `boolean`  | `false`     | FR-121: selección múltiple (Base UI `Select multiple`). Clicar un item lo marca/desmarca **sin cerrar** |
+| `values`     | `table`    | `{}`        | FR-121, con `multiple`: conjunto inicial `{ [value] = true }` (o array `{ "a", "b" }`). Se copia: la tabla del caller nunca se muta |
+| `onChange`   | `function` | `nil`       | FR-121, con `multiple`: `fn(values)` en cada toggle del usuario, con una tabla **nueva** `{ [value] = true }` |
 
 > **Props reactivas (ADR-0013):** `options`, `value`, `placeholder` y `disabled` aceptan una
 > señal/computed de Weave además del literal. `options` re-renderiza la lista reutilizando
 > frames por índice; `value` es two-way (elegir un item escribe de vuelta si es escribible).
+> `values` (FR-121) igual: two-way con una señal escribible (cada toggle escribe una tabla nueva).
+
+### Selección múltiple (FR-121)
+
+Referencia: el `Select` de shadcn sobre **Base UI** acepta `multiple` (Radix no). Fidelidad:
+
+- **Mismo trigger, mismos items, mismo indicador**: el `check` a la derecha (pr-8) marca cada
+  opción elegida. **No** se usan casillas — Base UI pinta el `ItemIndicator` de siempre.
+- Clicar un item **alterna** su check y deja el popup abierto; Esc o un clic fuera lo cierran.
+- Trigger: labels elegidos **en el orden de `options`**, separados por `", "`, en una línea
+  truncada con elipsis (`line-clamp-1`); placeholder (muted) si no hay ninguno. Un value que no
+  está en `options` se muestra crudo al final (igual que `SetValue` con un value desconocido).
+- Al abrir, el scroll va a la **primera** opción elegida.
+- `SetValues`/programático nunca dispara `onChange` (como `SetValue`/`onSelect`).
 
 ## API pública
 
@@ -210,6 +227,8 @@ Item height: 28px (py-2=8px top + text-xs=12px + py-2=8px bottom). Padding: 8px 
 |-------------------------|--------------------------------------------------------------------------------|
 | `SetValue(value)`       | Selecciona la opción con ese value. Actualiza `selectedLabel`. No dispara `onSelect` |
 | `GetValue()`            | Retorna el value actualmente seleccionado, o `nil`                             |
+| `SetValues(values)`     | FR-121 (`multiple`): reemplaza el conjunto (`{ [v] = true }` o array). No dispara `onChange` |
+| `GetValues()`           | FR-121 (`multiple`): copia del conjunto `{ [v] = true }` actual                |
 | `SetOptions(options)`   | Reemplaza la lista de opciones. Cierra el panel si estaba abierto              |
 | `SetEnabled(bool)`      | Habilita/deshabilita el componente                                             |
 | `Open()`                | Abre el panel dropdown programáticamente                                       |
@@ -234,6 +253,12 @@ Item height: 28px (py-2=8px top + text-xs=12px + py-2=8px bottom). Padding: 8px 
 - **Trigger bg dark mode**: la textura bg del trigger usa alpha calculado: default `a=0.045` ({r=1,g=1,b=1}), hover `a=0.075`. Cambiar `SetVertexColor` o `SetAlpha` de la textura en OnEnter/OnLeave. No aplicar hover si el panel está abierto o si `disabled`.
 - **Separación visual**: el panel abre con 2px de separación del trigger (`SetPoint("TOPLEFT", trigger, "BOTTOMLEFT", 0, -2)`).
 - **Sin focus ring en trigger**: WoW es mouse-only (ADR-0011) — no implementar ring de keyboard en el trigger.
+- **Esc cierra el panel** (FR-121, Radix/Base UI dismiss on Escape): el panel es un frame con
+  nombre (`CraftSelectPanelN`) registrado en `UISpecialFrames` durante toda la vida del Select
+  (`CloseSpecialWindows` ignora los ocultos) y retirado en `Destroy`. Blizzard lo oculta con
+  `Hide()` directo, saltándose el fade: el `OnHide` reconcilia (`_escHidden` + `Close()`) para que
+  el bind `shown` no lo vuelva a enseñar durante el fade-out. No se registra/desregistra en
+  `Open`/`Close`: mutaría `UISpecialFrames` desde el propio `OnHide` que dispara su iteración.
 
 ### Diferencias conocidas vs shadcn (fuera de MVP)
 

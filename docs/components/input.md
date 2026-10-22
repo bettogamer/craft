@@ -68,6 +68,22 @@ Posición del icono:
 - Trailing: x = `spacing.sm` (8px) desde el borde derecho, centrado verticalmente.
 - Tamaño del icono: `iconSizeSm` = 16×16px.
 
+### Prefijo / sufijo de texto (FR-122)
+
+Equivalente a shadcn `InputGroup` + `InputGroupAddon` (`align="inline-start"` / `"inline-end"`) +
+`InputGroupText`: un texto apagado dentro del borde que **no forma parte del valor**.
+
+- Estilo de `InputGroupText`: `text-muted-foreground font-medium`, mismo tamaño que el input
+  (`text-xs` = 12px) → `t.mutedForeground` + `t.fontMedium`.
+- Posición: ocupa el sitio del icono — a 8px del borde (`spacing.sm`), o tras el icono
+  (8 + 16 + 4) si lo hay; en el lado derecho, antes del hueco del ✕ / `iconTrailing`.
+- El texto editable empieza 4px después del addon (mismo gap que icono → texto). El área
+  editable se acorta lo que mida el addon; el ancho se re-mide en `_applyTheme` (bug #4).
+- Visible siempre, también con el placeholder (como en shadcn). Clicar el addon da el foco:
+  los FontStrings no capturan el ratón y el EditBox cubre todo el interior.
+- _Pend. devtools Lyra:_ el padding exacto del addon en Lyra (`pl-2`/`pr-2` vs `pl-3`) y el `pl`
+  del input en grupo; hoy se reutiliza la geometría del icono.
+
 ## Variantes visuales
 
 | Variante  | Fondo                        | Border color    | Notas                                        |
@@ -125,6 +141,8 @@ Notas sobre estados:
 | `onFocusGained` | `function` | `nil`       | `fn()` — al ganar el foco, **después** del trabajo interno (placeholder oculto, anillo). FR-111 |
 | `onFocusLost`   | `function` | `nil`       | `fn()` — al perder el foco, después del trabajo interno (placeholder repuesto si vacío). FR-111 |
 | `width`         | `number`   | `nil`       | Ancho fijo en px. Si es nil, ocupa 100% del parent                       |
+| `prefix`        | `string`   | `nil`       | FR-122: texto apagado dentro del borde, a la izquierda (`"#"`, `"$"`). No forma parte del valor |
+| `suffix`        | `string`   | `nil`       | FR-122: ídem a la derecha (`"s"`, `"%"`, `"px"`) |
 | `fontFlags` | string | `nil` | FR-102: flags de fuente de texto y placeholder (4.º arg de `Theme.applyFont`; `""` = sin contorno, p. ej. texto claro sobre superficie oscura con el tema en `"OUTLINE"`). `nil` = el `t.fontFlags` global del tema. Se reaplica en cada re-tema. |
 
 > **Nota de fidelidad (FR-016).** El botón **clear ✕ dentro del input es una extensión de Craft**,
@@ -149,6 +167,8 @@ Notas sobre estados:
 | `HasFocus()`             | `true` si el EditBox tiene el foco (FR-059)                                  |
 | `Insert(text)`           | Inserta `text` **en el cursor** (sustituye la selección, como teclear) y sigue el camino de una tecla: `onChange` (una vez), write-back a la señal ligada, placeholder y ✕. No-op si `disabled` o `text` vacío (FR-111) |
 | `GetCursorPosition()` / `SetCursorPosition(n)` | Passthrough al cursor del EditBox (FR-111) |
+| `SetPrefix(text)` / `SetSuffix(text)` | Cambia el addon de texto; `nil` o `""` lo quita y el área editable recupera el sitio (FR-122) |
+| `GetPrefix()` / `GetSuffix()` | Texto actual del addon (o `nil`) (FR-122) |
 | `GetFrame()`             | Retorna el frame raíz del componente                                         |
 
 ## Notas de implementación
