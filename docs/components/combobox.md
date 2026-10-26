@@ -43,7 +43,7 @@ combo._pop             (Craft.Popover — padding=0, side=bottom, align=start)
 └── content
     ├── combo._searchRow   (Frame h-9=36: icono search 16px + EditBox + border-b 1px)
     ├── combo._scroll      (ScrollFrame p-1, max-h 300)
-    │   └── rows pooled    (group headings + items con check a la derecha)
+    │   └── rows pooled    (≤ 14 — una ventana del viewport, FR-125; headings + items con check)
     └── combo._empty       (FontString py-6 center — sin resultados)
 ```
 
@@ -134,8 +134,22 @@ mover el mouse actualiza el highlight, las flechas también.
 - **Construido sobre `Craft.Popover`** (FR-028): anclaje/z-order/catcher/Esc/animación
   vienen del Popover (`padding=0`, `SetWidth` al ancho del trigger en cada Open). El
   Combobox solo posee el contenido (search + lista) y el trigger.
-- **Filas pooled por índice** (patrón Menu/Select): un pool de bundles que morfan entre
-  heading/item entre rebuilds; excedente oculto y neutralizado (`entry = nil`).
+- **Lista virtualizada (FR-125).** El scroll child mide `#entries × ROW_H` (headings
+  incluidos, misma altura), pero solo existen `POOL_SIZE = ceil(292 / 24) + 1 = 14` filas:
+  las que caben en el viewport (`max-h 300` − `p-1`) más la parcial del borde. Todo scroll
+  (rueda, `_scrollIntoView`, refiltro) pasa por `_setScroll`, que recorta el offset y
+  reasigna el pool a la ventana `_first .. _first+13` (`_renderWindow`); `_rowOf[i]` da la
+  fila que pinta la entrada `i`, si está en pantalla. El catálogo de 1247 zonas de SMRT
+  cuesta 14 marcos, no 1247, y cada tecla repinta 14 filas. Las filas morfan entre
+  heading/item; el excedente (lista corta) queda oculto con `index = nil`. Es la
+  virtualización que se le añade a `cmdk` para listas grandes: el aspecto no cambia.
+- **Highlight, Enter, click y check van por ÍNDICE DE ENTRADA**, nunca por fila: `_hl` es
+  un índice de `_entries` y `row.index` dice qué entrada muestra la fila ahora. ↑ desde el
+  primer item salta al último y lo trae a la vista aunque no tuviera fila. La rueda no
+  mueve el highlight (cmdk: solo el movimiento del puntero lo mueve).
+- **Alto del viewport calculado, no medido:** `_viewH` sale del alto que `_buildRows` da
+  al contenido, porque en el primer render de `Open` el Popover aún no ha resuelto anclas
+  y el `GetHeight()` del ScrollFrame no es fiable.
 - **El EditBox captura Enter/Esc/flechas** solo mientras tiene foco (WoW se lo da al
   abrir); no hay navegación Tab (mouse-only, AGENTS.md §7 — esto es tipeo, no focus ring).
 - **`SetValue` programático no dispara `onSelect`** — solo el click/Enter del usuario
