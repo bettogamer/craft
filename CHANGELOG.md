@@ -6,6 +6,21 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.39.0] - 2026-10-25
+
+> **Release v2.39.0 — `Craft.Combobox` con lista virtualizada (FR-125).** Pedido de SMRT (buscador
+> de zonas, 1247 entradas).
+>
+> **API compatible:** sin cambios para el consumidor; solo cambia cuántos marcos crea la lista.
+> Verificado in-game.
+
+### Changed
+
+- **`Craft.Combobox` — lista virtualizada (FR-125).** Solo existen las filas que caben en el panel
+  (14), reasignadas al hacer scroll: el catálogo de 1247 zonas de SMRT pasa de 1247 marcos a 14 y
+  cada tecla repinta 14 filas. Highlight, ↑/↓ (con wrap hasta el final de la lista), Enter y click
+  van por entrada. API sin cambios.
+
 ## [2.38.0] - 2026-10-25
 
 > **Release v2.38.0 — `Craft.ToggleGroup` deseleccionable (FR-123) y con selección múltiple (FR-124).**
