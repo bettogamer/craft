@@ -1,8 +1,9 @@
 # Component: ToggleGroup
 
 > Referencia shadcn: **`toggle-group`** — Craft lo expone como `Craft.ToggleGroup` (mismo
-> nombre que shadcn; el RFC-009 lo llamaba "SegmentedControl"). Implementa el subset de
-> **selección única**. Se replica el render real de la página: **`variant=outline`,
+> nombre que shadcn; el RFC-009 lo llamaba "SegmentedControl"). Implementa selección
+> **única** (`type="single"`, con desmarcado opcional — FR-123) y **múltiple** (`type="multiple"`,
+> FR-124). Se replica el render real de la página: **`variant=outline`,
 > `spacing=1`** → segmentos **separados**, cada uno con su propio borde, con un gap de 4px.
 
 ## CSS de referencia (Lyra) — render real de la página
@@ -21,7 +22,7 @@ El HTML renderizado: cada `toggle-group-item` lleva `cn-toggle-variant-outline` 
 
 ## Propósito
 
-Selección **única** mostrada como una fila de segmentos con borde (display Barra/Icono/Texto,
+Selección **única** o **múltiple** mostrada como una fila de segmentos con borde (display Barra/Icono/Texto,
 modo de trigger). Alternativa compacta y horizontal al `RadioGroup`/`Select`.
 
 ## Animación ([Unreleased])
@@ -60,19 +61,25 @@ togglegroup.frame            (Frame — h-8, w-fit; ancho = Σ segmentos + gaps)
 | `options` | table | `{}` | Lista de `{ value, label, icon?, tooltip? }` |
 | `value` | any | nil | Valor seleccionado inicial |
 | `disabled` | boolean | false | Deshabilita el control |
-| `onChange` | function | nil | `fn(value)` al seleccionar |
+| `onChange` | function | nil | `fn(value)` al seleccionar; en modo múltiple `fn(values)` con una tabla **nueva** `{ [value] = true }` (vacía = ninguno) |
+| `deselectable` | boolean | false | (FR-123, modo single) clicar el segmento marcado lo **desmarca**: `value = nil` y `onChange(nil)`. Es el comportamiento por defecto de Radix `type="single"`; en Craft es opt-in para no cambiar a los consumidores existentes |
+| `type` | string | `"single"` | (FR-124) `"multiple"`: cada segmento alterna por su cuenta (Radix `type="multiple"`). También vale `multiple = true` (ortografía de Base UI, la que usa `Select`) |
+| `values` | table | `{}` | (FR-124, modo múltiple) conjunto inicial `{ [value] = true }` o array `{ "a", "b" }`. Se copia: la tabla del caller nunca se muta |
 | `width` | number | nil | (FR-096) `w-full`: el grupo mide `width` y los segmentos se lo reparten a **partes iguales** (`flex-1` = `flex: 1 1 0%`), texto centrado. Un label que no cabe en su parte se **elide** (`…`), nunca envuelve. `nil` = `w-fit` (cada segmento a su label) |
 
-> **Props reactivas (ADR-0013):** `options`, `value` y `disabled` aceptan señal/computed.
+> **Props reactivas (ADR-0013):** `options`, `value`, `values` y `disabled` aceptan señal/computed.
 > `options` re-renderiza reutilizando segmentos por índice (un segmento reciclado puede
-> ganar/perder su icono); `value` es two-way.
+> ganar/perder su icono); `value` y `values` son two-way (un clic escribe de vuelta; en múltiple,
+> una tabla nueva).
 
 ## API pública
 
 | Método | Descripción |
 |---|---|
 | `SetValue(v[, silent])` | Selecciona un segmento; `silent=true` no dispara `onChange` |
-| `GetValue()` | Valor seleccionado |
+| `GetValue()` | Valor seleccionado (modo single) |
+| `SetValues(set)` | (FR-124, modo múltiple) reemplaza el conjunto (`{ [v] = true }` o array; `nil` = vacío). No dispara `onChange` |
+| `GetValues()` | (FR-124, modo múltiple) copia del conjunto `{ [v] = true }` actual |
 | `SetOptions(options)` | Reemplaza la lista y re-renderiza (segmentos reutilizados). Conserva la selección si sigue presente; no dispara `onChange` |
 | `SetEnabled(bool)` | Habilita/deshabilita |
 | `SetWidth(w)` | (FR-096) Pasa a `w-full` con ese ancho, re-llamable cuando el contenedor cambie; `SetWidth(nil)` vuelve a `w-fit`. El ancho sobrevive a `SetOptions` |
@@ -89,5 +96,11 @@ togglegroup.frame            (Frame — h-8, w-fit; ancho = Σ segmentos + gaps)
 - **font-medium** → `t.fontBold` (Craft solo trae Regular + Bold).
 - **Iconos** opcionales por segmento (`icon = "<lucide>"`), tintados al color del texto.
 - **Tooltips** opcionales por segmento (`tooltip = "texto"`); muestran `Craft.Tooltip` en hover, incluso si el segmento está disabled.
-- **Selección múltiple** y la variante **conectada** (`spacing=0`, bordes compartidos) del
-  ToggleGroup no se implementan (sin caso de uso en Sentry); añadir si se necesitan.
+- **Desmarcar (FR-123)**: en Radix `type="single"` un clic en el item pulsado deja el valor
+  vacío. Craft lo replica con `deselectable = true`; sin la opción, el clic no hace nada (compat).
+  La animación del relleno es la misma que al cambiar de segmento.
+- **Múltiple (FR-124)**: mismos segmentos, borde, relleno `bg-muted` y animación por segmento;
+  cada clic alterna solo el suyo. `value`/`SetValue`/`GetValue` son del modo single y se ignoran
+  en múltiple; `values`/`SetValues`/`GetValues` al revés.
+- La variante **conectada** (`spacing=0`, bordes compartidos) no se implementa (sin caso de
+  uso); añadir si se necesita.
