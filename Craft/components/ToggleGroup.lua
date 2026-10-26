@@ -1,4 +1,4 @@
--- ToggleGroup.lua  (Craft.ToggleGroup — shadcn ToggleGroup, single selection)
+-- ToggleGroup.lua  (Craft.ToggleGroup — shadcn ToggleGroup, single or multiple selection)
 -- Spec: docs/components/togglegroup.md
 -- Design: matches the shadcn page's rendered ToggleGroup — variant=outline, spacing=1:
 --   .cn-toggle              { rounded-none text-xs font-medium hover:text-foreground
@@ -11,6 +11,11 @@
 --   (on/off buttons differ only by data-state). Single selection.
 -- Full width (FR-096): `<ToggleGroup className="w-full">` with `flex-1` on each item —
 --   flex: 1 1 0%, so the segments split the width EQUALLY whatever their labels.
+-- Deselect (FR-123): Radix `type="single"` lets a click on the pressed item clear the
+--   value; Craft makes it opt-in (`deselectable`) so existing consumers keep a value.
+-- Multiple (FR-124): Radix `type="multiple"` / Base UI `multiple` — every item toggles
+--   on its own; same segments, fill and animation. `values` is a set { [value] = true }
+--   (like Select multiple, FR-121), copied in and out.
 
 local Craft = LibStub("Craft-2.0")
 local Weave = LibStub("Weave-1.0")
@@ -40,26 +45,32 @@ function ToggleGroup:Create(parent, config)
         disabled = config.disabled or false,
         onChange = config.onChange,
         width    = config.width,   -- nil = w-fit; a number = w-full, flex-1 segments (FR-096)
+        deselectable = config.deselectable and true or false,  -- FR-123 (single mode)
+        multiple = (config.type == "multiple" or config.multiple) and true or false,  -- FR-124
     }
     self._value = config.value
+    self._values = {}  -- FR-124: selected set in multiple mode (filled below)
     self._segs  = {}   -- pooled segment bundles (reused across rebuilds)
     self._count = 0    -- number of VISIBLE segments (self._segs may hold surplus)
 
     -- Reactive props (ADR-0013): a callable prop binds through the setters
     -- (after the theme pass, below); until then the internal state holds safe
     -- literals so Create/_applyTheme never operate on a signal object.
-    -- ToggleGroup only implements single selection (multi-select is out of
-    -- scope — docs/components/togglegroup.md §Notas), so `value` binds as a
-    -- single scalar.
+    -- `value` binds as a single scalar; `values` (FR-124, multiple mode) as a set.
     local R = Craft.Reactive
     local optionsSource  = R.isCallable(config.options)  and config.options  or nil
     local valueSource    = R.isCallable(config.value)    and config.value    or nil
+    local valuesSource   = R.isCallable(config.values)   and config.values   or nil
     local disabledSource = R.isCallable(config.disabled) and config.disabled or nil
     if optionsSource  then self._cfg.options  = {} end
     if valueSource    then self._value = nil end
+    if not valuesSource then self._values = ToggleGroup._copySet(config.values) end
     if disabledSource then self._cfg.disabled = false end
     if valueSource and R.isWritableSignal(valueSource) then
         self._valueSignal = valueSource -- two-way: user clicks write back
+    end
+    if valuesSource and R.isWritableSignal(valuesSource) then
+        self._valuesSignal = valuesSource -- two-way: user toggles write back (FR-124)
     end
 
     self.frame = CreateFrame("Frame", nil, parent)
@@ -79,6 +90,7 @@ function ToggleGroup:Create(parent, config)
     -- on user clicks.
     R.applyOrBind(self, optionsSource,  function(s, v) s:SetOptions(v) end)
     R.applyOrBind(self, valueSource,    function(s, v) s:SetValue(v, true) end)
+    R.applyOrBind(self, valuesSource,   function(s, v) s:SetValues(v) end)
     R.applyOrBind(self, disabledSource, function(s, off) s:SetEnabled(not off) end)
 
     if self._cfg.disabled then self:SetEnabled(false) end
@@ -199,7 +211,7 @@ function ToggleGroup:_buildItems()
     for i, opt in ipairs(opts) do
         local seg = self._segs[i]
         if not seg then
-            seg = self:_makeSegment(opt.value == self._value)
+            seg = self:_makeSegment(self:_isOn(opt.value))
             self._segs[i] = seg
         end
         seg.value = opt.value
@@ -282,8 +294,34 @@ function ToggleGroup:_layout()
 end
 
 -- ─── Selection / hover ────────────────────────────────────────────────────────
+-- Set copy: accepts { [v] = true } or an array { "a", "b" }; never shares the
+-- caller's table (same contract as Select._copySet, FR-121).
+function ToggleGroup._copySet(src)
+    local out = {}
+    if type(src) ~= "table" then return out end
+    for k, v in pairs(src) do
+        if v == true then
+            out[k] = true
+        elseif type(k) == "number" and v ~= false then
+            out[v] = true          -- array form
+        end
+    end
+    return out
+end
+
+function ToggleGroup:_isOn(value)
+    if value == nil then return false end
+    if self._cfg.multiple then return self._values[value] == true end
+    return value == self._value
+end
+
 function ToggleGroup:_select(value)
-    if self._value == value then return end
+    if self._cfg.multiple then return self:_toggle(value) end
+    if self._value == value then
+        -- FR-123: Radix single mode clears the value on a click on the pressed item.
+        if not self._cfg.deselectable or value == nil then return end
+        value = nil
+    end
     self._value = value
     self:_refresh()
     if self._valueSignal then self._valueSignal:set(value) end
@@ -310,10 +348,19 @@ function ToggleGroup:_applyFill(seg)
     if a <= 0 then seg.bg:Hide() else seg.bg:Show() end
 end
 
+-- FR-124: multiple mode — the clicked item flips on its own; onChange gets a NEW set.
+function ToggleGroup:_toggle(value)
+    if value == nil then return end
+    self._values[value] = (not self._values[value]) or nil
+    self:_refresh()
+    if self._valuesSignal then self._valuesSignal:set(ToggleGroup._copySet(self._values)) end
+    if self._cfg.onChange then self._cfg.onChange(ToggleGroup._copySet(self._values)) end
+end
+
 function ToggleGroup:_refresh()
     for i = 1, self._count do
         local seg = self._segs[i]
-        seg.onSig:set(seg.value ~= nil and seg.value == self._value)
+        seg.onSig:set(self:_isOn(seg.value))
     end
 end
 
@@ -387,6 +434,17 @@ end
 
 function ToggleGroup:GetValue()
     return self._value
+end
+
+-- Multiple mode (FR-124): replaces the selected set ({ [v] = true } or array).
+-- Programmatic: never fires onChange.
+function ToggleGroup:SetValues(values)
+    self._values = ToggleGroup._copySet(values)
+    self:_refresh()
+end
+
+function ToggleGroup:GetValues()
+    return ToggleGroup._copySet(self._values)
 end
 
 function ToggleGroup:SetEnabled(enabled)

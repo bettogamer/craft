@@ -2,7 +2,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 
 CraftBrowserPages["ToggleGroup"] = {
     title = "ToggleGroup",
-    desc  = "Outline toggle group, single choice (RFC-009 #4; shadcn ToggleGroup)",
+    desc  = "Outline toggle group, single or multiple choice (RFC-009 #4; shadcn ToggleGroup)",
     render = function(parent)
         local t = Craft.Theme.get()
         local comps = {}
@@ -84,6 +84,45 @@ CraftBrowserPages["ToggleGroup"] = {
         })
         resize:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16 + 360 + 16, -(y + 6))
         table.insert(comps, resize)
+        y = y + 32 + 16
+
+        -- Deselectable (FR-123): click the pressed segment to clear it (value = nil).
+        y = addLabel("deselectable (FR-123) — click the pressed segment to clear it (prints to chat).", y)
+        local desel = Craft.ToggleGroup:Create(parent, {
+            deselectable = true,
+            options = { { value = "yes", label = "Sí" }, { value = "no", label = "No" } },
+            onChange = function(v) print("|cff00ccffCraft|r FR-123 onChange:", tostring(v)) end,
+        })
+        desel:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(y + 4))
+        table.insert(comps, desel)
+        y = y + 32 + 16
+
+        -- Multiple (FR-124): every segment toggles; onChange gets a new set.
+        y = addLabel('type = "multiple" (FR-124) — each segment toggles on its own (prints to chat).', y)
+        local multi = Craft.ToggleGroup:Create(parent, {
+            type = "multiple",
+            values = { tank = true },
+            options = {
+                { value = "tank", label = "Tanque",  icon = "shield" },
+                { value = "heal", label = "Sanador", icon = "heart" },
+                { value = "dps",  label = "Daño",    icon = "sword" },
+            },
+            onChange = function(set)
+                local picked = {}
+                for _, k in ipairs({ "tank", "heal", "dps" }) do
+                    if set[k] then picked[#picked + 1] = k end
+                end
+                print("|cff00ccffCraft|r FR-124 onChange: {" .. table.concat(picked, ", ") .. "}")
+            end,
+        })
+        multi:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(y + 4))
+        table.insert(comps, multi)
+        local clear = Craft.Button:Create(parent, {
+            text = "SetValues({})", variant = "outline", size = "sm",
+            onClick = function() multi:SetValues({}) end,
+        })
+        clear:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16 + 360 + 16, -(y + 6))
+        table.insert(comps, clear)
         y = y + 32 + 16
 
         -- Disabled

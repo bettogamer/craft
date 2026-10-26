@@ -211,4 +211,106 @@ describe("Craft.ToggleGroup — tooltip (FR-020)", function()
         end)
     end)
 
+    -- ── FR-123: deselectable (Radix single: click the pressed item clears it) ──
+    describe("deselectable (FR-123)", function()
+        local OPTS = { { value="yes", label="Yes" }, { value="no", label="No" } }
+
+        it("without the option a click on the pressed segment changes nothing", function()
+            local calls = 0
+            local tg = newTG({ options = OPTS, value = "yes", onChange = function() calls = calls + 1 end })
+            tg._segs[1].btn:_fire("OnClick")
+            assert.equals("yes", tg:GetValue())
+            assert.equals(0, calls)
+        end)
+
+        it("with deselectable the pressed segment clears to nil and fires onChange(nil)", function()
+            local got = "unset"
+            local tg = newTG({ options = OPTS, value = "yes", deselectable = true,
+                               onChange = function(v) got = v end })
+            tg._segs[1].btn:_fire("OnClick")
+            assert.is_nil(tg:GetValue())
+            assert.is_nil(got)
+            assert.is_false(tg._segs[1].onSig())
+            tg._segs[2].btn:_fire("OnClick")
+            assert.equals("no", tg:GetValue())
+            assert.is_true(tg._segs[2].onSig())
+        end)
+
+        it("writes nil back to a writable value signal", function()
+            local Weave = LibStub("Weave-1.0")
+            local sig = Weave.signal("no")
+            local tg = newTG({ options = OPTS, value = sig, deselectable = true })
+            tg._segs[2].btn:_fire("OnClick")
+            assert.is_nil(sig())
+            assert.is_nil(tg:GetValue())
+        end)
+    end)
+
+    -- ── FR-124: type = "multiple" ───────────────────────────────────────────
+    describe("multiple (FR-124)", function()
+        local OPTS = { { value="tank", label="Tank" }, { value="heal", label="Heal" }, { value="dps", label="DPS" } }
+
+        it("each segment toggles on its own; onChange gets a new set", function()
+            local got
+            local tg = newTG({ options = OPTS, type = "multiple", values = { tank = true },
+                               onChange = function(v) got = v end })
+            assert.is_true(tg._segs[1].onSig())
+            tg._segs[3].btn:_fire("OnClick")
+            assert.same({ tank = true, dps = true }, got)
+            tg._segs[1].btn:_fire("OnClick")
+            assert.same({ dps = true }, got)
+            assert.is_false(tg._segs[1].onSig())
+            assert.is_true(tg._segs[3].onSig())
+            got.heal = true                       -- mutating the handed table is harmless
+            assert.same({ dps = true }, tg:GetValues())
+        end)
+
+        it("multiple = true (Base UI spelling) and the array form of values", function()
+            local tg = newTG({ options = OPTS, multiple = true, values = { "heal", "dps" } })
+            assert.same({ heal = true, dps = true }, tg:GetValues())
+            assert.is_false(tg._segs[1].onSig())
+            assert.is_true(tg._segs[2].onSig())
+        end)
+
+        it("SetValues replaces the set without firing onChange; the caller's table is copied", function()
+            local calls = 0
+            local tg = newTG({ options = OPTS, type = "multiple", onChange = function() calls = calls + 1 end })
+            local src = { tank = true }
+            tg:SetValues(src)
+            src.dps = true
+            assert.same({ tank = true }, tg:GetValues())
+            assert.is_true(tg._segs[1].onSig())
+            assert.is_false(tg._segs[3].onSig())
+            assert.equals(0, calls)
+            tg:SetValues(nil)
+            assert.same({}, tg:GetValues())
+        end)
+
+        it("unticking the last one yields an empty set", function()
+            local got
+            local tg = newTG({ options = OPTS, type = "multiple", values = { heal = true },
+                               onChange = function(v) got = v end })
+            tg._segs[2].btn:_fire("OnClick")
+            assert.same({}, got)
+        end)
+
+        it("binds a writable values signal two-way", function()
+            local Weave = LibStub("Weave-1.0")
+            local sig = Weave.signal({ tank = true })
+            local tg = newTG({ options = OPTS, type = "multiple", values = sig })
+            assert.is_true(tg._segs[1].onSig())
+            tg._segs[2].btn:_fire("OnClick")
+            assert.same({ tank = true, heal = true }, sig())
+            sig:set({ dps = true })
+            assert.same({ dps = true }, tg:GetValues())
+            assert.is_false(tg._segs[1].onSig())
+        end)
+
+        it("disabled ignores clicks", function()
+            local tg = newTG({ options = OPTS, type = "multiple", disabled = true })
+            tg._segs[1].btn:_fire("OnClick")
+            assert.same({}, tg:GetValues())
+        end)
+    end)
+
 end)
