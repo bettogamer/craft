@@ -85,6 +85,51 @@ CraftBrowserPages["Combobox"] = {
         end)
         y = y + 44
 
+        -- FR-125: long list (SMRT "Añadir zona…" — the client's map catalog, ~1250
+        -- entries). Virtualized: only one viewport of rows exists; wheel, ↑/↓
+        -- (↑ on the first item wraps to the last) and typing all re-use the pool.
+        y = addLabel("Long list (FR-125) — client map catalog, virtualized: wheel, ↑ wraps to the end", y)
+        local zoneOpts = {}
+        do
+            local groups, order = {}, {}
+            local typeName = { [3] = "Zone", [4] = "Dungeon", [5] = "Micro", [6] = "Orphan" }
+            if C_Map and C_Map.GetMapInfo then
+                for id = 1, 3000 do
+                    local info = C_Map.GetMapInfo(id)
+                    local g = info and info.name and info.name ~= "" and typeName[info.mapType]
+                    if g then
+                        if not groups[g] then groups[g] = {}; order[#order + 1] = g end
+                        local items = groups[g]
+                        items[#items + 1] = { value = id, label = info.name, keywords = tostring(id) }
+                    end
+                end
+            end
+            for _, g in ipairs(order) do zoneOpts[#zoneOpts + 1] = { group = g, items = groups[g] } end
+        end
+        local zones
+        zones = Craft.Combobox:Create(parent, {
+            width             = 260,
+            placeholder       = "Añadir zona…",
+            searchPlaceholder = "Buscar zona o mapID…",
+            emptyText         = "Sin zonas.",
+            options           = zoneOpts,
+            onSelect = function(v, l)
+                print(("|cff88ccffCraft|r FR-125 onSelect: %s (%s) — row frames created: %d"):format(
+                    tostring(l), tostring(v), #zones._rows))
+            end,
+        })
+        zones:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, zones)
+        local nZones = 0
+        for _, g in ipairs(zoneOpts) do nZones = nZones + #g.items end
+        local zoneInfo = Craft.Label:Create(parent, {
+            text  = ("%d maps"):format(nZones),
+            color = { r=t.mutedForeground.r, g=t.mutedForeground.g, b=t.mutedForeground.b, a=1 },
+        })
+        zoneInfo:GetFrame():SetPoint("LEFT", zones:GetFrame(), "RIGHT", 12, 0)
+        table.insert(comps, zoneInfo)
+        y = y + 44
+
         -- Disabled
         y = addLabel("Disabled", y)
         local off = Craft.Combobox:Create(parent, {

@@ -326,3 +326,96 @@ describe("Craft.Combobox destroy", function()
         c:Destroy()                                       -- no error
     end)
 end)
+
+-- ─── Virtualized list (FR-125) ────────────────────────────────────────────────
+
+describe("Craft.Combobox virtualized list (FR-125)", function()
+
+    -- 1247 entries (the SMRT zone catalog size), split in 3 groups.
+    local function long_options()
+        local opts = {}
+        for g = 1, 3 do
+            local items = {}
+            for k = 1, 415 do
+                items[#items + 1] = { value = g * 1000 + k, label = ("Zone %d-%03d"):format(g, k) }
+            end
+            opts[#opts + 1] = { group = "Group " .. g, items = items }
+        end
+        return opts
+    end
+
+    local function row_showing(c, i)
+        for _, row in ipairs(c._rows) do
+            if row.index == i and row.btn:IsShown() then return row end
+        end
+    end
+
+    it("creates at most one viewport of rows, not one per entry", function()
+        local c = Craft.Combobox:Create(UIParent, { options = long_options() })
+        c:Open()
+        assert.equals(1248, c._count)                    -- 3 headings + 1245 items
+        assert.is_true(#c._rows <= 14)
+        assert.equals(1248 * 24, select(2, c._scrollChild:GetSize()))
+        type_query(c, "zone")                             -- refilter re-uses the pool
+        assert.is_true(#c._rows <= 14)
+        c:Destroy()
+    end)
+
+    it("wheel scroll re-assigns the pool to the visible entries", function()
+        local c = Craft.Combobox:Create(UIParent, { options = long_options() })
+        c:Open()
+        for _ = 1, 10 do c._scroll:_fire("OnMouseWheel", -1) end   -- 10 × 48px
+        assert.equals(480, c._scroll:GetVerticalScroll())
+        assert.equals(21, c._first)                       -- 480 / 24 + 1
+        local row = row_showing(c, 21)
+        assert.is_not_nil(row)
+        assert.equals(c._entries[21].opt.label, row.label:GetText())
+        row.btn:_fire("OnClick")                          -- click maps to the entry, not the slot
+        assert.equals(c._entries[21].opt.value, c:GetValue())
+        c:Destroy()
+    end)
+
+    it("wheel scroll clamps at the end of the list", function()
+        local c = Craft.Combobox:Create(UIParent, { options = long_options() })
+        c:Open()
+        for _ = 1, 1000 do c._scroll:_fire("OnMouseWheel", -1) end
+        assert.equals(1248 * 24 - 292, c._scroll:GetVerticalScroll())
+        assert.is_not_nil(row_showing(c, 1248))
+        c:Destroy()
+    end)
+
+    it("↑ from the first item wraps to the last entry and scrolls it into view", function()
+        local c = Craft.Combobox:Create(UIParent, { options = long_options() })
+        c:Open()
+        assert.equals(2, c._hl)
+        c._edit:_fire("OnKeyDown", "UP")
+        assert.equals(1248, c._hl)
+        local row = row_showing(c, 1248)
+        assert.is_not_nil(row)
+        assert.equals("Zone 3-415", row.label:GetText())
+        c._edit:_fire("OnEnterPressed")
+        assert.equals(3415, c:GetValue())
+        c:Destroy()
+    end)
+
+    it("opening on a deep selected value lands the window on it", function()
+        local c = Craft.Combobox:Create(UIParent, { options = long_options(), value = 2200 })
+        c:Open()
+        local i = c._hl
+        assert.equals(2200, c._entries[i].opt.value)
+        assert.is_not_nil(row_showing(c, i))
+        assert.is_true(c._rowOf[i].check:IsShown())
+        c:Destroy()
+    end)
+
+    it("a refilter that shrinks the list resets the window to the top", function()
+        local c = Craft.Combobox:Create(UIParent, { options = long_options() })
+        c:Open()
+        for _ = 1, 50 do c._scroll:_fire("OnMouseWheel", -1) end
+        type_query(c, "zone 2-41")                        -- 410..415 + 041 → heading + 7
+        assert.equals(0, c._scroll:GetVerticalScroll())
+        assert.equals(1, c._first)
+        assert.equals("Group 2", c._rows[1].label:GetText())
+        c:Destroy()
+    end)
+end)

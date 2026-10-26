@@ -10,8 +10,11 @@
 -- Craft.Combobox is the typed-search selector for LONG or VARIABLE lists (Select
 -- stays the short fixed dropdown). The floating panel is a Craft.Popover (FR-028,
 -- padding=0) owning nothing but content: a search EditBox row and a filtered,
--- optionally grouped, pooled row list. Highlight (cmdk data-[selected]) is ONE
--- notion driven by both hover and ↑/↓; Enter picks it, Esc closes.
+-- optionally grouped, VIRTUALIZED row list (FR-125): a fixed pool of rows sized
+-- to the 300px viewport is re-assigned to the visible entries on scroll, so a
+-- 1000+ entry catalog costs ~14 frames. Highlight (cmdk data-[selected]) is ONE
+-- notion driven by both hover and ↑/↓ and tracked by ENTRY index (never by row);
+-- Enter picks it, Esc closes.
 
 local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
@@ -43,6 +46,9 @@ local EMPTY_H     = 60   -- py-6×2 + 12px text
 local MAX_LIST_H  = 300  -- max-h-[300px]
 local MIN_PANEL_W = 144  -- min-w-36 floor (Select parity)
 local WHEEL_STEP  = ROW_H * 2
+-- FR-125: rows that can be on screen at once = viewport / ROW_H, +1 for the
+-- partially visible row at each edge while scrolled mid-row.
+local POOL_SIZE   = math.ceil((MAX_LIST_H - 2 * LIST_PAD) / ROW_H) + 1
 
 -- ─── Create ─────────────────────────────────────────────────────────────────
 function Combobox:Create(parent, config)
@@ -74,8 +80,10 @@ function Combobox:Create(parent, config)
 
     self._groups  = {}   -- normalized options: { {group=nil|string, items={...}}, ... }
     self._entries = {}   -- current filtered flat list: {kind="group"|"item", ...}
-    self._rows    = {}   -- pooled row bundles (reused by index across refilters)
-    self._count   = 0    -- number of VISIBLE rows
+    self._rows    = {}   -- fixed pool (≤ POOL_SIZE, FR-125): slot k shows entry _first+k-1
+    self._rowOf   = {}   -- entries index → row showing it (only the rendered window)
+    self._first   = 1    -- first entries index of the rendered window
+    self._count   = 0    -- number of filtered entries (headings + items)
     self._query   = ""
     self._hl      = nil  -- entries index of the highlighted item (hover OR ↑/↓)
 
@@ -191,9 +199,8 @@ function Combobox:Create(parent, config)
     self._scroll:SetScrollChild(self._scrollChild)
     self._scroll:EnableMouseWheel(true)
     self._scroll:SetScript("OnMouseWheel", function(_, delta)
-        local maxScroll = math.max((self._listH or 0) - self._scroll:GetHeight(), 0)
         local cur = self._scroll:GetVerticalScroll() or 0
-        self._scroll:SetVerticalScroll(math.min(math.max(cur - delta * WHEEL_STEP, 0), maxScroll))
+        self:_setScroll(cur - delta * WHEEL_STEP)
     end)
 
     -- Empty state (CommandEmpty py-6 text-center).
@@ -311,47 +318,13 @@ function Combobox:_makeRow()
 end
 
 -- ─── _buildRows ─────────────────────────────────────────────────────────────
--- Renders self._entries into pooled rows (reuse by index; surplus hidden and
--- neutralized). Also sizes the scroll child and the popover content.
+-- Sizes the scroll child for ALL entries (#entries * ROW_H) and the popover
+-- content, then renders only the visible window into the pool (FR-125).
 function Combobox:_buildRows()
     local t = self._t
     if not t then return end
 
-    local totalH = 0
-    for i, e in ipairs(self._entries) do
-        local row = self._rows[i]
-        if not row then
-            row = self:_makeRow()
-            self._rows[i] = row
-        end
-        row.index = i
-
-        self._theme:applyFont(row.label,
-            (e.kind == "group" and (t.fontMedium or t.font)) or t.font, FONT_SIZE)
-        row.label:SetText(e.kind == "group" and e.label or (e.opt.label or e.opt.value or ""))
-        row.label:ClearAllPoints()
-        row.label:SetPoint("LEFT",   row.btn, "LEFT",  ITEM_PL, 0)
-        row.label:SetPoint("RIGHT",  row.btn, "RIGHT", -(e.kind == "item" and ITEM_PR or ITEM_PL), 0)
-        row.label:SetPoint("TOP",    row.btn, "TOP",    0, 0)
-        row.label:SetPoint("BOTTOM", row.btn, "BOTTOM", 0, 0)
-
-        row.btn:EnableMouse(e.kind == "item")
-        row._y = totalH
-        row.btn:ClearAllPoints()
-        row.btn:SetPoint("TOPLEFT",  self._scrollChild, "TOPLEFT",  0, -totalH)
-        row.btn:SetPoint("TOPRIGHT", self._scrollChild, "TOPRIGHT", 0, -totalH)
-        row.btn:Show()
-        totalH = totalH + ROW_H
-
-        self:_paintRow(i)
-    end
-
-    for i = #self._entries + 1, #self._rows do
-        local row = self._rows[i]
-        row.index = nil
-        row.btn:Hide()
-    end
-
+    local totalH = #self._entries * ROW_H
     self._count = #self._entries
     self._listH = totalH
     -- Explicit scroll-child WIDTH: rows anchor TOPLEFT/TOPRIGHT to it, and an
@@ -370,15 +343,79 @@ function Combobox:_buildRows()
         self._empty:Hide()
         listBoxH = math.min(totalH + 2 * LIST_PAD, MAX_LIST_H)
     end
+    -- Viewport height from the layout decided here, not GetHeight(): on the first
+    -- render of an Open the popover hasn't resolved its anchors yet.
+    self._viewH = math.max(listBoxH - 2 * LIST_PAD, 0)
     self._pop:GetContent():SetHeight(SEARCH_H + listBoxH)
     self._pop:Relayout()
+
+    -- Re-clamps (the list may have shrunk under the offset) and renders the window.
+    self:_setScroll(self._scroll:GetVerticalScroll() or 0)
+end
+
+-- Maps the scroll offset to the entries on screen and re-assigns the pooled
+-- rows to them. Rows are created lazily up to POOL_SIZE, never beyond.
+function Combobox:_renderWindow()
+    local t = self._t
+    if not t then return end
+
+    local n = math.min(POOL_SIZE, self._count)
+    local scroll = self._scroll:GetVerticalScroll() or 0
+    local first = math.floor(scroll / ROW_H) + 1
+    first = math.max(1, math.min(first, self._count - n + 1))
+    self._first = first
+    self._rowOf = {}
+
+    for k = 1, n do
+        local i = first + k - 1
+        local e = self._entries[i]
+        local row = self._rows[k]
+        if not row then
+            row = self:_makeRow()
+            self._rows[k] = row
+        end
+        row.index = i
+        self._rowOf[i] = row
+
+        self._theme:applyFont(row.label,
+            (e.kind == "group" and (t.fontMedium or t.font)) or t.font, FONT_SIZE)
+        row.label:SetText(e.kind == "group" and e.label or (e.opt.label or e.opt.value or ""))
+        row.label:ClearAllPoints()
+        row.label:SetPoint("LEFT",   row.btn, "LEFT",  ITEM_PL, 0)
+        row.label:SetPoint("RIGHT",  row.btn, "RIGHT", -(e.kind == "item" and ITEM_PR or ITEM_PL), 0)
+        row.label:SetPoint("TOP",    row.btn, "TOP",    0, 0)
+        row.label:SetPoint("BOTTOM", row.btn, "BOTTOM", 0, 0)
+
+        row.btn:EnableMouse(e.kind == "item")
+        local y = (i - 1) * ROW_H
+        row.btn:ClearAllPoints()
+        row.btn:SetPoint("TOPLEFT",  self._scrollChild, "TOPLEFT",  0, -y)
+        row.btn:SetPoint("TOPRIGHT", self._scrollChild, "TOPRIGHT", 0, -y)
+        row.btn:Show()
+
+        self:_paintRow(i)
+    end
+
+    for k = n + 1, #self._rows do
+        local row = self._rows[k]
+        row.index = nil
+        row.btn:Hide()
+    end
+end
+
+-- Clamped scroll + window re-render: the ONE way Combobox moves the list.
+function Combobox:_setScroll(y)
+    local maxScroll = math.max((self._listH or 0) - (self._viewH or 0), 0)
+    y = math.min(math.max(y or 0, 0), maxScroll)
+    self._scroll:SetVerticalScroll(y)
+    self:_renderWindow()
 end
 
 -- Paints ONE row from state: highlight bg (hover/keyboard), check on the
 -- selected value, muted heading vs popover foreground items.
 function Combobox:_paintRow(i)
     local t = self._t
-    local row, e = self._rows[i], self._entries[i]
+    local row, e = self._rowOf[i], self._entries[i]   -- no row = scrolled out, nothing to paint
     if not (t and row and e) then return end
 
     if e.kind == "group" then
@@ -440,15 +477,17 @@ function Combobox:_moveHl(dir)
     end
 end
 
+-- By ENTRY index: the target may have no row yet (outside the window); the
+-- scroll re-renders the window so it gets one.
 function Combobox:_scrollIntoView(i)
-    local row = self._rows[i]
-    if not row then return end
-    local visH = self._scroll:GetHeight() or 0
+    if not self._entries[i] then return end
+    local y    = (i - 1) * ROW_H
+    local visH = self._viewH or 0
     local cur  = self._scroll:GetVerticalScroll() or 0
-    if row._y < cur then
-        self._scroll:SetVerticalScroll(row._y)
-    elseif row._y + ROW_H > cur + visH then
-        self._scroll:SetVerticalScroll(row._y + ROW_H - visH)
+    if y < cur then
+        self:_setScroll(y)
+    elseif y + ROW_H > cur + visH then
+        self:_setScroll(y + ROW_H - visH)
     end
 end
 
@@ -458,8 +497,8 @@ function Combobox:_refilter()
     self:_filterEntries()
     self._hl = nil
     self._hl = self:_initialHl()
+    self._scroll:SetVerticalScroll(0)   -- before the build: it renders the window at the top
     self:_buildRows()
-    self._scroll:SetVerticalScroll(0)
     if self._hl then self:_scrollIntoView(self._hl) end
 end
 
@@ -591,7 +630,7 @@ function Combobox:SetValue(v)
     self._cfg.value = v
     self:_updateTriggerText()
     if self._pop:IsOpen() then
-        for i = 1, self._count do self:_paintRow(i) end
+        for i in pairs(self._rowOf) do self:_paintRow(i) end
     end
 end
 
