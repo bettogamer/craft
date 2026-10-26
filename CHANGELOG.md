@@ -6,6 +6,22 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.38.0] - 2026-10-25
+
+> **Release v2.38.0 — `Craft.ToggleGroup` deseleccionable (FR-123) y con selección múltiple (FR-124).**
+> Pedidos de SMRT.
+>
+> **API compatible:** todo lo nuevo es opt-in; sin `deselectable` ni `type = "multiple"` el
+> ToggleGroup se comporta igual que antes. Verificado in-game.
+
+### Added
+
+- **`Craft.ToggleGroup` — `deselectable` (FR-123).** Opt-in: clicar el segmento marcado lo desmarca
+  (`value = nil`, `onChange(nil)`), como Radix `type="single"`. Sin la opción, igual que antes.
+- **`Craft.ToggleGroup` — selección múltiple (FR-124).** `type = "multiple"` (o `multiple = true`):
+  cada segmento alterna por su cuenta con el mismo relleno y animación. `values` (`{ [v] = true }` o
+  array, también señal two-way), `onChange(values)` con una tabla nueva, `SetValues` / `GetValues`.
+
 ## [2.37.0] - 2026-10-22
 
 > **Release v2.37.0 — `Craft.Select` con selección múltiple (FR-121), `Craft.Input` con prefijo /
