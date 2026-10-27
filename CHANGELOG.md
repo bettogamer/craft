@@ -6,6 +6,20 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.40.0] - 2026-10-27
+
+> **Release v2.40.0 — Weave v0.10.0 embebida.**
+>
+> **API compatible:** ningún componente de Craft cambia; solo se actualiza la librería de
+> reactividad vendoreada.
+
+### Changed
+
+- **Weave v0.9.0 → v0.10.0** (`Craft/libs/Weave/`). Trae `Weave.virtual` dormido mientras está
+  oculto, segmentos en línea y `Weave.flowPlan` (disponibles en runtime para consumidores; ningún
+  componente de Craft los usa aún). Cambio de semántica: un `computed` sin observadores queda sucio
+  en vez de recomputarse.
+
 ## [2.39.0] - 2026-10-25
 
 > **Release v2.39.0 — `Craft.Combobox` con lista virtualizada (FR-125).** Pedido de SMRT (buscador
