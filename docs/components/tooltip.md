@@ -65,16 +65,20 @@ El cálculo de posición ocurre **cada vez** que el tooltip se muestra — no se
 |------------------------------------|------------------------------------|-------------------------------------------------------------------------------------------------|
 | `Craft.Tooltip.Attach(frame, cfg)` | `(Frame, table) → void`            | Adjunta un tooltip a `frame` via OnEnter/OnLeave. Sobreescribe cualquier attachment previo.     |
 | `Craft.Tooltip.Detach(frame)`      | `(Frame) → void`                   | Elimina los scripts OnEnter/OnLeave de tooltip del frame. No afecta otros scripts del frame.    |
-| `Craft.Tooltip.Show(anchor, cfg)`  | `(Frame, table) → void`            | Muestra el tooltip manualmente sobre `anchor` con la config dada. Ignora el delay.             |
+| `Craft.Tooltip.Show(anchor, cfg)`  | `(Frame, table) → void`            | Muestra el tooltip manualmente sobre `anchor` con la config dada. Sin `delay` (default 0) es inmediato; con `delay` (FR-127) se difiere y un `Hide` lo cancela. |
 | `Craft.Tooltip.Hide()`             | `() → void`                        | Oculta el tooltip activo y cancela cualquier timer de delay pendiente.                          |
+| `Craft.Tooltip.GetOwner()`         | `() → Frame?`                      | FR-127: el `anchor` del tooltip abierto (`nil` oculto o en fade-out). Para re-pintarlo tras un clic: `if Craft.Tooltip.GetOwner() == btn then Craft.Tooltip.Show(btn, cfg) end` (equivale a `GameTooltip:IsOwned`). |
+| `Craft.Tooltip.IsShown()`          | `() → boolean`                     | FR-127: si hay un tooltip abierto.                                                              |
 
 ### Config (para `Attach` y `Show`)
 
 | Clave      | Tipo     | Default  | Descripción                                                              |
 |------------|----------|----------|--------------------------------------------------------------------------|
-| `text`     | string   | —        | Texto visible del tooltip. Requerido.                                    |
+| `text`     | string \| function | —  | Texto visible del tooltip (requerido salvo que haya `lines`/`title`). FR-127: `function(anchor) → string`, evaluada en cada `Show` / hover de `Attach` (la config no se muta). |
+| `lines`    | table \| function | `nil` | FR-127 — líneas estructuradas (`AddLine`/`AddDoubleLine` de `GameTooltip`). Cada entrada: `string` = una columna (hace wrap) o `{ left, right, leftColor, rightColor, color, separator }`: con `right` es **doble línea** — la derecha auto-dimensionada y alineada al borde derecho del contenido, la izquierda se trunca con elipsis. Colores = nombre de token (se re-resuelve con el tema) o `{r,g,b,a}`; default `popoverForeground`. `separator = true` = hairline `border` a sangre (como el separador de Menu, `my-1`) antes de la línea; una entrada sin texto es solo el separador. Ancho = máx(izq + 12 + der) acotado por `maxWidth`; 2px entre líneas. También función `(anchor) → table`. |
+| `title`    | string \| function | `nil` | FR-127 — primera línea en `fontMedium` (`popoverForeground`). Con `title`/`lines`, `text` pasa a ser una línea con wrap tras el título; `icon` solo aplica al modo texto plano. |
 | `icon`     | string   | `nil`    | Nombre Lucide (e.g. `"info"`, `"alert-triangle"`). Usa `Craft.Icons`.   |
-| `delay`    | number   | `300`    | Milisegundos antes de que el tooltip aparezca tras OnEnter.              |
+| `delay`    | number   | `300` (Attach) / `0` (Show) | Milisegundos antes de que el tooltip aparezca tras OnEnter (`Attach`) o tras la llamada (`Show`, FR-127). |
 | `maxWidth` | number   | `240`    | Ancho máximo en px antes de hacer wrap del texto.                        |
 | `side`     | string   | `nil`    | Lado forzado (`side` de shadcn): `"top"`\|`"bottom"`\|`"left"`\|`"right"`. `nil` = automático (arriba si cabe, si no abajo). Ver §Lado. |
 | `fontFlags`| string   | `nil`    | FR-101: flags de fuente SOLO para este tooltip (4.º arg de `Theme.applyFont`; `""` = sin contorno). `nil` = el `t.fontFlags` global del tema. Se re-resuelve en cada `Show`: no se "pega" al siguiente. |
