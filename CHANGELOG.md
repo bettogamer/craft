@@ -6,6 +6,40 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.41.0] - 2026-10-30
+
+> **Release v2.41.0 — Sidebar con indicador de estado (FR-126), Tooltip con líneas (FR-127) y
+> fuentes de Craft para los consumidores (FR-128..130).** Pedidos de SMRT y Coffer.
+>
+> **API compatible:** todo lo nuevo es opt-in; los tokens `warning`/`info`/`success` son nuevos.
+> Verificado in-game.
+
+### Added
+
+- **`Craft.Sidebar`: `action.color` y `action.decorative` (FR-126, pedido de SMRT).** El icono de la acción
+  acepta un token del tema o `{r,g,b,a}` y lo conserva en todos los estados; `decorative = true` lo convierte en
+  indicador de estado (sin hover propio, el clic/arrastre es de la fila, conserva su tooltip).
+- **Tokens semánticos `warning` / `info` / `success`** (+ `*Foreground`) junto a `destructive` (FR-126):
+  amber-400, sky-400 y green-400 de Tailwind v4.
+- **`Craft.Tooltip`: líneas estructuradas (FR-127, pedido de Coffer).** `lines` (simples o dobles izq/der, el
+  `AddDoubleLine` de `GameTooltip`), `title`, separadores y colores por token; `text`/`lines`/`title` como
+  función evaluada en cada show; `Craft.Tooltip.GetOwner()` / `IsShown()`; `delay` también en `Show`.
+- **`Craft.Theme.getFontFiles()` (FR-128).** Catálogo de los 27 TTF de `media/` (Inter, Geist, Geist Mono,
+  BettoSans, BettoGeo) con nombre estable, peso y ruta, para que los selectores de fuente de los consumidores
+  dejen de llevar listas propias (por eso Betto no aparecía en SMRT ni en Coffer).
+- **Fuentes de Craft en LibSharedMedia (FR-129), sin dependencia.** Si LSM está cargada, Craft registra sus 27
+  TTF con los nombres de `getFontFiles()` (no pisa nombres existentes); aparecen en ElvUI, Details, WeakAuras…
+
+### Fixed
+
+- **Una copia embebida vieja ya no borra ejes del tema (FR-128).** Cada copia re-creaba el global
+  `CraftThemeAxes` y el Theme registrado lo leía en runtime: al cargar un consumidor con un Craft antiguo
+  (p. ej. un LoadOnDemand), `bettosans`/`bettogeo`/fuentes registradas desaparecían y `build` caía a Inter.
+  Ahora cada copia usa su propia tabla.
+- **Texto vacío con una fuente fuera del tema en el primer arranque (FR-130).** Una ruta pasada por
+  `font` (Label, selectores de fuente por elemento) carga async la primera vez en la sesión y su texto salía
+  vacío hasta `/reload`. `applyFont` ahora sondea también esas rutas y re-aplica la fuente al cargar.
+
 ## [2.40.0] - 2026-10-27
 
 > **Release v2.40.0 — Weave v0.10.0 embebida.**
