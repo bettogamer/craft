@@ -18,6 +18,18 @@
 --   Craft.Tooltip.Detach(frame)
 --   Craft.Tooltip.Show(anchor, config)
 --   Craft.Tooltip.Hide()
+--   Craft.Tooltip.GetOwner() / Craft.Tooltip.IsShown()   (FR-127)
+--
+-- config.lines / config.title (FR-127): structured content, GameTooltip's
+--   AddLine / AddDoubleLine. Each entry of `lines` is a string (one column, wraps)
+--   or { left, right, leftColor, rightColor, color, separator }: with `right` it is a
+--   double line (left truncates, right is right-aligned to the content edge).
+--   Colours are theme token names (re-resolved with the theme) or {r,g,b,a}.
+--   `separator = true` draws a hairline before the line (an entry with no text is
+--   just the hairline). `title` = a first line in fontMedium. `text` still works and
+--   becomes a wrapped line after the title. `icon` applies to plain text only.
+-- config.text / lines / title may be functions(anchor), evaluated on every Show
+--   (and every hover of Attach). config.delay (ms) also delays Show (default 0).
 --
 -- config.fontFlags (FR-101): per-show override of the theme's global outline
 --   (t.fontFlags), passed as applyFont's 4th arg — "" = no outline. nil = theme flag.
@@ -38,6 +50,10 @@ local ICON_GAP  = 6
 local FONT_SIZE = 12
 local OFFSET    = 4   -- pixels between anchor and tooltip
 local WRAP_SLACK = 2  -- px of text-box headroom so the zoom animation never re-wraps single-line text
+-- FR-127 structured lines
+local ROW_GAP   = 2   -- between lines (text-xs: 12px glyphs in a 16px line box)
+local COL_GAP   = 12  -- minimum gap between the two columns of a double line (px-3)
+local SEP_GAP   = 4   -- my-1 around a separator hairline (shadcn Separator in menus)
 
 -- ─── Singleton frame ───────────────────────────────────────────────────────
 local _tooltip       = nil   -- the shared Frame, created lazily
@@ -155,6 +171,55 @@ end
 
 TT._getFrame = _getTooltipFrame  -- internal (specs): the singleton frame
 
+-- ─── Structured lines (FR-127) ─────────────────────────────────────────────
+-- Token name → theme colour; {r,g,b,a} as is; anything else → fallback.
+local function _resolveColor(t, spec, fallback)
+    if type(spec) == "string" then spec = t[spec] end
+    if type(spec) == "table" and spec.r then return spec end
+    return fallback
+end
+
+-- A pooled line: left + right FontStrings and the hairline drawn above it.
+local function _getRow(f, i)
+    f._rows = f._rows or {}
+    local r = f._rows[i]
+    if r then return r end
+    r = {}
+    r.left = f:CreateFontString(nil, "OVERLAY")
+    r.left:SetJustifyH("LEFT")
+    r.left:SetNonSpaceWrap(false)
+    r.right = f:CreateFontString(nil, "OVERLAY")
+    r.right:SetJustifyH("RIGHT")
+    r.right:SetWordWrap(false)       -- one line; bug #2b
+    r.right:SetNonSpaceWrap(false)
+    r.sep = f:CreateTexture(nil, "ARTWORK")
+    r.sep:Hide()
+    f._rows[i] = r
+    return r
+end
+
+local function _hideRows(f, from)
+    if not f._rows then return end
+    for i = from, #f._rows do
+        local r = f._rows[i]
+        r.used, r.spec = false, nil
+        r.left:Hide(); r.right:Hide(); r.sep:Hide()
+    end
+end
+
+-- Font + colours of one line (re-run on every theme change).
+local function _styleRow(r, t)
+    local spec = r.spec
+    TT._ctx:applyFont(r.left, spec.title and (t.fontMedium or t.font) or t.font, FONT_SIZE, _fontFlags)
+    TT._ctx:applyFont(r.right, t.font, FONT_SIZE, _fontFlags)
+    local fg = t.popoverForeground
+    local lc = _resolveColor(t, spec.leftColor or spec.color, fg)
+    local rc = _resolveColor(t, spec.rightColor, fg)
+    r.left:SetTextColor(lc.r, lc.g, lc.b, lc.a or 1)
+    r.right:SetTextColor(rc.r, rc.g, rc.b, rc.a or 1)
+    r.sep:SetColorTexture(t.border.r, t.border.g, t.border.b, t.border.a)
+end
+
 -- ─── Internal theme application ────────────────────────────────────────────
 -- FR-104 (ADR-0019 §3.4): moves the singleton's listener to `ctx` if it changed.
 function TT._bindTheme(ctx)
@@ -185,6 +250,11 @@ function TT._applyThemeToFrame(t)
 
     TT._ctx:applyFont(_tooltip._text, t.font, FONT_SIZE, _fontFlags)
     _tooltip._text:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
+    if _tooltip._rows then
+        for _, r in ipairs(_tooltip._rows) do
+            if r.used then _styleRow(r, t) end
+        end
+    end
 end
 
 -- ─── Internal layout ───────────────────────────────────────────────────────
@@ -199,6 +269,8 @@ local function _layoutTooltip(config)
     local text = config.text or ""
     local icon = config.icon
 
+    _hideRows(f, 1)
+    f._text:Show()
     f._text:SetText(text)
 
     local maxW    = config.maxWidth or 240
@@ -254,6 +326,93 @@ local function _layoutTooltip(config)
     end
 end
 
+-- FR-127: title + text + lines, one pooled row per line. Pass 1 measures the
+-- natural width (single: the text; double: left + COL_GAP + right), pass 2 lays the
+-- rows out at the shared content width (capped by maxWidth, like plain text).
+local function _layoutLines(config)
+    local f = _tooltip
+    local t = TT._t or TT._ctx:get()
+    f._text:Hide()
+    f._icon:Hide()
+
+    local specs = {}
+    if config.title ~= nil then specs[#specs + 1] = { config.title, title = true } end
+    if config.text ~= nil and config.text ~= "" then specs[#specs + 1] = { config.text } end
+    if type(config.lines) == "table" then
+        for _, l in ipairs(config.lines) do
+            if type(l) == "table" then specs[#specs + 1] = l
+            elseif l ~= nil then specs[#specs + 1] = { tostring(l) } end
+        end
+    end
+
+    local cw = (config.maxWidth or 240) - PAD_H * 2
+    local natural = 0
+    for i, spec in ipairs(specs) do
+        local r = _getRow(f, i)
+        r.spec, r.used = spec, true
+        _styleRow(r, t)               -- font before SetText
+        r.double = spec[2] ~= nil
+        r.empty  = spec[1] == nil and spec[2] == nil
+        r.left:SetWidth(0)            -- back to auto-size: measure the natural width
+        r.left:SetWordWrap(not r.double)
+        r.left:SetText(spec[1] ~= nil and tostring(spec[1]) or "")
+        r.right:SetText(r.double and tostring(spec[2]) or "")
+        local w = r.left:GetStringWidth()
+        if r.double then
+            r.rightW = r.right:GetStringWidth()
+            w = w + COL_GAP + r.rightW
+        end
+        if not r.empty then natural = math.max(natural, w) end
+    end
+    _hideRows(f, #specs + 1)
+
+    local contentW = math.min(cw, natural + WRAP_SLACK)
+    local px1 = Craft.Theme.px(1)
+    local y, first = PAD_V, true
+    for i, spec in ipairs(specs) do
+        local r = f._rows[i]
+        r.left:ClearAllPoints()
+        r.right:ClearAllPoints()
+        r.sep:ClearAllPoints()
+        if spec.separator and not first then
+            -- Full bleed inside the ring, like the -mx of a menu separator.
+            y = y + SEP_GAP
+            r.sep:SetPoint("TOPLEFT",  f, "TOPLEFT",  px1,  -y)
+            r.sep:SetPoint("TOPRIGHT", f, "TOPRIGHT", -px1, -y)
+            r.sep:SetHeight(px1)
+            r.sep:Show()
+            y = y + px1 + SEP_GAP
+        else
+            r.sep:Hide()
+            if not first and not r.empty then y = y + ROW_GAP end
+        end
+
+        if r.empty then
+            r.left:Hide(); r.right:Hide()
+        else
+            local h
+            r.left:SetPoint("TOPLEFT", f, "TOPLEFT", PAD_H, -y)
+            r.left:Show()
+            if r.double then
+                -- Right column auto-sizes at the content edge; the left one gets
+                -- what is left and truncates with an ellipsis (wrap off).
+                r.right:SetPoint("TOPRIGHT", f, "TOPLEFT", PAD_H + contentW, -y)
+                r.right:Show()
+                r.left:SetWidth(math.max(1, contentW - COL_GAP - r.rightW))
+                h = math.max(r.left:GetStringHeight(), r.right:GetStringHeight())
+            else
+                r.right:Hide()
+                r.left:SetWidth(math.max(1, contentW))
+                h = r.left:GetStringHeight()
+            end
+            y = y + h
+            first = false
+        end
+    end
+
+    f:SetSize(math.max(32, contentW + PAD_H * 2), y + PAD_V)
+end
+
 -- ─── Positioning logic ─────────────────────────────────────────────────────
 -- Tries to place tooltip above the anchor. Falls back to below if no room.
 local function _positionTooltip(anchor, side)
@@ -306,8 +465,26 @@ local _pendingAnchor = nil
 local _pendingTimer  = nil  -- C_Timer handle, cancellable via :Cancel()
 
 -- ─── Show / Hide ───────────────────────────────────────────────────────────
-function TT.Show(anchor, config)
-    config = config or {}
+-- FR-127: text / lines / title given as functions(anchor) are evaluated here, on
+-- every show, into a copy — the consumer's config (captured by Attach) is never
+-- mutated.
+local DYNAMIC = { "text", "lines", "title" }
+local function _resolveConfig(anchor, config)
+    local out
+    for _, k in ipairs(DYNAMIC) do
+        if type(config[k]) == "function" then
+            if not out then
+                out = {}
+                for key, v in pairs(config) do out[key] = v end
+            end
+            out[k] = config[k](anchor)
+        end
+    end
+    return out or config
+end
+
+local function _show(anchor, config)
+    config = _resolveConfig(anchor, config or {})
     _getTooltipFrame()  -- lazily creates the frame + fade signal on first show
 
     -- Measure/size at scale 1. The zoom effect parks the idle frame at motionZoomFrom
@@ -325,15 +502,50 @@ function TT.Show(anchor, config)
     TT._bindTheme(Craft.Theme.resolve(anchor, config))
     TT._applyThemeToFrame(TT._ctx:get())
 
-    _layoutTooltip(config)
+    if config.lines ~= nil or config.title ~= nil then
+        _layoutLines(config)
+    else
+        _layoutTooltip(config)
+    end
     _positionTooltip(anchor, config.side)
 
     -- Fade in: the shown-computed reveals the frame, the tween eases alpha 0→1.
     -- (f is kept live above via _getTooltipFrame so layout/position ran already.)
+    TT._owner = anchor
     _visible:set(true)
 end
 
+-- config.delay (ms, FR-127) defers the show like Attach does; default immediate.
+-- A Hide (or another delayed Show) before it fires cancels it.
+function TT.Show(anchor, config)
+    config = config or {}
+    local delay = config.delay or 0
+    if delay <= 0 then
+        _show(anchor, config)
+        return
+    end
+    _pendingAnchor = anchor
+    _pendingTimer = C_Timer.After(delay / 1000, function()
+        if _pendingAnchor == anchor then
+            _pendingAnchor = nil
+            _show(anchor, config)
+        end
+    end)
+end
+
+-- FR-127: the anchor of the open tooltip (nil when hidden or fading out), to
+-- re-show it after a click that changes what it describes.
+function TT.GetOwner()
+    if _visible and _visible() then return TT._owner end
+    return nil
+end
+
+function TT.IsShown()
+    return (_visible and _visible()) and true or false
+end
+
 function TT.Hide()
+    TT._owner = nil
     _pendingAnchor = nil
     if _pendingTimer then
         if _pendingTimer.Cancel then _pendingTimer:Cancel() end
@@ -379,11 +591,11 @@ function TT.Attach(frame, config)
             _pendingTimer = C_Timer.After(delay / 1000, function()
                 -- Only show if the cursor is still over this anchor.
                 if _pendingAnchor == capturedAnchor then
-                    TT.Show(capturedAnchor, capturedConfig)
+                    _show(capturedAnchor, capturedConfig)
                 end
             end)
         else
-            TT.Show(capturedAnchor, capturedConfig)
+            _show(capturedAnchor, capturedConfig)
         end
     end)
 

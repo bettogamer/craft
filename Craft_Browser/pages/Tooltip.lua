@@ -67,6 +67,44 @@ CraftBrowserPages["Tooltip"] = {
         table.insert(comps, btn5)
         y = y + 48
 
+        -- FR-127: double lines (AddDoubleLine), title, separator, token colours, and
+        -- text as function (counter re-evaluated on each hover) + GetOwner re-show.
+        y = addLabel("FR-127 lines / title / text como función — hover; clic en el 3.º re-pinta el abierto", y)
+        local btn6 = Craft.Button:Create(parent, { text="Free slots", variant="secondary" })
+        btn6:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        Craft.Tooltip.Attach(btn6:GetFrame(), { delay=0, title="Huecos libres", lines={
+            { "Mochila", "12/16" },
+            { "Bolsa de tejido de rúnico", "3/36", rightColor="mutedForeground" },
+            { "Bolsa de reactivos", "0/32", rightColor="destructive" },
+            { "Total", "15/84", separator=true, leftColor="mutedForeground" },
+        } })
+        table.insert(comps, btn6)
+        local btn7 = Craft.Button:Create(parent, { text="Account gold", variant="secondary" })
+        btn7:GetFrame():SetPoint("LEFT", btn6:GetFrame(), "RIGHT", 8, 0)
+        local coin = " |TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t"
+        Craft.Tooltip.Attach(btn7:GetFrame(), { delay=0, lines={
+            { "|cffc69b6dGuerrero|r", "8.770" .. coin },
+            { "|cff3fc7ebMaga con un nombre larguísimo que se trunca|r", "120.304" .. coin },
+            { "Total", "129.074" .. coin, separator=true },
+        } })
+        table.insert(comps, btn7)
+        local hovers, clicks = 0, 0
+        local btn8 = Craft.Button:Create(parent, { text="Dynamic", variant="outline" })
+        local b8 = btn8:GetFrame()
+        b8:SetPoint("LEFT", btn7:GetFrame(), "RIGHT", 8, 0)
+        local dynCfg = { delay=0, text=function()
+            hovers = hovers + 1
+            return ("hover #%d · clics %d"):format(hovers, clicks)
+        end }
+        Craft.Tooltip.Attach(b8, dynCfg)
+        b8:HookScript("OnClick", function()
+            clicks = clicks + 1
+            print("FR-127 GetOwner == btn:", Craft.Tooltip.GetOwner() == b8, "IsShown:", Craft.Tooltip.IsShown())
+            if Craft.Tooltip.GetOwner() == b8 then Craft.Tooltip.Show(b8, dynCfg) end
+        end)
+        table.insert(comps, btn8)
+        y = y + 48
+
         return {
             height  = y + 24,
             cleanup = function()
@@ -75,6 +113,9 @@ CraftBrowserPages["Tooltip"] = {
                 Craft.Tooltip.Detach(btn2:GetFrame())
                 Craft.Tooltip.Detach(btn4:GetFrame())
                 Craft.Tooltip.Detach(btn5:GetFrame())
+                Craft.Tooltip.Detach(btn6:GetFrame())
+                Craft.Tooltip.Detach(btn7:GetFrame())
+                Craft.Tooltip.Detach(b8)
                 for _, c in ipairs(comps) do if c.Destroy then c:Destroy() end end
             end,
         }
