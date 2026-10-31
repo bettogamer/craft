@@ -310,3 +310,85 @@ describe("Craft.FieldGroup (FR-041)", function()
     end)
 
 end)
+
+-- FR-131: marca de «valor cambiado». Este spec NO carga Weave → camino Show/Hide directo.
+describe("Craft.Field override mark (FR-131, sin Weave)", function()
+
+    local function markPoint(field)
+        local p = field._mark._points[1]
+        return p[1], p[2], p[3], p[4], p[5]
+    end
+
+    it("SetOverridden(false) sin marca previa no crea nada", function()
+        local field = Craft.Field:Create(newContainer(300, 300), { label = "Color", control = newControl(200, 20), width = 200 })
+        field:SetOverridden(false)
+        assert.is_nil(field._mark)
+        assert.is_false(field:IsOverridden())
+    end)
+
+    it("mostrar/ocultar la marca no cambia el alto ni las posiciones (sin reflow)", function()
+        local ctrl = newControl(200, 20)
+        local field = Craft.Field:Create(newContainer(300, 300), { label = "Color", control = ctrl, width = 200 })
+        local h0, y0 = field:GetFrame():GetHeight(), select(2, pos(ctrl))
+        field:SetOverridden(true)
+        assert.is_true(field._mark:IsShown())
+        assert.equals(h0, field:GetFrame():GetHeight())
+        assert.equals(y0, select(2, pos(ctrl)))
+        field:SetOverridden(false)
+        assert.is_false(field._mark:IsShown())
+        assert.equals(h0, field:GetFrame():GetHeight())
+    end)
+
+    it("vertical con título: ancla al borde derecho de la línea del título y recorta el título", function()
+        local field = Craft.Field:Create(newContainer(300, 300), { label = "Color", control = newControl(200, 20), width = 200 })
+        field:SetOverridden(true)
+        local point, rel, relPoint, x = markPoint(field)
+        assert.equals("RIGHT", point); assert.equals(field:GetFrame(), rel)
+        assert.equals("TOPRIGHT", relPoint); assert.equals(0, x)
+        assert.equals(200 - 20 - 4, field._label._cfg.maxWidth)   -- recorte = ancho − marca − aire
+        field:SetOverridden(false)
+        assert.is_nil(field._label._cfg.maxWidth)                  -- sin marca, ancho natural
+    end)
+
+    it("horizontal: ancla al borde de la columna del título (labelWidth)", function()
+        local field = Craft.Field:Create(newContainer(400, 300), {
+            label = "Color", control = newControl(200, 20), width = 300,
+            orientation = "horizontal", labelWidth = 110,
+        })
+        field:SetOverridden(true)
+        local _, _, relPoint, x = markPoint(field)
+        assert.equals("TOPLEFT", relPoint); assert.equals(110, x)
+        assert.equals(110 - 20 - 4, field._label._cfg.maxWidth)
+    end)
+
+    it("sin título: borde derecho del Field, centrada en el control", function()
+        local field = Craft.Field:Create(newContainer(300, 300), { control = newControl(200, 20), width = 200 })
+        field:SetOverridden(true)
+        local _, _, relPoint, x, y = markPoint(field)
+        assert.equals("TOPRIGHT", relPoint); assert.equals(0, x); assert.equals(-10, y)
+    end)
+
+    it("repetir el mismo valor es idempotente; clic → OnReset; oculta = sin ratón", function()
+        local field = Craft.Field:Create(newContainer(300, 300), { label = "Color", control = newControl(200, 20), width = 200 })
+        local got
+        field:OnReset(function(f) got = f end)
+        field:SetOverridden(true, "Restablecer a «X»")
+        local m = field._mark
+        field:SetOverridden(true)
+        assert.equals(m, field._mark)
+        assert.is_true(m:IsMouseEnabled())
+        m:_fire("OnClick", "LeftButton")
+        assert.equals(field, got)
+        field:SetOverridden(false)
+        assert.is_false(m:IsMouseEnabled())
+    end)
+
+    it("el tooltip string se normaliza a { text }", function()
+        local field = Craft.Field:Create(newContainer(300, 300), { label = "Color", control = newControl(200, 20), width = 200 })
+        field:SetOverridden(true, "Restablecer")
+        assert.same({ text = "Restablecer" }, field._markTip)
+        local cfg = { title = "Restablecer a «X»", lines = { "Plantilla: 14" } }
+        field:SetOverridden(true, cfg)
+        assert.equals(cfg, field._markTip)
+    end)
+end)

@@ -238,7 +238,118 @@ CraftBrowserPages["Field"] = {
             end
             outer:AddChild(inner)   -- FieldGroup acepta otro FieldGroup vía duck-type (:GetFrame())
 
-            y = y + outer:GetFrame():GetHeight() + PAD
+            y = y + outer:GetFrame():GetHeight() + GAP
+        end
+
+        -- ══ 9. Valor cambiado + Restablecer (FR-131) ════════════════════════
+        -- Cada campo compara con su «plantilla»: al cambiar el valor aparece la marca
+        -- rotate-ccw (fundido, sin reflow); clic en ella → OnReset vuelve al valor base.
+        y = addLabel("Valor cambiado (FR-131) — cambia un valor; la marca ↺ lo restablece", y)
+        do
+            local group = Craft.FieldGroup:Create(parent, { width = FW, gap = 16 })
+            group:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", PAD, -y)
+            table.insert(groups, group)
+
+            local function tip(baseText)
+                return { title = "Restablecer a «" .. baseText .. "»", lines = { "Plantilla: 14" } }
+            end
+            local function mark(field, changed, baseText)
+                field:SetOverridden(changed, tip(baseText))
+            end
+            local function addField(cfg)
+                local f = Craft.Field:Create(parent, cfg)
+                table.insert(comps, f)
+                group:AddChild(f)
+                return f
+            end
+
+            -- Slider — título encima (label del Field).
+            local BASE_W = 2
+            local fSlider
+            local slider = Craft.Slider:Create(parent, {
+                min = 0, max = 10, step = 1, value = BASE_W,
+                onChange = function(v) if fSlider then mark(fSlider, v ~= BASE_W, BASE_W) end end,
+            })
+            table.insert(comps, slider)
+            fSlider = addField({ label = "Grosor del borde", control = slider, width = FW })
+            fSlider:OnReset(function(f)
+                slider:SetValue(BASE_W); f:SetOverridden(false)
+                print("|cff88ccffCraft FR-131|r reset Grosor →", BASE_W)
+            end)
+
+            -- Select — título encima; título largo para ver el recorte bajo la marca.
+            local BASE_S = "top"
+            local fSel
+            local sel = makeSelect({
+                options = {
+                    { value = "top",    label = "Arriba" },
+                    { value = "center", label = "Centro" },
+                    { value = "bottom", label = "Abajo" },
+                },
+                value = BASE_S,
+                onSelect = function(v) if fSel then mark(fSel, v ~= BASE_S, "Arriba") end end,
+            })
+            table.insert(comps, sel)
+            fSel = addField({
+                label = "Posición del texto respecto al icono del aura (título largo que se recorta bajo la marca)",
+                control = sel, width = FW,
+            })
+            fSel:OnReset(function(f)
+                sel:SetValue(BASE_S); f:SetOverridden(false)
+                print("|cff88ccffCraft FR-131|r reset Posición →", BASE_S)
+            end)
+
+            -- Checkbox — etiqueta en línea, Field sin título: la marca va a la derecha.
+            local BASE_C = true
+            local fChk
+            local chk = Craft.Checkbox:Create(parent, {
+                label = "Mostrar cuenta atrás", checked = BASE_C,
+                onChange = function(v) if fChk then mark(fChk, (v == true) ~= BASE_C, "Sí") end end,
+            })
+            table.insert(comps, chk)
+            fChk = addField({ control = chk, width = FW })
+            fChk:OnReset(function(f)
+                f:SetOverridden(false)
+                chk:SetChecked(BASE_C)
+                print("|cff88ccffCraft FR-131|r reset Cuenta atrás →", tostring(BASE_C))
+            end)
+
+            -- ColorSwatch — etiqueta en línea.
+            local BR, BG, BB = 0.2, 0.6, 1.0
+            local fSw
+            local sw = Craft.ColorSwatch:Create(parent, {
+                label = "Color de la barra", color = { r = BR, g = BG, b = BB, a = 1 },
+                onChange = function(r, g, b)
+                    if not fSw then return end
+                    local same = math.abs(r - BR) < 0.002 and math.abs(g - BG) < 0.002 and math.abs(b - BB) < 0.002
+                    mark(fSw, not same, "azul")
+                end,
+            })
+            table.insert(comps, sw)
+            fSw = addField({ control = sw, width = FW })
+            fSw:OnReset(function(f)
+                sw:SetColor(BR, BG, BB, 1); f:SetOverridden(false)
+                print("|cff88ccffCraft FR-131|r reset Color → azul")
+            end)
+
+            y = y + group:GetFrame():GetHeight() + 8
+
+            -- Aceptación: SetOverridden repetido con el mismo valor no parpadea.
+            local all = { fSlider, fSel, fChk, fSw }
+            local bOn = Craft.Button:Create(parent, {
+                text = "Marcar todo ×3 (no debe parpadear)", size = "xs", variant = "secondary",
+                onClick = function()
+                    for _ = 1, 3 do for _, f in ipairs(all) do f:SetOverridden(true, "Forzado desde la demo") end end
+                end,
+            })
+            bOn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", PAD, -y)
+            local bOff = Craft.Button:Create(parent, {
+                text = "Quitar todo", size = "xs", variant = "secondary",
+                onClick = function() for _, f in ipairs(all) do f:SetOverridden(false) end end,
+            })
+            bOff:GetFrame():SetPoint("LEFT", bOn:GetFrame(), "RIGHT", 8, 0)
+            table.insert(comps, bOn); table.insert(comps, bOff)
+            y = y + bOn:GetFrame():GetHeight() + PAD
         end
 
         return {
