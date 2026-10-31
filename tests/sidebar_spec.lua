@@ -751,6 +751,61 @@ describe("Craft.Sidebar row action (FR-109)", function()
     end)
 end)
 
+describe("Craft.Sidebar action color + decorative (FR-126)", function()
+    local function vc(sb, id)
+        local r, g, b, a = sb._itemFrames[id].action.tex:GetVertexColor()
+        return { r = r, g = g, b = b, a = a }
+    end
+
+    it("color = token paints the icon with it in every state, also hovered", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems({ { id = "a", label = "A", action = { icon = "eye", color = "warning" } } })
+        local w = sb._t.warning
+        assert.is_not_nil(w)
+        local c = vc(sb, "a")
+        assert.equals(w.r, c.r); assert.equals(w.g, c.g); assert.equals(w.b, c.b)
+        sb._itemFrames.a.frame:_fire("OnEnter")
+        sb._itemFrames.a.action.btn:_fire("OnEnter")
+        c = vc(sb, "a")
+        assert.equals(w.r, c.r); assert.equals(w.g, c.g); assert.equals(w.b, c.b)
+        sb:Destroy()
+    end)
+
+    it("color = {r,g,b,a} table is used as is; an unknown token falls back", function()
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200 })
+        sb:SetItems({ { id = "a", label = "A", action = { icon = "eye", color = { r = 0.1, g = 0.2, b = 0.3, a = 0.5 } } },
+                      { id = "b", label = "B", action = { icon = "eye", color = "nope" } } })
+        local c = vc(sb, "a")
+        assert.equals(0.1, c.r); assert.equals(0.3, c.b); assert.equals(0.5, c.a)
+        c = vc(sb, "b")
+        assert.equals(sb._t.sidebarForeground.r, c.r)
+        sb:Destroy()
+    end)
+
+    it("decorative: the click is the row's (selects), never onClick; no hover bg", function()
+        local selected, fired
+        local sb = Craft.Sidebar:Create(UIParent, { width = 200, onSelect = function(id) selected = id end })
+        sb:SetItems({ { id = "a", label = "A", action = { icon = "info", color = "info", decorative = true,
+            onClick = function() fired = true end } } })
+        local a = sb._itemFrames.a.action
+        a.btn:_fire("OnEnter")
+        local _, _, _, bga = a.bg:GetColorTexture()
+        assert.equals(0, bga)
+        a.btn:_fire("OnClick", "LeftButton")
+        assert.equals("a", selected)
+        assert.is_nil(fired)
+        sb:Destroy()
+    end)
+
+    it("theme exposes warning/info/success with their foregrounds", function()
+        local t = Craft.Theme.build({})
+        for _, k in ipairs({ "warning", "info", "success" }) do
+            assert.is_not_nil(t[k])
+            assert.is_not_nil(t[k .. "Foreground"])
+        end
+    end)
+end)
+
 -- ── FR-114: an item can carry a square texture in the icon slot ──────────────
 describe("Craft.Sidebar item texture (FR-114)", function()
     local function assertCoords(want, tex)

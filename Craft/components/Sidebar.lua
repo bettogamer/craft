@@ -1126,11 +1126,16 @@ end
 -- shadcn SidebarMenuAction: a small square button at the row's trailing edge that
 -- takes its own click (it is a SIBLING of the menu button, never part of it), so
 -- it neither selects the row nor fires onSelect / onContextMenu.
---   action = { icon, onClick(id, itemConfig), tooltip, hover, active }
+--   action = { icon, onClick(id, itemConfig), tooltip, hover, active, color, decorative }
 -- `hover = true` is `showOnHover`: opacity-0 until the row (or the action) is
 -- hovered — still clickable while invisible, like the CSS. `active = false` paints
 -- the icon muted (an "off" toggle such as a preview eye), a consumer request on
 -- top of shadcn, where the consumer would only swap the icon.
+-- `color` (FR-126) = a theme token name ("destructive", "warning", "info",
+-- "success"...) or an {r,g,b,a} table: the icon keeps that colour in every state (a
+-- status indicator, the `text-destructive` of a shadcn icon). `decorative = true`
+-- makes it an indicator, not a button: no hover background, and mouse down / up /
+-- click go to the row (select, drag, double click); only its tooltip stays its own.
 -- On a branch the chevron owns the trailing edge, so the action sits left of it.
 -- The button is pooled with its row: created on first need, hidden when unused.
 function Sidebar:_makeRowAction(entry, spec, rowH)
@@ -1156,7 +1161,7 @@ function Sidebar:_makeRowAction(entry, spec, rowH)
         btn:SetScript("OnClick", function(_, button)
             local e = row.entry
             if not e or not e.action then return end
-            if button == "RightButton" then
+            if button == "RightButton" or e.action.decorative then
                 -- Covers the row like the chevron does: a right click is still the row's.
                 self:_rowClick(row, button)
                 return
@@ -1168,6 +1173,13 @@ function Sidebar:_makeRowAction(entry, spec, rowH)
         btn:SetScript("OnEnter", function()
             local e = row.entry
             if not e or not e.action then return end
+            if a.decorative then
+                -- Part of the row: the row keeps its hover, the indicator its tooltip.
+                self:_rowEnter(row)
+                local tip = a.tooltip or e.tooltip
+                if tip and not self._drag then self:_tipEnter(btn, tip) end
+                return
+            end
             a.hovered = true
             self:_colorAction(e)
             if a.tooltip then self:_tipEnter(btn, a.tooltip) end
@@ -1175,12 +1187,26 @@ function Sidebar:_makeRowAction(entry, spec, rowH)
         btn:SetScript("OnLeave", function()
             local e = row.entry
             a.hovered = false
-            if e and e.action then self:_colorAction(e) end
             self:_tipLeave(btn)
+            if a.decorative then
+                -- Back onto the row, its OnEnter re-hovers it right after this.
+                self:_rowLeave(row)
+                return
+            end
+            if e and e.action then self:_colorAction(e) end
+        end)
+        -- A decorative indicator passes the press through: drag and double click
+        -- start from the row's own handlers.
+        btn:SetScript("OnMouseDown", function(_, button)
+            if a.decorative then self:_rowMouseDown(row, button) end
+        end)
+        btn:SetScript("OnMouseUp", function(_, button)
+            if a.decorative then self:_rowMouseUp(row, button) end
         end)
     end
 
     a.spec        = spec
+    a.decorative  = spec.decorative and true or false
     a.showOnHover = spec.hover and true or false
     a.tooltip     = type(spec.tooltip) == "string" and spec.tooltip or nil
     a.hovered, a.rowHovered = false, false
@@ -1189,7 +1215,8 @@ function Sidebar:_makeRowAction(entry, spec, rowH)
     a.bg:SetColorTexture(0, 0, 0, 0)
     if Craft.Icons.Has(spec.icon) then Craft.Icons.Apply(a.tex, spec.icon, ICON_SIZE) end
     a.btn:SetFrameLevel(row:GetFrameLevel() + 3)   -- above the chevron Button
-    self:_registerClicks(a.btn, entry.wantsContext)
+    -- Decorative forwards every click to the row, so it listens for both buttons.
+    self:_registerClicks(a.btn, entry.wantsContext or a.decorative)
     a.btn:Show()
     entry.action = a
     self:_colorAction(entry)
@@ -1204,14 +1231,19 @@ function Sidebar:_colorAction(entry)
     local itemHovered = a.hovered or a.rowHovered or entry.frame:IsMouseOver()
     if a.showOnHover then a.btn:SetAlpha(itemHovered and 1 or 0) end
 
-    if a.hovered then
+    if a.hovered and not a.decorative then
         local acc = t.sidebarAccent
         a.bg:SetColorTexture(acc.r, acc.g, acc.b, 1)
     else
         a.bg:SetColorTexture(0, 0, 0, 0)
     end
 
-    local c
+    local c = a.spec.color
+    if type(c) == "string" then c = t[c] end   -- token: re-resolved with the theme
+    if type(c) == "table" and c.r then
+        a.tex:SetVertexColor(c.r, c.g, c.b, c.a or 1)
+        return
+    end
     if a.spec.active == false then
         c = t.mutedForeground
     elseif a.hovered or a.rowHovered

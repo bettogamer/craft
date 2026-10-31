@@ -462,6 +462,27 @@ CraftBrowserPages["Sidebar"] = {
             items = buildActs() })
         y = y + 182
 
+        -- ── 10b. Indicador de estado (FR-126: action.color + decorative) ──────
+        y = addLabel("Indicador de estado (FR-126) — color semántico info/warning/destructive/success; "
+            .. "decorative = el clic selecciona la fila, solo el tooltip es suyo", y)
+        local c10b = newContainer(240, 150, y)
+        local function status(id, label, icon, color, tip)
+            return { id = id, label = label, icon = "sparkles",
+                     action = { icon = icon, color = color, decorative = true, tooltip = tip } }
+        end
+        newSidebar(c10b, { width = 240,
+            onSelect = function(id) print("Sidebar onSelect (FR-126):", id) end,
+            items = {
+                status("s1", "Datos provisionales", "info", "info", "info: falta un addon de jefes"),
+                status("s2", "Sin trigger", "triangle-alert", "warning", "warning: no se verá"),
+                status("s3", "Error de código", "circle-x", "destructive", "error: el código falla"),
+                status("s4", "Todo bien", "circle-check", "success", "success"),
+                { id = "s5", label = "Color RGBA a mano", icon = "sparkles",
+                  action = { icon = "circle", color = { r = 0.7, g = 0.4, b = 1, a = 1 },
+                    onClick = function(aid) print("Sidebar action (FR-126 rgba, no decorative):", aid) end } },
+            } })
+        y = y + 162
+
         -- ── 11. Lista de auras estilo WeakAuras (FR-116/117/118 + pool FR-080) ─
         -- Ctrl+clic suma/quita, Shift+clic rango, clic = solo esa (la selección la
         -- decide la demo vía onClick → SetSelection). Arrastra una fila o la
