@@ -166,6 +166,10 @@ CraftBrowserPages["Theme"] = {
             { name="chart3",            color=t.chart3            },
             { name="chart4",            color=t.chart4            },
             { name="chart5",            color=t.chart5            },
+            -- FR-126: estados semánticos junto a destructive
+            { name="warning",           color=t.warning           },
+            { name="info",              color=t.info              },
+            { name="success",           color=t.success           },
         }
 
         y = addLabel("Token  →  cuadrado de color  +  valores RGBA", y)
@@ -317,6 +321,37 @@ CraftBrowserPages["Theme"] = {
         contextPanel("Demo A", "blue",   16)
         contextPanel("Demo B", "orange", 16 + PANEL_W + GAP)
         y = y + PANEL_H + 12
+
+        -- ─── FR-128: catálogo de TTFs (getFontFiles) ───────────────────────────
+        -- Cada archivo pintado con su propia fuente (Label `font`, FR-092): es la lista
+        -- que los selectores de fuente por elemento de SMRT/Coffer deben ofrecer.
+        local files = Craft.Theme.getFontFiles()
+        y = addLabel(("FR-128: Craft.Theme.getFontFiles() — %d TTF en %s"):format(#files, Craft.mediaPath), y + 8)
+        local COL_W, LINE_H = 260, 20
+        local half = math.ceil(#files / 2)
+        for i, f in ipairs(files) do
+            local col = (i <= half) and 0 or 1
+            local row = (i <= half) and (i - 1) or (i - 1 - half)
+            local lbl = Craft.Label:Create(parent, { text = f.name .. "  ·  " .. f.weight, font = f.path })
+            lbl:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16 + col * COL_W, -(y + row * LINE_H))
+            table.insert(comps, lbl)
+        end
+        y = y + half * LINE_H + 12
+
+        -- FR-129: registro en LibSharedMedia (solo si algún addon la trae).
+        local lsm = LibStub("LibSharedMedia-3.0", true)
+        local lsmText
+        if not lsm then
+            lsmText = "FR-129: LibSharedMedia no está cargada (Craft no la necesita; nada que registrar)"
+        else
+            local mine = 0
+            for _, f in ipairs(files) do
+                if lsm:Fetch("font", f.name, true) == f.path then mine = mine + 1 end
+            end
+            lsmText = ("FR-129: LSM cargada · registrado=%s · %d/%d nombres apuntan a este Craft"
+                .. " (el resto ya existía en LSM)"):format(tostring(Craft._lsmFonts), mine, #files)
+        end
+        y = addLabel(lsmText, y)
 
         return {
             height  = y + 24,

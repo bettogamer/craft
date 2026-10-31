@@ -220,6 +220,33 @@ describe("Theme axes (ADR-0014)", function()
         end
         Craft.Theme.applyFont(fs, "missing.ttf", 12)
         assert.equals(Craft.Theme.get().font, (fs:GetFont()))
+        for _, p in ipairs(Craft.Theme._fontProbes) do
+            assert.is_true(p.path ~= "missing.ttf")    -- ruta rota: nada que esperar
+        end
+    end)
+
+    -- Una ruta fuera del tema carga async la 1ª vez (texto vacío hasta /reload):
+    -- applyFont la sondea y, al asentarse, re-notifica a los componentes.
+    it("applyFont sondea una ruta fuera del tema y re-notifica al cargar (FR-130)", function()
+        local function probeOf(path)
+            for _, p in ipairs(Craft.Theme._fontProbes) do
+                if p.path == path then return p end
+            end
+        end
+        local fs = UIParent:CreateFontString(nil, "OVERLAY")
+        Craft.Theme.applyFont(fs, "fr130.ttf", 12)
+        local p = probeOf("fr130.ttf")
+        assert.is_not_nil(p)
+        local n = #Craft.Theme._fontProbes
+        Craft.Theme.applyFont(fs, "fr130.ttf", 14)        -- misma ruta: no duplica
+        assert.equals(n, #Craft.Theme._fontProbes)
+
+        local fired = 0
+        Craft.Theme.onFontMetricsChanged(function() fired = fired + 1 end)
+        p.fs.GetStringWidth = function() return p.w0 + 10 end   -- el TTF asienta
+        for _ = 1, 5 do C_Timer._flush() end
+        assert.is_true(p.settled)
+        assert.is_true(fired > 0)
     end)
 
     it("un eje desconocido cae al default sin romper", function()
@@ -298,5 +325,63 @@ describe("Theme axes (ADR-0014)", function()
         local a = Craft.Theme.build({ base = "stone", accent = "blue" })
         checkColor(a, "background", {0.047, 0.039, 0.036, 1})  -- stone
         checkColor(a, "primary",    {0.100, 0.234, 0.723, 1})  -- blue
+    end)
+end)
+
+describe("Theme axes survive an older embedded copy (Betto en consumidores)", function()
+    it("an older Presets.lua loaded later cannot drop axes from the registered Theme", function()
+        local saved = _G.CraftThemeAxes
+        -- What an old copy (build 14/17) does: re-create the global without Betto.
+        _G.CraftThemeAxes = { font = { inter = {} }, headingFont = { inter = {} },
+                           compose = function() return {} end }
+        local t = Craft.Theme.build({ font = "bettosans", headingFont = "bettogeo" })
+        local opts = Craft.Theme.getAxisOptions().font
+        _G.CraftThemeAxes = saved
+        assert.is_not_nil(t.font:find("BettoSans%-Regular"))
+        assert.is_not_nil(t.fontHeading:find("BettoGeo%-Medium"))
+        local has = false
+        for _, n in ipairs(opts) do if n == "bettosans" then has = true end end
+        assert.is_true(has)
+    end)
+end)
+
+describe("Craft.Theme.getFontFiles (FR-128)", function()
+    it("lists every bundled TTF with a mediaPath path, fresh table per call", function()
+        local a, b = Craft.Theme.getFontFiles(), Craft.Theme.getFontFiles()
+        assert.equals(27, #a)
+        assert.is_false(a == b)
+        local byName = {}
+        for _, f in ipairs(a) do byName[f.name] = f end
+        assert.equals(Craft.mediaPath .. "Inter-Regular.ttf", byName["Inter"].path)
+        assert.equals(600, byName["BettoSans SemiBold"].weight)
+        assert.is_true(byName["BettoGeo Bold Italic"].italic)
+        assert.equals(Craft.mediaPath .. "BettoGeo-BoldItalic.ttf", byName["BettoGeo Bold Italic"].path)
+        assert.equals(Craft.mediaPath .. "GeistMono-Regular.ttf", byName["Geist Mono"].path)
+    end)
+end)
+
+describe("LibSharedMedia registration (FR-129)", function()
+    it("registers every TTF once LSM appears, without overwriting existing names", function()
+        assert.is_nil(Craft._lsmFonts)              -- no LSM at load: keeps listening
+        local ev = Craft.Theme._lsmEvents
+        assert.is_true(ev:IsEventRegistered("ADDON_LOADED"))
+        local reg = { font = { ["Inter"] = "Other/Inter.ttf" } }
+        local LSM = { Register = function(_, kind, name, path)
+            if reg[kind][name] then return false end
+            reg[kind][name] = path
+            return true
+        end }
+        LibStub:NewLibrary("LibSharedMedia-3.0", 1)
+        local lib = LibStub("LibSharedMedia-3.0")
+        lib.Register = LSM.Register
+        ev:_fire("OnEvent", "ADDON_LOADED", "SomeLSMAddon")
+        assert.is_true(Craft._lsmFonts)
+        assert.is_false(ev:IsEventRegistered("ADDON_LOADED"))
+        assert.equals("Other/Inter.ttf", reg.font["Inter"])   -- not overwritten
+        assert.equals(Craft.mediaPath .. "BettoSans-Regular.ttf", reg.font["BettoSans"])
+        assert.equals(Craft.mediaPath .. "BettoGeo-Bold.ttf", reg.font["BettoGeo Bold"])
+        local n = 0
+        for _ in pairs(reg.font) do n = n + 1 end
+        assert.equals(27, n)
     end)
 end)

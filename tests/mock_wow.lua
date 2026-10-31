@@ -120,6 +120,11 @@ local function makeFrame(frameType, name, parent)
 
     -- Scripts / events
     function f:SetScript(event, fn)   self._scripts[event] = fn end
+    -- Game events: stored so specs can check registration and fire OnEvent by hand.
+    function f:RegisterEvent(e)       self._events = self._events or {}; self._events[e] = true end
+    function f:UnregisterEvent(e)     if self._events then self._events[e] = nil end end
+    function f:UnregisterAllEvents()  self._events = {} end
+    function f:IsEventRegistered(e)   return (self._events and self._events[e]) and true or false end
     function f:GetScript(event)       return self._scripts[event] end
     function f:HookScript(event, fn)
         local old = self._scripts[event]

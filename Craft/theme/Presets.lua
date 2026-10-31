@@ -10,9 +10,16 @@
 -- SIN tocar componentes. `CraftThemeAxes.compose(spec)` fusiona las capas en la
 -- tabla plana que Craft.Theme entrega, y `lyra-dark` = compose{} (defaults).
 --
--- CraftPresets y CraftThemeAxes son globales intencionales — Theme.lua los lee en
--- init. Addons externos usan Craft.Theme.build{...} / register_preset(); NO deben
--- mutar estas tablas directamente (el contrato de tokens es READ-ONLY).
+-- CraftPresets y CraftThemeAxes son globales intencionales — Theme.lua los CAPTURA
+-- al cargar (local), justo después de este archivo en el .toc. Addons externos usan
+-- Craft.Theme.build{...} / register_preset(); NO deben mutar estas tablas directamente
+-- (el contrato de tokens es READ-ONLY).
+--
+-- Cada copia embebida de Craft re-ejecuta este archivo y PISA los globales (no hay
+-- early-return: el registro versionado es por componente). Por eso nada lee el global
+-- en runtime: compose usa la tabla local `AXES` de SU copia y Theme.lua la suya. Una
+-- copia vieja que cargue después (p. ej. un LoadOnDemand con build 14) ya no puede
+-- quitarle ejes (fuentes Betto, Geist…) al Theme registrado, que es el de build mayor.
 
 local Craft  = LibStub("Craft-2.0")
 local FONT   = Craft.mediaPath .. "Inter-Regular.ttf"
@@ -37,13 +44,14 @@ local BGEO    = Craft.mediaPath .. "BettoGeo-Regular.ttf"
 local BGEO_M  = Craft.mediaPath .. "BettoGeo-Medium.ttf"
 local BGEO_B  = Craft.mediaPath .. "BettoGeo-Bold.ttf"
 
-CraftThemeAxes = {}
+local AXES = {}
+CraftThemeAxes = AXES
 
 -- ─── Eje Style (forma + métricas) ───────────────────────────────────────────
 -- NO color, NO familia de fuente: radius, tamaños de fuente, spacing, iconos y
 -- vocabulario de motion. Lyra = rounded-none (radius 0). (Un futuro style con
 -- radius>0 — p.ej. Mira — requiere ADR + capa de render; ver ADR-0014 §6.2.)
-CraftThemeAxes.style = {
+AXES.style = {
     lyra = {
         radius                  = 0,
         fontSize                = 12,   -- text-xs (Lyra base — all components)
@@ -78,9 +86,19 @@ CraftThemeAxes.style = {
 -- ─── Constantes semánticas (independientes de Base y Accent) ─────────────────
 -- destructive es rojo fijo en dark, no varía con la paleta ni el accent.
 -- destructiveForeground = text-white en Lyra (blanco puro, no foreground).
-CraftThemeAxes.semantic = {
+AXES.semantic = {
     destructive             = {r=1.000, g=0.391, b=0.404, a=1},  -- red-400 (dark), oklch(0.704 0.191 22.216)
     destructiveForeground   = {r=1.000, g=1.000, b=1.000, a=1},
+    -- FR-126: estados semánticos que shadcn no trae de serie (sí la convención de
+    -- extenderlo así: `--warning`/`--info`/`--success` + `*-foreground`). Mismo tono
+    -- que destructive (paleta Tailwind v4, peso 400 en dark). Sobre estos -400, que son
+    -- claros, el texto legible es oscuro: foreground = background neutral.
+    warning                 = {r=1.000, g=0.725, b=0.000, a=1},  -- amber-400, oklch(0.828 0.189 84.429)
+    warningForeground       = {r=0.039, g=0.039, b=0.039, a=1},
+    info                    = {r=0.000, g=0.737, b=1.000, a=1},  -- sky-400, oklch(0.746 0.16 232.661)
+    infoForeground          = {r=0.039, g=0.039, b=0.039, a=1},
+    success                 = {r=0.020, g=0.875, b=0.447, a=1},  -- green-400, oklch(0.792 0.209 151.711)
+    successForeground       = {r=0.039, g=0.039, b=0.039, a=1},
 
     -- FR-106 (Craft.CodeEditor). `--font-mono` no es un eje del create tool: Lyra no
     -- lo cambia, así que vive aquí y no en el eje Font.
@@ -108,7 +126,7 @@ CraftThemeAxes.semantic = {
 -- no la usa (verificado en shadcn-pages/*.mhtml: `.theme-neutral` dark =
 -- #d4d4d4 #737373 #525252 #404040 #262626). Fidelidad a Lyra: viven en el eje
 -- Base. Colores por elemento (categórico) quedan en el consumidor.
-CraftThemeAxes.base = {
+AXES.base = {
     neutral = {
         background              = {r=0.039, g=0.039, b=0.039, a=1},   -- oklch(0.145 0 0)
         foreground              = {r=0.980, g=0.980, b=0.980, a=1},   -- oklch(0.985 0 0)
@@ -233,7 +251,7 @@ CraftThemeAxes.base = {
 -- NO los ofrece el create tool para Lyra, 2026-07). Emerald conserva sus valores
 -- legado (sidebarPrimary vino del hex emerald-500, no del OKLCH — diff mínima; se
 -- mantiene por paridad). blue/orange usan la conversión OKLCH del create tool.
-CraftThemeAxes.accent = {
+AXES.accent = {
     emerald = {
         primary                  = {r=0.000, g=0.378, b=0.271, a=1},  -- emerald-800, oklch(0.432 0.095 166.913)
         primaryForeground        = {r=0.924, g=0.992, b=0.960, a=1},
@@ -267,7 +285,7 @@ CraftThemeAxes.accent = {
 -- ─── Eje Font (body — familias) ────────────────────────────────────────────────
 -- Body font: font (regular) / fontMedium / fontBold. WoW no sintetiza pesos → un
 -- TTF por peso. Añadir familia = bundlear sus 3 TTFs + una entrada aquí (ADR-0014 §6.1).
-CraftThemeAxes.font = {
+AXES.font = {
     inter = {
         font                    = FONT,
         fontMedium              = FONT_M,
@@ -290,12 +308,46 @@ CraftThemeAxes.font = {
     },
 }
 
+-- ─── Catálogo de TTFs (FR-128) ─────────────────────────────────────────────────
+-- Todos los TTF que viajan en media/, para los selectores de fuente POR ELEMENTO de
+-- los consumidores (texto de un aura, un Label con `font`): Craft no registra nada en
+-- LibSharedMedia (no depende de ella), así que sin esta lista cada addon copiaba la
+-- suya a mano y se quedaba vieja (Betto no salía en SMRT ni en Coffer). Se expone con
+-- Craft.Theme.getFontFiles(), que resuelve la ruta contra Craft.mediaPath. Bundlear un
+-- TTF nuevo = añadir su fila aquí. `name` es el nombre visible y estable (lo guardan
+-- las SavedVariables del consumidor): "Familia" para Regular, "Familia Peso[ Italic]".
+-- weight = peso CSS (400 Regular, 500 Medium…). Orden = el de un selector.
+local function fontFile(family, weight, label, italic)
+    local style = label .. (italic and "Italic" or "")
+    if style == "" then style = "Regular" end
+    local name = family
+    if label ~= "" then name = name .. " " .. label end
+    if italic then name = name .. " Italic" end
+    local fileFamily = family:gsub(" ", "")
+    return { name = name, family = family, weight = weight, italic = italic or false,
+             file = fileFamily .. "-" .. style .. ".ttf" }
+end
+AXES.fontFiles = {
+    fontFile("Inter", 400, ""), fontFile("Inter", 500, "Medium"), fontFile("Inter", 700, "Bold"),
+    fontFile("Geist", 400, ""), fontFile("Geist", 500, "Medium"), fontFile("Geist", 700, "Bold"),
+    fontFile("Geist Mono", 400, ""),
+}
+for _, w in ipairs({ { 300, "Light" }, { 400, "" }, { 500, "Medium" }, { 600, "SemiBold" },
+                     { 700, "Bold" }, { 800, "ExtraBold" }, { 900, "Black" } }) do
+    table.insert(AXES.fontFiles, fontFile("BettoSans", w[1], w[2]))
+    table.insert(AXES.fontFiles, fontFile("BettoSans", w[1], w[2], true))
+end
+for _, w in ipairs({ { 400, "" }, { 500, "Medium" }, { 700, "Bold" } }) do
+    table.insert(AXES.fontFiles, fontFile("BettoGeo", w[1], w[2]))
+    table.insert(AXES.fontFiles, fontFile("BettoGeo", w[1], w[2], true))
+end
+
 -- ─── Eje Heading Font (títulos) ──────────────────────────────────────────────────
 -- Eje separado del body (ADR-0014 §6.1): permite mezclar (p. ej. body Inter + títulos
 -- Geist). Aporta el token `fontHeading` que leen los 4 componentes de título (Dialog,
 -- Window, Panel, Section). Default = inter → Inter-Medium = el look actual (los títulos
 -- usaban `fontMedium`), así que el MVP no cambia. Peso de heading = medium (text-sm).
-CraftThemeAxes.headingFont = {
+AXES.headingFont = {
     inter = { fontHeading = FONT_M },
     geist = { fontHeading = GEIST_M },
     bettosans = { fontHeading = BSANS_M },
@@ -320,7 +372,7 @@ local function compose(spec)
         -- build{ font = { font=<path>, fontMedium=<path>, fontBold=<path> } }. Craft
         -- queda LSM-agnóstico: el consumidor hace LSM:Fetch(...) → path y lo pasa aquí.
         if type(name) == "table" then return name end
-        local opts = CraftThemeAxes[axis]
+        local opts = AXES[axis]
         local layer = opts[name or def]
         if not layer then
             warn(("theme axis %s='%s' desconocido; usando '%s'"):format(axis, tostring(name), def))
@@ -335,7 +387,7 @@ local function compose(spec)
     end
 
     merge(pick("style",  spec.style,  "lyra"))
-    merge(CraftThemeAxes.semantic)
+    merge(AXES.semantic)
     merge(pick("base",   spec.base,   "neutral"))
     merge(pick("accent", spec.accent, "emerald"))
     merge(pick("font",   spec.font,   "inter"))
@@ -348,10 +400,11 @@ local function compose(spec)
     if spec.overrides then merge(spec.overrides) end
     return out
 end
-CraftThemeAxes.compose = compose
+AXES.compose = compose
 
 -- ─── Presets built-in ─────────────────────────────────────────────────────────
 -- `lyra-dark` es la composición por defecto (Lyra · Neutral · Emerald · Inter).
 -- Craft es dark-mode únicamente (ADR-0005/0012): no hay preset claro.
-CraftPresets = {}
-CraftPresets["lyra-dark"] = compose({})
+local PRESETS = {}
+CraftPresets = PRESETS
+PRESETS["lyra-dark"] = compose({})

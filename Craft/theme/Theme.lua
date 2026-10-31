@@ -3,10 +3,15 @@
 -- ADR:    docs/adr/0005-sistema-de-theming.md, 0019-contextos-de-tema.md (contexts)
 -- Pixels: docs/pixel-perfect.md (ADR-0011)
 --
--- Depends on: CraftPresets global (defined in theme/Presets.lua, loaded first in Craft.toc)
+-- Depends on: CraftPresets / CraftThemeAxes globals (theme/Presets.lua, loaded right
+-- before this file in the .toc). Both are CAPTURED here at load: a later embedded copy
+-- re-runs Presets.lua and overwrites the globals, so reading them at runtime would
+-- hand this (registered, newest) Theme an older copy's axes.
 
 local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
+
+local AXES = CraftThemeAxes  -- this copy's axes (see header)
 
 local T = {}
 
@@ -29,7 +34,7 @@ T._resolved    = nil           -- cached token table; nil = needs rebuild on nex
 T._listeners   = {}            -- array of {handle=int, fn=function}
 T._handleCount = 0             -- auto-increment for unique handles
 T._spec        = nil           -- axis spec in use (ADR-0014), nil = preset/token table
-T._presets     = CraftPresets  -- reference to Presets.lua global (never mutate directly)
+T._presets     = CraftPresets  -- this copy's presets, captured at load (never mutate directly)
 T._contexts    = {}            -- name → named context (the default is T, not listed)
 
 -- ─── get() ─────────────────────────────────────────────────────────────────
@@ -89,7 +94,7 @@ function Ctx.use(s, preset)
         local tokens = preset
         if preset.background == nil then
             s._spec = mergeSpec(s._spec, preset)
-            tokens  = CraftThemeAxes.compose(s._spec)
+            tokens  = AXES.compose(s._spec)
         else
             s._spec = nil
         end
@@ -191,7 +196,7 @@ end
 -- Un nombre de eje desconocido cae al default con un aviso (no rompe el tema).
 
 function T.build(spec)
-    return CraftThemeAxes.compose(spec)
+    return AXES.compose(spec)
 end
 
 -- ─── accentFrom() ──────────────────────────────────────────────────────────
@@ -238,8 +243,8 @@ function T.registerFont(name, paths)
     local reg   = paths.font
     local med   = paths.fontMedium or reg
     local bold  = paths.fontBold   or reg
-    CraftThemeAxes.font[name]        = { font = reg, fontMedium = med, fontBold = bold }
-    CraftThemeAxes.headingFont[name] = { fontHeading = med }
+    AXES.font[name]        = { font = reg, fontMedium = med, fontBold = bold }
+    AXES.headingFont[name] = { fontHeading = med }
 end
 
 -- ─── getAxisOptions() ────────────────────────────────────────────────────────
@@ -253,12 +258,30 @@ function T.getAxisOptions()
         return out
     end
     return {
-        style       = names(CraftThemeAxes.style),
-        base        = names(CraftThemeAxes.base),
-        accent      = names(CraftThemeAxes.accent),
-        font        = names(CraftThemeAxes.font),
-        headingFont = names(CraftThemeAxes.headingFont),
+        style       = names(AXES.style),
+        base        = names(AXES.base),
+        accent      = names(AXES.accent),
+        font        = names(AXES.font),
+        headingFont = names(AXES.headingFont),
     }
+end
+
+-- ─── getFontFiles() (FR-128) ─────────────────────────────────────────────────
+-- Los TTF que trae Craft, para selectores de fuente por elemento:
+--   { { name = "BettoSans SemiBold", family = "BettoSans", weight = 600,
+--       italic = false, path = "Interface\\AddOns\\…\\media\\BettoSans-SemiBold.ttf" }, … }
+-- Tabla nueva en cada llamada (el consumidor puede ordenarla o filtrarla). La ruta es
+-- válida para SetFont / Label `font` / build{ font = { font = path } }. Distinto de
+-- getAxisOptions().font: aquel lista FAMILIAS del tema (3 pesos cada una), esto
+-- archivos sueltos.
+
+function T.getFontFiles()
+    local out = {}
+    for i, f in ipairs(AXES.fontFiles) do
+        out[i] = { name = f.name, family = f.family, weight = f.weight, italic = f.italic,
+                   path = Craft.mediaPath .. f.file }
+    end
+    return out
 end
 
 -- ─── getFont() ─────────────────────────────────────────────────────────────
@@ -296,6 +319,13 @@ function Ctx.applyFont(s, fs, path, size, flags)
     -- devuelva nada no debe disparar el fallback.
     if fs:SetFont(path, size, f) == false and path ~= t.font then
         fs:SetFont(t.font, size, f)
+    elseif path and T._armFontProbes then
+        -- FR-130: una ruta que no es del tema (Label `font`, un selector de
+        -- fuente por elemento) también carga async la primera vez en la sesión
+        -- y su texto sale VACÍO hasta /reload. Sondearla como las del tema: al
+        -- asentarse, notifyMetricsChanged re-ejecuta los _applyTheme, que
+        -- re-aplican la fuente y re-miden. No-op si la ruta ya está sondeada.
+        T._armFontProbes({ font = path })
     end
 end
 
@@ -679,3 +709,35 @@ do
 end
 
 Craft.register("Theme", T, _BUILD)
+
+-- ─── LibSharedMedia (FR-129) ─────────────────────────────────────────────────
+-- Craft NO depende de LibSharedMedia, pero si está cargada le registra sus TTF
+-- (getFontFiles, mismos nombres) para que cualquier addon con selector LSM (ElvUI,
+-- Details, WeakAuras…) ofrezca Inter, Geist y Betto. Solo lo hace el Theme
+-- REGISTRADO (build mayor, cuyas rutas son las de Craft.mediaPath) y una vez por
+-- sesión; un nombre que ya esté en LSM no se pisa (Register devuelve false). LSM puede
+-- cargar después que Craft (o en un LoadOnDemand): se reintenta en cada ADDON_LOADED
+-- y en PLAYER_LOGIN hasta conseguirlo. Las copias que no ganaron solo escuchan hasta
+-- que la ganadora termina.
+local function registerLSM()
+    if Craft._lsmFonts then return true end
+    if Craft.Theme ~= T then return false end
+    local lsm = LibStub("LibSharedMedia-3.0", true)
+    if not lsm then return false end
+    for _, f in ipairs(T.getFontFiles()) do
+        lsm:Register("font", f.name, f.path)
+    end
+    Craft._lsmFonts = true
+    return true
+end
+T._registerLSM = registerLSM   -- internal (specs)
+
+if not registerLSM() then
+    local ev = CreateFrame("Frame")
+    ev:RegisterEvent("ADDON_LOADED")
+    ev:RegisterEvent("PLAYER_LOGIN")
+    ev:SetScript("OnEvent", function(self)
+        if registerLSM() then self:UnregisterAllEvents() end
+    end)
+    T._lsmEvents = ev
+end
