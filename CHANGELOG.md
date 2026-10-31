@@ -6,6 +6,19 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.42.0] - 2026-10-30
+
+> **Release v2.42.0 — Field con marca de «valor cambiado» y botón Restablecer (FR-131).** Pedido de SMRT.
+>
+> **API compatible:** todo lo nuevo es opt-in. Verificado in-game.
+
+### Added
+
+- **`Craft.Field`: marca de «valor cambiado» con botón Restablecer (FR-131, pedido de SMRT).**
+  `SetOverridden(on [, tooltip])`, `IsOverridden()` y `OnReset(fn)`: icon-button ghost 20×20 con `rotate-ccw`
+  (16px en `t.primary`, hover `t.foreground`) que flota en el borde derecho de la primera línea del campo, sin reflow;
+  el título se recorta mientras se ve. Tooltip multilínea por `Craft.Tooltip` y fundido `motionFast`.
+
 ## [2.41.0] - 2026-10-30
 
 > **Release v2.41.0 — Sidebar con indicador de estado (FR-126), Tooltip con líneas (FR-127) y
