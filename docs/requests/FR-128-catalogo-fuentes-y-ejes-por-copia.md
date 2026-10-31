@@ -3,7 +3,7 @@
 - **Pide:** owner (2026-10-30): «las fuentes Betto no aparecen en otros addons, pero Inter sí»
 - **Componente:** `theme/Presets.lua`, `theme/Theme.lua`
 - **Prioridad sugerida:** alta (afecta a todos los consumidores)
-- **Estado:** ✅ Implementado en dev (2026-10-30). Pendiente: in-game + release + actualizar consumidores
+- **Estado:** ✅ Released v2.41.0 (2026-10-30) — verificado in-game. Pendiente: actualizar consumidores (SMRT, Coffer)
 
 ## Necesidad
 

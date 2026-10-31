@@ -3,7 +3,7 @@
 - **Pide:** Coffer (migración de todos sus tooltips de texto a `Craft.Tooltip`, 2026-10-27)
 - **Componente:** `Craft.Tooltip` (`components/Tooltip.lua`)
 - **Prioridad sugerida:** media (la parte 1 bloquea 2 de los 13 tooltips de texto de Coffer; el resto migra ya)
-- **Estado:** ✅ Implementado en dev (2026-10-30) — pendiente in-game + release
+- **Estado:** ✅ Released v2.41.0 (2026-10-30) — verificado in-game
 
 ## Necesidad
 

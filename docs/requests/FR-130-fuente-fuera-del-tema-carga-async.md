@@ -3,7 +3,7 @@
 - **Pide:** owner (2026-10-30), al probar la demo de FR-128 in-game
 - **Componente:** `theme/Theme.lua` (`applyFont`)
 - **Prioridad sugerida:** alta (afecta a todo selector de fuente por elemento: SMRT, Coffer)
-- **Estado:** ✅ Implementado en dev (2026-10-30). Pendiente: in-game + release
+- **Estado:** ✅ Released v2.41.0 (2026-10-30) — verificado in-game
 
 ## Síntoma
 

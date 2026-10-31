@@ -3,7 +3,7 @@
 - **Pide:** SMRT (módulo Auras, árbol de auras del editor, 2026-10-26)
 - **Componente:** `Craft.Sidebar` (`components/Sidebar.lua`, `action` de fila, FR-109) y el tema (`theme/Presets.lua`)
 - **Prioridad sugerida:** media
-- **Estado:** ✅ Implementado en dev (2026-10-30) — pendiente in-game + release
+- **Estado:** ✅ Released v2.41.0 (2026-10-30) — verificado in-game
 
 ## Necesidad
 

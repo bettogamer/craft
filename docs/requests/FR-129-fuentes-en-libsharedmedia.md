@@ -3,7 +3,7 @@
 - **Pide:** owner (2026-10-30), a raíz de FR-128: «¿y estarán en el LSM?»
 - **Componente:** `theme/Theme.lua`
 - **Prioridad sugerida:** media
-- **Estado:** ✅ Implementado en dev (2026-10-30). Pendiente: in-game + release
+- **Estado:** ✅ Released v2.41.0 (2026-10-30) — verificado in-game
 
 ## Necesidad
 
