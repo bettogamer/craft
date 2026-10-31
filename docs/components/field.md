@@ -133,6 +133,9 @@ Confirmado = base `.tsx` verificado; **Lyra pend.** = falta confirmar si Lyra re
 | `SetDescription(text)` | Cambia el texto de descripción; `nil` limpia. |
 | `SetError(text\|nil)` | Setea o limpia el texto de error y re-layoutea; colorea el label en rojo si error ≠ nil. |
 | `SetOrientation(o)` | Cambia la orientación (`"vertical"` \| `"horizontal"` \| `"responsive"`). |
+| `SetOverridden(on [, tooltip])` | FR-131 — muestra u oculta la marca «valor cambiado / Restablecer», con fundido. `tooltip` = string o config de `Craft.Tooltip` (`title`/`text`/`lines`). Idempotente. Ver abajo. |
+| `IsOverridden()` | FR-131 — `true` si la marca está activa. |
+| `OnReset(fn)` | FR-131 — `fn(field)` al clicar la marca. El consumidor restablece el valor y llama `SetOverridden(false)`. |
 | `GetControl()` | Retorna `config.control` (el componente o Frame reparentado). |
 | `GetFrame()` | Retorna el Frame raíz de Field. |
 | `Destroy()` | Contrato §5 (AGENTS.md:170-196); `disposeAll` si algún prop usa señal Weave. |
@@ -206,6 +209,45 @@ El cableado usa `EnableMouse` + `OnMouseDown` directos sobre el frame del label,
 `Craft.Label` `config.onClick`: ese modo tiñe el texto de `primary` en hover — afordancia de
 link que un label de formulario no tiene en Lyra — y chocaría con el color que ya gobierna
 `data-[invalid=true]`. `SetLabel()` cablea también un label creado a posteriori.
+
+## Marca «valor cambiado» + Restablecer (FR-131)
+
+Para ajustes con valor heredado o por defecto (plantilla de aura, perfil global con
+sobrescritura local…): cuando el valor difiere del heredado, el consumidor llama
+`field:SetOverridden(true, tooltip)` y aparece una marca que a la vez es el botón
+«Restablecer»; `field:OnReset(fn)` recibe el clic.
+
+```lua
+local f = Craft.Field:Create(parent, { label = "Grosor", control = slider, width = 240 })
+f:OnReset(function(field) slider:SetValue(base); field:SetOverridden(false) end)
+f:SetOverridden(value ~= base, { title = "Restablecer a «2»", lines = { "Plantilla: 14" } })
+```
+
+**Conversión Lyra.** Lyra **no define este patrón**: es de la familia shadcn
+«FieldDescription + icon-button» (un `<Button variant="ghost" size="icon">` con un icono
+Lucide junto al `FieldLabel`), y se declara así — no es un componente Lyra.
+
+| Pieza | shadcn | Craft |
+|-------|--------|-------|
+| Botón | `Button variant="ghost" size="icon"` | `Button` 20×20, bg transparente; hover `bg-muted/50` (= Button ghost) |
+| Icono | Lucide `RotateCcw`, `size-4 text-primary hover:text-foreground` | `rotate-ccw` 16px (`size-4`), `t.primary`; hover `t.foreground` |
+| Tooltip | `Tooltip` | `Craft.Tooltip.Show` con delay 0, multilínea (FR-127) |
+| Entrada/salida | `animate-in fade-in` | `Weave.tween` `motionFast` + `outQuad`; sin Weave, `Show`/`Hide` directos |
+
+**Posición — flota, no entra en el layout** (sin reflow al aparecer/desaparecer):
+
+- **Con título, vertical/responsive-vertical** → borde derecho del Field, centrada en la línea del título.
+- **Con título, horizontal** → borde derecho de la columna del título (`labelWidth`, o su ancho natural).
+- **Sin título** → borde derecho del Field, centrada en el control. Pensado para controles con la etiqueta
+  en línea (Checkbox, ColorSwatch, Switch), que se usan como `control` de un Field sin `label`. Con un control
+  alto sin título (p. ej. un Input) la marca quedaría encima del control: dar título al Field.
+
+Mientras la marca se ve (incluido su fade-out) el título se recorta con elipsis (`Craft.Label:SetWidth`) a
+`ancho − 20 − 4` para no quedar debajo; al desaparecer recupera su ancho natural. La marca vive por encima del
+control (`FrameLevel + 10`) para ganarle el clic en los controles que ocupan todo el ancho.
+
+- `SetOverridden` con el mismo valor no re-anima (no parpadea); el tooltip sí se actualiza.
+- Al salir, `EnableMouse(false)` en el acto: mientras se funde no recibe clics.
 
 ## Diferencias conocidas vs shadcn
 
