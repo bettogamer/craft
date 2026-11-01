@@ -261,6 +261,70 @@ describe("Craft.Sidebar — expansion state (FR-010)", function()
         end)
     end)
 
+    -- ── Muted item (FR-133) ───────────────────────────────────────────────
+    describe("muted item (FR-133)", function()
+        local function mutedTree()
+            return {
+                { id = "on",  label = "Loaded", icon = "star" },
+                { id = "off", label = "Not loaded", icon = "star", muted = true },
+                { id = "offBranch", label = "Group", muted = true, collapsible = true,
+                  children = { { id = "kid", label = "Kid" } } },
+            }
+        end
+        local function assertColor(c, r, g, b)
+            assert.equals(c.r, r); assert.equals(c.g, g); assert.equals(c.b, b)
+        end
+
+        it("en reposo pinta label, glifo y chevron en t.mutedForeground (alpha 1)", function()
+            local t = Craft.Theme.get()
+            local sb = newSidebar(mutedTree())
+            local e = sb._itemFrames["off"]
+            local r, g, b, a = e.labelFs:GetTextColor()
+            assertColor(t.mutedForeground, r, g, b)
+            assert.equals(1, a or 1)
+            local vr, vg, vb = e.iconTex:GetVertexColor()
+            assertColor(t.mutedForeground, vr, vg, vb)
+            local cr, cg, cb = sb._itemFrames["offBranch"].chevTex:GetVertexColor()
+            assertColor(t.mutedForeground, cr, cg, cb)
+            -- the plain row keeps sidebarForeground
+            assertColor(t.sidebarForeground, sb._itemFrames["on"].labelFs:GetTextColor())
+        end)
+
+        it("conserva la interacción: mouse, clic y selección", function()
+            local selected
+            local sb = newSidebar(mutedTree())
+            sb._cfg.onSelect = function(id) selected = id end
+            local e = sb._itemFrames["off"]
+            assert.is_true(e.frame:IsMouseEnabled())
+            e.frame:_fire("OnClick", "LeftButton")
+            assert.equals("off", selected)
+            assert.is_true(sb:IsSelected("off"))
+            assert.is_true(sb._itemFrames["offBranch"].chevBtn:IsMouseEnabled())
+        end)
+
+        it("hover y seleccionada toman sidebarAccentForeground; al salir vuelve a muted", function()
+            local t = Craft.Theme.get()
+            local sb = newSidebar(mutedTree())
+            local e = sb._itemFrames["off"]
+            e.frame:_fire("OnEnter")
+            assertColor(t.sidebarAccentForeground, e.labelFs:GetTextColor())
+            e.frame:_fire("OnLeave")
+            assertColor(t.mutedForeground, e.labelFs:GetTextColor())
+            sb:SetActiveItem("off")
+            assertColor(t.sidebarAccentForeground, e.labelFs:GetTextColor())
+            assertColor(t.sidebarAccentForeground, e.iconTex:GetVertexColor())
+        end)
+
+        it("SetItems repinta el cambio de muted en una fila reciclada del pool", function()
+            local t = Craft.Theme.get()
+            local sb = newSidebar(mutedTree())
+            sb:SetItems({ { id = "on", label = "Loaded", icon = "star", muted = true },
+                          { id = "off", label = "Not loaded", icon = "star" } })
+            assertColor(t.mutedForeground, sb._itemFrames["on"].labelFs:GetTextColor())
+            assertColor(t.sidebarForeground, sb._itemFrames["off"].labelFs:GetTextColor())
+        end)
+    end)
+
     -- ── Separator spacing (FR-050) ────────────────────────────────────────
     describe("separator spacing (FR-050)", function()
         -- Layout: item ─ 8px ─ separador(1px) ─ 8px ─ header (grupo p-2 + sep + grupo p-2)

@@ -145,6 +145,25 @@ CraftBrowserPages["Sidebar"] = {
         })
         y = y + 192
 
+        -- ── 5a. Muted (FR-133) ───────────────────────────────────────────────
+        -- Apagada pero viva: selecciona, plega y abre su menú; hover/seleccionada
+        -- toman el color normal (text-muted-foreground hover:text-sidebar-accent-foreground).
+        y = addLabel("Muted (FR-133) — apagada en reposo; hover/clic/plegar funcionan y recupera el color", y)
+        local c5a = newContainer(220, 200, y)
+        newSidebar(c5a, {
+            width = 220, activeItem = "m-on",
+            onSelect = function(id) print("Sidebar onSelect (FR-133):", id) end,
+            items = {
+                { id="m-on",     label="Cargada",        icon="zap" },
+                { id="m-off",    label="No cargada",     icon="zap", muted = true },
+                { id="m-branch", label="Grupo no cargado", icon="folder", muted = true,
+                  collapsible = true, defaultOpen = false,
+                  children = { { id="m-c1", label="Hija no cargada", icon="zap", muted = true },
+                               { id="m-c2", label="Hija cargada",    icon="zap" } } },
+            },
+        })
+        y = y + 212
+
         -- ── 5b. Tooltip por entrada (FR-089) ─────────────────────────────────
         -- La fila gris SIN explicacion se lee como una fila rota. Con `tooltip` la
         -- misma fila dice por que esta gris — y sigue sin hover accent y sin clic.

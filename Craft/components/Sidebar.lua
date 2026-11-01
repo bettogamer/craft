@@ -552,22 +552,15 @@ function Sidebar:_colorItem(entry, isActive)
     else
         entry.bg:SetColorTexture(0, 0, 0, 0)
         self._theme:applyFont(entry.labelFs, t.font, ITEM_FONT)  -- regular weight when inactive
-        entry.labelFs:SetTextColor(
-            t.sidebarForeground.r,
-            t.sidebarForeground.g,
-            t.sidebarForeground.b
-        )
+        -- FR-133: `muted` = text-muted-foreground at rest only; hover and data-active
+        -- keep the accent foreground (the row stays fully interactive).
+        local c = entry.muted and t.mutedForeground or t.sidebarForeground
+        entry.labelFs:SetTextColor(c.r, c.g, c.b)
         if entry.hasIcon then
-            entry.iconTex:SetVertexColor(
-                t.sidebarForeground.r,
-                t.sidebarForeground.g,
-                t.sidebarForeground.b,
-                1
-            )
+            entry.iconTex:SetVertexColor(c.r, c.g, c.b, 1)
         end
         if entry.chevTex then
-            entry.chevTex:SetVertexColor(
-                t.sidebarForeground.r, t.sidebarForeground.g, t.sidebarForeground.b, 1)
+            entry.chevTex:SetVertexColor(c.r, c.g, c.b, 1)
         end
     end
     self:_colorAction(entry)   -- FR-109 (peer-data-active)
@@ -862,7 +855,7 @@ end
 
 -- ─── AddItem ──────────────────────────────────────────────────────────────────
 -- Adds a menu item. itemConfig: {id, label, icon, avatar, texture, section, onClick, onDoubleClick,
--- onContextMenu, collapsible, selectable, defaultOpen, children, disabled, tooltip, action}.
+-- onContextMenu, collapsible, selectable, defaultOpen, children, disabled, muted, tooltip, action}.
 -- `depth`/`parentEntry` are internal
 -- (tree recursion).
 -- Returns the item entry. Content x-positions are set in _positionRow (layout time).
@@ -930,6 +923,8 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
         depth       = depth,
         parent      = parentEntry,
         disabled    = disabled,
+        -- FR-133: dimmed label/glyph at rest, interaction untouched (unlike disabled).
+        muted       = itemConfig.muted and true or false,
         collapsible = collapsible,
         tooltip     = hasTip and itemConfig.tooltip or nil,
         itemConfig  = itemConfig,
@@ -1372,7 +1367,8 @@ function Sidebar:_updateChevron(entry)
             local m = t.mutedForeground
             entry.chevTex:SetVertexColor(m.r, m.g, m.b, DISABLED_ALPHA)  -- FR-048
         else
-            local c = self:_isSelected(entry.itemId) and t.sidebarAccentForeground or t.sidebarForeground
+            local c = self:_isSelected(entry.itemId) and t.sidebarAccentForeground
+                or (entry.muted and t.mutedForeground or t.sidebarForeground)   -- FR-133
             entry.chevTex:SetVertexColor(c.r, c.g, c.b, 1)
         end
     end
