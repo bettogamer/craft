@@ -377,6 +377,7 @@ Para completitud, los tokens que `get()` expone (definidos en `theme/Presets.lua
 | `warning` / `warningForeground` | RGBA table | Aviso (amber-400) y texto oscuro encima — FR-126 |
 | `info` / `infoForeground` | RGBA table   | Informativo (sky-400) y texto oscuro encima — FR-126   |
 | `success` / `successForeground` | RGBA table | Éxito (green-400) y texto oscuro encima — FR-126 |
+| `modified` / `modifiedForeground` | RGBA table | Valor sobrescrito sobre el heredado/por defecto (#C7A65A) y texto oscuro encima — FR-132 |
 | `border`                 | RGBA table    | Borde de todos los componentes (a=0.1 en dark)         |
 | `input`                  | RGBA table    | Fondo de Input, Select trigger (a=0.15 en dark)        |
 | `ring`                   | RGBA table    | Focus ring (zinc, no emerald)                          |

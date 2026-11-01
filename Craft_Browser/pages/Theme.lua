@@ -170,6 +170,8 @@ CraftBrowserPages["Theme"] = {
             { name="warning",           color=t.warning           },
             { name="info",              color=t.info              },
             { name="success",           color=t.success           },
+            -- FR-132: valor sobrescrito sobre el heredado
+            { name="modified",          color=t.modified          },
         }
 
         y = addLabel("Token  →  cuadrado de color  +  valores RGBA", y)

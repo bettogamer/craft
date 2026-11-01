@@ -99,6 +99,11 @@ AXES.semantic = {
     infoForeground          = {r=0.039, g=0.039, b=0.039, a=1},
     success                 = {r=0.020, g=0.875, b=0.447, a=1},  -- green-400, oklch(0.792 0.209 151.711)
     successForeground       = {r=0.039, g=0.039, b=0.039, a=1},
+    -- FR-132: «este valor difiere del heredado / del de por defecto» (override sobre
+    -- plantilla o perfil). No es un aviso (warning) ni el acento: dorado apagado,
+    -- #C7A65A (≈7:1 sobre card). Misma convención `--x` + `--x-foreground`.
+    modified                = {r=0.780, g=0.651, b=0.353, a=1},  -- #C7A65A
+    modifiedForeground      = {r=0.039, g=0.039, b=0.039, a=1},
 
     -- FR-106 (Craft.CodeEditor). `--font-mono` no es un eje del create tool: Lyra no
     -- lo cambia, así que vive aquí y no en el eje Font.

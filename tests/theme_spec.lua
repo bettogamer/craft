@@ -308,6 +308,16 @@ describe("Theme axes (ADR-0014)", function()
         checkColor(t, "chart5", {0.153, 0.153, 0.166, 1})
     end)
 
+    it("modified/modifiedForeground (FR-132) son semánticos: no dependen de base ni accent", function()
+        for _, base in ipairs({ "neutral", "zinc", "stone", "mist" }) do
+            for _, accent in ipairs({ "emerald", "blue", "orange" }) do
+                local t = Craft.Theme.build({ base = base, accent = accent })
+                checkColor(t, "modified",           {0.780, 0.651, 0.353, 1})  -- #C7A65A
+                checkColor(t, "modifiedForeground", {0.039, 0.039, 0.039, 1})
+            end
+        end
+    end)
+
     it("accent=blue compone el primary de blue", function()
         local t = Craft.Theme.build({ accent = "blue" })
         checkColor(t, "primary",        {0.100, 0.234, 0.723, 1})
