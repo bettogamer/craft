@@ -6,6 +6,21 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.43.0] - 2026-11-01
+
+> **Release v2.43.0 — token `modified` (FR-132) y fila `muted` en Sidebar (FR-133).** Pedidos de SMRT.
+>
+> **API compatible:** todo lo nuevo es opt-in; el token `modified` es nuevo. Verificado in-game.
+
+### Added
+
+- **Tema: token semántico `modified` + `modifiedForeground` (FR-132, pedido de SMRT).** «Este valor difiere del
+  heredado o del de por defecto» (override sobre plantilla/perfil): `#C7A65A`, texto oscuro encima. Junto a
+  `warning`/`info`/`success`, no depende de base ni accent; vale también como `action.color = "modified"` del Sidebar.
+- **`Craft.Sidebar`: `items[i].muted` (FR-133, pedido de SMRT).** Fila apagada que sigue siendo interactiva:
+  `mutedForeground` en reposo, colores normales en hover y seleccionada
+  (`text-muted-foreground hover:text-sidebar-accent-foreground`).
+
 ## [2.42.0] - 2026-10-30
 
 > **Release v2.42.0 — Field con marca de «valor cambiado» y botón Restablecer (FR-131).** Pedido de SMRT.

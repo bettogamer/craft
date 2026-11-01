@@ -3,7 +3,7 @@
 - **Pide:** SMRT (módulo Auras, lista del editor; owner, 2026-11-01). Vendoreado: Craft v2.42.0 (0b2387d).
 - **Componente:** `components/Sidebar.lua` (`_colorItem`, `_colorHover`, config del item)
 - **Prioridad sugerida:** baja (SMRT ya funciona con un escape de color)
-- **Estado:** ✅ Implementado en dev (2026-11-01) — pendiente verificación in-game y release
+- **Estado:** ✅ Released v2.43.0 (2026-11-01) — verificado in-game
 
 ## Necesidad
 

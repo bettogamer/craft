@@ -4,7 +4,7 @@
   `docs/ux-diseno-2026-10-30-overrides-v2.md`, 2026-10-30). El owner aprobó crear el FR.
 - **Componente:** el tema (`theme/Presets.lua`, `CraftThemeAxes.semantic`), junto a `warning`/`info`/`success` (FR-126)
 - **Prioridad sugerida:** baja (SMRT ya funciona con una constante propia)
-- **Estado:** ✅ Implementado en dev (2026-11-01) — pendiente verificación in-game y release
+- **Estado:** ✅ Released v2.43.0 (2026-11-01) — verificado in-game
 
 ## Necesidad
 
