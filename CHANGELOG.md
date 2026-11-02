@@ -6,6 +6,30 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.44.0] - 2026-11-02
+
+> **Release v2.44.0 — Window acoplable y con `growFrom` (FR-134), Section que no pierde el rect al plegar
+> (FR-135).** Pedidos de SMRT.
+>
+> **API compatible:** todo lo nuevo es opt-in; con `growFrom` por defecto (`CENTER`) Window se comporta como
+> antes. Verificado in-game.
+
+### Added
+
+- **`Craft.Window`: acoplar una ventana a otra y crecer desde un borde (FR-134, pedido de SMRT).**
+  `config.dock = { to, point, relPoint, x, y }` / `DockTo(...)` / `Undock()` / `IsDocked()`: la ventana
+  acoplada cuelga del propio host (no de un centro calculado una vez), así que lo sigue durante su arrastre,
+  su resize y su pop. `config.growFrom = "TOP"` (o cualquier punto): el punto que se queda quieto al cambiar
+  de tamaño. `SetSize(w, h, { animate = true })` anima el tamaño respetando ese punto. El pop de apertura
+  sigue saliendo del centro. Con `growFrom` por defecto (`CENTER`) el comportamiento es el de siempre.
+
+### Fixed
+
+- **`Craft.Section`: header, título y cuerpo sin rect tras plegar y desplegar (FR-135, pedido de SMRT).**
+  La sección ocupaba su sitio pero no pintaba nada hasta que algo re-aplicaba los anchos. Ahora cada tick de
+  la animación programa un re-empuje forzado de anchos un fotograma después (coalescido) y otro al asentar.
+  SMRT puede quitar el apaño de `Library.lua` al re-vendorear.
+
 ## [2.43.0] - 2026-11-01
 
 > **Release v2.43.0 — token `modified` (FR-132) y fila `muted` en Sidebar (FR-133).** Pedidos de SMRT.
