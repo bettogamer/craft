@@ -106,11 +106,94 @@ CraftBrowserPages["Section"] = {
         table.insert(comps, reproBtn)
         totalH = totalH + 40
 
+        -- ── FR-135 repro: SMRT's Library. Two sections stacked inside a Craft.Scroll's
+        -- child (TOPLEFT + RIGHT), ~480px bodies, onToggle resizes the scroll child.
+        -- "Fold → unfold" collapses the first one, re-expands it 0.4 s later and, 0.4 s
+        -- after that, prints whether header/title/body have a rect. Before the fix they
+        -- came back WITHOUT one: the section kept its space but painted nothing.
+        local foldWin, foldSecs, foldComps
+        local function hasRect(f) return f:GetRect() ~= nil and "rect" or "NORECT" end
+        local foldBtn = Craft.Button:Create(parent, {
+            text = "FR-135: open fold/unfold repro", variant = "outline", size = "sm",
+            onClick = function()
+                if foldWin then
+                    for _, c in ipairs(foldComps) do c:Destroy() end
+                    foldWin:Destroy()
+                end
+                foldComps, foldSecs = {}, {}
+                foldWin = Craft.Window:Create(UIParent, { title = "Library", width = 560, height = 460 })
+                local content = foldWin:GetContent()
+                local scroll = Craft.Scroll:Create(content, {})
+                scroll:GetFrame():SetPoint("TOPLEFT", content, "TOPLEFT", 8, -8)
+                scroll:GetFrame():SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", -8, 8)
+                table.insert(foldComps, scroll)
+                local child = scroll:GetScrollChild()
+
+                local function resizeChild()
+                    local h = 0
+                    for _, s in ipairs(foldSecs) do h = h + s:GetFrame():GetHeight() end
+                    child:SetHeight(math.max(h, 1))
+                end
+                for i = 1, 2 do
+                    local s = Craft.Section:Create(child, {
+                        title = (i == 1) and "My auras" or "Shared auras",
+                        collapsed = false, onToggle = resizeChild })
+                    local f = s:GetFrame()
+                    if i == 1 then
+                        f:SetPoint("TOPLEFT", child, "TOPLEFT", 0, 0)
+                    else
+                        f:SetPoint("TOPLEFT", foldSecs[1]:GetFrame(), "BOTTOMLEFT", 0, 0)
+                    end
+                    f:SetPoint("RIGHT", child, "RIGHT", 0, 0)
+                    local body = CreateFrame("Frame", nil, child)
+                    body:SetHeight(480)
+                    for r = 1, 10 do
+                        local fs = body:CreateFontString(nil, "OVERLAY")
+                        fs:SetFont(t.font, 12, "")
+                        fs:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
+                        fs:SetPoint("TOPLEFT", body, "TOPLEFT", 0, -(r - 1) * 48 - 16)
+                        fs:SetText(("Aura row %d"):format(r))
+                    end
+                    s:SetContent(body)
+                    foldSecs[i] = s
+                    table.insert(foldComps, s)
+                end
+                resizeChild()
+
+                local cycle = Craft.Button:Create(foldWin:GetTitleBar(), {
+                    text = "Fold → unfold", variant = "outline", size = "sm",
+                    onClick = function()
+                        local s = foldSecs[1]
+                        s:SetExpanded(false)
+                        C_Timer.After(0.4, function()
+                            s:SetExpanded(true)
+                            C_Timer.After(0.4, function()
+                                print(("FR-135: header=%s title=%s body=%s (all must be rect)"):format(
+                                    hasRect(s._header), hasRect(s._title), hasRect(s._content)))
+                            end)
+                        end)
+                    end,
+                })
+                cycle:GetFrame():SetPoint("RIGHT", foldWin:GetTitleBar(), "RIGHT", -48, 0)
+                -- above the drag bar (FR-033)
+                cycle:GetFrame():SetFrameLevel(foldWin:GetTitleBar():GetFrameLevel() + 5)
+                table.insert(foldComps, cycle)
+                foldWin:Show()
+            end,
+        })
+        foldBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(totalH + 8))
+        table.insert(comps, foldBtn)
+        totalH = totalH + 40
+
         return {
             height  = totalH + 24,
             cleanup = function()
                 for _, c in ipairs(comps) do if c.Destroy then c:Destroy() end end
                 if reproWin then reproWin:Destroy(); reproWin = nil end
+                if foldWin then
+                    for _, c in ipairs(foldComps) do c:Destroy() end
+                    foldWin:Destroy(); foldWin = nil
+                end
             end,
         }
     end,

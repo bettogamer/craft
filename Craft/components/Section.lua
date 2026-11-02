@@ -153,8 +153,17 @@ function Section:Create(parent, config)
     local seededProg = false
     self._effects[#self._effects + 1] = Weave.effect(function()
         prog()  -- track: re-runs each animation frame
+        local animating = prog:animating()   -- read before the early return (Weave subscribe guard)
         if not seededProg then seededProg = true; return end
         if self._cfg.onToggle then self._cfg.onToggle(self._expanded) end
+        -- FR-135: after a fold/unfold the header, title and body were left WITHOUT a
+        -- rect (finite size, one valid anchor, GetRect() == nil) until something
+        -- re-applied their widths. The invalidation lands AFTER the tick (a forced
+        -- resync inside the same tick measured no effect in SMRT), so the re-push is
+        -- deferred one frame — coalesced, so it is one call per frame however many
+        -- ticks — and repeated once more a full motion length after the tween settles.
+        self:_scheduleResync(0)
+        if not animating then self:_scheduleResync(m.motionBase) end
     end)
 
     -- Chevron rotation (shadcn v4 `[&[data-state=open]>svg]:rotate-180` + transition-transform
@@ -207,6 +216,19 @@ function Section:_syncWidth(w, force)
     self._content:SetWidth(w)
     if self._child then self._child:SetWidth(w) end
     self:_remeasureHeader()
+end
+
+-- FR-135: forced width re-push `delay` seconds from now (0 = next frame). One
+-- pending call per delay, so the per-tick schedule doesn't stack timers.
+function Section:_scheduleResync(delay)
+    if not (C_Timer and C_Timer.After) then return end
+    self._resyncPending = self._resyncPending or {}
+    if self._resyncPending[delay] then return end
+    self._resyncPending[delay] = true
+    C_Timer.After(delay, function()
+        self._resyncPending[delay] = nil
+        if self.frame then self:_syncWidth(nil, true) end
+    end)
 end
 
 -- ─── Header measure (FR-044: title wrap → dynamic header height) ───────────────

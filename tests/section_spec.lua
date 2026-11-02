@@ -220,3 +220,62 @@ describe("Craft.Section width propagation (FR-099)", function()
         assert.equals(HEADER_MIN, s._headerH())
     end)
 end)
+
+-- FR-135 timers are captured locally: flushing the shared C_Timer queue would also
+-- run the font probes other specs left queued (Theme), and change their outcome.
+local function captureTimers()
+    local q, orig = {}, C_Timer.After
+    C_Timer.After = function(_, fn) q[#q + 1] = fn end
+    return q, function()
+        C_Timer.After = orig
+    end, function()
+        local run = {}
+        for k = 1, #q do run[k] = q[k]; q[k] = nil end
+        for _, fn in ipairs(run) do fn() end
+    end
+end
+
+describe("Craft.Section (FR-135 rect lost after fold/unfold)", function()
+
+    it("a scheduled resync re-pushes the width one frame later, forced", function()
+        local q, restore, flush = captureTimers()
+        local s = Craft.Section:Create(newContainer(), { title = "Modules" })
+        local body = CreateFrame("Frame")
+        body:SetHeight(20)
+        s:SetContent(body)
+        s:GetFrame():SetWidth(300)
+        s:GetFrame():_fire("OnSizeChanged", 300, 36)
+
+        -- the client dropped the layout: widths no longer what the section pushed
+        s._header:SetWidth(0); s._content:SetWidth(0); body:SetWidth(0)
+        s:_scheduleResync(0)
+        assert.equals(0, s._header:GetWidth())        -- deferred, not in the same tick
+        assert.equals(1, #q)
+        flush()
+        restore()
+        assert.equals(300, s._header:GetWidth())
+        assert.equals(300, s._content:GetWidth())
+        assert.equals(300, body:GetWidth())
+    end)
+
+    it("coalesces: many ticks in a frame queue a single resync per delay", function()
+        local q, restore, flush = captureTimers()
+        local s = Craft.Section:Create(newContainer(), { title = "Modules" })
+        s:_scheduleResync(0); s:_scheduleResync(0); s:_scheduleResync(0)
+        s:_scheduleResync(0.2)
+        assert.equals(2, #q)
+        flush()
+        s:_scheduleResync(0)                            -- free again after it ran
+        assert.equals(1, #q)
+        restore()
+    end)
+
+    it("a resync after Destroy is a no-op", function()
+        local _, restore, flush = captureTimers()
+        local s = Craft.Section:Create(newContainer(), { title = "Modules" })
+        s:_scheduleResync(0)
+        s:Destroy()
+        assert.has_no_errors(function() flush() end)
+        restore()
+    end)
+end)

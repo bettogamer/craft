@@ -123,4 +123,10 @@ section.frame            (Frame — alto = header + (content si expandido) )
   contenido (misma familia que el bug #2 de CLAUDE.md). Todo valor que llega a
   `SetWidth`/`SetHeight` pasa por `finite()` (un NaN atraviesa `<= 0` y `< HEADER_MIN`).
   Consecuencia: el child recibe `SetWidth(anchoSección)` en vez de heredarlo por anclas.
+- **Re-empuje tras plegar/desplegar (FR-135):** después de un toggle, header, título y cuerpo
+  podían quedarse otra vez **sin rect** (tamaño finito, un ancla válida, `GetRect() == nil`)
+  aunque la sección sí lo tuviera, y solo volvían con un `_syncWidth(nil, true)`. La invalidación
+  llega **después** del tick de la animación (re-empujar dentro del mismo tick no la arregla), así
+  que el effect de `prog` programa un `_syncWidth` forzado **un fotograma después** de cada tick
+  (coalescido: uno por fotograma) y otro `motionBase` después de que el tween asiente.
 - El contenido oculto usa `SetHeight(0.001)` (no 0) para evitar degeneración de anclas en WoW.
