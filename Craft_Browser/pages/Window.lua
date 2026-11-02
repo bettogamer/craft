@@ -201,6 +201,63 @@ CraftBrowserPages["Window"] = {
         table.insert(comps, resetBtn)
         y = y + 44
 
+        -- ── Dock + growFrom (FR-134) ─────────────────────────────────────────
+        -- SMRT's edit mode: a HUD and, glued to its right, an "Elements" panel that
+        -- goes with it. Check: drag the HUD → the panel follows DURING the drag; the
+        -- height buttons animate and keep both TOP edges aligned (growFrom = "TOP" on
+        -- the HUD, dock point TOPLEFT on the panel). The panel's own title bar does
+        -- not move it (docked); "Undock" releases it.
+        y = addLabel("Dock + growFrom (FR-134) — drag the HUD: the panel must follow while dragging.", y)
+        y = addLabel("Height buttons animate; both TOP edges must stay aligned (no shrinking to the centre).", y)
+
+        local hud, elems, dockComps
+        local dockBtn = Craft.Button:Create(parent, { text="Open HUD + docked panel", variant="default" })
+        dockBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        dockBtn:GetFrame():SetScript("OnClick", function()
+            if not hud then
+                dockComps = {}
+                hud = Craft.Window:Create(UIParent, {
+                    title = "Edit mode", width = 320, height = 160,
+                    growFrom = "TOP", resizable = false,
+                    onClose = function() if elems then elems:Hide() end end,
+                })
+                elems = Craft.Window:Create(UIParent, {
+                    title = "Elements", width = 220, height = 300,
+                    resizable = false, closable = false,
+                    dock = { to = hud, point = "TOPLEFT", relPoint = "TOPRIGHT", x = 8, y = 0 },
+                })
+                local function btn(host, text, xOff, yOff, fn)
+                    local b = Craft.Button:Create(host:GetContent(), { text = text, variant = "outline", size = "sm" })
+                    b:GetFrame():SetPoint("TOPLEFT", host:GetContent(), "TOPLEFT", xOff, yOff)
+                    b:GetFrame():SetScript("OnClick", fn)
+                    table.insert(dockComps, b)
+                    return b
+                end
+                local tall = false
+                btn(hud, "HUD height", 16, -16, function()
+                    tall = not tall
+                    hud:SetSize(nil, tall and 260 or 160, { animate = true })
+                end)
+                local short = false
+                btn(elems, "Panel height", 16, -16, function()
+                    short = not short
+                    elems:SetSize(nil, short and 140 or 300, { animate = true })
+                end)
+                btn(elems, "Undock / dock", 16, -52, function()
+                    if elems:IsDocked() then
+                        elems:Undock()
+                    else
+                        elems:DockTo(hud, "TOPLEFT", "TOPRIGHT", 8, 0)
+                    end
+                    print("Elements docked:", tostring(elems:IsDocked()))
+                end)
+            end
+            hud:Show()
+            elems:Show()
+        end)
+        table.insert(comps, dockBtn)
+        y = y + 44
+
         return {
             height  = y + 24,
             cleanup = function()
@@ -226,6 +283,11 @@ CraftBrowserPages["Window"] = {
                     if posWin._demoNote then posWin._demoNote:Destroy() end
                     posWin:Destroy()
                     posWin = nil
+                end
+                if hud then
+                    for _, b in ipairs(dockComps) do b:Destroy() end
+                    elems:Destroy(); hud:Destroy()
+                    elems, hud = nil, nil
                 end
             end,
         }

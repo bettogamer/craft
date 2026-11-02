@@ -219,4 +219,125 @@ describe("Craft.Window", function()
             assert.near(0, y, 1e-6)
         end)
     end)
+
+    -- FR-134: the point that stays put when the size changes, and docking.
+    describe("growFrom / SetSize (FR-134)", function()
+
+        local function anchor(win) return win:GetFrame():GetPoint() end
+
+        it("defaults to CENTER: same anchor FR-078 always wrote", function()
+            local win = newWin()
+            local p, rel, rp, x, y = anchor(win)
+            assert.equals("CENTER", p); assert.equals(UIParent, rel); assert.equals("CENTER", rp)
+            assert.near(0, x, 1e-6); assert.near(0, y, 1e-6)
+        end)
+
+        it("growFrom TOP rests on the top edge, which a height change keeps", function()
+            local win = newWin({ growFrom = "TOP" })
+            local p, _, _, x, y = anchor(win)
+            assert.equals("TOP", p)
+            assert.near(0, x, 1e-6); assert.near(H / 2, y, 1e-6)   -- centred window's top
+
+            win:SetSize(nil, 200)
+            p, _, _, x, y = anchor(win)
+            assert.equals("TOP", p)
+            assert.near(H / 2, y, 1e-6)                          -- top did not move
+            assert.equals(200, win:GetFrame():GetHeight())
+            assert.equals(W, win:GetFrame():GetWidth())
+        end)
+
+        it("still pops around the CENTRE while the zoom runs", function()
+            local win = newWin({ growFrom = "TOP" })
+            win._lastZoom = 0.95
+            win:_applyScale()
+            local _, _, _, x, y = win:GetPosition()               -- centre vs UIParent
+            assert.near(0, x, 1e-6); assert.near(0, y, 1e-6)
+        end)
+
+        it("keeps the restored position through flips with growFrom", function()
+            local win = newWin({ growFrom = "TOPLEFT" })
+            win:SetPosition("TOPLEFT", UIParent, "BOTTOMLEFT", 100, 500)
+            local ex, ey = expectedPivot(100, 500)
+            win:Show(); win:Hide(); win:Show()
+            local x, y = pivot(win)
+            assert.near(ex, x, 1e-6); assert.near(ey, y, 1e-6)
+        end)
+
+        it("SetSize animate aims a tween; a plain SetSize takes over at once", function()
+            local win = newWin()
+            win:SetSize(W, 300, { animate = true })
+            assert.same({ W, 300 }, win._sizeGoal:peek())
+            win:SetSize(500, 250)
+            assert.equals(500, win:GetFrame():GetWidth())
+            assert.equals(250, win:GetFrame():GetHeight())
+            assert.is_false(win._sizeTween:animating())
+        end)
+    end)
+
+    describe("dock (FR-134)", function()
+
+        it("config.dock anchors to the host frame and follows it", function()
+            local host  = newWin()
+            local panel = newWin({ dock = { to = host, x = 8 } })
+            local p, rel, rp, x, y = panel:GetFrame():GetPoint()
+            assert.equals("TOPLEFT", p)
+            assert.equals(host:GetFrame(), rel)                  -- the host itself, not a centre
+            assert.equals("TOPRIGHT", rp)
+            assert.near(8, x, 1e-6); assert.near(0, y, 1e-6)
+            assert.is_true(panel:IsDocked())
+        end)
+
+        it("accepts a raw frame and survives size changes and flips", function()
+            local hostFrame = CreateFrame("Frame", nil, UIParent)
+            local panel = newWin()
+            panel:DockTo(hostFrame, "TOPLEFT", "TOPRIGHT", 8, 0)
+            panel:SetSize(nil, 150)
+            panel:Show(); panel:Hide(); panel:Show()       -- the pop is mid-zoom here (mock clock)
+            local r = panel._rest                         -- the resting anchor the zoom works from
+            assert.equals("TOPLEFT", r.point); assert.equals(hostFrame, r.rel)
+            assert.near(8, r.x, 1e-6); assert.near(0, r.y, 1e-6)
+            assert.equals(hostFrame, select(2, panel:GetFrame():GetPoint()))
+        end)
+
+        it("pops around its centre while docked", function()
+            local host  = newWin()
+            local panel = newWin({ dock = { to = host, x = 8 } })
+            panel._lastZoom = 0.95
+            panel:_applyScale()
+            local _, _, _, x, y = panel:GetFrame():GetPoint()
+            assert.near((8 + (W / 2) * 0.05) / 0.95, x, 1e-6)
+            assert.near((0 - (H / 2) * 0.05) / 0.95, y, 1e-6)
+        end)
+
+        it("ignores its own drag handle while docked", function()
+            local host  = newWin()
+            local panel = newWin({ dock = { to = host } })
+            local moved = false
+            panel:GetFrame().StartMoving = function() moved = true end
+            panel:GetTitleBar():_fire("OnMouseDown")
+            assert.is_false(moved)
+        end)
+
+        it("Undock leaves it where it was; SetPosition undocks too", function()
+            local host  = newWin()
+            local panel = newWin({ dock = { to = host, x = 8 } })
+            panel:Undock()
+            assert.is_false(panel:IsDocked())
+            -- mock host rect: left/bottom 0, so TOPRIGHT = (W, H); +8 → TOPLEFT of panel
+            local x, y = pivot(panel)
+            assert.near(W + 8 + W / 2 - UCX, x, 1e-6)
+            assert.near(H - H / 2 - UCY, y, 1e-6)
+            assert.equals(UIParent, select(2, panel:GetFrame():GetPoint()))
+
+            panel:DockTo(host)
+            panel:Center()
+            assert.is_false(panel:IsDocked())
+        end)
+
+        it("ignores docking to itself", function()
+            local win = newWin()
+            win:DockTo(win)
+            assert.is_false(win:IsDocked())
+        end)
+    end)
 end)

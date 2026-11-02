@@ -76,6 +76,22 @@ local function centreFromAnchor(f)
     return cx, cy
 end
 
+-- ─── Anchor point → centre (FR-134) ─────────────────────────────
+-- Vector from `point` on a w×h frame to its centre, in that frame's units.
+local function toCentre(point, w, h)
+    local hx = point:find("LEFT") and w / 2 or point:find("RIGHT") and -w / 2 or 0
+    local hy = point:find("BOTTOM") and h / 2 or point:find("TOP") and -h / 2 or 0
+    return hx, hy
+end
+
+-- A Window instance or a raw frame → the frame to anchor to.
+local function asFrame(to)
+    if type(to) ~= "table" then return nil end
+    if to.GetFrame then return to:GetFrame() end   -- a Craft component
+    if to.SetPoint then return to end              -- a region
+    return nil
+end
+
 -- ─── Create ────────────────────────────────────────────────────────────────
 function Window:Create(parent, config)
     local self = setmetatable({}, Window)
@@ -109,6 +125,14 @@ function Window:Create(parent, config)
     }
     self._baseScale = self._cfg.scale
     self._lastZoom  = 1
+    -- FR-134: the point that stays put when the window's size changes. CENTER (the
+    -- default) grows/shrinks around the middle; "TOP" grows downwards from its top
+    -- edge, "TOPLEFT" from its corner, and so on.
+    self._growFrom  = (config.growFrom or "CENTER"):upper()
+    -- FR-134: the resting anchor _applyScale re-writes on every zoom tick — point,
+    -- relative frame, relative point and offsets in PARENT units. Undocked it hangs
+    -- from UIParent's centre by the growFrom point; docked it is the dock itself.
+    self._rest = { point = "CENTER", rel = UIParent, relPoint = "CENTER", x = 0, y = 0 }
 
     _instanceCount = _instanceCount + 1
     local frameName = "CraftWindow_" .. _instanceCount
@@ -325,6 +349,7 @@ function Window:Create(parent, config)
         self._resize:SetScript("OnMouseUp", function()
             self.frame:StopMovingOrSizing()
             self:_captureZoomAnchor()   -- resizing moved the centre; resync the pivot
+            self:_applyScale()          -- FR-134: sizing may re-anchor; restore a dock
             if self._cfg.onResized then
                 self._cfg.onResized(self, self.frame:GetWidth(), self.frame:GetHeight())
             end
@@ -344,6 +369,10 @@ function Window:Create(parent, config)
         if self._cfg.description then self._desc:SetText(self._cfg.description) end
     end
     self:_layout()
+
+    -- FR-134: dock to another window/frame from the start.
+    local dock = config.dock
+    if dock then self:DockTo(dock.to, dock.point, dock.relPoint, dock.x, dock.y) end
 
     self.frame:Hide()  -- created hidden; caller Show()s when ready
     return self
@@ -448,11 +477,18 @@ end
 -- headless mode, but works with the standard header too (the title bar itself is
 -- wired through this). Overwrites the region's OnMouseDown/OnMouseUp scripts.
 -- No-op if the window is not movable or `region` is nil.
+-- A DOCKED window does not move from its own handles (FR-134): it goes with its host.
 function Window:EnableDragFrom(region)
     if not region or not self._cfg.movable then return end
     region:EnableMouse(true)
-    region:SetScript("OnMouseDown", function() self.frame:StartMoving() end)
+    region:SetScript("OnMouseDown", function()
+        if self._dock then return end
+        self._dragging = true
+        self.frame:StartMoving()
+    end)
     region:SetScript("OnMouseUp", function()
+        if not self._dragging then return end
+        self._dragging = nil
         self.frame:StopMovingOrSizing()
         self:_captureZoomAnchor()   -- the drag rewrote the anchor; resync the pivot
         if self._cfg.onMoved then
@@ -477,9 +513,13 @@ end
 --
 -- All arguments are optional: point defaults to CENTER, relTo to UIParent,
 -- relPoint to `point`, offsets to 0.
+--
+-- It is a SNAPSHOT: a relTo other than UIParent is resolved once and not followed
+-- (use DockTo for that), and it undocks a docked window.
 function Window:SetPosition(point, relTo, relPoint, x, y)
     local f = self.frame
     if not f then return end
+    self._dock = nil
     point    = point or "CENTER"
     relTo    = relTo or UIParent
     relPoint = relPoint or point
@@ -507,6 +547,89 @@ end
 
 function Window:Center()
     self:SetPosition("CENTER", UIParent, "CENTER", 0, 0)
+end
+
+-- ─── Dock (FR-134) ───────────────────────────────────────────────
+-- Hangs this window off another one (a Craft.Window or any frame): `point` of this
+-- window sits on `relPoint` of the host, `x`/`y` apart in UIParent units. While
+-- docked the window FOLLOWS the host — its drag, its resize, its own pop — because
+-- the anchor is the host itself, not a centre computed once; and when this window
+-- changes size, `point` is what stays put (an inspector docked by TOPLEFT keeps its
+-- top aligned with the host's while it grows or shrinks).
+--
+-- Defaults: point TOPLEFT, relPoint TOPRIGHT, offsets 0 (to the host's right, tops
+-- aligned). A docked window does not move from its own drag handles; SetPosition,
+-- Center or Undock release it. Docking a window to itself is ignored; docking two
+-- windows to each other is a WoW anchor loop — don't.
+function Window:DockTo(to, point, relPoint, x, y)
+    local f = self.frame
+    local host = asFrame(to)
+    if not f or not host or host == f then return end
+    point    = (point or "TOPLEFT"):upper()
+    relPoint = (relPoint or "TOPRIGHT"):upper()
+
+    -- UIParent units → parent units (what _rest stores; see _applyScale).
+    local fe, s = f:GetEffectiveScale(), f:GetScale()
+    local pe = (fe and s and s > 0) and fe / s or 1
+    local k  = (pe > 0) and (UIParent:GetEffectiveScale() / pe) or 1
+
+    self._dock = { to = host, point = point, relPoint = relPoint }
+    self._rest = { point = point, rel = host, relPoint = relPoint,
+                   x = (tonumber(x) or 0) * k, y = (tonumber(y) or 0) * k }
+    self:_applyScale()
+end
+
+-- Releases the dock, leaving the window where it is now (it stops following).
+function Window:Undock()
+    if not self._dock then return end
+    self:_captureZoomAnchor()   -- centre from the docked anchor, while still docked
+    self._dock = nil
+    self:_restFromPivot()
+    self:_applyScale()
+end
+
+function Window:IsDocked() return self._dock ~= nil end
+
+-- ─── Size (FR-134) ───────────────────────────────────────────────
+-- Resizes the window keeping its growFrom point (or its dock point) fixed.
+-- `opts.animate` eases there over motionBase instead of snapping; a later call,
+-- animated or not, takes over from wherever the previous one had got to.
+-- Either argument may be nil to keep that dimension.
+function Window:SetSize(w, h, opts)
+    local f = self.frame
+    if not f then return end
+    w = tonumber(w) or f:GetWidth()
+    h = tonumber(h) or f:GetHeight()
+
+    if not (opts and opts.animate) then
+        if self._sizeTween then
+            self._sizeGoal:set({ w, h })
+            self._sizeTween:snap({ w, h })   -- cancel a run in flight; the effect applies it
+        else
+            f:SetSize(w, h)
+            self:_applyScale()
+        end
+        return
+    end
+
+    if not self._sizeTween then
+        local m = self._theme:get()
+        self._sizeGoal  = Weave.signal({ f:GetWidth(), f:GetHeight() })
+        self._sizeTween = Weave.tween(self._sizeGoal,
+            { duration = m.motionBase, easing = Weave.easing[m.motionEasing] })
+        self._effects[#self._effects + 1] = Weave.effect(function()
+            local v = self._sizeTween()
+            if not self.frame or type(v) ~= "table" then return end
+            self.frame:SetSize(v[1], v[2])
+            self:_applyScale()
+        end)
+        self._effects[#self._effects + 1] = self._sizeTween
+    elseif not self._sizeTween:animating() then
+        -- Start from the size the frame really has (the resize grip or a plain
+        -- SetSize may have moved it since the last run).
+        self._sizeTween:snap({ f:GetWidth(), f:GetHeight() })
+    end
+    self._sizeGoal:set({ w, h })
 end
 
 -- ─── Window scale (FR-068) ───────────────────────────────────────────────────
@@ -556,20 +679,42 @@ function Window:_captureZoomAnchor()
     local s  = f:GetScale()
     self._zoomBaseX = (cx - ux * ue) * s / fe
     self._zoomBaseY = (cy - uy * ue) * s / fe
+    -- FR-134: undocked, the resting anchor follows the pivot; docked, the dock IS
+    -- the resting anchor and the pivot only feeds GetPosition.
+    if not self._dock then self:_restFromPivot() end
 end
 
+-- FR-134: the resting anchor (growFrom point → UIParent centre) for the current
+-- pivot. P = C − (P→C)·base, in parent units; with CENTER it IS the pivot.
+function Window:_restFromPivot()
+    local f = self.frame
+    local p = self._growFrom or "CENTER"
+    local b = self._baseScale or 1
+    local hx, hy = toCentre(p, f:GetWidth() or 0, f:GetHeight() or 0)
+    self._rest = { point = p, rel = UIParent, relPoint = "CENTER",
+                   x = (self._zoomBaseX or 0) - hx * b,
+                   y = (self._zoomBaseY or 0) - hy * b }
+end
+
+-- Writes scale + anchor. The resting anchor `_rest` (point P, offsets R in parent
+-- units) holds at the base scale b; during the zoom (s = b·z) the window has to
+-- pop around its CENTRE, not around P, so P is shifted by (P→C)·(b − s): the
+-- centre stays where it rests while the frame scales. Offsets are in the frame's
+-- own units (÷ s). With P = CENTER the shift is 0 and this is the FR-078 formula.
+-- Dividing by the REAL applied scale, never by the tween value alone: with a base
+-- scale ≠ 1 the two differ and the window would sit off by exactly that factor.
 function Window:_applyScale()
     local f = self.frame
     if not f then return end
-    local s = (self._baseScale or 1) * (self._lastZoom or 1)
+    local b = self._baseScale or 1
+    local s = b * (self._lastZoom or 1)
     if s <= 0 then s = 1 end
     f:SetScale(s)
     f:ClearAllPoints()
-    -- Divide the captured pivot by the REAL applied scale, never by the tween
-    -- value alone: with a base scale ≠ 1 the two differ and the window would sit
-    -- off-centre by exactly that factor.
-    f:SetPoint("CENTER", UIParent, "CENTER",
-        (self._zoomBaseX or 0) / s, (self._zoomBaseY or 0) / s)
+    local r = self._rest
+    local hx, hy = toCentre(r.point, f:GetWidth() or 0, f:GetHeight() or 0)
+    f:SetPoint(r.point, r.rel, r.relPoint,
+        (r.x + hx * (b - s)) / s, (r.y + hy * (b - s)) / s)
 end
 
 -- Sets the window's user-facing scale. Takes effect immediately and survives every

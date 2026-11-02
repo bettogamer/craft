@@ -82,6 +82,8 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
 | `closeOnEscape` | boolean | true | Escape cierra la ventana (`UISpecialFrames`) |
 | `scale` | number | `1` | Escala de la ventana visible al usuario. **Única vía soportada** — `GetFrame():SetScale()` no funciona (FR-068, ver §Escala) |
 | `fontFlags` | string | `nil` | FR-102: flags de fuente de título y descripción (4.º arg de `Theme.applyFont`; `""` = sin contorno, p. ej. texto claro sobre superficie oscura con el tema en `"OUTLINE"`). `nil` = el `t.fontFlags` global del tema. Se reaplica en cada re-tema. |
+| `growFrom` | string | `"CENTER"` | FR-134: punto que se queda quieto cuando cambia el tamaño (`"TOP"` = crece/encoge hacia abajo desde el borde superior, `"TOPLEFT"`, …). El pop de apertura sigue saliendo del centro |
+| `dock` | table | nil | FR-134: `{ to = otraWindowOFrame, point = "TOPLEFT", relPoint = "TOPRIGHT", x = 0, y = 0 }` — acopla la ventana a otra desde el `Create` (ver `DockTo`) |
 | `onMoved` | function | nil | `fn(self, x, y)` al terminar de arrastrar |
 | `onResized` | function | nil | `fn(self, w, h)` al terminar de redimensionar |
 | `onClose` | function | nil | `fn(self)` al cerrar (botón "x" o `Close()`) |
@@ -96,9 +98,12 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
 | `SetTitle(text)` / `SetDescription(text)` | Actualizan el título / descripción |
 | `Show()` / `Hide()` / `Toggle()` / `IsShown()` | Visibilidad |
 | `Close()` | Dispara `onClose` y oculta (igual que el botón "x") |
-| `SetPosition(point, relTo, relPoint, x, y)` | **La vía oficial para colocar la ventana** (FR-078). Escribe el ancla, re-deriva el pivote del zoom y re-aplica la escala en el acto. `x`/`y` en **unidades de UIParent** (no del frame), así que un par persistido sobrevive a un cambio de `scale`. Todos los argumentos son opcionales (`"CENTER"`, `UIParent`, `point`, `0`, `0`) |
+| `SetPosition(point, relTo, relPoint, x, y)` | **La vía oficial para colocar la ventana** (FR-078). Escribe el ancla, re-deriva el pivote del zoom y re-aplica la escala en el acto. Es una **foto**: un `relTo` distinto de UIParent se resuelve una vez y no se sigue (para eso, `DockTo`), y suelta una ventana acoplada. `x`/`y` en **unidades de UIParent** (no del frame), así que un par persistido sobrevive a un cambio de `scale`. Todos los argumentos son opcionales (`"CENTER"`, `UIParent`, `point`, `0`, `0`) |
 | `GetPosition()` | Devuelve la posición actual como la tupla que acepta `SetPosition`, normalizada al **centro** contra UIParent y en unidades de UIParent. Re-deriva antes de contestar, así que es correcta justo después de arrastrar o redimensionar |
 | `Center()` | Re-centra en la pantalla (pasa por `SetPosition`) |
+| `DockTo(to, point, relPoint, x, y)` | FR-134: acopla `point` de esta ventana a `relPoint` de `to` (una `Craft.Window` o cualquier frame), a `x`/`y` en unidades de UIParent. Defaults `"TOPLEFT"`, `"TOPRIGHT"`, `0`, `0` (a la derecha, tops alineados). Mientras está acoplada **sigue al host** (su arrastre, su resize, su pop) y al cambiar de tamaño se queda quieto `point`. No se mueve desde sus propios drag handles; `SetPosition`/`Center`/`Undock` la sueltan. No acoplar dos ventanas entre sí (bucle de anclas de WoW) |
+| `Undock()` / `IsDocked()` | FR-134: suelta el acople dejando la ventana donde está / consulta |
+| `SetSize(w, h, opts)` | FR-134: cambia el tamaño manteniendo fijo el punto `growFrom` (o el del dock). `opts.animate = true` lo anima en `motionBase`; una llamada posterior (animada o no) toma el relevo desde donde iba. `w` o `h` nil = conservar esa dimensión |
 | `SetBaseScale(s)` / `GetBaseScale()` | Escala de la ventana (FR-068). Se aplica en el acto y sobrevive a cada apertura/cierre |
 | `EnableDragFrom(region)` | Registra la región como drag handle (StartMoving/StopMovingOrSizing en el frame raíz; dispara `onMoved` al soltar). No-op si `movable = false` o region nil. Sobrescribe los scripts OnMouseDown/OnLeave de la región. |
 
@@ -132,9 +137,13 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
   El pop sigue leyéndose porque el tween arranca en `motionZoomFrom` en cuanto se abre.
   **Residuo conocido:** medir texto *durante* los ~150ms de la animación sigue saliendo mal —
   rellenar antes de `Show()` (el orden normal) o esperar a que asiente.
-- **El frame raíz está anclado por `CENTER` mientras vive el componente** (FR-078, propuesta
-  D). Cada tick del zoom hace `ClearAllPoints()` + `SetPoint("CENTER", UIParent, "CENTER",
-  pivote/escala)`, así que **cualquier ancla puesta desde fuera sobre `GetFrame()` dura hasta
+- **El frame raíz está anclado por su ancla en reposo mientras vive el componente** (FR-078
+  propuesta D, generalizado en FR-134). Cada tick del zoom hace `ClearAllPoints()` +
+  `SetPoint(point, rel, relPoint, …)`, donde el ancla en reposo es `growFrom` → centro de
+  UIParent (por defecto `CENTER`, es decir, la fórmula de FR-078 `pivote/escala`) o el dock.
+  Para que el pop siga saliendo del **centro** aunque el punto sea `TOP` o `TOPLEFT`, el punto
+  se desplaza `(P→C)·(base − s)` durante el zoom (`s = base·zoom`): en reposo el desplazamiento
+  es 0, así que un `SetHeight` crudo también deja quieto el punto. Por eso **cualquier ancla puesta desde fuera sobre `GetFrame()` dura hasta
   el siguiente tick**. No es un detalle interno que se pueda ignorar: es la razón de que
   `SetPosition`/`GetPosition` existan. Usarlos siempre; no hacer `SetPoint` sobre el frame raíz.
 - **Persistencia de la posición**: guardar con `GetPosition()` en `onMoved` y restaurar con
@@ -164,6 +173,11 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
   `_open` (no en cada tick del zoom): a media animación el frame está escalado, y derivar el
   centro desde un ancla que no sea `CENTER` usa el tamaño escalado, lo que metería el zoom
   dentro del pivote.
+- **Dock (FR-134)**: el ancla en reposo de una ventana acoplada es el **propio host**
+  (`SetPoint(point, hostFrame, relPoint, …)`), no un centro calculado una vez: WoW la arrastra
+  con el host sin `OnUpdate` ni re-acoples a mano, también durante `StartMoving` y el pop del
+  host. Al soltar el grip de resize se re-escribe (StartSizing puede re-anclar). La captura del
+  pivote sigue corriendo (alimenta `GetPosition`) pero no pisa el dock.
 - **Escape vs onClose**: el botón "x" y `Close()` disparan `onClose`. Escape (vía
   `UISpecialFrames`) solo oculta — para persistir estado, usar `onMoved`/`onResized` en vivo.
 - **EnableMouse(true)** en el frame raíz para no dejar pasar clics al mundo del juego.
