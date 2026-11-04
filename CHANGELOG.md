@@ -6,6 +6,22 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.45.0] - 2026-11-03
+
+> **Release v2.45.0 — `Craft.Tooltip` sigue la escala del ancla (FR-136).** Pedido de Coffer.
+>
+> **API compatible:** sin opt-in; con un ancla a escala de la UI el tooltip es idéntico. Verificado in-game.
+
+### Fixed
+
+- **`Craft.Tooltip`: sigue la escala del ancla, como Menu/Popover/Select (FR-136, pedido de Coffer).**
+  Un ancla dentro de un contenedor con `SetScale(1.3)` ya no saca el tooltip a 1.0: en cada `Show` se calcula
+  la base `ancla:GetEffectiveScale() / UIParent:GetEffectiveScale()` y el zoom de entrada multiplica sobre ella.
+  Con un ancla a escala de la UI la base es 1 (sin cambios). De paso, el volteo de lado sigue a `avoidCollisions`
+  de Radix y se calcula a la escala del ancla: arriba/abajo/izquierda/derecha se voltean al opuesto solo si el
+  pedido no cabe en pantalla y el opuesto sí (antes el chequeo de "arriba" estaba invertido y, pegado al borde
+  superior, el clamp montaba el tooltip sobre el ancla). Demo en `pages/Tooltip.lua`.
+
 ## [2.44.0] - 2026-11-02
 
 > **Release v2.44.0 — Window acoplable y con `growFrom` (FR-134), Section que no pierde el rect al plegar
