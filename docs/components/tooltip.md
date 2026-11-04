@@ -87,12 +87,24 @@ El cálculo de posición ocurre **cada vez** que el tooltip se muestra — no se
 
 **Singleton pattern**: `Craft.Tooltip._frame` se crea una sola vez en `Craft.Tooltip._init()`, llamado al cargar el addon. Los consumidores nunca crean ni destruyen el frame — solo llaman a `Attach` / `Show` / `Hide`.
 
-**Lado (`side`)** — paridad con el prop `side` de shadcn. Sin `side`, Craft decide solo:
-arriba si hay hueco, si no abajo. Con `"left"`/`"right"` el tooltip se ancla al lateral del
+**Lado (`side`)** — paridad con el prop `side` de shadcn. Sin `side`, Craft prefiere
+arriba. Como `avoidCollisions` de Radix, el lado pedido (o el automático) **se voltea al
+opuesto solo si no cabe en pantalla y el opuesto sí** (FR-136; antes el chequeo de "arriba"
+estaba invertido y cerca del borde superior `SetClampedToScreen` montaba el tooltip sobre el
+ancla). Con `"left"`/`"right"` el tooltip se ancla al lateral del
 ancla y la animación de entrada **desliza en horizontal** (el `_slide` guarda un `axis`; el
 efecto aplica el offset en X o en Y según ese campo, siempre hacia el ancla, como
-`slide-in-from-{side}` de shadcn v4). `"top"`/`"bottom"` fuerzan la variante vertical
+`slide-in-from-{side}` de shadcn v4). `"top"`/`"bottom"` piden la variante vertical
 correspondiente.
+
+**Escala del ancla (FR-136)** — como Menu/Popover/Select: el frame vive en `UIParent`, y en
+cada `Show` calcula `TT._baseScale = ancla:GetEffectiveScale() / UIParent:GetEffectiveScale()`
+(bajo `pcall` + `issecretvalue`; cualquier respuesta rara → 1). Mide a `SetScale(base)` y el
+zoom de entrada multiplica sobre esa base (`base × lerp(motionZoomFrom, 1, alpha)`). Los
+offsets (`OFFSET`, slide) están en unidades del propio tooltip, así que crecen con el ancla.
+El chequeo de bordes trabaja en unidades de `UIParent` (bordes del ancla y tamaño del
+tooltip × base). Sin opt-in: con un ancla a escala de la UI la base es 1 y nada cambia. La
+base se recalcula en cada `Show`: un tooltip no hereda la escala del anterior.
 
 El caso que lo motivó (FR-067): las filas de un `Craft.Menu` están apiladas, así que un
 tooltip arriba o abajo taparía las filas vecinas; ancladas a la derecha caen fuera del panel.
