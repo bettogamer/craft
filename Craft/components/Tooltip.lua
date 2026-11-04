@@ -126,8 +126,12 @@ local function _getTooltipFrame()
     -- Tooltip sets to the edge facing the anchor (BOTTOM when above / TOP when
     -- below). So the zoom origin points at the anchor, matching shadcn's
     -- directional origin — no manual pivot maths needed.
+    --
+    -- FR-136: the zoom multiplies onto TT._baseScale, the anchor's scale relative
+    -- to UIParent (set by _show), so a tooltip over a scaled container (Coffer's
+    -- window-scale host) renders at that container's scale, like Menu/Popover.
     local scaleFx = Weave.effect(function()
-        _tooltip:SetScale(lerp(zoomFrom, 1, alpha()))
+        _tooltip:SetScale((TT._baseScale or 1) * lerp(zoomFrom, 1, alpha()))
     end)
 
     -- SLIDE: _positionTooltip stashes the resting SetPoint + a sign in _slide.
@@ -414,16 +418,74 @@ local function _layoutLines(config)
 end
 
 -- ─── Positioning logic ─────────────────────────────────────────────────────
--- Tries to place tooltip above the anchor. Falls back to below if no room.
-local function _positionTooltip(anchor, side)
+-- FR-136: the anchor's effective scale relative to UIParent. The tooltip lives in
+-- UIParent, so this is the scale that makes it render at the anchor's size (Menu
+-- / Popover / Select do the same with _panelBaseScale). pcall: the anchor may be a
+-- Blizzard region that refuses measuring; any odd answer falls back to 1.
+local issecretvalue = issecretvalue
+local function _num(v)
+    if issecretvalue and issecretvalue(v) then return nil end
+    if type(v) ~= "number" or v ~= v then return nil end
+    return v
+end
+
+local function _anchorBaseScale(anchor)
+    local ok, eff = pcall(anchor.GetEffectiveScale, anchor)
+    eff = ok and _num(eff) or nil
+    local uiEff = _num(UIParent:GetEffectiveScale())
+    if not eff or not uiEff or eff <= 0 or uiEff <= 0 then return 1 end
+    return eff / uiEff
+end
+
+local function _edge(anchor, method)
+    local ok, v = pcall(anchor[method], anchor)
+    return ok and _num(v) or nil
+end
+
+-- shadcn/Radix `avoidCollisions`: keep the requested side; flip to the opposite
+-- one only when the requested side does not fit on screen and the opposite does
+-- (otherwise SetClampedToScreen shoves the tip on top of its anchor). The check
+-- runs in UIParent units: anchor edges and tooltip size are both in frames whose
+-- effective scale is the anchor's, so `* base` converts them (FR-136).
+local function _resolveSide(anchor, side, base)
+    local f    = _tooltip
+    local uiW  = UIParent:GetWidth() or 0
+    local uiH  = UIParent:GetHeight() or 0
+    if side == "right" or side == "left" then
+        local l, r = _edge(anchor, "GetLeft"), _edge(anchor, "GetRight")
+        if not l or not r then return side end
+        local need = (f:GetWidth() + OFFSET) * base
+        local fitsR = r * base + need <= uiW
+        local fitsL = l * base - need >= 0
+        if side == "right" and not fitsR and fitsL then return "left" end
+        if side == "left" and not fitsL and fitsR then return "right" end
+        return side
+    end
+    local t, b = _edge(anchor, "GetTop"), _edge(anchor, "GetBottom")
+    if not t or not b then return side or "top" end
+    local need = (f:GetHeight() + OFFSET) * base
+    local fitsTop    = t * base + need <= uiH
+    local fitsBottom = b * base - need >= 0
+    if side == "bottom" then
+        return (not fitsBottom and fitsTop) and "top" or "bottom"
+    end
+    -- "top" and auto (nil) prefer above.
+    return (not fitsTop and fitsBottom) and "bottom" or "top"
+end
+
+-- Offsets are in the tooltip's own units; with the base scale they grow with the
+-- anchor (a 4px gap at 1.3 is 4 anchor px), which is what "follow the anchor's
+-- scale" means. The zoom still scales them a hair during the 0.95→1 pop, as before.
+local function _positionTooltip(anchor, side, base)
     local f = _tooltip
     f:ClearAllPoints()
 
-    -- Explicit side (shadcn `side` prop). Without it Craft keeps its auto
-    -- behaviour: prefer above, flip below when there is no room. The side
+    -- Explicit side (shadcn `side` prop). Without it Craft prefers above. The side
     -- matters when the anchor is one row of a stacked surface (a menu): a
     -- vertical tooltip would cover its neighbours, so those callers ask for
     -- "right" and the tip lands outside the panel. FR-067.
+    side = _resolveSide(anchor, side, base or 1)
+
     if side == "right" or side == "left" then
         local toRight  = (side == "right")
         local point    = toRight and "LEFT"  or "RIGHT"
@@ -436,12 +498,8 @@ local function _positionTooltip(anchor, side)
         return
     end
 
-    -- Check space above
-    local anchorTop = anchor:GetTop() or 0
-    local tipH      = f:GetHeight()
-
-    if side ~= "bottom" and (side == "top" or anchorTop - tipH - OFFSET >= 0) then
-        -- Enough room above: BOTTOM of tooltip → TOP of anchor + OFFSET.
+    if side == "top" then
+        -- BOTTOM of tooltip → TOP of anchor + OFFSET.
         -- Tooltip sits ABOVE the anchor (side=top) → shadcn slide-in-from-bottom:
         -- it enters from below (toward the anchor). Start slidePx lower (sign=-1)
         -- and rise to rest. Anchored at BOTTOM → zoom origin faces the anchor.
@@ -449,7 +507,7 @@ local function _positionTooltip(anchor, side)
         f._slide = { point = "BOTTOM", anchor = anchor, relPoint = "TOP",
                      x = 0, baseY = OFFSET, sign = -1 }
     else
-        -- Not enough room above: TOP of tooltip → BOTTOM of anchor - OFFSET.
+        -- TOP of tooltip → BOTTOM of anchor - OFFSET.
         -- Tooltip sits BELOW the anchor (side=bottom) → shadcn slide-in-from-top:
         -- it enters from above (toward the anchor). Start slidePx higher (sign=+1)
         -- and descend to rest. Anchored at TOP → zoom origin faces the anchor.
@@ -458,6 +516,8 @@ local function _positionTooltip(anchor, side)
                      x = 0, baseY = -OFFSET, sign = 1 }
     end
 end
+
+TT._anchorBaseScale = _anchorBaseScale  -- internal (specs)
 
 -- ─── Pending timer handle ──────────────────────────────────────────────────
 -- We track a pending show so we can cancel it on OnLeave before it fires.
@@ -487,13 +547,17 @@ local function _show(anchor, config)
     config = _resolveConfig(anchor, config or {})
     _getTooltipFrame()  -- lazily creates the frame + fade signal on first show
 
-    -- Measure/size at scale 1. The zoom effect parks the idle frame at motionZoomFrom
+    -- FR-136: base scale for THIS show (never inherited from the previous anchor).
+    local base = _anchorBaseScale(anchor)
+    TT._baseScale = base
+
+    -- Measure/size at the base scale (1 for a UI-scale anchor). The zoom effect parks the idle frame at motionZoomFrom
     -- (0.95); WoW's GetStringWidth/GetStringHeight scale with the frame's effective
     -- scale, so measuring at 0.95 undersizes the text box → the icon-case SetWidth
     -- clips a word onto a 2nd row while the height was computed for one line. Reset
-    -- to 1 before layout; the alpha tick right after _visible:set(true) re-applies
+    -- to the resting scale (base × 1) before layout; the alpha tick right after _visible:set(true) re-applies
     -- the zoom (frame is still ~invisible then, so there is no visible pop-jump).
-    _tooltip:SetScale(1)
+    _tooltip:SetScale(base)
 
     -- FR-101: resolve the flag for THIS show before measuring (outline changes glyph
     -- metrics). Assigned unconditionally so a previous show's override never sticks.
@@ -507,7 +571,7 @@ local function _show(anchor, config)
     else
         _layoutTooltip(config)
     end
-    _positionTooltip(anchor, config.side)
+    _positionTooltip(anchor, config.side, base)
 
     -- Fade in: the shown-computed reveals the frame, the tween eases alpha 0→1.
     -- (f is kept live above via _getTooltipFrame so layout/position ran already.)

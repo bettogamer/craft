@@ -166,3 +166,74 @@ describe("Craft.Tooltip lines / dynamic text (FR-127)", function()
         assert.is_false(Craft.Tooltip.IsShown())
     end)
 end)
+
+describe("Craft.Tooltip follows the anchor's scale (FR-136)", function()
+    local function setup(scale, top, bottom)
+        Craft.Tooltip.Hide()
+        C_Timer._flush()
+        Craft.Theme.use(Craft.Theme.build({}))
+        local anchor = CreateFrame("Frame", nil, UIParent)
+        anchor:SetSize(40, 20)
+        anchor:SetScale(scale or 1)
+        if top then
+            anchor.GetTop    = function() return top end
+            anchor.GetBottom = function() return bottom end
+        end
+        return anchor
+    end
+    local function point() return (Craft.Tooltip._getFrame():GetPoint()) end
+
+    it("base scale = anchor effective scale / UIParent's, resting scale multiplies it", function()
+        local anchor = setup(1.3)
+        Craft.Tooltip.Show(anchor, { text = "Hi" })
+        local f = Craft.Tooltip._getFrame()
+        assert.is_true(math.abs(Craft.Tooltip._baseScale - 1.3) < 1e-9)
+        -- whatever the zoom progress, the scale is base × [zoomFrom, 1]
+        local s = f:GetScale()
+        assert.is_true(s >= 1.3 * 0.9 - 1e-9 and s <= 1.3 + 1e-9)
+    end)
+
+    it("a UI-scale anchor keeps base 1 (no change from before)", function()
+        local anchor = setup(1)
+        Craft.Tooltip.Show(anchor, { text = "Hi" })
+        assert.equals(1, Craft.Tooltip._baseScale)
+        assert.equals("BOTTOM", point())
+    end)
+
+    it("the next tooltip does not inherit the previous anchor's scale", function()
+        Craft.Tooltip.Show(setup(1.3), { text = "A" })
+        Craft.Tooltip.Show(setup(1), { text = "B" })
+        assert.equals(1, Craft.Tooltip._baseScale)
+    end)
+
+    it("an anchor that refuses measuring falls back to base 1", function()
+        local anchor = setup(1)
+        anchor.GetEffectiveScale = function() error("Can't measure restricted regions") end
+        Craft.Tooltip.Show(anchor, { text = "Hi" })
+        assert.equals(1, Craft.Tooltip._baseScale)
+    end)
+
+    it("flips below when there is no room above (avoidCollisions)", function()
+        Craft.Tooltip.Show(setup(1, 760, 740), { text = "Hi" })
+        assert.equals("TOP", point())
+        Craft.Tooltip.Show(setup(1, 760, 740), { text = "Hi", side = "top" })
+        assert.equals("TOP", point())
+    end)
+
+    it("the room check runs at the anchor's scale", function()
+        -- top 570 fits a 24px tip at scale 1, but 570*1.3 + (24+4)*1.3 > 768
+        Craft.Tooltip.Show(setup(1, 570, 550), { text = "Hi" })
+        assert.equals("BOTTOM", point())
+        Craft.Tooltip.Show(setup(1.3, 570, 550), { text = "Hi" })
+        assert.equals("TOP", point())
+    end)
+
+    it("left/right flip when the requested side runs off screen", function()
+        local anchor = setup(1)
+        anchor.GetLeft  = function() return 1330 end
+        anchor.GetRight = function() return 1360 end
+        Craft.Tooltip.Show(anchor, { text = "Hi", side = "right" })
+        assert.equals("RIGHT", point())   -- tip's RIGHT on the anchor's LEFT
+        Craft.Tooltip.Hide()
+    end)
+end)

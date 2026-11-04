@@ -105,6 +105,29 @@ CraftBrowserPages["Tooltip"] = {
         table.insert(comps, btn8)
         y = y + 48
 
+        -- FR-136: the tooltip follows its anchor's scale (like Menu/Popover/Select).
+        -- Each host is a plain frame with SetScale, the way Coffer scales its windows:
+        -- the tooltip should match the button's size, and alternating hovers must not
+        -- carry one host's scale into the next tooltip.
+        y = addLabel("FR-136 escala del ancla — hover: el tooltip sale al tamaño del botón (1.3 / 1.0 / 0.75)", y)
+        local scaleHosts, scaleBtns = {}, {}
+        local x = 16
+        for _, sc in ipairs({ 1.3, 1, 0.75 }) do
+            local host = CreateFrame("Frame", nil, parent)
+            host:SetScale(sc)
+            host:SetSize(1, 1)
+            host:SetPoint("TOPLEFT", parent, "TOPLEFT", x / sc, -y / sc)
+            local b = Craft.Button:Create(host, { text = ("Scale %.2f"):format(sc), variant = "secondary" })
+            b:GetFrame():SetPoint("TOPLEFT", host, "TOPLEFT", 0, 0)
+            Craft.Tooltip.Attach(b:GetFrame(), { delay = 0, title = ("Host scale %.2f"):format(sc),
+                lines = { { "Base", "anchor / UIParent" }, "Same size as the button text" } })
+            table.insert(comps, b)
+            scaleHosts[#scaleHosts + 1] = host
+            scaleBtns[#scaleBtns + 1] = b:GetFrame()
+            x = x + (b:GetFrame():GetWidth() + 12) * sc
+        end
+        y = y + 56
+
         return {
             height  = y + 24,
             cleanup = function()
@@ -116,6 +139,8 @@ CraftBrowserPages["Tooltip"] = {
                 Craft.Tooltip.Detach(btn6:GetFrame())
                 Craft.Tooltip.Detach(btn7:GetFrame())
                 Craft.Tooltip.Detach(b8)
+                for _, f in ipairs(scaleBtns) do Craft.Tooltip.Detach(f) end
+                for _, h in ipairs(scaleHosts) do h:Hide() end
                 for _, c in ipairs(comps) do if c.Destroy then c:Destroy() end end
             end,
         }
