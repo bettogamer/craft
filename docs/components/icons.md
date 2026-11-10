@@ -23,6 +23,7 @@ Craft.Icons
 ├── _densities (table) — un atlas por densidad, de menor a mayor (FR-137)
 ├── Get(name, size?, scale?)
 ├── Apply(texture, name, size?)
+├── Refresh(root?, scaleMul?)   — FR-139
 ├── Has(name)
 └── List()
 ```
@@ -60,8 +61,15 @@ antiguos atlas pixel-exactos de 16/24px se elegían por **unidades de UI**, y a 
 UIScale WoW los **ampliaba** → borrosos. Elegir por píxeles físicos evita las dos cosas.
 
 `Apply` toma la escala efectiva de la textura (o de su padre) **en el momento de la
-llamada**; los componentes re-aplican en `_applyTheme`. Si la escala cambia después sin
-re-aplicar, el aspecto empeora poco: la densidad vecina está a 2×. `Get` sin `scale` usa la
+llamada**; los componentes re-aplican en `_applyTheme`. **Cambios de escala posteriores
+(FR-139):** `Apply` registra cada textura (tabla débil `_applied`: nombre, tamaño, densidad,
+ruta) y `Refresh(root?, scaleMul?)` vuelve a elegir la densidad de las registradas (todas o
+las que cuelgan de `root`), cambiando solo archivo + UV de las que deban subir o bajar de
+atlas. Craft lo llama en `UI_SCALE_CHANGED`/`DISPLAY_SIZE_CHANGED` (diferido un fotograma) y
+desde `Window:SetBaseScale` (con `scaleMul = 1/zoom` para no elegir una densidad transitoria
+a mitad del pop); un consumidor que escala un antecesor por su cuenta (`host:SetScale`) llama
+`Craft.Icons.Refresh(host)` después. Nunca por fotograma. Una textura cuyo archivo ya no es
+el que puso `Apply` (reutilizada, o `SetTexture(nil)`) sale del registro sin tocarse. `Get` sin `scale` usa la
 de `UIParent` (lo correcto para `|T…|t` en tooltips y menús).
 
 **Rasterizado**: cada icono se rasteriza UNA vez a 224px y se reduce por promedio de área
@@ -165,6 +173,7 @@ upstream renombra.
 |---------|-------|-------------|
 | `Craft.Icons.Get(name, size?, scale?)` | `(string, number?, number?) → table\|nil` | Descriptor UV o nil si no existe. `size` = tamaño de display del **glyph** en unidades de UI (default 16; el UV recorta el gutter, FR-057). `scale` = escala efectiva donde se va a pintar (default la de `UIParent`); solo elige la densidad del atlas (FR-137). |
 | `Craft.Icons.Apply(tex, name, size?)` | `(Texture, string, number?) → void` | Aplica ícono a una Texture al tamaño de display, con la densidad que pide la escala efectiva de la textura (FR-137). No-op si name=nil o no existe. |
+| `Craft.Icons.Refresh(root?, scaleMul?)` | `(Frame?, number?) → number` | FR-139: re-elige la densidad de los íconos aplicados con `Apply` (todos, o los que cuelgan de `root`) tras un cambio de escala; devuelve cuántos cambiaron de atlas. `scaleMul` multiplica la escala medida (Window pasa `1/zoom`). |
 | `Craft.Icons.Has(name)` | `(string) → bool` | true si el nombre existe en `_atlas` o resuelve vía `_aliases`. |
 | `Craft.Icons.List()` | `() → string[]` | Array de todos los nombres canónicos (sin aliases), orden alfabético. |
 

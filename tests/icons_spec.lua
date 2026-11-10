@@ -118,6 +118,63 @@ describe("Craft.Icons — atlas Lucide completo (ADR-0016)", function()
         assert.is_true(path:find("lucide%.tga$") ~= nil)
     end)
 
+    it("FR-139: Refresh sube de atlas cuando la escala cambia después del Apply", function()
+        MockSetPhysicalScreenHeight(768)
+        local f = CreateFrame("Frame", nil, UIParent)
+        local tex = f:CreateTexture(nil, "ARTWORK")
+        Icons.Apply(tex, "package", 12)
+        assert.is_true(tex:GetTexture():find("lucide%-16%.tga$") ~= nil)
+        tex:SetScale(1.5)                     -- 18 px físicos → glyph 28
+        assert.is_true(Icons.Refresh() >= 1)
+        assert.is_true(tex:GetTexture():find("lucide%-32%.tga$") ~= nil)
+        assert.equals(0, Icons.Refresh())     -- idempotente: nada que cambiar
+        tex:SetScale(1)
+        Icons.Refresh()                       -- y vuelve a bajar
+        assert.is_true(tex:GetTexture():find("lucide%-16%.tga$") ~= nil)
+    end)
+
+    it("FR-139: Refresh(root) solo toca lo que cuelga de root", function()
+        MockSetPhysicalScreenHeight(768)
+        local a = CreateFrame("Frame", nil, UIParent)
+        local b = CreateFrame("Frame", nil, UIParent)
+        local ta, tb = a:CreateTexture(nil, "ARTWORK"), b:CreateTexture(nil, "ARTWORK")
+        Icons.Apply(ta, "package", 12); Icons.Apply(tb, "package", 12)
+        ta:SetScale(3); tb:SetScale(3)
+        Icons.Refresh(a)
+        assert.is_true(ta:GetTexture():find("lucide%.tga$") ~= nil)
+        assert.is_true(tb:GetTexture():find("lucide%-16%.tga$") ~= nil)
+    end)
+
+    it("FR-139: scaleMul descuenta el zoom de una animación", function()
+        MockSetPhysicalScreenHeight(768)
+        local f = CreateFrame("Frame", nil, UIParent)
+        local tex = f:CreateTexture(nil, "ARTWORK")
+        Icons.Apply(tex, "package", 12)
+        tex:SetScale(1.5)                     -- 18 px → 28, pero con zoom 1.5 en curso
+        Icons.Refresh(f, 1 / 1.5)             -- reposo = 12 px → se queda en 16
+        assert.is_true(tex:GetTexture():find("lucide%-16%.tga$") ~= nil)
+    end)
+
+    it("FR-139: una textura reutilizada o vaciada no se pisa", function()
+        MockSetPhysicalScreenHeight(768)
+        local f = CreateFrame("Frame", nil, UIParent)
+        local t1, t2 = f:CreateTexture(nil, "ARTWORK"), f:CreateTexture(nil, "ARTWORK")
+        Icons.Apply(t1, "package", 12); Icons.Apply(t2, "package", 12)
+        t1:SetTexture("Interface/Icons/INV_Misc_QuestionMark")
+        t2:SetTexture(nil)
+        t1:SetScale(3); t2:SetScale(3)
+        Icons.Refresh(f)
+        assert.equals("Interface/Icons/INV_Misc_QuestionMark", t1:GetTexture())
+        assert.is_nil(t2:GetTexture())
+        assert.is_nil(Icons._applied[t1]); assert.is_nil(Icons._applied[t2])
+    end)
+
+    it("FR-139: escucha UI_SCALE_CHANGED y DISPLAY_SIZE_CHANGED", function()
+        local w = Icons._scaleWatcher
+        assert.is_true(w:IsEventRegistered("UI_SCALE_CHANGED"))
+        assert.is_true(w:IsEventRegistered("DISPLAY_SIZE_CHANGED"))
+    end)
+
     it("Get respeta el size de display pedido (el atlas es agnóstico)", function()
         assert.equals(16, Icons.Get("check").size)
         assert.equals(24, Icons.Get("check", 24).size)

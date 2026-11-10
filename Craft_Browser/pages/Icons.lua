@@ -101,6 +101,54 @@ CraftBrowserPages["Icons"] = {
         end
         y = y + 12
 
+        -- ── FR-139: re-pick the density when an ancestor's scale changes ──────
+        -- The Coffer case: a host frame scaled live (SetScale) AFTER its icons were
+        -- applied. "Scale ×1.5" alone reproduces the bug (icons grow on the old, small
+        -- atlas → blurry); "Icons.Refresh(host)" swaps them to the atlas they need now.
+        -- The status line reads the registry, so it shows what each icon really uses.
+        y = addLabel("FR-139 — scale a host after Apply, then Icons.Refresh(host)", y)
+        local host = CreateFrame("Frame", nil, parent)
+        host:SetSize(1, 1)
+        host:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, { Destroy = function() host:Hide(); host:SetParent(nil) end })
+        local hostTex = {}
+        for k, name in ipairs({ "clock", "package", "combine", "settings", "search" }) do
+            local tx = host:CreateTexture(nil, "ARTWORK")
+            tx:SetPoint("TOPLEFT", host, "TOPLEFT", (k - 1) * 22, 0)
+            Craft.Icons.Apply(tx, name, 14)
+            tx:SetVertexColor(t.foreground.r, t.foreground.g, t.foreground.b, 1)
+            hostTex[#hostTex + 1] = tx
+        end
+        local status = Craft.Label:Create(parent, {
+            text  = "",
+            color = { r=t.mutedForeground.r, g=t.mutedForeground.g, b=t.mutedForeground.b, a=1 },
+        })
+        status:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 140, -(y + 4))
+        table.insert(comps, status)
+        local function showStatus(note)
+            local rec = Craft.Icons._applied and Craft.Icons._applied[hostTex[1]]
+            status:SetText(string.format("host scale %.1f — atlas %s %s", host:GetScale(),
+                rec and tostring(rec.density) or "?", note or ""))
+        end
+        showStatus()
+        y = y + 44
+        local bx = 16
+        local function hostBtn(text, fn)
+            local b = Craft.Button:Create(parent, { text = text, variant = "outline", size = "sm" })
+            b:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", bx, -y)
+            b:GetFrame():SetScript("OnClick", fn)
+            table.insert(comps, b)
+            bx = bx + b:GetFrame():GetWidth() + 8
+        end
+        hostBtn("Scale ×1.0", function() host:SetScale(1.0); showStatus("(no refresh)") end)
+        hostBtn("Scale ×1.5", function() host:SetScale(1.5); showStatus("(no refresh)") end)
+        hostBtn("Icons.Refresh(host)", function()
+            local n = Craft.Icons.Refresh(host)
+            showStatus(string.format("(refresh: %d changed)", n or 0))
+            print(string.format("FR-139: Icons.Refresh(host) changed %d icon(s)", n or 0))
+        end)
+        y = y + 44
+
         y = addLabel("Lucide atlas icons (24px), 6 per row", y)
 
         local names = Craft.Icons.List()
