@@ -53,21 +53,69 @@ describe("Craft.Icons — atlas Lucide completo (ADR-0016)", function()
         end
     end)
 
-    it("el UV recorta el gutter: cubre el glyph (56px), no la celda entera (FR-057)", function()
-        -- Sin recorte el glyph se dibujaría a size × 56/64 = 87.5% de lo pedido.
-        local d = Icons.Get("check")
+    it("el UV recorta exactamente el gutter: cubre el glyph, no la celda (FR-057/FR-137)", function()
+        -- Sin recorte el glyph se dibujaría a size × inner/cell. Desde FR-137 el recorte es
+        -- el gutter exacto (sin medio texel extra: en el atlas de 14px eso era un zoom del 7%).
         local cellW = 1 / Icons._div      -- ancho de celda en coords de textura
         local cellH = 1 / Icons._rows
-        -- El span visible = el inner (56/64) menos medio texel por lado (protección
-        -- bilinear preexistente) = 55/64. Lo que NO puede ser es la celda entera (1.0).
-        local spanX = (d.right - d.left) / cellW
-        local spanY = (d.bottom - d.top) / cellH
-        assert.is_true(math.abs(spanX - 55 / 64) < 1e-9)
-        assert.is_true(math.abs(spanY - 55 / 64) < 1e-9)
-        -- Y debe estar centrado en la celda que le toca.
         local cell = Icons._atlas["check"]
-        assert.is_true(math.abs((d.left + d.right) / 2 - (cell[1] + 0.5) * cellW) < 1e-9)
-        assert.is_true(math.abs((d.top + d.bottom) / 2 - (cell[2] + 0.5) * cellH) < 1e-9)
+        for i, d in ipairs(Icons._densities) do
+            local desc = Icons._getAt("check", 16, i)
+            local inner = (d.cell - 2 * d.gutter) / d.cell
+            assert.is_true(math.abs((desc.right - desc.left) / cellW - inner) < 1e-9)
+            assert.is_true(math.abs((desc.bottom - desc.top) / cellH - inner) < 1e-9)
+            -- Centrado en la celda que le toca.
+            assert.is_true(math.abs((desc.left + desc.right) / 2 - (cell[1] + 0.5) * cellW) < 1e-9)
+            assert.is_true(math.abs((desc.top + desc.bottom) / 2 - (cell[2] + 0.5) * cellH) < 1e-9)
+        end
+    end)
+
+    it("FR-137: tres densidades POT, de menor a mayor, misma rejilla", function()
+        local D = Icons._densities
+        assert.equals(3, #D)
+        local prev = 0
+        for _, d in ipairs(D) do
+            assert.is_true(d.cell > prev); prev = d.cell
+            assert.is_true(d.gutter >= 1)
+            local w, h = Icons._div * d.cell, Icons._rows * d.cell
+            assert.equals(0, w % 2 + (math.log(w) / math.log(2)) % 1)  -- potencia de dos
+            assert.equals(0, h % 2 + (math.log(h) / math.log(2)) % 1)
+        end
+        assert.equals("lucide.tga", D[#D].file)  -- el denso conserva el nombre histórico
+    end)
+
+    it("FR-137: Get elige la densidad menor cuyo glyph cubre los px físicos", function()
+        -- Mock: pantalla 768 de alto ⇒ factor 1 ⇒ px físicos = size × escala.
+        MockSetPhysicalScreenHeight(768)
+        assert.equals(16, Icons.Get("clock", 12, 1).density)     -- 12 px → glyph 14
+        assert.equals(16, Icons.Get("clock", 14, 1).density)     -- 14 px → glyph 14 (justo)
+        assert.equals(32, Icons.Get("clock", 16, 1).density)     -- 16 px → glyph 28
+        assert.equals(64, Icons.Get("clock", 32, 1).density)     -- 32 px → glyph 56
+        assert.equals(64, Icons.Get("clock", 200, 1).density)    -- más que el máximo → el mayor
+        -- 1440p a escala 0.64: 12 × 0.64 × 1440/768 = 14.4 px físicos → glyph 28
+        MockSetPhysicalScreenHeight(1440)
+        assert.equals(32, Icons.Get("clock", 12, 0.64).density)
+        -- 1080p a 0.64: 10.8 → 14
+        MockSetPhysicalScreenHeight(1080)
+        assert.equals(16, Icons.Get("clock", 12, 0.64).density)
+        MockSetPhysicalScreenHeight(768)
+        -- La ruta sigue a la densidad; el size del descriptor es siempre el pedido.
+        local d = Icons.Get("clock", 12, 1)
+        assert.is_true(d.path:find("lucide%-16%.tga$") ~= nil)
+        assert.equals(12, d.size)
+    end)
+
+    it("FR-137: Apply elige por la escala efectiva de la textura", function()
+        MockSetPhysicalScreenHeight(768)
+        local f = CreateFrame("Frame", nil, UIParent)
+        local tex = f:CreateTexture(nil, "ARTWORK")
+        local path
+        tex.SetTexture = function(_, p) path = p end
+        Icons.Apply(tex, "package", 12)
+        assert.is_true(path:find("lucide%-16%.tga$") ~= nil)
+        tex:SetScale(3)                       -- 36 px físicos → glyph 56
+        Icons.Apply(tex, "package", 12)
+        assert.is_true(path:find("lucide%.tga$") ~= nil)
     end)
 
     it("Get respeta el size de display pedido (el atlas es agnóstico)", function()

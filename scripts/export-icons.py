@@ -5,9 +5,11 @@ Spec: docs/components/icons.md
 ADR:  docs/adr/0003-iconos-lucide-first-class.md (bundled assets)
       docs/adr/0016-atlas-lucide-completo.md (full-set import, pinned release)
 
-Outputs:
-  Craft/media/lucide.tga       — 2048×4096 atlas, 32×64 grid, 64px cells
-                                 (supersampled, RLE-compressed TGA — lossless)
+Outputs (FR-137 — one atlas per density, SAME 32×64 grid in all of them):
+  Craft/media/lucide-16.tga    —  512×1024 atlas, 16px cells (14px glyph, 1px gutter)
+  Craft/media/lucide-32.tga    — 1024×2048 atlas, 32px cells (28px glyph, 2px gutter)
+  Craft/media/lucide.tga       — 2048×4096 atlas, 64px cells (56px glyph, 4px gutter)
+                                 (all RLE-compressed TGA — lossless)
   Craft/icons/Atlas.lua        — coordinate table {col, row} per icon + alias map
 
 Catalog (ADR-0016):
@@ -17,11 +19,14 @@ Catalog (ADR-0016):
   Deprecated Lucide aliases (filter → funnel, …) come from the per-icon JSON
   metadata and are emitted as Craft.Icons._aliases.
 
-Supersampling:
-  Icons render at INNER (56px) centered in 64px cells with a transparent gutter,
-  then WoW downscales to the display size (16/24/…). WoW never shows textures
-  1:1 — the UI scales with UIScale/DPI — so a single high-res atlas stays crisp
-  at any scale, where pixel-exact 16/24px atlases blurred. See docs/components/icons.md.
+Densities (FR-137):
+  Each icon is rasterized ONCE at SUPERSAMPLE px (224) and box-reduced (exact area
+  average, integer factor) to the glyph size of every density. Icons.lua picks, per
+  call, the smallest atlas whose glyph is >= the PHYSICAL pixels the icon will cover
+  (size × effective scale / pixel factor), so WoW only ever downscales by < 2×. A
+  single 56px atlas shown at 10-14px (4-6× reduction) broke the strokes; the old
+  pixel-exact 16/24px atlases blurred because they were chosen by UI units, not by
+  physical pixels (WoW upscaled them). See docs/components/icons.md.
 
 Requirements:
   pip install Pillow cairosvg
@@ -134,13 +139,29 @@ LOCAL_SVGS = {
 # 2048×4096 (ADR-0016: full Lucide set — 32×64 = 2048 slots for ~1750 icons,
 # ~300 free for upstream growth). Cell/gutter/supersampling are UNCHANGED, so
 # per-icon quality is identical; there are just more cells.
-ATLAS_W    = 2048           # atlas width in px (power-of-two — required by WoW)
-ATLAS_H    = 4096           # atlas height in px (power-of-two — required by WoW)
-CELL       = 64             # cell size in the atlas grid
-GUTTER     = 4              # transparent margin inside each cell
-INNER      = CELL - GUTTER * 2   # 56px — the icon render size
-CPR        = ATLAS_W // CELL     # 32 cells per row (columns)
-ROWS       = ATLAS_H // CELL     # 64 rows → 2048 slots
+CPR        = 32             # cells per row (columns) — identical in every density
+ROWS       = 64             # rows → 2048 slots — identical in every density
+
+# FR-137: one atlas per density, smallest first. (cell px, gutter px, file name).
+# Every size is power-of-two per side (CPR×cell by ROWS×cell). Cell boundaries sit on
+# power-of-two texel boundaries, so a mip level never averages two cells together
+# while the cell is still ≥ 1 texel. The 64px atlas keeps its historical name.
+DENSITIES  = [
+    (16, 1, "lucide-16.tga"),
+    (32, 2, "lucide-32.tga"),
+    (64, 4, "lucide.tga"),
+]
+SUPERSAMPLE = 224           # render size; every density's glyph (cell − 2·gutter) divides it
+
+# The densest atlas, under its historical names
+CELL       = DENSITIES[-1][0]
+GUTTER     = DENSITIES[-1][1]
+INNER      = CELL - GUTTER * 2   # 56px
+ATLAS_W    = CPR * CELL
+ATLAS_H    = ROWS * CELL
+
+for _cell, _gut, _f in DENSITIES:
+    assert SUPERSAMPLE % (_cell - 2 * _gut) == 0, f"{_f}: glyph must divide SUPERSAMPLE"
 
 # ─── Output paths ─────────────────────────────────────────────────────────────
 
@@ -406,9 +427,22 @@ def rasterize_svg(svg: str, size: int) -> Image.Image:
 
 # ─── Atlas construction ───────────────────────────────────────────────────────
 
-def build_atlas(catalog: list, icons_imgs: dict) -> tuple[Image.Image, dict]:
+def downsample(img: Image.Image, inner: int) -> Image.Image:
+    """Box-reduces a SUPERSAMPLE px render to inner px (exact area average).
+    Glyphs are monochrome white, tinted later by SetVertexColor, so only the alpha
+    (coverage) is reduced and RGB is forced to white: averaging straight RGB would
+    pull the transparent pixels' black into the edges (dark fringe)."""
+    factor = img.size[0] // inner
+    alpha  = img.getchannel("A")
+    if factor > 1:
+        alpha = alpha.reduce(factor)
+    white  = Image.new("L", alpha.size, 255)
+    return Image.merge("RGBA", (white, white, white, alpha))
+
+
+def build_atlas(catalog: list, icons_imgs: dict, cell: int, gutter: int) -> tuple[Image.Image, dict]:
     """
-    Builds the single supersampled TGA atlas and returns (image, {name: (col, row)}).
+    Builds one density's TGA atlas and returns (image, {name: (col, row)}).
 
     Layout:
       - CPR×ROWS grid of CELL px cells (32×64 = 2048 slots)
@@ -416,8 +450,9 @@ def build_atlas(catalog: list, icons_imgs: dict) -> tuple[Image.Image, dict]:
         transparent margin so bilinear downscaling can't bleed adjacent cells.
       - Icons are placed in catalog order.
     """
-    atlas  = Image.new("RGBA", (ATLAS_W, ATLAS_H), (0, 0, 0, 0))
+    atlas  = Image.new("RGBA", (CPR * cell, ROWS * cell), (0, 0, 0, 0))
     coords = {}
+    inner  = cell - gutter * 2
 
     for idx, name in enumerate(catalog):
         img = icons_imgs.get(name)
@@ -427,14 +462,14 @@ def build_atlas(catalog: list, icons_imgs: dict) -> tuple[Image.Image, dict]:
 
         col = idx % CPR
         row = idx // CPR
-        x   = col * CELL + GUTTER
-        y   = row * CELL + GUTTER
+        x   = col * cell + gutter
+        y   = row * cell + gutter
 
         if col >= CPR or row >= ROWS:
             print(f"  ✗ {name}: outside atlas bounds (col={col}, row={row})")
             continue
 
-        atlas.paste(img, (x, y))
+        atlas.paste(downsample(img, inner), (x, y))
         coords[name] = (col, row)
 
     return atlas, coords
@@ -472,8 +507,11 @@ def generate_atlas_lua(catalog: list, coords: dict, aliases: dict):
         "-- DO NOT edit manually — overwritten on each release",
         "--",
         f"-- Catalog: FULL Lucide set, release {LUCIDE_TAG} pinned (ADR-0016)",
-        f"-- Layout: {ATLAS_W}×{ATLAS_H}px, grid {CPR}×{ROWS} (cols×rows), {CELL}px cells",
-        f"--   ({INNER}px icon centered with a {GUTTER}px transparent gutter — supersampled)",
+        f"-- Layout: grid {CPR}×{ROWS} (cols×rows), the SAME in every density atlas (FR-137):",
+    ] + [
+        f"--   {f}: {CPR * c}×{ROWS * c}px, {c}px cells ({c - 2 * g}px glyph + {g}px gutter)"
+        for c, g, f in DENSITIES
+    ] + [
         f"--   UV: left=col/{CPR}, right=(col+1)/{CPR}, top=row/{ROWS}, bottom=(row+1)/{ROWS}",
         "",
         'local Craft = LibStub("Craft-2.0")',
@@ -488,6 +526,14 @@ def generate_atlas_lua(catalog: list, coords: dict, aliases: dict):
         f'Craft.Icons._lucide = "{LUCIDE_TAG}"  -- pinned Lucide release this atlas was built from',
         f"Craft.Icons._div  = {CPR}  -- columns (horizontal UV divisor in Icons.lua)",
         f"Craft.Icons._rows = {ROWS}  -- rows (vertical UV divisor in Icons.lua — atlas is non-square)",
+        "",
+        "-- FR-137: one atlas file per density, smallest first. Icons.lua picks the smallest",
+        "-- whose glyph (cell - 2*gutter) covers the physical pixels the icon will occupy.",
+        "Craft.Icons._densities = {",
+    ] + [
+        f'    {{ file = "{f}", cell = {c}, gutter = {g} }},' for c, g, f in DENSITIES
+    ] + [
+        "}",
         "",
         "Craft.Icons._atlas = {",
     ]
@@ -530,7 +576,8 @@ def main():
 
     print(f"Craft icon atlas generator — full Lucide set, release {LUCIDE_TAG} (ADR-0016)")
     print(f"  Source: {TARBALL_URL}")
-    print(f"  Output: Craft/media/lucide.tga ({ATLAS_W}×{ATLAS_H}, {CELL}px cells, supersampled)")
+    for c, g, f in DENSITIES:
+        print(f"  Output: Craft/media/{f} ({CPR * c}×{ROWS * c}, {c}px cells, {c - 2 * g}px glyph)")
     print()
 
     # 1. Sync the pinned Lucide release and enumerate the catalog
@@ -550,8 +597,8 @@ def main():
         print(f"\nDry-run complete. Tarball extracted in {SVG_CACHE.relative_to(REPO_ROOT)}/")
         return
 
-    # 2. Rasterize supersampled (INNER px)
-    print(f"\n2. Rasterizing {len(catalog)} icons to {INNER}px ({_RASTER_BACKEND})...")
+    # 2. Rasterize once, supersampled (SUPERSAMPLE px); each density box-reduces it
+    print(f"\n2. Rasterizing {len(catalog)} icons to {SUPERSAMPLE}px ({_RASTER_BACKEND})...")
     imgs = {}
     failed = []
     for name in catalog:
@@ -560,7 +607,7 @@ def main():
             failed.append(name)
             continue
         try:
-            imgs[name] = rasterize_svg(prepare_svg(svg), INNER)
+            imgs[name] = rasterize_svg(prepare_svg(svg), SUPERSAMPLE)
         except Exception as e:
             print(f"  ✗ {name}: {e}")
             failed.append(name)
@@ -569,20 +616,21 @@ def main():
         print("ERROR: full-set import must not have missing cells — fix the rasterizer/tarball and re-run.")
         sys.exit(1)
 
-    # 3. Build the single atlas
-    print(f"\n3. Building atlas...")
-    atlas, coords = build_atlas(catalog, imgs)
-    print(f"  Grid: {CPR}×{ROWS} cells ({CELL}px), {len(coords)}/{len(catalog)} icons placed")
-
-    # 4. Save TGA
-    print(f"\n4. Saving TGA...")
-    save_tga(atlas, MEDIA_DIR / "lucide.tga", rle=not args.no_rle)
+    # 3-4. Build and save one atlas per density (same grid → same coords)
+    coords = None
+    for cell, gutter, fname in DENSITIES:
+        print(f"\n3. Building {fname} ({cell}px cells)...")
+        atlas, dcoords = build_atlas(catalog, imgs, cell, gutter)
+        assert coords is None or dcoords == coords, "densities must share the grid"
+        coords = dcoords
+        print(f"  Grid: {CPR}×{ROWS} cells ({cell}px), {len(coords)}/{len(catalog)} icons placed")
+        save_tga(atlas, MEDIA_DIR / fname, rle=not args.no_rle)
 
     # 5. Generate Atlas.lua
     print("\n5. Generating Atlas.lua...")
     generate_atlas_lua(catalog, coords, aliases)
 
-    print(f"\n✅ Done. {len(coords)} icons in a single {CELL}px supersampled atlas.")
+    print(f"\n✅ Done. {len(coords)} icons in {len(DENSITIES)} density atlases.")
     print("   Run 'git diff Craft/icons/Atlas.lua' to verify coordinate changes.")
 
 

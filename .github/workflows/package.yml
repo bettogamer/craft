@@ -99,6 +99,8 @@ jobs:
       - name: Verify assets
         run: |
           [ -f "Craft/media/lucide.tga"        ] || (echo "❌ lucide.tga"        && exit 1)
+          [ -f "Craft/media/lucide-16.tga"     ] || (echo "❌ lucide-16.tga"     && exit 1)
+          [ -f "Craft/media/lucide-32.tga"     ] || (echo "❌ lucide-32.tga"     && exit 1)
           [ -f "Craft/media/shape_pill_32x18.tga" ] || (echo "❌ shape_pill_32x18.tga" && exit 1)
           [ -f "Craft/media/shape_pill_24x14.tga" ] || (echo "❌ shape_pill_24x14.tga" && exit 1)
           [ -f "Craft/media/shape_circle.tga"     ] || (echo "❌ shape_circle.tga"     && exit 1)

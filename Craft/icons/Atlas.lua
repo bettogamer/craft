@@ -3,8 +3,10 @@
 -- DO NOT edit manually — overwritten on each release
 --
 -- Catalog: FULL Lucide set, release 1.24.0 pinned (ADR-0016)
--- Layout: 2048×4096px, grid 32×64 (cols×rows), 64px cells
---   (56px icon centered with a 4px transparent gutter — supersampled)
+-- Layout: grid 32×64 (cols×rows), the SAME in every density atlas (FR-137):
+--   lucide-16.tga: 512×1024px, 16px cells (14px glyph + 1px gutter)
+--   lucide-32.tga: 1024×2048px, 32px cells (28px glyph + 2px gutter)
+--   lucide.tga: 2048×4096px, 64px cells (56px glyph + 4px gutter)
 --   UV: left=col/32, right=(col+1)/32, top=row/64, bottom=(row+1)/64
 
 local Craft = LibStub("Craft-2.0")
@@ -19,6 +21,14 @@ Craft.Icons = { _buildOwner = _BUILD }
 Craft.Icons._lucide = "1.24.0"  -- pinned Lucide release this atlas was built from
 Craft.Icons._div  = 32  -- columns (horizontal UV divisor in Icons.lua)
 Craft.Icons._rows = 64  -- rows (vertical UV divisor in Icons.lua — atlas is non-square)
+
+-- FR-137: one atlas file per density, smallest first. Icons.lua picks the smallest
+-- whose glyph (cell - 2*gutter) covers the physical pixels the icon will occupy.
+Craft.Icons._densities = {
+    { file = "lucide-16.tga", cell = 16, gutter = 1 },
+    { file = "lucide-32.tga", cell = 32, gutter = 2 },
+    { file = "lucide.tga", cell = 64, gutter = 4 },
+}
 
 Craft.Icons._atlas = {
     -- System — required by Craft components (row 0, cols 0-7)
