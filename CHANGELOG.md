@@ -6,6 +6,30 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.47.0] - 2026-11-10
+
+> **Release v2.47.0 — `Craft.Window` fuera del caché de layout del cliente (FR-138) y `Craft.Icons.Refresh`
+> (FR-139).** Pedidos de Coffer.
+>
+> **API compatible:** solo añade `config.name` en Window y `Craft.Icons.Refresh(root?, scaleMul?)`. Verificado
+> in-game (12.1.5): tras arrastrar y `/reload`, `layout-local.txt` no gana entradas `CraftWindow_*`; un host
+> escalado ×1.5 pasa al atlas de 28px con `Refresh` y se ve nítido.
+
+### Fixed
+
+- **`Craft.Window` ya no entra en el caché de layout del cliente (FR-138, pedido de Coffer).** Arrastrar o
+  redimensionar marcaba el frame raíz como «user placed» y el cliente guardaba su sitio en
+  `layout-local.txt` como `CraftWindow_N`; tras `/reload` lo re-aplicaba encima del `SetPosition` del
+  consumidor, y como el número sale de un contador compartido entre addons, a veces sobre otra ventana.
+  `Create` llama a `SetDontSavePosition(true)` + `SetUserPlaced(false)` y cada `StopMovingOrSizing` repite
+  `SetUserPlaced(false)`. Nuevo `config.name` opcional para un nombre global estable. Demo en
+  `pages/Window.lua` («Open named window» + «Print layout-cache state»).
+- **`Craft.Icons` vuelve a elegir la densidad cuando cambia la escala (FR-139, pedido de Coffer).** `Apply`
+  registra cada textura en una tabla débil y el nuevo `Craft.Icons.Refresh(root?, scaleMul?)` cambia de atlas
+  las que lo necesiten. Craft lo llama en `UI_SCALE_CHANGED`/`DISPLAY_SIZE_CHANGED` y desde
+  `Window:SetBaseScale` (descontando el zoom de apertura); un consumidor que escale un antecesor lo llama él.
+  Sin coste por fotograma. Demo en `pages/Icons.lua` (host escalado ×1.5 sin/con `Refresh`).
+
 ## [2.46.0] - 2026-11-10
 
 > **Release v2.46.0 — `Craft.Icons` en tres densidades: iconos pequeños nítidos (FR-137).** Pedido de Coffer.
