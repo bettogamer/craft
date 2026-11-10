@@ -20,7 +20,8 @@ Craft.Icons
 ├── _div     (number)  — columnas del grid (de icons/Atlas.lua)
 ├── _rows    (number)  — filas del grid (de icons/Atlas.lua — atlas no cuadrado)
 ├── _lucide  (string)  — release de Lucide pinneado del que se generó el atlas
-├── Get(name, size?)
+├── _densities (table) — un atlas por densidad, de menor a mayor (FR-137)
+├── Get(name, size?, scale?)
 ├── Apply(texture, name, size?)
 ├── Has(name)
 └── List()
@@ -28,59 +29,71 @@ Craft.Icons
 
 `icons/Atlas.lua` declara la tabla `_atlas` con coordenadas de celda (col/row, base-0), `_aliases` y los divisores. Se carga antes que cualquier componente en `Craft.toc`. `Craft.Icons` construye los descriptores UV en runtime; `Get`/`Has`/`Apply` resuelven aliases deprecados al nombre canónico automáticamente.
 
-### Ruta del atlas
+### Rutas de los atlas (FR-137 — tres densidades)
 
-| Ruta |
-|------|
-| `"Interface\\AddOns\\Craft\\media\\lucide.tga"` (vía `Craft.mediaPath`) |
+| Archivo (vía `Craft.mediaPath`) | Resolución | Celda | Glyph | Gutter |
+|---|---|---|---|---|
+| `lucide-16.tga` | 512×1024 | 16px | 14px | 1px |
+| `lucide-32.tga` | 1024×2048 | 32px | 28px | 2px |
+| `lucide.tga` | 2048×4096 | 64px | 56px | 4px |
 
-### Layout del atlas (supersampled — un solo atlas, set Lucide completo)
+Los tres comparten la **misma rejilla** 32×64 (`_div`/`_rows`), así que `_atlas` (col/row) es
+único: solo cambian la ruta y el tamaño de celda. Fórmula UV (col/row base-0):
+`left = col/32 + G`, `right = (col+1)/32 − G` (ídem filas con `/64`), con
+`G = gutter / (32·celda)` (`/64` en Y) — el recorte es **exactamente el gutter**.
 
-| Resolución TGA | Grid | Celda | Icono renderizado | Gutter | Fórmula UV (col/row base-0) |
-|---|---|---|---|---|---|
-| 2048×4096 px | 32×64 (2048 slots) | 64px | 56px centrado | 4px transparente | celda ± inset: `left=col/32 + I`, `right=(col+1)/32 - I` (ídem row con `/64`), donde el inset `I` recorta gutter + medio texel — ver abajo |
+> Historia: 512×512 (MVP) → 512×1024 (FR-022, catálogo curado) → 2048×4096 (ADR-0016, set
+> Lucide completo) → **tres densidades (FR-137)**. Potencia-de-2 por lado (requisito de WoW).
+> TGA con compresión **RLE** (sin pérdida): 1.0 + 2.5 + 5.3 MB en disco; en VRAM
+> 2 + 8 + 32 MB (los dos nuevos suman el 31 % del original).
 
-> Historia: 512×512 (MVP) → 512×1024 (FR-022, catálogo curado) → **2048×4096 (ADR-0016,
-> set Lucide completo)**. Potencia-de-2 por lado (requisito de WoW); los divisores UV por
-> eje viven en `Atlas.lua` (`_div`/`_rows`). La celda, el supersampling y el gutter no
-> cambiaron en ningún salto — la calidad por icono es idéntica, solo hay más celdas.
-> El TGA se guarda con compresión **RLE** (sin pérdida, ~4.2 MB vs 32 MB sin comprimir).
+**Selección de densidad (FR-137)**: `Get`/`Apply` calculan los **píxeles físicos** que va a
+ocupar el icono — `size × escala efectiva ÷ factor de píxel` (factor = `768 / alto físico`,
+el mismo de `PixelUtil` y `Craft.Theme.px`) — y eligen el atlas **más pequeño cuyo glyph los
+cubre**. Así la GPU solo reduce, y siempre por menos de 2×. Ejemplos: 12px a escala 1.0 en
+pantalla de 768 → 12 físicos → atlas de 14; 12px a 0.64 en 1440p → 14.4 → atlas de 28.
 
-**Supersampling**: cada ícono se rasteriza a 56px y se centra en una celda de 64px con
-4px de gutter transparente. WoW lo reduce al tamaño de display (16/24/…) en runtime. Como
-WoW nunca muestra texturas 1:1 (la UI escala con UIScale/DPI), una sola fuente de alta
-resolución se ve nítida a cualquier escala — donde los atlas pixel-exactos de 16/24px se
-veían borrosos/pixelados. El gutter + un inset de medio texel en `Get()` evitan que el
-filtrado bilineal "sangre" celdas vecinas al reducir.
+Por qué: con un solo atlas de 56px, un icono de 10-14px se reducía 4-6× y los trazos de
+Lucide salían rotos/pixelados (Coffer, FR-137): el muestreo bilineal se salta texels y la
+cadena de mips no lo salvaba en la práctica. Y volver a lo de antes tampoco valía: los
+antiguos atlas pixel-exactos de 16/24px se elegían por **unidades de UI**, y a casi cualquier
+UIScale WoW los **ampliaba** → borrosos. Elegir por píxeles físicos evita las dos cosas.
 
-**El UV recorta el gutter (FR-057)**: `Get()` no muestrea la celda entera sino la región
-INTERNA (el glyph de 56px). Muestrear los 64px metería la celda completa —gutter incluido—
-dentro del `size` pedido, así que el glyph se dibujaría a `size × 56/64` = **87.5% de lo
-pedido**: todos los iconos salían un 12.5% pequeños y el contrato de `size` no se cumplía.
-Recortando, el viewBox de 24 unidades mapea al `size` completo. El inset por lado queda en
-`(GUTTER + 0.5) / (DIV * CELL)` — gutter **más** el medio texel bilineal de siempre. El
-footprint de la textura no cambia (`SetSize` sigue usando `size`), así que ningún ancla ni
-gap de ningún componente se mueve; el gutter sigue existiendo físicamente en el TGA
-separando vecinos, solo deja de mostrarse.
+`Apply` toma la escala efectiva de la textura (o de su padre) **en el momento de la
+llamada**; los componentes re-aplican en `_applyTheme`. Si la escala cambia después sin
+re-aplicar, el aspecto empeora poco: la densidad vecina está a 2×. `Get` sin `scale` usa la
+de `UIParent` (lo correcto para `|T…|t` en tooltips y menús).
+
+**Rasterizado**: cada icono se rasteriza UNA vez a 224px y se reduce por promedio de área
+(box, factor entero 4/8/16) a 56/28/14px. Solo se reduce el alfa (cobertura); el RGB se
+fuerza a blanco — promediar RGB recto metería el negro de los píxeles transparentes en los
+bordes (halo oscuro al teñir).
+
+**El UV recorta el gutter (FR-057)**: `Get()` no muestrea la celda entera sino el glyph;
+si no, se dibujaría a `size × glyph/celda` (87.5 %). Desde FR-137 el recorte es el gutter
+**exacto**, sin el medio texel extra de antes: el gutter es transparente, así que el bilineal
+puede tocarlo; solo no debe llegar a la celda vecina, y con ≥1px de gutter no llega. Medio
+texel extra en el glyph de 14px era un zoom del 7 % y rompía el mapeo 1:1. El footprint
+(`SetSize(size)`) no cambia: ningún ancla ni gap se mueve.
 
 **Filtrado `TRILINEAR` (mipmaps)**: `Apply()` pasa `SetTexture(path, "CLAMP", "CLAMP",
-"TRILINEAR")`. El atlas es power-of-two → WoW auto-genera el mip chain y el trilinear lo
-muestrea en la minificación (el ícono se ve ≤24px desde una celda de 56px) → downscale
-liso y sin shimmer, la misma técnica que las shapes del Switch (ADR-0018 §5, CLAUDE.md
-bug #5). Es seguro sobre un atlas porque en el rango de display (mip 0-2) el gutter de 4px
-aún deja ≥1px transparente entre celdas; el bleed solo aparecería por debajo de ~10px
-(mips profundos), que no ocurre.
+"TRILINEAR")` (archivos propios POT — bug #6). Las celdas caen en fronteras potencia-de-2,
+así que un nivel de mip nunca mezcla dos celdas mientras la celda mida ≥1 texel, y con la
+reducción < 2× que garantiza la selección se usan los mips 0-1. La página Icons del
+Craft_Browser compara el atlas de 56 con `TRILINEAR` y con `LINEAR` para comprobar si el
+cliente genera mips para un TGA de addon (si salen idénticos, no los genera).
 
 ### Formato del descriptor retornado por `Get()`
 
 ```lua
 {
-  path   = "Interface\\AddOns\\Craft\\media\\lucide.tga",
-  size   = 16,       -- tamaño de DISPLAY pedido (16, 24, … — el atlas es agnóstico)
-  left   = 0.0002,   -- UV normalizadas [0–1], con inset de medio texel
-  right  = 0.0310,   -- ≈ 1/32 para col=0 (eje X divide entre 32 columnas)
-  top    = 0.0001,
-  bottom = 0.0155,   -- ≈ 1/64 para row=0 (eje Y divide entre 64 filas — atlas no cuadrado)
+  path    = "Interface\\AddOns\\Craft\\media\\lucide-16.tga",  -- la densidad elegida
+  size    = 12,       -- tamaño de DISPLAY pedido (siempre el pedido)
+  density = 16,       -- celda del atlas elegido (16/32/64), informativo
+  left    = 0.0020,   -- UV normalizadas [0–1], recortando el gutter
+  right   = 0.0293,
+  top     = 0.0010,
+  bottom  = 0.0146,
 }
 ```
 
@@ -150,8 +163,8 @@ upstream renombra.
 
 | Función | Firma | Descripción |
 |---------|-------|-------------|
-| `Craft.Icons.Get(name, size?)` | `(string, number?) → table\|nil` | Descriptor UV o nil si no existe. `size` = tamaño de display en px del **glyph** (default 16) — el UV recorta el gutter para que se cumpla (FR-057); el atlas es agnóstico al tamaño. |
-| `Craft.Icons.Apply(tex, name, size?)` | `(Texture, string, number?) → void` | Aplica ícono a una Texture al tamaño de display. No-op si name=nil o no existe. |
+| `Craft.Icons.Get(name, size?, scale?)` | `(string, number?, number?) → table\|nil` | Descriptor UV o nil si no existe. `size` = tamaño de display del **glyph** en unidades de UI (default 16; el UV recorta el gutter, FR-057). `scale` = escala efectiva donde se va a pintar (default la de `UIParent`); solo elige la densidad del atlas (FR-137). |
+| `Craft.Icons.Apply(tex, name, size?)` | `(Texture, string, number?) → void` | Aplica ícono a una Texture al tamaño de display, con la densidad que pide la escala efectiva de la textura (FR-137). No-op si name=nil o no existe. |
 | `Craft.Icons.Has(name)` | `(string) → bool` | true si el nombre existe en `_atlas` o resuelve vía `_aliases`. |
 | `Craft.Icons.List()` | `() → string[]` | Array de todos los nombres canónicos (sin aliases), orden alfabético. |
 
@@ -166,7 +179,7 @@ local tex = frame:CreateTexture(nil, "ARTWORK")
 tex:SetSize(16, 16)
 tex:SetPoint("LEFT", frame, "LEFT", 8, 0)
 Craft.Icons.Apply(tex, "chevron-right")        -- display 16px por defecto
-Craft.Icons.Apply(tex, "settings", 24)         -- display 24px (misma fuente supersampled)
+Craft.Icons.Apply(tex, "settings", 24)         -- display 24px (atlas elegido por px físicos)
 ```
 
 ### Con validación previa
@@ -195,7 +208,8 @@ iconTex:SetVertexColor(t.foreground.r, t.foreground.g, t.foreground.b, 1)
 ### Descriptor directo (casos avanzados)
 
 ```lua
-local icon = Craft.Icons.Get("circle-check")
+-- Pasar la escala efectiva del destino para que elija bien la densidad (FR-137)
+local icon = Craft.Icons.Get("circle-check", 16, tex:GetEffectiveScale())
 if icon then
     tex:SetTexture(icon.path, "CLAMP", "CLAMP", "TRILINEAR")  -- mipmapped downscale
     tex:SetTexCoord(icon.left, icon.right, icon.top, icon.bottom)
@@ -210,9 +224,11 @@ end
 ```lua
 function Craft.Icons.Apply(texture, name, size)
     if not name then return end
-    local desc = Craft.Icons.Get(name, size or 16)
+    size = size or 16
+    local scale = effectiveScale(texture) or effectiveScale(texture:GetParent())  -- pcall + issecretvalue
+    local desc = Craft.Icons.Get(name, size, scale)   -- elige densidad (FR-137)
     if not desc then return end
-    texture:SetTexture(desc.path, "CLAMP", "CLAMP", "TRILINEAR")  -- mipmapped downscale
+    texture:SetTexture(desc.path, "CLAMP", "CLAMP", "TRILINEAR")
     texture:SetTexCoord(desc.left, desc.right, desc.top, desc.bottom)
     texture:SetSize(desc.size, desc.size)
 end
@@ -228,14 +244,9 @@ end
 
 **nil silencioso, no error**: `Get()` retorna nil para nombres desconocidos. Los componentes que reciben un `config.icon` desconocido ocultan la textura con `iconTex:Hide()`.
 
-**Un solo atlas supersampled**: `_atlas` es la única tabla. El `size` de `Get()`/`Apply()`
-es el tamaño de display — no selecciona un atlas distinto. La misma fuente de 64px sirve
-cualquier tamaño porque WoW la reduce con filtrado bilineal.
-
-**Por qué supersampling**: WoW escala la UI con UIScale/DPI, así que una textura "de 16px"
-casi nunca se muestra a 16 píxeles físicos. Un atlas pixel-exacto se magnifica → blur/pixelado
-y los trazos finos de Lucide (stroke 2 en viewBox 24) se ven delgados a 16px. Renderizar a
-alta resolución y dejar que WoW reduzca mantiene el ícono nítido a cualquier escala.
+**Un catálogo, tres densidades (FR-137)**: `_atlas` es la única tabla de coordenadas; el
+`size` de `Get()`/`Apply()` es el tamaño de display, y junto con la escala efectiva elige
+cuál de los tres TGA se muestrea (ver "Selección de densidad" arriba).
 
 **Peso del trazo (`ICON_STROKE_WIDTH`)**: Lucide es `stroke-width="2"` en el viewBox 24.
 El atlas se hornea un pelín más grueso (**2.25**) para compensar el adelgazamiento que el
@@ -254,8 +265,9 @@ retornado (es una tabla nueva cada llamada) — si se necesita varias veces, gua
 
 **Generación del atlas**: `scripts/export-icons.py` descarga el tarball del release
 pinneado de Lucide (`LUCIDE_TAG`, un request de ~3 MB), enumera TODOS los SVGs, los
-rasteriza a 56px y los empaqueta centrados en celdas de 64px (gutter de 4px) en un solo
-TGA `lucide.tga` (RLE, sin pérdida; `--no-rle` como plan B) + `icons/Atlas.lua` (con
+rasteriza a 224px, los reduce por área a cada densidad y los empaqueta centrados en tres
+TGA de la misma rejilla — `lucide-16.tga`, `lucide-32.tga` y `lucide.tga` (RLE, sin pérdida;
+`--no-rle` como plan B) + `icons/Atlas.lua` (con
 `_aliases` desde la metadata JSON de upstream). No editar `Atlas.lua` manualmente — se
 sobreescribe en cada release. CI lo genera con `cairosvg` (curvas reales); el fallback
 local `pycairo` aproxima curvas con 64 segmentos (suficiente tras el downscale) y soporta
