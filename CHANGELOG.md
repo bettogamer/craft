@@ -6,6 +6,25 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.46.0] - 2026-11-10
+
+> **Release v2.46.0 — `Craft.Icons` en tres densidades: iconos pequeños nítidos (FR-137).** Pedido de Coffer.
+>
+> **API compatible:** `Get` gana un `scale` opcional y el campo `density`; nada cambia para el consumidor.
+> Verificado in-game (12.1.5): el cliente sí genera mips para el TGA; la densidad de 14px evita tanto los
+> trazos rotos (sin mips) como el icono lavado (con mips) de reducir el atlas de 56px 5-6×.
+
+### Fixed
+
+- **`Craft.Icons`: atlas en tres densidades, los iconos pequeños ya no salen pixelados (FR-137, pedido de
+  Coffer).** El export escribe la misma rejilla 32×64 a 16/32/64px de celda (`lucide-16.tga`, `lucide-32.tga`,
+  `lucide.tga`; glyph de 14/28/56px), reduciendo por área desde un render de 224px. `Get`/`Apply` eligen el
+  atlas más pequeño cuyo glyph cubre los píxeles FÍSICOS del icono (`size × escala efectiva ÷ factor de
+  píxel`), así que la GPU solo reduce y por menos de 2×: a 10-14px los trazos de Lucide salen continuos. El
+  recorte de UV pasa a ser el gutter exacto (sin el medio texel extra, que en el glyph de 14px era un zoom del
+  7 %). `Get` acepta un tercer argumento opcional `scale` (por defecto, la de `UIParent`) y el descriptor trae
+  `density`. API compatible. Banco de densidades (y comparación `TRILINEAR`/`LINEAR`) en `pages/Icons.lua`.
+
 ## [2.45.0] - 2026-11-03
 
 > **Release v2.45.0 — `Craft.Tooltip` sigue la escala del ancla (FR-136).** Pedido de Coffer.
