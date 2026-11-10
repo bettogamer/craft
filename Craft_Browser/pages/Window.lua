@@ -123,6 +123,51 @@ CraftBrowserPages["Window"] = {
         table.insert(comps, scaledBtn)
         y = y + 44
 
+        y = addLabel("FR-139 — the slider calls SetBaseScale: the close (x) and resize icons must stay sharp at 150%", y)
+
+        -- ── FR-138: out of the client's layout cache ──────────────────────────
+        -- Before: dragging flagged the root "user placed" and the client wrote it to
+        -- WTF/.../layout-local.txt as CraftWindow_N, then re-applied it after /reload
+        -- over the consumer's SetPosition. Check: drag both windows, /reload, and grep
+        -- layout-local.txt — no new CraftWindow_* / CraftBrowserNamedWindow entry.
+        -- The print shows the flag right now (must be false after every drag).
+        y = addLabel("FR-138 — drag, then check: IsUserPlaced must be false; after /reload, no layout-local.txt entry", y)
+        local namedWin
+        local namedBtn = Craft.Button:Create(parent, { text="Open named window", variant="outline" })
+        namedBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        namedBtn:GetFrame():SetScript("OnClick", function()
+            if not namedWin then
+                namedWin = Craft.Window:Create(UIParent, {
+                    name        = "CraftBrowserNamedWindow",
+                    title       = "config.name",
+                    description = "Stable global name; never cached by the client",
+                    width = 360, height = 160,
+                })
+            end
+            namedWin:Show()
+        end)
+        table.insert(comps, namedBtn)
+        local cacheBtn = Craft.Button:Create(parent, { text="Print layout-cache state", variant="ghost" })
+        cacheBtn:GetFrame():SetPoint("TOPLEFT", namedBtn:GetFrame(), "TOPRIGHT", 8, 0)
+        cacheBtn:GetFrame():SetScript("OnClick", function()
+            -- Explicit list, NOT ipairs over { win, ... }: ipairs stops at the first nil,
+            -- so an unopened window silenced every line after it.
+            local list = { { "Open Window", win }, { "Open at scale 1.3", scaledWin },
+                           { "Open named window", namedWin } }
+            for _, e in ipairs(list) do
+                local label, w = e[1], e[2]
+                if w then
+                    local f = w:GetFrame()
+                    local placed = f.IsUserPlaced and f:IsUserPlaced()
+                    print(string.format("FR-138: %s IsUserPlaced=%s", tostring(f:GetName()), tostring(placed)))
+                else
+                    print(string.format("FR-138: \"%s\" not opened yet (open it, drag it, press again)", label))
+                end
+            end
+        end)
+        table.insert(comps, cacheBtn)
+        y = y + 44
+
         -- ── FR-102: fontFlags on title + description ─────────────────────────
         y = addLabel("FR-102 fontFlags = \"\" — activa 'Font outline' en Theme y compara con las otras ventanas", y)
         local flagsWin

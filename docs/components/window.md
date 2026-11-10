@@ -84,6 +84,7 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
 | `fontFlags` | string | `nil` | FR-102: flags de fuente de título y descripción (4.º arg de `Theme.applyFont`; `""` = sin contorno, p. ej. texto claro sobre superficie oscura con el tema en `"OUTLINE"`). `nil` = el `t.fontFlags` global del tema. Se reaplica en cada re-tema. |
 | `growFrom` | string | `"CENTER"` | FR-134: punto que se queda quieto cuando cambia el tamaño (`"TOP"` = crece/encoge hacia abajo desde el borde superior, `"TOPLEFT"`, …). El pop de apertura sigue saliendo del centro |
 | `dock` | table | nil | FR-134: `{ to = otraWindowOFrame, point = "TOPLEFT", relPoint = "TOPRIGHT", x = 0, y = 0 }` — acopla la ventana a otra desde el `Create` (ver `DockTo`) |
+| `name` | string | `"CraftWindow_N"` | FR-138: nombre global del frame raíz (hace falta uno para Escape/`UISpecialFrames`). El contador por defecto lo comparten todos los addons que cargan Craft, así que **no es estable** entre sesiones: pasar `name` si se necesita uno fijo |
 | `onMoved` | function | nil | `fn(self, x, y)` al terminar de arrastrar |
 | `onResized` | function | nil | `fn(self, w, h)` al terminar de redimensionar |
 | `onClose` | function | nil | `fn(self)` al cerrar (botón "x" o `Close()`) |
@@ -129,7 +130,16 @@ El `_content` se ancla `TOPLEFT`→`_titleBar.BOTTOMLEFT` y `BOTTOMRIGHT`→fram
   **multiplica** sobre él — el mismo patrón que Menu/Popover/Select ya usan en sus paneles
   (`_panelBaseScale × zoom`). El re-anclado del pivote divide por la escala **real** del frame
   (`baseScale × zoom`), no por el valor del tween: con base ≠ 1 los dos difieren y la ventana
-  quedaría desplazada por ese factor.
+  quedaría desplazada por ese factor. `SetBaseScale` llama además a
+  `Craft.Icons.Refresh(frame, 1/zoom)` para que los íconos de la ventana pasen a la densidad
+  de atlas de la escala nueva (FR-139).
+- **Fuera del caché de layout del cliente (FR-138).** El frame raíz es nominal y se arrastra
+  con `StartMoving`, lo que lo marcaba «user placed» y el cliente lo guardaba en
+  `layout-local.txt` y lo re-aplicaba tras `/reload` por encima del `SetPosition` del
+  consumidor (y con el contador compartido, a veces sobre OTRA ventana). `Create` llama a
+  `SetDontSavePosition(true)` + `SetUserPlaced(false)` y cada `StopMovingOrSizing` (arrastre
+  y redimensionado) repite `SetUserPlaced(false)`; ambas bajo guarda de existencia y `pcall`.
+  La persistencia es del consumidor: `onMoved` + `SetPosition`/`GetPosition` (FR-078).
 - **En reposo y cerrada, la ventana NO se aparca en `motionZoomFrom`** (0.95). Un frame oculto
   no gana nada estando al 95%, y `GetStringWidth`/`GetStringHeight` de WoW **escalan con la
   escala efectiva**: medir texto ahí lo deja ~5% corto y todo `Craft.Label` con `maxWidth`

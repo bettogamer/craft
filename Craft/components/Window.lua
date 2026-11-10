@@ -28,6 +28,19 @@ local RESIZE_PAD  = 2    -- its inset from the frame's bottom-right corner
 -- correct no matter which embedded copy won the versioned registration.
 local CORNER_MARK = "_craftCornerInset"
 
+-- FR-138: keep the root frame out of the client's layout cache (layout-local.txt).
+-- A named frame moved with StartMoving gets flagged "user placed" and the client
+-- re-applies its saved spot on the next /reload, on top of whatever SetPosition the
+-- consumer did — and the "CraftWindow_N" name is a counter shared by every addon
+-- embedding Craft, so the entry may even land on ANOTHER window. Craft already owns
+-- persistence (onMoved + SetPosition/GetPosition, FR-078), so the cache only competes.
+-- Called at Create (clears a flag restored from an old entry) and after every
+-- StopMovingOrSizing. pcall: SetUserPlaced may refuse on a frame that isn't movable.
+local function noLayoutCache(f)
+    if f.SetDontSavePosition then pcall(f.SetDontSavePosition, f, true) end
+    if f.SetUserPlaced then pcall(f.SetUserPlaced, f, false) end
+end
+
 -- ─── Anchor → centre (FR-078) ───────────────────────────────────
 -- Returns the frame's geometric centre in SCREEN units, derived from its anchor
 -- point + its size, WITHOUT ever reading its own rect.
@@ -134,8 +147,11 @@ function Window:Create(parent, config)
     -- from UIParent's centre by the growFrom point; docked it is the dock itself.
     self._rest = { point = "CENTER", rel = UIParent, relPoint = "CENTER", x = 0, y = 0 }
 
+    -- The root keeps a global name because UISpecialFrames (Escape) needs one.
+    -- `config.name` gives a stable one (FR-138); the default counter is shared by every
+    -- addon loading this copy, so it is NOT stable across sessions — never key on it.
     _instanceCount = _instanceCount + 1
-    local frameName = "CraftWindow_" .. _instanceCount
+    local frameName = config.name or ("CraftWindow_" .. _instanceCount)
 
     -- ── Root frame ─────────────────────────────────────────────────────────
     self.frame = CreateFrame("Frame", frameName, parent or UIParent)
@@ -162,6 +178,7 @@ function Window:Create(parent, config)
             if self._cfg.maxWidth then self.frame:SetMaxResize(self._cfg.maxWidth, self._cfg.maxHeight) end
         end
     end
+    noLayoutCache(self.frame)   -- FR-138
 
     -- ── Open/close fade (Weave.tween) ───────────────────────────────────────
     -- Mirrors Dialog: showing/hiding the window fades it in/out. ONLY alpha —
@@ -348,6 +365,7 @@ function Window:Create(parent, config)
         self._resize:SetScript("OnMouseDown", function() self.frame:StartSizing("BOTTOMRIGHT") end)
         self._resize:SetScript("OnMouseUp", function()
             self.frame:StopMovingOrSizing()
+            noLayoutCache(self.frame)   -- FR-138: sizing flags it user-placed
             self:_captureZoomAnchor()   -- resizing moved the centre; resync the pivot
             self:_applyScale()          -- FR-134: sizing may re-anchor; restore a dock
             if self._cfg.onResized then
@@ -490,6 +508,7 @@ function Window:EnableDragFrom(region)
         if not self._dragging then return end
         self._dragging = nil
         self.frame:StopMovingOrSizing()
+        noLayoutCache(self.frame)   -- FR-138: StartMoving flags it user-placed
         self:_captureZoomAnchor()   -- the drag rewrote the anchor; resync the pivot
         if self._cfg.onMoved then
             self._cfg.onMoved(self, self.frame:GetLeft(), self.frame:GetTop())
@@ -725,6 +744,13 @@ function Window:SetBaseScale(s)
     self._baseScale  = s
     self._cfg.scale  = s
     self:_applyScale()
+    -- FR-139: icons inside picked their atlas density at the old scale. Cancel the
+    -- open/close zoom out of the measure (× 1/zoom) so a mid-animation call picks
+    -- the resting density, not a transient one.
+    local zoom = self._lastZoom or 1
+    if Craft.Icons and Craft.Icons.Refresh and zoom > 0 then
+        Craft.Icons.Refresh(self.frame, 1 / zoom)
+    end
 end
 
 function Window:GetBaseScale()

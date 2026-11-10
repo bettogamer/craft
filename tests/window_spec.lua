@@ -340,4 +340,63 @@ describe("Craft.Window", function()
             assert.is_false(win:IsDocked())
         end)
     end)
+
+    describe("layout cache del cliente (FR-138)", function()
+
+        -- El mock no modela SetDontSavePosition/SetUserPlaced: se inyectan grabadores
+        -- en el frame raíz envolviendo CreateFrame durante el Create.
+        local function withRecorders(config)
+            local log = {}
+            local real = _G.CreateFrame
+            _G.CreateFrame = function(kind, name, ...)
+                local f = real(kind, name, ...)
+                if name then
+                    function f:SetDontSavePosition(v) log[#log + 1] = "dont:" .. tostring(v) end
+                    function f:SetUserPlaced(v)       log[#log + 1] = "placed:" .. tostring(v) end
+                end
+                return f
+            end
+            local ok, win = pcall(newWin, config)
+            _G.CreateFrame = real
+            assert.is_true(ok, tostring(win))
+            return win, log
+        end
+
+        it("Create saca el frame del caché y limpia el user-placed heredado", function()
+            local _, log = withRecorders()
+            assert.equals("dont:true",    log[1])
+            assert.equals("placed:false", log[2])
+        end)
+
+        it("soltar un arrastre vuelve a limpiar el user-placed", function()
+            local win, log = withRecorders()
+            for k in pairs(log) do log[k] = nil end
+            local bar = win._titleBar
+            bar:GetScript("OnMouseDown")(bar)
+            bar:GetScript("OnMouseUp")(bar)
+            assert.equals("placed:false", log[#log])
+        end)
+
+        it("config.name da un nombre estable al frame raíz", function()
+            local win = newWin({ name = "CofferTestWindow" })
+            assert.equals("CofferTestWindow", win:GetFrame():GetName())
+            local anon = newWin()
+            assert.is_true(anon:GetFrame():GetName():find("^CraftWindow_%d+$") ~= nil)
+        end)
+    end)
+
+    describe("densidad de iconos (FR-139)", function()
+
+        it("SetBaseScale llama a Icons.Refresh sobre su frame sin el zoom", function()
+            local win = newWin()
+            local real = Craft.Icons.Refresh
+            local gotRoot, gotMul
+            Craft.Icons.Refresh = function(root, mul) gotRoot, gotMul = root, mul end
+            win._lastZoom = 0.95                -- a mitad de la animación de apertura
+            win:SetBaseScale(1.5)
+            Craft.Icons.Refresh = real
+            assert.equals(win:GetFrame(), gotRoot)
+            assert.near(1 / 0.95, gotMul, 1e-9)
+        end)
+    end)
 end)
