@@ -14,6 +14,7 @@ globals = {
     -- WoW utility globals
     "GetCursorPosition",
     "GetPhysicalScreenSize",
+    "GetLocale",
     "GetScreenWidth",
     "GetScreenHeight",
     "GetTime",

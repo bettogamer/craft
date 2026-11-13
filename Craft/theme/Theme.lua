@@ -308,17 +308,46 @@ end
 -- texto sobre el mundo 3D, donde el consumidor necesita contorno en ese panel sin
 -- ponérselo a toda su UI; el default sigue siendo el token del tema.
 
+-- ─── Locale fallback (FR-145) ───────────────────────────────────────────────
+-- Inter, Geist and the Betto families cover Latin, Cyrillic and Greek but not
+-- Chinese or Korean: on a zhCN/zhTW/koKR client the translated strings would
+-- render as boxes or blank. There the BUNDLED theme fonts fall back to the
+-- client's own (STANDARD_TEXT_FONT, which carries the glyphs). Only Craft's own
+-- files are swapped: a font the consumer registered (registerFont, a LSM path)
+-- is its decision. The mono face stays (code is ASCII and alignment needs it).
+-- Craft never rewrites the game's global font objects.
+local CJK = { zhCN = true, zhTW = true, koKR = true }
+
+function T.locale()
+    return T._localeOverride or (GetLocale and GetLocale()) or "enUS"
+end
+
+function T.localeFont(path)
+    if not (path and CJK[T.locale()] and STANDARD_TEXT_FONT) then return path end
+    -- Bundled = one of Craft's own TTF names under a media folder (matched by
+    -- file name: every embedded copy has its own Craft.mediaPath).
+    local file = path:match("[\\/]media[\\/]([^\\/]+)$")
+    if file and not file:find("Mono", 1, true) then
+        for _, f in ipairs(AXES.fontFiles or {}) do
+            if f.file == file then return STANDARD_TEXT_FONT end
+        end
+    end
+    return path
+end
+
 function Ctx.applyFont(s, fs, path, size, flags)
     local t = s._resolved or Ctx.get(s)
     local f = flags or t.fontFlags or ""
+    path = T.localeFont(path)
 
     -- Una ruta AJENA (LibSharedMedia, un TTF que el usuario borró) puede no
     -- cargar: `SetFont` devuelve false y el FontString se queda SIN fuente, es
     -- decir invisible — un fallo mudo peor que ignorar la preferencia. Se cae a
     -- la fuente del tema. `== false` a propósito: un cliente/mock que no
     -- devuelva nada no debe disparar el fallback.
-    if fs:SetFont(path, size, f) == false and path ~= t.font then
-        fs:SetFont(t.font, size, f)
+    local themeFont = T.localeFont(t.font)
+    if fs:SetFont(path, size, f) == false and path ~= themeFont then
+        fs:SetFont(themeFont, size, f)
     elseif path and T._armFontProbes then
         -- FR-130: una ruta que no es del tema (Label `font`, un selector de
         -- fuente por elemento) también carga async la primera vez en la sesión
@@ -484,7 +513,31 @@ function T.px(n, frame)
     return math.max(n * pp / scale, 0.5)  -- 0.5 is the minimum visible WoW unit
 end
 
-function T.SetPixelHeight(frame, n)
+-- ─── Pixel refit registry (FR-142 / FR-147) ─────────────────────────────────
+-- Every helper below converts physical pixels to UI units with the effective
+-- scale OF THE MOMENT and stores an absolute number. When the scale changes
+-- (UI scale option, resolution, a consumer's SetScale on a host) those numbers
+-- go stale: 1px borders come out blurry, 2px or invisible until /reload. The
+-- registry remembers, per region (weak keys: a garbage-collected region drops
+-- out by itself), what was asked in PIXELS so RefreshPixels() can re-apply it.
+--   h / w  — thickness set through SetPixelHeight/Width, plus the size it
+--            produced: if the region's size no longer matches, somebody resized
+--            it on purpose (a pooled row reused for something else) and the
+--            entry is dropped instead of clobbering the new size.
+--   fn     — a declarative re-anchor (pixelInset, hairline, onPixelRefit).
+
+local refit = setmetatable({}, { __mode = "k" })
+T._pixelRefit = refit  -- test hook
+
+local EPS = 1e-4
+
+local function rec(region)
+    local r = refit[region]
+    if not r then r = {}; refit[region] = r end
+    return r
+end
+
+local function applyHeight(frame, n)
     if PixelUtil then
         PixelUtil.SetHeight(frame, n, 1)
     else
@@ -492,7 +545,7 @@ function T.SetPixelHeight(frame, n)
     end
 end
 
-function T.SetPixelWidth(frame, n)
+local function applyWidth(frame, n)
     if PixelUtil then
         PixelUtil.SetWidth(frame, n, 1)
     else
@@ -500,17 +553,146 @@ function T.SetPixelWidth(frame, n)
     end
 end
 
+function T.SetPixelHeight(frame, n)
+    applyHeight(frame, n)
+    local r = rec(frame)
+    r.h, r.hSet = n, frame.GetHeight and frame:GetHeight() or nil
+end
+
+function T.SetPixelWidth(frame, n)
+    applyWidth(frame, n)
+    local r = rec(frame)
+    r.w, r.wSet = n, frame.GetWidth and frame:GetWidth() or nil
+end
+
 function T.SetPixelSize(frame, w, h)
-    if PixelUtil then
-        PixelUtil.SetSize(frame, w, h, 1, 1)
-    else
-        frame:SetWidth(T.px(w, frame))
-        frame:SetHeight(T.px(h, frame))
+    T.SetPixelWidth(frame, w)
+    T.SetPixelHeight(frame, h)
+end
+
+-- onPixelRefit(region, fn): runs fn(region) now and again on every refit while
+-- the region lives. For geometry that is not a plain thickness (an inset, an
+-- anchor offset in pixels). One fn per region: a new call replaces the old one.
+function T.onPixelRefit(region, fn)
+    rec(region).fn = fn
+    fn(region)
+end
+
+-- pixelInset(region, n, relativeTo): `region` covers `relativeTo` minus `n`
+-- PHYSICAL pixels per side (n < 0 grows outwards — concentric rings, a future
+-- ring-offset). Re-applied by itself when the scale changes.
+function T.pixelInset(region, n, relativeTo)
+    T.onPixelRefit(region, function(r)
+        local d = n == 0 and 0 or T.px(math.abs(n), r)
+        if n < 0 then d = -d end
+        r:ClearAllPoints()
+        r:SetPoint("TOPLEFT",     relativeTo, "TOPLEFT",      d, -d)
+        r:SetPoint("BOTTOMRIGHT", relativeTo, "BOTTOMRIGHT", -d,  d)
+    end)
+end
+
+-- hairline(tex, axis, anchorTo, edge, n): a strip `n` (default 1) PHYSICAL
+-- pixels thick — "h" horizontal, "v" vertical. With `anchorTo` it is also
+-- anchored along that frame's `edge` (h: "TOP"/"BOTTOM", default BOTTOM;
+-- v: "LEFT"/"RIGHT", default LEFT); without it the caller anchors and only the
+-- thickness is managed. Re-fitted by itself when the scale changes.
+function T.hairline(tex, axis, anchorTo, edge, n)
+    n = n or 1
+    if anchorTo then
+        tex:ClearAllPoints()
+        if axis == "v" then
+            edge = edge or "LEFT"
+            tex:SetPoint("TOP" .. edge,    anchorTo, "TOP" .. edge,    0, 0)
+            tex:SetPoint("BOTTOM" .. edge, anchorTo, "BOTTOM" .. edge, 0, 0)
+        else
+            edge = edge or "BOTTOM"
+            tex:SetPoint(edge .. "LEFT",  anchorTo, edge .. "LEFT",  0, 0)
+            tex:SetPoint(edge .. "RIGHT", anchorTo, edge .. "RIGHT", 0, 0)
+        end
     end
+    if axis == "v" then T.SetPixelWidth(tex, n) else T.SetPixelHeight(tex, n) end
+end
+
+local function under(region, root)
+    local p = region
+    while p do
+        if p == root then return true end
+        p = p.GetParent and p:GetParent() or nil
+    end
+    return false
+end
+
+local function refitOne(region, r)
+    if r.h then
+        if r.hSet and math.abs((region:GetHeight() or 0) - r.hSet) > EPS then
+            r.h, r.hSet = nil, nil   -- resized by someone else since: not ours any more
+        else
+            applyHeight(region, r.h)
+            r.hSet = region:GetHeight()
+        end
+    end
+    if r.w then
+        if r.wSet and math.abs((region:GetWidth() or 0) - r.wSet) > EPS then
+            r.w, r.wSet = nil, nil
+        else
+            applyWidth(region, r.w)
+            r.wSet = region:GetWidth()
+        end
+    end
+    if r.fn then r.fn(region) end
+end
+
+local pixelCbs = {}
+
+-- onPixelScaleChanged(fn): persistent; fires after every RefreshPixels (a
+-- container that lays out by hand re-runs its layout, like onFontMetricsChanged).
+function T.onPixelScaleChanged(fn)
+    pixelCbs[#pixelCbs + 1] = fn
+end
+
+-- Re-runs every theme listener of every context (ADR-0019), with its tokens:
+-- the components' _applyTheme re-derive borders, insets and measurements.
+function T._notifyAll()
+    local t = T.get()
+    for _, entry in ipairs(T._listeners) do entry.fn(t) end
+    for _, ctx in pairs(T._contexts) do
+        local ct = Ctx.get(ctx)
+        for _, entry in ipairs(ctx._listeners) do entry.fn(ct) end
+    end
+end
+
+-- RefreshPixels([root]): re-fits every 1px thickness / pixel inset to the
+-- CURRENT effective scale and re-runs the components' _applyTheme. With `root`,
+-- only the registered regions under that frame are re-fitted (the listeners
+-- still all run — the same cost as a font settling). Called by Craft itself on
+-- UI_SCALE_CHANGED / DISPLAY_SIZE_CHANGED and by Window:SetBaseScale; a consumer
+-- that SetScale()s its own host calls it after (as with Icons.Refresh, FR-139).
+function T.RefreshPixels(root)
+    for region, r in pairs(refit) do
+        if not root or under(region, root) then refitOne(region, r) end
+    end
+    T._notifyAll()
+    for i = 1, #pixelCbs do pixelCbs[i](root) end
 end
 
 function T.isPixelPerfect()
     return math.abs(UIParent:GetEffectiveScale() - 1.0) < 0.01
+end
+
+-- ─── Curved textures off the pixel grid (FR-143) ───────────────────────────
+-- The client snaps every texture's vertices to the physical pixel grid. On a 1px
+-- colour strip that is exactly right; on a SCALED curve (a pill cap, a disc, a
+-- rounded corner) at a non-integer UI scale it can shift the quad half a pixel
+-- or bend the curve. smooth(tex) turns the snapping off for that one texture
+-- (NaowhForever's pattern). Rule: OFF only on curved pieces with mipmaps (Craft's
+-- shape_*.tga), ON (the default) on strips and straight fills.
+-- `smoothCurves` is the library-wide switch the curved pieces read (FR-141
+-- corners): false until the Browser bench (Shapes page) shows a gain in-game.
+T.smoothCurves = false
+
+function T.smooth(tex)
+    if tex.SetSnapToPixelGrid then tex:SetSnapToPixelGrid(false) end
+    if tex.SetTexelSnappingBias then tex:SetTexelSnappingBias(0) end
 end
 
 -- ─── Corner-safe 1px border ─────────────────────────────────────────────────
@@ -522,15 +704,9 @@ end
 -- colors the textures (SetColorTexture) so it works for any border token/state.
 function T.AnchorBorder(frame, top, bottom, left, right)
     -- top/bottom: tiras horizontales de 1px que OCUPAN las esquinas (ancho completo).
-    top:ClearAllPoints()
-    top:SetPoint("TOPLEFT",  frame, "TOPLEFT",  0, 0)
-    top:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
-    T.SetPixelHeight(top, 1)
-
-    bottom:ClearAllPoints()
-    bottom:SetPoint("BOTTOMLEFT",  frame, "BOTTOMLEFT",  0, 0)
-    bottom:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
-    T.SetPixelHeight(bottom, 1)
+    -- (hairline, FR-147: the thicknesses re-fit themselves on a scale change, FR-142).
+    T.hairline(top,    "h", frame, "TOP")
+    T.hairline(bottom, "h", frame, "BOTTOM")
 
     -- left/right: rellenan EXACTAMENTE el hueco entre las tiras sup/inf, anclándose a
     -- ellas (no a un inset calculado `px(1)`). Antes el inset se calculaba aparte del
@@ -608,16 +784,7 @@ do
     local function notifyMetricsChanged()
         -- Same notification use() performs: components re-run _applyTheme
         -- ... in EVERY context (ADR-0019), each with its own tokens.
-        local t = T.get()
-        for _, entry in ipairs(T._listeners) do
-            entry.fn(t)
-        end
-        for _, ctx in pairs(T._contexts) do
-            local ct = Ctx.get(ctx)
-            for _, entry in ipairs(ctx._listeners) do
-                entry.fn(ct)
-            end
-        end
+        T._notifyAll()
         for i = 1, #fontsChangedCbs do fontsChangedCbs[i]() end
     end
 
@@ -709,6 +876,30 @@ do
 end
 
 Craft.register("Theme", T, _BUILD)
+
+-- ─── Scale changes (FR-142) ──────────────────────────────────────────────────
+-- The UI scale option, a resolution change or a window resize change the
+-- effective scale under every Craft frame: re-fit the pixels. The new scale
+-- settles AFTER the event (same as Icons.lua, FR-139), so wait one frame, and
+-- coalesce a burst (DISPLAY_SIZE_CHANGED + UI_SCALE_CHANGED arrive together)
+-- into one refresh. Only the REGISTERED Theme acts: components register their
+-- pixels with it. No OnUpdate: zero cost at rest.
+do
+    local pending = false
+    local function run()
+        pending = false
+        if Craft.Theme == T then T.RefreshPixels() end
+    end
+    local ev = CreateFrame("Frame")
+    ev:RegisterEvent("UI_SCALE_CHANGED")
+    ev:RegisterEvent("DISPLAY_SIZE_CHANGED")
+    ev:SetScript("OnEvent", function()
+        if pending then return end
+        pending = true
+        if C_Timer and C_Timer.After then C_Timer.After(0, run) else run() end
+    end)
+    T._scaleEvents = ev  -- test hook
+end
 
 -- ─── LibSharedMedia (FR-129) ─────────────────────────────────────────────────
 -- Craft NO depende de LibSharedMedia, pero si está cargada le registra sus TTF

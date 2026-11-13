@@ -325,7 +325,7 @@ function Dialog:Create(parent, config)
     -- explicit level they tie and the header can win the mouse — clicking ✕ starts a
     -- drag instead of closing. Lift the close button above the header so it always
     -- receives the click. (FR-033.)
-    self._closeBtn:SetFrameLevel(self._header:GetFrameLevel() + 10)
+    self._closeBtn:SetFrameLevel(Craft.Strata.above(self._header, 10))
 
     -- Background texture (transparent default, tinted on hover/press)
     self._closeBg = self._closeBtn:CreateTexture(nil, "BACKGROUND")

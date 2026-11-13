@@ -158,7 +158,7 @@ function DragList:_build()
         self:_releaseRow(row)   -- drop the previous item's render before overwriting it
 
         row:SetSize(w, ROW_H)
-        row:SetFrameLevel(self.frame:GetFrameLevel() + 1)
+        row:SetFrameLevel(Craft.Strata.above(self.frame, 1))
         row:SetAlpha(1)
         row.dragBg:Hide()
         row.item = item
@@ -229,7 +229,7 @@ function DragList:_dragStart(row)
     self._drag = { row = row, followY = 0, startOrder = {} }
     for i, r in ipairs(self._order) do self._drag.startOrder[i] = r end
 
-    row:SetFrameLevel(self.frame:GetFrameLevel() + 10)
+    row:SetFrameLevel(Craft.Strata.above(self.frame, 10))
     row.dragBg:Show()
     row:SetAlpha(0.95)
     self.frame:SetScript("OnUpdate", self._onUpdate)
@@ -269,7 +269,7 @@ function DragList:_dragStop()
     local changed = self:_orderChanged(self._drag.startOrder, self._order)
     self._drag = nil
 
-    moved:SetFrameLevel(self.frame:GetFrameLevel() + 1)
+    moved:SetFrameLevel(Craft.Strata.above(self.frame, 1))
     moved.dragBg:Hide()
     moved:SetAlpha(1)
     self:_relayout()

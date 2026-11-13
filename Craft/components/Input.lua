@@ -188,7 +188,7 @@ function Input:Create(parent, config)
     -- level and WoW hands the click to the one created LAST — the EditBox, which
     -- swallowed the ✕. Lift the trailing button above it so it owns its own hit area.
     if self._trailBtn then
-        self._trailBtn:SetFrameLevel(self._edit:GetFrameLevel() + 1)
+        self._trailBtn:SetFrameLevel(Craft.Strata.above(self._edit, 1))
     end
 
     -- ── _placeholder: FontString OVERLAY ──────────────────────────────────────

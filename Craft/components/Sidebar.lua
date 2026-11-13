@@ -329,7 +329,7 @@ function Sidebar:Create(parent, config)
     -- ── Drag and drop scaffolding (FR-117) ────────────────────────────────────
     -- Indicator: a line before/after a row or a wash over it ("inside"), faded in.
     self._dropInd = CreateFrame("Frame", nil, self._child)
-    self._dropInd:SetFrameLevel(self._child:GetFrameLevel() + 30)
+    self._dropInd:SetFrameLevel(Craft.Strata.above(self._child, 30))
     self._dropLine = self._dropInd:CreateTexture(nil, "OVERLAY")
     self._dropLine:SetAllPoints(self._dropInd)
     self._dropFill = self._dropInd:CreateTexture(nil, "ARTWORK")
@@ -731,7 +731,7 @@ function Sidebar:_acquire(kind)
         self:_makeSlide(row)
         self._pool[kind][n] = row
     end
-    row:SetFrameLevel(self._child:GetFrameLevel() + 1)
+    row:SetFrameLevel(Craft.Strata.above(self._child, 1))
     row:SetAlpha(1)
     row:Show()
     return row
@@ -959,7 +959,7 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
         row.chevTex:SetSize(CHEV_SIZE, CHEV_SIZE)
         row.chevTex:Show()
         row.chevBtn:SetSize(CHEV_SIZE + ITEM_PAD * 2, rowH)
-        row.chevBtn:SetFrameLevel(row:GetFrameLevel() + 2)
+        row.chevBtn:SetFrameLevel(Craft.Strata.above(row, 2))
         row.chevBtn:EnableMouse(not disabled)
         row.chevBtn:Show()
         self:_updateChevron(entry)
@@ -1209,7 +1209,7 @@ function Sidebar:_makeRowAction(entry, spec, rowH)
             and ACTION_TOP_LG or math.floor((rowH - ACTION_SIZE) / 2)
     a.bg:SetColorTexture(0, 0, 0, 0)
     if Craft.Icons.Has(spec.icon) then Craft.Icons.Apply(a.tex, spec.icon, ICON_SIZE) end
-    a.btn:SetFrameLevel(row:GetFrameLevel() + 3)   -- above the chevron Button
+    a.btn:SetFrameLevel(Craft.Strata.above(row, 3))   -- above the chevron Button
     -- Decorative forwards every click to the row, so it listens for both buttons.
     self:_registerClicks(a.btn, entry.wantsContext or a.decorative)
     a.btn:Show()
@@ -1755,7 +1755,7 @@ end
 function Sidebar:_paintGhost(e, label)
     local g, t = self:_getGhost(), self._t
     g:SetHeight(e._h or (e.frame:GetHeight() or 0))
-    g:SetFrameLevel(self._child:GetFrameLevel() + 40)
+    g:SetFrameLevel(Craft.Strata.above(self._child, 40))
     g:SetAlpha(DRAG_ALPHA)
     local baseX = ITEM_PAD + (e.depth or 0) * INDENT
     local hasIcon = false

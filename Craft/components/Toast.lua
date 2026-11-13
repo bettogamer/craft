@@ -457,10 +457,10 @@ function Toast._layout(R)
         setGoal(c, g)
 
         local lvl = LEVEL_BASE + (n - idx) * LEVEL_STEP
-        c.frame:SetFrameLevel(lvl)
-        c.body:SetFrameLevel(lvl + 1)
-        c.actionBtn:SetFrameLevel(lvl + 2)
-        c.cancelBtn:SetFrameLevel(lvl + 2)
+        c.frame:SetFrameLevel(Craft.Strata.level(lvl))
+        c.body:SetFrameLevel(Craft.Strata.level(lvl + 1))
+        c.actionBtn:SetFrameLevel(Craft.Strata.level(lvl + 2))
+        c.cancelBtn:SetFrameLevel(Craft.Strata.level(lvl + 2))
         c.frame:EnableMouse(visible)       -- [data-visible=false]: pointer-events none
 
         if visible then regionH = math.max(regionH, g[1] + g[3] / 2) end

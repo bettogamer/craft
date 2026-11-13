@@ -70,6 +70,24 @@ Craft.Strata = {
     toast        = "TOOLTIP",            -- Craft.Toast; sits over popovers by frame level (sonner z-index max)
 }
 
+-- ─── Frame-level ceiling (FR-146) ────────────────────────────────────────────
+-- The client caps frame levels at 10000 and silently clips anything above, which
+-- would reorder layers (the Badge ✕ or a button over a drag zone ending up BELOW
+-- its parent) once Craft frames stack on an already-high parent: other addons'
+-- windows, Dialog over Window over Popover (FR-033). Every Craft call that raises
+-- a frame goes through these, so none can pass the ceiling.
+Craft.MAX_FRAME_LEVEL = 10000
+
+-- level(n) → n clamped to [0, MAX_FRAME_LEVEL].
+function Craft.Strata.level(n)
+    return math.max(0, math.min(n or 0, Craft.MAX_FRAME_LEVEL))
+end
+
+-- above(frame, n) → frame's level + n (default 1), clamped to the ceiling.
+function Craft.Strata.above(frame, n)
+    return Craft.Strata.level(((frame and frame:GetFrameLevel()) or 0) + (n or 1))
+end
+
 -- mediaPath: absolute WoW path to Craft/media/. Changes when Craft is embedded in another addon.
 -- Standalone:  Interface\AddOns\Craft\media\
 -- Embedded:    Interface\AddOns\<hostAddon>\libs\Craft\media\  (per .pkgmeta convention)

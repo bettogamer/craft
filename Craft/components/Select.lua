@@ -590,7 +590,7 @@ function Select:_makeScrollArrow(dir, onWheel)
     frame:SetHeight(ARROW_H)
     -- Above the ScrollFrame: the bands own their strip of the panel, so a click
     -- landing on the seam can never reach the row scrolled underneath.
-    frame:SetFrameLevel(self._panel:GetFrameLevel() + 10)
+    frame:SetFrameLevel(Craft.Strata.above(self._panel, 10))
     frame:EnableMouse(true)
     frame:EnableMouseWheel(true)
     frame:SetScript("OnMouseWheel", onWheel)

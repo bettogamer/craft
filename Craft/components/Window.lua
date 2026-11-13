@@ -349,7 +349,7 @@ function Window:Create(parent, config)
         self._resize = CreateFrame("Button", nil, self.frame)
         self._resize:SetSize(RESIZE_SIZE, RESIZE_SIZE)
         self._resize:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -RESIZE_PAD, RESIZE_PAD)
-        self._resize:SetFrameLevel(self.frame:GetFrameLevel() + 10)
+        self._resize:SetFrameLevel(Craft.Strata.above(self.frame, 10))
         self._resize:EnableMouse(true)
         self._resizeTex = self._resize:CreateTexture(nil, "OVERLAY")
         self._resizeTex:SetAllPoints(self._resize)
@@ -433,9 +433,7 @@ function Window:_applyTheme(t)
     -- Ring (ring-foreground/10) + bg (popover), bg inset 1px to reveal the ring.
     self._ringTex:SetColorTexture(t.foreground.r, t.foreground.g, t.foreground.b, 0.10)
     local px1 = Craft.Theme.px(1, self.frame)
-    self._bg:ClearAllPoints()
-    self._bg:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     px1, -px1)
-    self._bg:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -px1, px1)
+    Craft.Theme.pixelInset(self._bg, 1, self.frame)   -- FR-147: re-fits itself (FR-142)
     self._bg:SetColorTexture(t.background.r, t.background.g, t.background.b, 1)
 
     -- Title bar + content sit INSIDE the 1px ring (inset by px1 on the outer edges),
@@ -751,6 +749,8 @@ function Window:SetBaseScale(s)
     if Craft.Icons and Craft.Icons.Refresh and zoom > 0 then
         Craft.Icons.Refresh(self.frame, 1 / zoom)
     end
+    -- FR-142: the 1px rings/insets inside were fitted to the old scale.
+    if Craft.Theme.RefreshPixels then Craft.Theme.RefreshPixels(self.frame) end
 end
 
 function Window:GetBaseScale()

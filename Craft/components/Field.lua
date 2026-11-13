@@ -372,7 +372,7 @@ function Field:_ensureMark()
     if self._mark then return end
     local m = CreateFrame("Button", nil, self.frame)
     m:SetSize(MARK_SIZE, MARK_SIZE)
-    m:SetFrameLevel((self._controlFrame:GetFrameLevel() or 0) + 10)
+    m:SetFrameLevel(Craft.Strata.above(self._controlFrame, 10))
     m:EnableMouse(false)
     m:Hide()
 

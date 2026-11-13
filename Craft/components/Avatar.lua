@@ -491,7 +491,7 @@ function AvatarGroup:SetItems(items)
             av = Craft.Avatar:Create(self.frame, { size = self._cfg.size, ring = true })
             -- Los hermanos POSTERIORES pintan ENCIMA (orden de pintado del DOM):
             -- el anillo de fondo del avatar i+1 es lo que recorta el hueco sobre el i.
-            av:GetFrame():SetFrameLevel(self.frame:GetFrameLevel() + i)
+            av:GetFrame():SetFrameLevel(Craft.Strata.above(self.frame, i))
             self._pool[i] = av
         end
 

@@ -106,7 +106,7 @@ function Slider:Create(parent, config)
     -- No horizontal inset. Thumb constraint formula keeps thumb within [left, right]:
     -- posX = THUMB_SZ/2 + ratio*(trackW-THUMB_SZ) → LEFT edge flush at min, RIGHT edge flush at max.
     self._trackFrame = CreateFrame("Frame", nil, self.frame)
-    self._trackFrame:SetFrameLevel(fl + 1)
+    self._trackFrame:SetFrameLevel(Craft.Strata.level(fl + 1))
     self._trackFrame:SetHeight(TRACK_H)
     self._trackFrame:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",  0, trackTopY)
     self._trackFrame:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, trackTopY)
@@ -136,7 +136,7 @@ function Slider:Create(parent, config)
 
     -- ── Fill frame (fl+2) — left-anchored to track, width driven by value ────
     self._fill = CreateFrame("Frame", nil, self.frame)
-    self._fill:SetFrameLevel(fl + 2)
+    self._fill:SetFrameLevel(Craft.Strata.level(fl + 2))
     self._fill:SetHeight(TRACK_H)
     self._fill:SetPoint("TOPLEFT", self._trackFrame, "TOPLEFT")
     self._fill:SetWidth(1)
@@ -146,7 +146,7 @@ function Slider:Create(parent, config)
 
     -- ── Thumb ring (fl+3) — sibling frame, anchored to thumb ────────────────
     self._thumbRing = CreateFrame("Frame", nil, self.frame)
-    self._thumbRing:SetFrameLevel(fl + 3)
+    self._thumbRing:SetFrameLevel(Craft.Strata.level(fl + 3))
     self._thumbRingTop    = self._thumbRing:CreateTexture(nil, "OVERLAY")
     self._thumbRingBottom = self._thumbRing:CreateTexture(nil, "OVERLAY")
     self._thumbRingLeft   = self._thumbRing:CreateTexture(nil, "OVERLAY")
@@ -155,7 +155,7 @@ function Slider:Create(parent, config)
 
     -- ── Thumb (fl+4) — Button, no native Slider widget ───────────────────────
     self._thumb = CreateFrame("Button", nil, self.frame)
-    self._thumb:SetFrameLevel(fl + 4)
+    self._thumb:SetFrameLevel(Craft.Strata.level(fl + 4))
     self._thumb:SetSize(THUMB_SZ, THUMB_SZ)
     self._thumb:EnableMouse(true)
     -- after:-inset-2 — expand the clickable area 8px on each side so the small
