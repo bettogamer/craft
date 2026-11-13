@@ -114,6 +114,32 @@ describe("Craft.ScrollBar", function()
         assert.equals(before, #Craft.Theme._listeners)
         assert.has_no_errors(function() bar:Destroy() end)   -- double-free guard
     end)
+
+    -- FR-144: a lost OnMouseUp (released outside the client after Alt-Tab…)
+    -- must not leave the thumb glued to the cursor.
+    it("ends the drag on the next tick once the button is no longer held", function()
+        local bar = makeRig(200, 200, 800)
+        local realDown = _G.IsMouseButtonDown
+        _G.IsMouseButtonDown = function() return true end
+        bar.thumb:_fire("OnMouseDown")
+        assert.is_true(bar._dragging)
+        local tick = bar.thumb:GetScript("OnUpdate")
+        tick(bar.thumb)
+        assert.is_true(bar._dragging)               -- still held: keeps dragging
+        _G.IsMouseButtonDown = function() return false end
+        tick(bar.thumb)
+        _G.IsMouseButtonDown = realDown
+        assert.is_false(bar._dragging)
+        assert.is_nil(bar.thumb:GetScript("OnUpdate"))
+    end)
+
+    it("hiding the rail mid-drag ends the drag", function()
+        local bar = makeRig(200, 200, 800)
+        bar.thumb:_fire("OnMouseDown")
+        bar.frame:_fire("OnHide")
+        assert.is_false(bar._dragging)
+        assert.is_nil(bar.thumb:GetScript("OnUpdate"))
+    end)
 end)
 
 describe("Craft.ScrollBar — horizontal (FR-100)", function()

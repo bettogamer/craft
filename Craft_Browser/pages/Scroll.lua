@@ -163,6 +163,12 @@ CraftBrowserPages["Scroll"] = {
         addHBtn("Añadir 10", 180, function() sCount = sCount + 10; paintRows() end)
         y = y + 40
 
+        -- FR-144 repro (no widget of its own: any rail above serves). Drag a thumb,
+        -- Alt-Tab with the button held, release outside the client, come back: the
+        -- thumb must NOT keep following the cursor.
+        y = addLabel("FR-144 — arrastra un thumb, Alt-Tab con el botón pulsado, suelta fuera y vuelve: "
+            .. "el thumb ya no sigue al cursor", y)
+
         return {
             height  = y + 24,
             cleanup = function()
