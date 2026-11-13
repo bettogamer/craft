@@ -7,7 +7,7 @@ Input, Avatar (iniciales), Checkbox/RadioGroup/Switch (label). Con texto que dim
 Label, Field, Tooltip, Section.
 **Tipo:** Fidelidad shadcn / pixel-perfect (refactor transversal).
 **Prioridad:** Media.
-**Estado:** en curso. **Paso 1 hecho (2026-11-13):** helpers `Theme.snapPx` / `lineHeight` /
+**Estado:** ✅ implementado y verificado in-game en dev (2026-11-13, pasos 1-6, commits f8c850f..3f32cca), sin release. **Paso 1 hecho (2026-11-13):** helpers `Theme.snapPx` / `lineHeight` /
 `placeText` / `remeasureNextFrame` + Badge migrado sin cambio de geometría (`tests/textplace_spec.lua`,
 `badge_spec` igual); escala pixel-perfect disponible en todas las páginas (`/craft pp`, botón en Pixels).
 **Pasos 2-3 hechos y verificados in-game a 1:1 (2026-11-13):** Button, Select (trigger), Toggle y Tabs, todos
