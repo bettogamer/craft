@@ -31,6 +31,16 @@ CraftBrowserPages["Button"] = {
             return yOff + 40
         end
 
+        -- FR-149 bench: measure text centring at 1 UI unit = 1 physical px
+        -- (scripts/measure-text-centering.py). Also /craft pp.
+        local ppBtn = Craft.Button:Create(parent, {
+            text = "Escala pixel-perfect (FR-149)", variant = "outline", size = "sm",
+            onClick = function() CraftBrowser.PixelPerfectDemo() end,
+        })
+        ppBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, ppBtn)
+        y = y + 36
+
         -- Variants
         y = addLabel("Variants", y)
         local variants = {

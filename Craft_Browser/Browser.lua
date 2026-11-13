@@ -391,7 +391,7 @@ function CB.PixelPerfectDemo()
     _demoFrame:SetScale(target / parentEff)
     Craft.Theme.RefreshPixels(_demoFrame)
     print(("|cff7fe3e6Craft|r pixel-perfect: pantalla %dpx alto → escala efectiva %.4f (1 unidad = 1 px). "
-        .. "Un badge h-5 debe medir 20 px."):format(ph, _demoFrame:GetEffectiveScale()))
+        .. "Un badge h-5 debe medir 20 px. Se mantiene al cambiar de página; el slider de escala la deshace."):format(ph, _demoFrame:GetEffectiveScale()))
     local page = CraftBrowserDB.page
     C_Timer.After(0, function() CB.Navigate(page) end)
 end
@@ -492,6 +492,33 @@ SlashCmdList["CRAFT"] = function(msg)
     msg = msg and msg:match("^%s*(.-)%s*$") or ""  -- trim
     if msg == "" then
         CB.Toggle()
+    elseif msg:lower() == "pp" then
+        -- FR-149: pixel-perfect demo scale from any page (persists while navigating).
+        if not (_mainFrame and _mainFrame:IsShown()) then CB.Toggle() end
+        CB.PixelPerfectDemo()
+    elseif msg:lower() == "scrollprobe" then
+        -- FR-149: is the page's scroll offset on whole physical pixels? Prints the
+        -- offset in UI units AND physical px, the client's range vs Craft's max, and
+        -- the fractional part of the content's top edge (what rounding sees).
+        local out = DEFAULT_CHAT_FRAME
+        local T   = Craft.Theme
+        if not _demoScroll then out:AddMessage("scrollprobe: open the Browser first"); return end
+        local sf    = _demoScroll._scrollFrame
+        local child = _demoScroll:GetScrollChild()
+        local eff   = sf:GetEffectiveScale()
+        local _, ph = GetPhysicalScreenSize()
+        local toPx  = eff / (768 / ph)              -- UI units → physical px
+        local off   = sf:GetVerticalScroll() or 0
+        local cPx   = child:GetEffectiveScale() / (768 / ph)  -- the child may have its own scale (pp)
+        local top   = (child:GetTop() or 0) * cPx
+        local stop  = (sf:GetTop() or 0) * toPx
+        out:AddMessage(("|cff8bd5caCraft scrollprobe|r v%s snapOffset=%s eff=%.6f px/unit=%.6f unit1px=%.6f"):format(
+            tostring(Craft.VERSION), tostring(T.snapOffset ~= nil), eff, toPx, T.px(1, sf)))
+        out:AddMessage(("  offset=%.4f child u (%.4f px)  clientRange=%.4f  craftMax=%.4f"):format(
+            off, off * cPx, sf:GetVerticalScrollRange() or -1,
+            _demoScroll._bar and _demoScroll._bar:GetMaxScroll() or -1))
+        out:AddMessage(("  viewport top=%.4f px  child top=%.4f px  child h=%.4f u  view h=%.4f u"):format(
+            stop, top, child:GetHeight() or -1, sf:GetHeight() or -1))
     elseif msg:lower() == "fontprobe" then
         -- Diagnóstico del bug de anchos del primer boot (Theme.lua font warm-up):
         -- imprime qué copia de Craft ganó el registro y el estado de cada sonda.

@@ -56,6 +56,15 @@ CraftBrowserPages["Pixels"] = {
             return s
         end
 
+        -- FR-149: 1 UI unit = 1 physical px for the whole demo area (also /craft pp).
+        -- It stays on when navigating, so measure any component page with it.
+        local ppBtn = track(Craft.Button:Create(parent, {
+            text = "Escala pixel-perfect (vale para todas las páginas)", variant = "outline", size = "sm",
+            onClick = function() CraftBrowser.PixelPerfectDemo() end,
+        }))
+        ppBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        y = y + 36
+
         -- ── FR-141 radius bench ───────────────────────────────────────────────
         local RADII = { 0, 2, 4, 6, "full" }
         for k, scale in ipairs({ 1.0, 0.71 }) do
