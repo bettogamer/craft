@@ -279,3 +279,17 @@ describe("Craft.Section (FR-135 rect lost after fold/unfold)", function()
         restore()
     end)
 end)
+
+describe("Craft.Section title on whole pixels (FR-149)", function()
+    local unpack = unpack or table.unpack
+    it("centres the first line in its 16px line box, single or wrapped", function()
+        for _, gh in ipairs({ 12, 40 }) do
+            local s = Craft.Section:Create(UIParent, { title = "Avanzado" })
+            s._title.GetStringHeight = function() return gh end
+            local off = s:_placeTitle()
+            assert.equals(2, off)                        -- (16-12)/2, also when wrapped
+            local _, _, _, _, y = unpack(s._title._pointsByAnchor.TOPLEFT)
+            assert.equals(-12, y)                        -- py-2.5 + 2
+        end
+    end)
+end)

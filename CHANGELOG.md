@@ -35,6 +35,15 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   se movía una fracción de píxel: medido, el texto de cada trigger de Tabs bajaba 1 px respecto a su
   caja. Nuevo `Craft.Theme.snapOffset(v, frame, max)`, usado por todos los setters de scroll, sobre
   la rejilla del scroll child (el cliente aplica el offset en sus unidades, que difieren si tiene escala propia).
+  Paso 4: `Craft.Theme.setScroll(sf, v, max, horizontal)` (clamp + snap + set) es ahora la única vía;
+  también la usan los scrolls propios de Select, Combobox, Menu, Sidebar, Textarea y CodeEditor.
+- **ToggleGroup, Combobox, Input, Avatar, Menu y Checkbox: texto en píxeles enteros (FR-149, paso 5).**
+  Medidos a escala pixel-perfect, todos dejaban el texto 1 px más alto que Button; ahora usan
+  `Theme.placeText`/`snapPx` como Button/Select/Toggle/Tabs. Los segmentos w-full de ToggleGroup pasan a
+  anchos enteros que encajan (p. ej. 57/58/57 en vez de 3×57.33).
+- **Sidebar, RadioGroup, Field (horizontal) y Section: texto en píxeles enteros (FR-149, paso 6).** Sidebar
+  y RadioGroup quedaban 1 px altos; la etiqueta de un Field horizontal, 2 px por encima del texto de su
+  control; el título de Section, arriba de su línea (11/15 entre separadores → centrado).
 - **`Craft.Flex` / `Craft.Grid`: `floor` con tolerancia (FR-149).** Un `GetHeight()` de 25.99999 (ruido de
   coma flotante con escala propia) hacía que `math.floor` perdiera un píxel entero: el 2.º renglón de un
   Tabs con wrap quedaba 1 px alto. Ahora se redondea hacia abajo con una tolerancia de 1e-4.

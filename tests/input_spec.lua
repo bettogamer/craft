@@ -362,3 +362,21 @@ describe("Craft.Input prefix/suffix (FR-122)", function()
         i:Destroy()
     end)
 end)
+
+describe("Craft.Input whole-pixel text (FR-149)", function()
+    local unpack = unpack or table.unpack
+    it("placeholder drops by the cap nudge; the EditBox top inset is twice it", function()
+        local inp = Craft.Input:Create(UIParent, { placeholder = "Type", width = 200 })
+        inp._placeholder.GetStringHeight = function() return 12 end
+        inp:_anchorPlaceholder()
+        local _, _, _, x, y = unpack(inp._placeholder._pointsByAnchor.TOPLEFT)
+        assert.equals(10, x)
+        assert.equals(-11, y)            -- (32-12)/2 + round(1.2)
+        local _, _, _, _, y2 = unpack(inp._placeholder._pointsByAnchor.TOPRIGHT)
+        assert.equals(-11, y2)
+        if inp._edit.GetTextInsets then
+            local _, _, top = inp._edit:GetTextInsets()
+            assert.equals(2, top)
+        end
+    end)
+end)

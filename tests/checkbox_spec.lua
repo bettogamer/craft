@@ -176,3 +176,17 @@ describe("Craft.Checkbox — Toggle() público (FR-056)", function()
         assert.is_false(cb:GetChecked())
     end)
 end)
+
+describe("Craft.Checkbox whole-pixel label (FR-149)", function()
+    local unpack = unpack or table.unpack
+    it("the label sits on the box's TOPLEFT, past box + gap, dropped by the cap nudge", function()
+        local cb = Craft.Checkbox:Create(UIParent, { label = "Select all" })
+        cb._label.GetStringHeight = function() return 12 end
+        cb:_placeLabel()
+        local _, rel, _, x, y = unpack(cb._label._pointsByAnchor.TOPLEFT)
+        assert.equals(cb._box, rel)
+        assert.equals(24, x)             -- box 16 + gap 8
+        assert.equals(-3, y)             -- (16-12)/2 + round(1.2)
+        assert.is_nil(cb._label._pointsByAnchor.LEFT)
+    end)
+end)

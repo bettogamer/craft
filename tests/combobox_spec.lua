@@ -419,3 +419,22 @@ describe("Craft.Combobox virtualized list (FR-125)", function()
         c:Destroy()
     end)
 end)
+
+describe("Craft.Combobox whole-pixel trigger (FR-149)", function()
+    local unpack = unpack or table.unpack
+    it("the trigger text drops by the cap nudge and keeps its width anchors", function()
+        for _, c in ipairs({ { "default", -11 }, { "sm", -9 } }) do
+            local cb = Craft.Combobox:Create(UIParent, { size = c[1], options = FLAT })
+            cb._selectedText.GetStringHeight = function() return 12 end
+            cb:_placeTriggerText()
+            local pts = cb._selectedText._pointsByAnchor
+            local _, _, _, x, y = unpack(pts.TOPLEFT)
+            assert.equals(10, x)
+            assert.equals(c[2], y)       -- (h-12)/2 + round(1.2)
+            local _, _, _, x2, y2 = unpack(pts.TOPRIGHT)
+            assert.equals(-30, x2)       -- pr 8 + chevron 16 + gap 6
+            assert.equals(c[2], y2)
+            cb:Destroy()
+        end
+    end)
+end)

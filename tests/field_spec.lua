@@ -142,7 +142,7 @@ describe("Craft.Field (FR-041)", function()
         assert.equals(88,  cx)                 -- labelWidth(80) + gap(8)
         assert.equals(212, ctrl:GetWidth())    -- content llena el resto (300 - 88)
         assert.equals(0,   cy)                  -- items-center, control 36 = rowH → y=0
-        assert.equals(12,  ly)                  -- label 12 centrado en rowH 36 → (36-12)/2
+        assert.equals(13,  ly)                  -- label 12 en rowH 36 → (36-12)/2 + cap nudge 1 (FR-149)
         assert.equals(36,  field:GetFrame():GetHeight())
     end)
 

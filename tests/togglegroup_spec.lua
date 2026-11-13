@@ -207,7 +207,26 @@ describe("Craft.ToggleGroup — tooltip (FR-020)", function()
             local tg = newTG({ options = OPTS, width = 180 })
             tg:SetOptions({ { value="a", label="A" }, { value="b", label="B" }, { value="c", label="C" } })
             assert.equals(180, tg:GetFrame():GetWidth())
-            assert.equals(172 / 3, tg._segs[3].btn:GetWidth())
+            -- FR-149: whole-px shares that tile (57/58/57), each within 1px of 172/3,
+            -- and the last one ends exactly at the group's width.
+            local sum = 0
+            for i = 1, 3 do
+                local w = tg._segs[i].btn:GetWidth()
+                assert.equals(w, math.floor(w))
+                assert.is_true(math.abs(w - 172 / 3) < 1)
+                sum = sum + w
+            end
+            assert.equals(172, sum)
+        end)
+
+        it("places labels on whole pixels with the cap nudge (FR-149)", function()
+            local tg = newTG({ options = OPTS })
+            local seg = tg._segs[1]
+            local p, rel, rp, x, y = seg.fs:GetPoint(1)
+            assert.equals("TOP", p); assert.equals(seg.btn, rel); assert.equals("TOP", rp)
+            assert.equals(y, math.floor(y))
+            assert.equals(32, seg.btn:GetHeight())
+            assert.equals(x, 0)
         end)
     end)
 

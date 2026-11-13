@@ -1178,3 +1178,27 @@ describe("Craft.Menu open registry + Tooltip silence (FR-148)", function()
         m:Destroy()
     end)
 end)
+
+describe("Craft.Menu whole-pixel row text (FR-149)", function()
+    local unpack = unpack or table.unpack
+    it("labels and rightText sit on a single TOP anchor at whole px", function()
+        local m = Craft.Menu:Create({ items = {
+            { type = "heading", label = "Group" },
+            { type = "item",    label = "Action", rightText = "Ctrl+A" },
+        } })
+        for i = 1, 2 do
+            local pts = m._items[i].label._pointsByAnchor
+            assert.is_nil(pts.LEFT)
+            local _, _, _, x, y = unpack(pts.TOPLEFT)
+            assert.equals(x, math.floor(x))
+            assert.equals(y, math.floor(y))
+            assert.is_true(y < 0)
+        end
+        local rp = m._items[2].rightText._pointsByAnchor
+        assert.is_nil(rp.RIGHT)
+        local _, _, _, _, ry = unpack(rp.TOPRIGHT)
+        local _, _, _, _, ly = unpack(m._items[2].label._pointsByAnchor.TOPLEFT)
+        assert.equals(ly, ry)            -- label and shortcut share the baseline
+        m:Destroy()
+    end)
+end)

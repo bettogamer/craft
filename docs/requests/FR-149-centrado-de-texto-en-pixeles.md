@@ -15,8 +15,11 @@ con el mismo reparto +1 de Button; de paso, scroll en píxeles enteros (`Theme.s
 scroll child) y `floor` con tolerancia en Flex/Grid. **Queda:** medir el resto de la lista (ToggleGroup,
 Combobox, Menu, Sidebar, Input, Avatar, Checkbox/RadioGroup/Switch, Label/Field/Tooltip/Section) y migrar
 solo lo que dé |diff| ≥ 2 o un 1 sistemático.
-**Siguiente: medir in-game** Button, Toggle, Tabs, Select… con el «Método» y anotar la tabla aquí, antes
-de migrar ninguno.
+**Paso 4 (2026-11-13, en dev, sin verificar in-game):** `Theme.setScroll(sf, v, max, horizontal)` = la
+única vía para mover un ScrollFrame (clamp + snap en la rejilla del scroll child). La usan ScrollBar y los
+scrolls propios de Select, Combobox, Menu, Sidebar (arrastre, tween, `SetScroll`), Textarea y CodeEditor
+(antes llamaban a `SetVerticalScroll` con offsets fraccionales). Spec en `textplace_spec`.
+**Pasos 5-6 (ToggleGroup, Combobox, Input, Avatar, Menu, Checkbox, Sidebar, RadioGroup, Field, Section) hechos y verificados in-game; ver «Mediciones».**
 
 ---
 
@@ -187,6 +190,64 @@ floor(v + 1e-4)` en todos los `floor` de posición/tamaño de Flex y de Grid (mi
 `flex_spec`. **Verificado in-game:** los dos renglones del wrap, 9/8. ✔ Los scrolls propios de Select/Combobox/Menu/Sidebar/CodeEditor/Textarea
 siguen llamando a `SetVerticalScroll` directamente (su rueda va en pasos enteros, pero el clamp al
 máximo no): migrarlos si se mide el mismo efecto.
+
+### ToggleGroup, Combobox, Input, Avatar, Menu y Checkbox — antes (2026-11-13, a 1:1: cajas `h-8` = 32)
+
+Capturas del owner a escala pixel-perfect; medido con `measure-text-centering.py` (cajas) y un perfil de
+filas ad-hoc (filas de Menu, etiqueta de Checkbox). Solo textos sin descendentes ni tildes.
+
+| Componente | Muestra | Caja | Tinta | arriba/abajo | diff |
+|---|---|---|---|---|---|
+| ToggleGroup | «Barra Icono Texto», «Si No» | 32 | 9 | 10/11 | −1 |
+| Combobox (trigger) | «Inter» | 32 | 9 | 10/11 | −1 |
+| Input | «0:00», «5», «# 42», «250», «HP left» | 32 | 9 | 10/11 | −1 |
+| Avatar | «SD/ML/ER» 24·32·40, «48/56/64» | 24…64 | 9 | n/n+1 | −1 (todos) |
+| Menu (filas) | «Rank 17 · Critical Strike», «Rank 18 · Haste» | 28 (paso 28) | 9 | 9/10 | −1 |
+| Checkbox (etiqueta) | «Remember session», «Select all», «Comments», «Follows» | 16 (caja) | 9 | 3/4 | −1 |
+
+Todo −1 sistemático (1 px más alto que Button/Select/Toggle/Tabs ya migrados, +1) ⇒ **paso 5 (dev,
+sin verificar in-game):** los seis migrados a `Theme.placeText` + `snapPx`. ToggleGroup: segmentos en
+píxel entero que encajan (w-full 57/58/57); Combobox: `_placeTriggerText` como Select; Input: placeholder y
+prefix/suffix por `placeText`, el EditBox con inset superior = 2×nudge (centra su propio texto); Avatar:
+ancla `TOP`; Menu: label y rightText de cada fila (`placeRowText`); Checkbox: `_placeLabel` contra la caja.
+Specs en cada `*_spec`; suite 1220 + 2 fallos conocidos.
+
+### Los mismos seis — después (2026-11-13, a 1:1, capturas JPG)
+
+| Componente | arriba/abajo | diff |
+|---|---|---|
+| ToggleGroup («Barra…», «Si No») | 11/10 | +1 |
+| Combobox («Inter», «Añadir zona…») | 11/10 | +1 |
+| Input («0:00», «5», «# 42», «250», «HP left») | 11/10 | +1 |
+| Avatar (24…64, grupo) | n+1/n | +1 (todos) |
+| Menu (11 filas, lista larga **scrolleada**) | 10/9 | +1 |
+| Checkbox («Remember session», «Select all», anidados) | 4/3 | +1 |
+
+**Verificado ✔:** todos con el reparto +1 de Button/Select/Toggle/Tabs. La lista larga de Menu abre
+desplazada hasta la opción actual y sus filas siguen en +1, así que `Theme.setScroll` (paso 4) también
+queda verificado en Menu. (El «??» de Avatar da +2 por ruido del JPG en el borde del círculo y porque «?»
+es más alto que una mayúscula; no cuenta.)
+
+### Sidebar, RadioGroup, Switch, Field y Section — antes (2026-11-13, a 1:1)
+
+Caja = columna de referencia (relleno del ítem, círculo, pista, control, líneas separadoras); tinta solo
+en las columnas del texto (el icono no cuenta). `arriba/abajo` incluye la fila del borde.
+
+| Componente | Muestra | Caja | arriba/abajo | diff | Acción |
+|---|---|---|---|---|---|
+| Sidebar | «Home» h-8, «Calendario» h-7, «Inbox» h-12, «Dashboard» | 32/28/48 | 11/12, 9/10, 19/20 | −1 | `placeLabel` (placeText) en ítems, secciones y fantasma de arrastre |
+| RadioGroup | «Barra/Icono/Texto» frente al círculo | 16 (+AA) | 4/5 | −1 | placeText contra el slot de 16 |
+| Switch | pies de foto de la DEMO | 18 | ~3/5 | −2 | no es Craft (Switch no tiene label): la página usaba `-3` fijo → `-4` |
+| Field horizontal | «Notificaciones», «Nombre» frente a Select/Input | 32 | 10/13 | −3 | `ly` = fórmula de placeText (centrado + nudge, px entero) |
+| Section | «Avanzado» entre separadores | 35 libres | 11/15 | −4 | título centrado en su línea CSS de 16 (+2 px), sin nudge (hueco par) |
+
+**Paso 6 (dev):** los cuatro migrados + la demo de Switch. Suite 1221 + 2 fallos conocidos.
+
+**Después — verificado in-game ✔ (2026-11-13, a 1:1):** Sidebar 12/11 (h-8), 10/9 (h-7), 20/19 (h-12) = +1;
+RadioGroup 5/4 = +1; Field horizontal: la etiqueta y el texto del control en las MISMAS filas (443..451 y
+517..525), los dos 12/11; Section «Avanzado» 13/13 entre separadores y «Acerca de» 13 bajo el suyo.
+Label/Tooltip no tienen caja propia que centrar. **Con esto quedan medidos y migrados todos los
+componentes de la lista.**
 
 ## Criterio de aceptación
 
