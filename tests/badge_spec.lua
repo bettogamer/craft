@@ -28,6 +28,7 @@ dofile("Craft/theme/Theme.lua")
 dofile("Craft/icons/Atlas.lua")
 dofile("Craft/icons/Icons.lua")
 dofile("Craft/theme/Shapes.lua")
+dofile("Craft/theme/RoundedSurface.lua")
 dofile("Craft/components/Badge.lua")
 
 local Craft = LibStub("Craft-2.0")
@@ -244,48 +245,62 @@ end)
 
 describe("Craft.Badge pill", function()
 
-    it("is square by default (Lyra rounded-none): no caps, no masks", function()
+    it("is square by default (Lyra rounded-none): no rounded surface", function()
         local b = Craft.Badge:Create(UIParent, { text = "New" })
         assert.is_nil(b._pill)
         b:Destroy()
     end)
 
-    it("pill = true builds masked caps for border and fill, one mask each", function()
+    it("pill = true draws a RoundedSurface at r = full: 4 masked corners per layer", function()
         local b = Craft.Badge:Create(UIParent, { text = "New", pill = true })
         assert.is_not_nil(b._pill)
-        for _, name in ipairs({ "border", "bg" }) do
-            local caps = b._pill[name]
-            assert.equals(1, #caps.left._masks)
-            assert.equals(caps.leftMask, caps.left._masks[1])
-            assert.equals(1, #caps.right._masks)
-            assert.equals(caps.rightMask, caps.right._masks[1])
-            assert.is_not_nil(tostring(caps.leftMask:GetTexture()):find("shape_circle.tga", 1, true))
+        assert.is_true(b._pill:IsRounded())
+        for _, c in ipairs(b._pill._corners) do
+            assert.equals(1, #c.border._masks)
+            assert.equals(c.borderMask, c.border._masks[1])
+            assert.equals(1, #c.fill._masks)
+            assert.is_not_nil(tostring(c.fillMask:GetTexture()):find("shape_circle.tga", 1, true))
+            assert.is_not_nil(tostring(c.borderMask:GetTexture()):find("shape_cring_", 1, true))
         end
         b:Destroy()
     end)
 
-    it("caps are half the height wide; the centre spans between them (no overlap)", function()
+    it("corners are half the height; the centre spans between them (no overlap)", function()
         local b = Craft.Badge:Create(UIParent, { text = "New", pill = true })
-        local c = b._pill.border
-        assert.equals(10, c.left:GetWidth())
-        assert.equals(20, c.left:GetHeight())
-        local p = b._border._pointsByAnchor
+        local c = b._pill._corners[1]
+        assert.equals(10, c.border:GetWidth())
+        assert.equals(10, c.border:GetHeight())
+        local p = b._pill._cols.centre._pointsByAnchor
         assert.equals(10,  p.TOPLEFT[4])
         assert.equals(-10, p.BOTTOMRIGHT[4])
         b:Destroy()
     end)
 
-    it("caps take the variant colour with the centre (destructive/20 tint)", function()
+    it("outline pill: the ring is drawn, the inside stays transparent (FR-141)", function()
+        local b = Craft.Badge:Create(UIParent, { text = "NUEVO", variant = "outline", pill = true,
+            borderColor = { r = 0.25, g = 0.82, b = 0.83, a = 1 } })
+        local s = b._pill
+        local _, _, _, ca = s._cols.centre:GetColorTexture()
+        assert.equals(0, ca)                                   -- no fill
+        local r, _, _, ta = s._strips.top:GetColorTexture()
+        assert.equals(0.25, r); assert.equals(1, ta)           -- 1px ring
+        local _, _, _, ka = s._corners[1].border:GetColorTexture()
+        assert.equals(1, ka)
+        -- the ring strips are hairlines, never a full-height slice
+        assert.is_true(s._strips.top:GetHeight() <= 1.0001)
+        b:Destroy()
+    end)
+
+    it("fill corners take the variant colour (destructive/20 tint)", function()
         local t = Craft.Theme.get()
         local b = Craft.Badge:Create(UIParent, { text = "Error", variant = "destructive", pill = true })
-        local r, g, bl, a = b._pill.bg.left:GetColorTexture()
+        local r, g, bl, a = b._pill._corners[1].fill:GetColorTexture()
         assert.equals(t.destructive.r, r)
         assert.equals(t.destructive.g, g)
         assert.equals(t.destructive.b, bl)
         assert.equals(0.20, a)
-        local _, _, _, ca = b._bg:GetColorTexture()
-        local _, _, _, ra = b._pill.bg.right:GetColorTexture()
-        assert.equals(ca, ra)
+        local _, _, _, ca = b._pill._cols.centre:GetColorTexture()
+        assert.equals(ca, a)
         b:Destroy()
     end)
 
@@ -300,6 +315,181 @@ describe("Craft.Badge pill", function()
         _G.CreateFrame = realCreate
         assert.is_true(ok)
         assert.is_nil(b._pill)
+        assert.is_not_nil(b._ring)
         b:Destroy()
+    end)
+end)
+
+-- ─── FR-140: per-instance colours + text-driven metrics ───────────────────────
+
+describe("Craft.Badge FR-140 colours", function()
+
+    it("textColor / borderColor / fillColor win over the variant ({r,g,b,a})", function()
+        local b = Craft.Badge:Create(UIParent, { text = "Normal", variant = "outline",
+            textColor = { r = 0.9, g = 0.85, b = 0.72, a = 1 },
+            borderColor = { r = 0.95, g = 0.72, b = 0.29, a = 0.22 } })
+        local r, _, _, a = b._label:GetTextColor()
+        assert.equals(0.9, r); assert.equals(1, a)
+        local br, _, _, ba = b._border:GetColorTexture()
+        assert.equals(0.95, br); assert.equals(0.22, ba)
+        local _, _, _, fa = b._bg:GetColorTexture()
+        assert.equals(0, fa)                                     -- outline: still no fill
+        b:Destroy()
+    end)
+
+    it("accepts token names, re-resolved on a re-theme", function()
+        Craft.Theme.use("lyra-dark")
+        local b = Craft.Badge:Create(UIParent, { text = "x", variant = "outline", textColor = "destructive" })
+        local t = Craft.Theme.get()
+        local r = b._label:GetTextColor()
+        assert.equals(t.destructive.r, r)
+        b:_applyTheme(t)                                         -- re-theme keeps the override
+        assert.equals(t.destructive.r, (b._label:GetTextColor()))
+        b:Destroy()
+    end)
+
+    it("SetColors repaints in place; a nil field goes back to the variant", function()
+        local t = Craft.Theme.get()
+        local b = Craft.Badge:Create(UIParent, { text = "8/10", variant = "outline",
+            borderColor = { r = 1, g = 0.8, b = 0.2, a = 0.5 } })
+        b:SetColors({ border = { r = 1, g = 0, b = 0, a = 1 }, fill = { r = 0.2, g = 0, b = 0, a = 0.3 } })
+        local br = b._border:GetColorTexture()
+        assert.equals(1, br)
+        local fr, _, _, fa = b._bg:GetColorTexture()
+        assert.equals(0.2, fr); assert.equals(0.3, fa)
+        b:SetColors(nil)
+        br = b._border:GetColorTexture()
+        assert.equals(t.border.r, br)
+        b:Destroy()
+    end)
+
+    it("a selected chip keeps the t.muted fill over fillColor", function()
+        local t = Craft.Theme.get()
+        local b = Craft.Badge:Create(UIParent, { text = "x", selectable = true,
+            fillColor = { r = 0.5, g = 0.5, b = 0.5, a = 1 } })
+        b:SetSelected(true)
+        assert.equals(t.muted.r, (b._bg:GetColorTexture()))
+        b:Destroy()
+    end)
+end)
+
+describe("Craft.Badge FR-140 metrics", function()
+
+    it("no overrides = the v2.47.0 badge (h-5, px-2, 12px medium)", function()
+        local t = Craft.Theme.get()
+        local b = Craft.Badge:Create(UIParent, { text = "New" })
+        assert.equals(20, b.frame:GetHeight())
+        local face, size = b._label:GetFont()
+        assert.equals(12, size); assert.equals(t.fontMedium, face)
+        local _, _, _, x, y = b._label:GetPoint(1)
+        -- TOP anchor at whole pixels: (20 - 12)/2 + cap nudge 1 = 5 below the top
+        assert.equals(8, x); assert.equals(-5, y)
+        b:Destroy()
+    end)
+
+    it("fontSize/paddingX/paddingY: height from the text, border-box padding", function()
+        local b = Craft.Badge:Create(UIParent, { text = "Normal", variant = "outline",
+            fontSize = 11, paddingX = 6, paddingY = 1 })
+        local px1 = b._px1
+        assert.equals(15 + 2 * 1 + 2 * px1, b.frame:GetHeight())   -- 11px at leading 16/12 = 15
+        assert.equals(px1 + 6 + #"Normal" * 7 + 6 + px1, b.frame:GetWidth())
+        local _, _, _, x, y = b._label:GetPoint(1)
+        assert.equals(px1 + 6, x)
+        assert.equals(-5, y)                     -- (19 - 11)/2 + cap nudge 1, from the TOP
+        b:Destroy()
+    end)
+
+    it("fontWeight picks the theme face; paddingY = 0 hugs the line", function()
+        local t = Craft.Theme.get()
+        local b = Craft.Badge:Create(UIParent, { text = "RARO", fontSize = 10, paddingX = 4,
+            paddingY = 0, fontWeight = "bold" })
+        local face, size = b._label:GetFont()
+        assert.equals(t.fontBold, face); assert.equals(10, size)
+        assert.equals(13 + 2 * b._px1, b.frame:GetHeight())       -- 10px at leading 16/12 = 13
+        b:Destroy()
+    end)
+
+    it("paddingX alone keeps h-5; icon side keeps the 2px tighter padding", function()
+        local b = Craft.Badge:Create(UIParent, { text = "Bag", icon = "backpack", paddingX = 6 })
+        assert.equals(20, b.frame:GetHeight())
+        assert.equals(4 + 12 + 4 + #"Bag" * 7 + 6, b.frame:GetWidth())
+        b:Destroy()
+    end)
+
+    it("re-measures width AND height on _applyTheme (async font, bug #4)", function()
+        local b = Craft.Badge:Create(UIParent, { text = "abc", fontSize = 11 })
+        local h0 = b.frame:GetHeight()
+        b._label.GetStringHeight = function() return 18 end      -- taller than the leading box
+        b._label.GetStringWidth = function() return 40 end
+        b:_applyTheme(Craft.Theme.get())
+        assert.equals(h0 + 3, b.frame:GetHeight())                 -- 15 → 18
+        assert.equals(b._px1 + 8 + 40 + 8 + b._px1, b.frame:GetWidth())
+        b:Destroy()
+    end)
+
+    it("pill follows the auto height (caps are half of it wide)", function()
+        local b = Craft.Badge:Create(UIParent, { text = "x", pill = true, fontSize = 11, paddingY = 1 })
+        if b._pill then
+            assert.equals(b.frame:GetHeight() / 2, (b._pill._corners[1].border:GetWidth()))
+        end
+        b:Destroy()
+    end)
+
+    it("re-measures once more on the next frame (first raster of a weight/size)", function()
+        local b = Craft.Badge:Create(UIParent, { text = "abc", fontSize = 11, fontWeight = "bold" })
+        b._label.GetStringWidth = function() return 50 end
+        C_Timer._flush()
+        assert.equals(b._px1 + 8 + 50 + 8 + b._px1, b.frame:GetWidth())
+        b:Destroy()
+    end)
+
+    it("GetBaselineOffset: bottom edge → baseline", function()
+        local b = Craft.Badge:Create(UIParent, { text = "x" })
+        -- h-5, 12px line centred, nudged 1px down: (20-12)/2 - 1 + 12*0.2
+        assert.equals((20 - 12) / 2 - 1 + 12 * 0.2, b:GetBaselineOffset())
+        b:Destroy()
+    end)
+end)
+
+describe("Craft.Badge FR-140 border ring", function()
+
+    it("square border is a 1px ring (4 strips), never a full-frame fill", function()
+        local b = Craft.Badge:Create(UIParent, { text = "NUEVO", variant = "outline",
+            borderColor = { r = 0.25, g = 0.82, b = 0.83, a = 1 } })
+        assert.is_not_nil(b._ring)
+        assert.equals(3, #b._ring)
+        local p = b._border._pointsByAnchor
+        assert.is_not_nil(p and p.TOPLEFT)
+        assert.is_nil(p.BOTTOMLEFT)                               -- top strip only
+        for _, tex in ipairs(b._ring) do
+            local r, _, _, a = tex:GetColorTexture()
+            assert.equals(0.25, r); assert.equals(1, a)
+        end
+        b:Destroy()
+    end)
+
+    it("pill keeps the slice build (no ring)", function()
+        local b = Craft.Badge:Create(UIParent, { text = "x", pill = true })
+        if b._pill then assert.is_nil(b._ring) end
+        b:Destroy()
+    end)
+end)
+
+-- FR-146 §2: box and text snap together on a non-integer pixel grid.
+describe("Craft.Badge whole-pixel layout", function()
+    it("height and text offset are whole physical pixels at a fractional scale", function()
+        MockSetPhysicalScreenHeight(1080)
+        local host = CreateFrame("Frame", nil, UIParent)
+        host:SetScale(0.71)
+        local b = Craft.Badge:Create(host, { text = "PILL", pill = true })
+        b.frame:SetScale(0.71)
+        b:_recalcSize()
+        local pp = 768 / 1080
+        local function whole(v) local n = v * 0.71 / pp; return math.abs(n - math.floor(n + 0.5)) < 1e-6 end
+        assert.is_true(whole(b.frame:GetHeight()))
+        local _, _, _, _, y = b._label:GetPoint(1)
+        assert.is_true(whole(-y))
+        b:Destroy()
+        MockSetPhysicalScreenHeight(768)
     end)
 end)

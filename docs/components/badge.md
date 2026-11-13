@@ -93,15 +93,56 @@ Ver tablas de arriba — todos `t.*`, cero hardcodes. El fill selected = `t.mute
 
 El badge de shadcn es `rounded-full`; el estilo Lyra lo sobreescribe a `rounded-none` y por eso
 el default de Craft es cuadrado. `pill = true` devuelve la forma base sin tocar colores, alto ni
-paddings. Se construye como **3-slice por superficie** (borde y relleno): dos tapas de medio alto
-de ancho recortadas por la máscara prefab `shape_circle` (ADR-0018; una `MaskTexture` por
-destino y en su misma capa, bugs #5/#6 de CLAUDE.md) más un rect central. Las piezas **no se
-solapan**, así que un relleno translúcido (`destructive/20`) no duplica el tinte en las uniones.
-La máscara se escala `64/60` para que el DISCO (no el archivo, que lleva 2px de gutter) mida el
-alto de la tapa. Sin `Craft.Shapes` o sin `CreateMaskTexture` degrada a cuadrado sin error.
+paddings. Se dibuja con **`Craft.RoundedSurface` a `r = "full"`** (FR-141): relleno y borde son
+capas independientes. El relleno es un 9-slice sin solapes (4 cuartos de disco con la máscara prefab
+`shape_circle` + columna central), así que un relleno translúcido (`destructive/20`) no duplica el
+tinte en las uniones; el borde es un **anillo de 1 px físico** (tiras rectas `hairline` + cuartos de
+anillo `shape_cring_<d>` elegidos por el diámetro real en píxeles físicos), con el centro vacío: un
+`outline` queda **transparente por dentro** también en píldora. Una `MaskTexture` por destino y en su
+misma capa (bugs #5/#6). Sin `Craft.Shapes`/`RoundedSurface` o sin `CreateMaskTexture` degrada a
+cuadrado sin error.
 
 Sin `size`: `.cn-badge` es single-size (h-5) en Lyra — el `size` del FR-026 no existe
-en el CSS fuente y se descartó (misma política que Label).
+en el CSS fuente y se descartó (misma política que Label). FR-140 lo confirma: en vez de un
+preset `"sm"`, Craft expone los campos sueltos (abajo) y el consumidor guarda su propia tabla.
+
+### Overrides por instancia (FR-140) — el `className` de shadcn
+
+En shadcn un badge de otro color o más pequeño no es una variante: es
+`<Badge className="border-amber-400 text-amber-200 px-1.5 text-[11px]">`. Estos campos son
+ese `className`. Ninguno puesto = badge de v2.47.0 idéntico.
+
+| Clave | Tipo | Default | Descripción |
+|-------|------|---------|-------------|
+| `textColor` | `{r,g,b,a}` / token | variante | Color del texto (y del icono y el ✕). Con override se respeta su alpha. |
+| `borderColor` | `{r,g,b,a}` / token | variante | Color del borde de 1 px (también en variantes sin borde). |
+| `fillColor` | `{r,g,b,a}` / token | variante | Relleno. Un chip `selected` sigue usando `t.muted` para que el estado se vea. |
+| `fontSize` | number | 12 | Tamaño del texto. **Activa el alto automático.** El icono y el ✕ bajan a este tamaño si es menor de 12. |
+| `paddingX` | number | 8 | Padding horizontal; el lado con icono/✕ usa 2 px menos (`px-2` vs `p*-1.5`). |
+| `paddingY` | number | — | Padding vertical. **Activa el alto automático.** |
+| `fontWeight` | string | `"medium"` | `"regular"\|"medium"\|"bold"` → `t.font`/`t.fontMedium`/`t.fontBold`. |
+
+**Borde = anillo de 1 px** (modo cuadrado): 4 tiras con `Craft.Theme.AnchorBorder` (FR-038), con el
+relleno dentro del anillo. Antes era una textura del tamaño del frame bajo el relleno; en `outline` (relleno
+transparente) teñía todo el interior: casi invisible con `t.border` (blanco ~10 %), un bloque sólido
+con un `borderColor` opaco. En **píldora** el anillo es el de `RoundedSurface` (FR-141): mismo resultado,
+interior transparente.
+
+Los tokens (string) se re-resuelven en cada re-tema; los overrides sobreviven a `SetVariant`,
+`SetSelected` y al cambio de tema.
+
+**Alto automático** (con `fontSize` o `paddingY`): `línea + 2·paddingY + 2·px1`, medido como CSS
+border-box (el padding va **dentro** del borde de 1 px, también en horizontal). `línea` =
+`round(fontSize · 16/12)`, la proporción de `text-xs`/`leading-4` (nunca menos que lo que mida el
+cliente): `GetStringHeight()` es casi el tamaño de fuente, sin interlineado, y una caja hecha con él
+quedaba a ras de las letras. El texto se ancla LEFT y baja `round(0.1·fontSize)` px (1 px a 10–14 px) **en todos los
+badges, también el `h-5`**: en CSS las mayúsculas de Inter quedan centradas en la caja de línea
+(3.6 px arriba y abajo a 12/16), y WoW coloca la misma línea ~0.1 em más arriba (medido in-game: ~1 px
+más de hueco abajo que arriba). Alto, ancho y posición del texto/icono se redondean a **píxeles físicos enteros** y el texto se
+ancla `TOPLEFT` (no `LEFT` centrado): así caja y texto redondean juntos en cualquier posición; antes,
+según la fila, el badge salía 1 px más bajo y el texto quedaba descentrado (FR-146 §2). Ancho y alto
+se re-miden en `_applyTheme` (bug #4) y una vez más al frame siguiente: el primer uso de un
+peso/tamaño medía ~3 px de menos (bold 11 px sin padding derecho). La píldora sigue el alto nuevo.
 
 ## API pública
 
@@ -109,6 +150,8 @@ en el CSS fuente y se descartó (misma política que Label).
 |--------|-------------|
 | `SetText(text)` | Cambia el texto y re-mide el ancho. |
 | `SetVariant(v)` | Cambia la variante y repinta. |
+| `SetColors({ text, border, fill })` | FR-140: sustituye los tres overrides de color (nil = el de la variante; `SetColors(nil)` los quita) y repinta. |
+| `GetBaselineOffset()` | FR-140: px desde el borde inferior hasta la línea base del texto, para alinear el badge por base con texto de otro tamaño (±1 px: usa la proporción genérica de descendente). |
 | `SetSelected(b)` / `GetSelected()` | Estado del chip programático — NO dispara `onSelectedChange`. |
 | `GetFrame()` | → Button raíz. |
 | `Destroy()` | Contrato §5 (`disposeAll` + `unregister` + guarda double-free). |

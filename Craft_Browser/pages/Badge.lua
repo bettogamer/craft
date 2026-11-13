@@ -30,6 +30,15 @@ CraftBrowserPages["Badge"] = {
             return yOff + 32
         end
 
+        -- FR-146 bench: 1 UI unit = 1 physical px, the reference scale for centring.
+        local ppBtn = Craft.Button:Create(parent, {
+            text = "Escala pixel-perfect (prueba de centrado)", variant = "outline", size = "sm",
+            onClick = function() CraftBrowser.PixelPerfectDemo() end,
+        })
+        ppBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, ppBtn)
+        y = y + 36
+
         -- Variants (Lyra .cn-badge-variant-*)
         y = addLabel("Variants", y)
         y = addRow({
@@ -111,6 +120,98 @@ CraftBrowserPages["Badge"] = {
             Craft.Badge:Create(parent, { text = "AUTO", variant = "secondary", fontFlags = "" }),
             Craft.Badge:Create(parent, { text = "RECIBIDO", variant = "outline", fontFlags = "" }),
         }, y)
+
+        -- FR-140: className-style overrides — the five QDT HUD tags. A local "sm" table,
+        -- because .cn-badge has no size (the consumer owns its presets).
+        y = addLabel("FR-140 colores + métricas por instancia (tags de QDT; cambia de tema: se conservan)", y)
+        local function hex(h, a)
+            return { r = tonumber(h:sub(1, 2), 16) / 255, g = tonumber(h:sub(3, 4), 16) / 255,
+                     b = tonumber(h:sub(5, 6), 16) / 255, a = a or 1 }
+        end
+        local function sm(cfg)
+            cfg.variant = cfg.variant or "outline"
+            cfg.fontSize = cfg.fontSize or 11
+            cfg.paddingX = cfg.paddingX or 6
+            cfg.paddingY = cfg.paddingY or 1
+            return Craft.Badge:Create(parent, cfg)
+        end
+        local GOLD, RED = hex("F2B84B", 0.5), hex("EF4444")
+        local quota = sm({ text = "Instancias 8/10 · libre en 12:40",
+                           textColor = hex("F2B84B"), borderColor = GOLD })
+        local full = false
+        y = addRow({
+            sm({ text = "Normal", textColor = hex("E6D8B8"), borderColor = hex("F2B84B", 0.22) }),
+            sm({ text = "PRIMERA VEZ", fontWeight = "bold",
+                 textColor = hex("7FE3E6"), borderColor = hex("7FE3E6", 0.5) }),
+            sm({ text = "NUEVO RÉCORD −1:49", fontWeight = "bold",
+                 textColor = hex("3FD0D4"), borderColor = hex("3FD0D4") }),
+            quota,
+            sm({ text = "RARO", fontSize = 10, paddingX = 4, paddingY = 0,
+                 textColor = hex("93B4B2"), borderColor = hex("93B4B2", 0.5) }),
+        }, y)
+
+        -- SetColors en caliente: 8/10 dorado ↔ 10/10 rojo.
+        local swap = Craft.Button:Create(parent, {
+            text = "SetColors 8/10 ↔ 10/10", variant = "outline", size = "sm",
+            onClick = function()
+                full = not full
+                if full then
+                    quota:SetText("Instancias 10/10 · libre en 12:40")
+                    quota:SetColors({ text = RED, border = RED, fill = hex("EF4444", 0.12) })
+                else
+                    quota:SetText("Instancias 8/10 · libre en 12:40")
+                    quota:SetColors({ text = hex("F2B84B"), border = GOLD })
+                end
+                print("|cff7fe3e6Craft|r Badge:SetColors →", full and "10/10 rojo" or "8/10 dorado")
+            end,
+        })
+        -- Tokens + pill + icon on compact metrics.
+        y = addRow({
+            swap,
+            sm({ text = "token: destructive", textColor = "destructive", borderColor = "destructive" }),
+            sm({ text = "pill sm", variant = "secondary", pill = true }),
+            sm({ text = "icon sm", icon = "landmark", variant = "secondary" }),
+            Craft.Badge:Create(parent, { text = "default (sin overrides)" }),
+        }, y)
+
+        -- GetBaselineOffset: PRIMERA VEZ alineado por línea base con un reloj de 42px.
+        y = addLabel("FR-140 GetBaselineOffset — badge alineado a la línea base del reloj", y)
+        local clock = parent:CreateFontString(nil, "OVERLAY")
+        Craft.Theme.applyFont(clock, t.fontBold or t.font, 42)
+        clock:SetText("12:34")
+        clock:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
+        clock:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -(y))
+        local first = sm({ text = "PRIMERA VEZ", fontWeight = "bold",
+                           textColor = hex("7FE3E6"), borderColor = hex("7FE3E6", 0.5) })
+        table.insert(comps, first)
+        -- clock baseline ≈ bottom of its line box + descender share (~0.2 of the line)
+        local clockBase = (clock:GetStringHeight() or 42) * 0.2
+        first:GetFrame():SetPoint("BOTTOMLEFT", clock, "BOTTOMRIGHT", 8,
+                                  clockBase - first:GetBaselineOffset())
+        table.insert(comps, { Destroy = function() clock:Hide() end })
+        y = y + 60
+
+        -- FR-141: pill outline = 1px ring with a TRANSPARENT inside, over a coloured
+        -- background (before, the border colour painted the whole interior).
+        y = addLabel("FR-141 pill outline — anillo de 1px, interior transparente (fondo de color detrás)", y)
+        local stage = CreateFrame("Frame", nil, parent)
+        stage:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, -(y - 4))
+        stage:SetSize(560, 36)
+        stage:SetFrameLevel(parent:GetFrameLevel())   -- under the badges (parent + 1)
+        local stageBg = stage:CreateTexture(nil, "BACKGROUND")
+        stageBg:SetAllPoints(stage)
+        stageBg:SetColorTexture(0.10, 0.28, 0.42, 1)
+        table.insert(comps, { Destroy = function() stage:Hide() end })
+        y = addRow({
+            Craft.Badge:Create(parent, { text = "Outline", variant = "outline", pill = true }),
+            Craft.Badge:Create(parent, { text = "NUEVO RÉCORD", variant = "outline", pill = true,
+                textColor = hex("3FD0D4"), borderColor = hex("3FD0D4") }),
+            Craft.Badge:Create(parent, { text = "Dorado opaco", variant = "outline", pill = true,
+                textColor = hex("F2B84B"), borderColor = hex("F2B84B") }),
+            sm({ text = "pill sm", pill = true, textColor = hex("7FE3E6"), borderColor = hex("7FE3E6", 0.5) }),
+            Craft.Badge:Create(parent, { text = "Destructive", variant = "destructive", pill = true }),
+        }, y + 2)
+        y = y + 8
 
         return {
             height  = y + 24,
