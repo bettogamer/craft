@@ -229,6 +229,7 @@ function CB._build()
     _nav:AddItem({ id="ProgressRing", label="Progress Ring",
                    onClick=function() CB.Navigate("ProgressRing") end })
     _nav:AddItem({ id="Shapes",    label="Shapes",    onClick=function() CB.Navigate("Shapes")    end })
+    _nav:AddItem({ id="Pixels",    label="Pixels",    onClick=function() CB.Navigate("Pixels")    end })
     _nav:AddItem({ id="Theme",     label="Theme",     onClick=function() CB.Navigate("Theme")     end })
     _nav:AddItem({ id="Toast",     label="Toast",     onClick=function() CB.Navigate("Toast")     end })
     _nav:AddItem({ id="Tooltip",   label="Tooltip",   onClick=function() CB.Navigate("Tooltip")   end })
@@ -376,6 +377,24 @@ function CB._build()
 end
 
 -- ─── Navigate ──────────────────────────────────────────────────────────────
+
+-- Pixel-perfect demo scale (FR-146 bench): sets the demo area so that 1 UI unit
+-- = 1 physical pixel (effective scale 768 / physical height), the only scale at
+-- which text and boxes snap deterministically. Temporary: not saved; moving the
+-- footer slider restores a normal scale. Re-renders the page so every component
+-- lays out at the new scale.
+function CB.PixelPerfectDemo()
+    if not _demoFrame then return end
+    local _, ph = GetPhysicalScreenSize()
+    local target = 768 / ph
+    local parentEff = _demoFrame:GetParent():GetEffectiveScale()
+    _demoFrame:SetScale(target / parentEff)
+    Craft.Theme.RefreshPixels(_demoFrame)
+    print(("|cff7fe3e6Craft|r pixel-perfect: pantalla %dpx alto → escala efectiva %.4f (1 unidad = 1 px). "
+        .. "Un badge h-5 debe medir 20 px."):format(ph, _demoFrame:GetEffectiveScale()))
+    local page = CraftBrowserDB.page
+    C_Timer.After(0, function() CB.Navigate(page) end)
+end
 
 function CB.Navigate(pageId)
     if not _win then return end

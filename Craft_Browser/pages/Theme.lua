@@ -355,6 +355,26 @@ CraftBrowserPages["Theme"] = {
         end
         y = addLabel(lsmText, y)
 
+        -- FR-145: locale fallback. Simulates a zhCN client: Craft's bundled fonts fall
+        -- back to STANDARD_TEXT_FONT (on a western client that's the game's Friz Quadrata,
+        -- so the switch is visible). The mono face and consumer fonts are kept.
+        y = addLabel(("FR-145: locale = %s · simulado = %s — STANDARD_TEXT_FONT = %s"):format(
+            tostring(GetLocale and GetLocale()), tostring(Craft.Theme._localeOverride),
+            tostring(STANDARD_TEXT_FONT)), y + 8)
+        local locBtn = Craft.Button:Create(parent, {
+            text = Craft.Theme._localeOverride and "Volver al locale real" or "Simular cliente zhCN",
+            variant = "outline", size = "sm",
+            onClick = function()
+                Craft.Theme._localeOverride = (not Craft.Theme._localeOverride) and "zhCN" or nil
+                print("|cff7fe3e6Craft|r FR-145 locale simulado =", tostring(Craft.Theme._localeOverride))
+                Craft.Theme._notifyAll()               -- every component re-applies its font
+                C_Timer.After(0, function() CraftBrowser.Navigate("Theme") end)   -- re-render the label
+            end,
+        })
+        locBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, locBtn)
+        y = y + 40
+
         return {
             height  = y + 24,
             cleanup = function()
