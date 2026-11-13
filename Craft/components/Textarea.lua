@@ -218,7 +218,7 @@ end
 -- when the client coalesces that event.
 function Textarea:_setScroll(v)
     local maxScroll = self._bar:GetMaxScroll()
-    self._scroll:SetVerticalScroll(math.max(0, math.min(maxScroll, v or 0)))
+    Craft.Theme.setScroll(self._scroll, v, maxScroll)
     self._bar:Update()
 end
 
@@ -231,9 +231,9 @@ function Textarea:_followCursor(y, cursorH)
     local view  = self._scroll:GetHeight() or 0
     local cur   = self._scroll:GetVerticalScroll()
     if top < cur then
-        self._scroll:SetVerticalScroll(top)
+        Craft.Theme.setScroll(self._scroll, top)
     elseif top + cursorH > cur + view then
-        self._scroll:SetVerticalScroll(math.max(0, top + cursorH - view))
+        Craft.Theme.setScroll(self._scroll, top + cursorH - view)
     end
     self._bar:Update()
 end

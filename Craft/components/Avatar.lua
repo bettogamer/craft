@@ -85,7 +85,8 @@ function Avatar:Create(parent, config)
 
     self.frame = CreateFrame("Frame", nil, parent)
     self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
-    self.frame:SetSize(self._size, self._size)
+    local side = Craft.Theme.snapPx(self._size, self.frame)   -- whole px (FR-149)
+    self.frame:SetSize(side, side)
 
     -- _ring: anillo de 2px color t.background que SEPARA avatares solapados en un
     -- grupo (ring-2 ring-background). Sobresale del frame (el ring de CSS va fuera
@@ -113,7 +114,9 @@ function Avatar:Create(parent, config)
     -- ANCLA ÚNICA al centro: el FontString se auto-dimensiona y no hay ancho que
     -- medir, así que las iniciales no necesitan re-medición tras el asentamiento
     -- async del TTF (CLAUDE.md bugs #2 y #4).
-    self._text:SetPoint("CENTER", self.frame, "CENTER", 0, 0)
+    -- FR-149: TOP en píxel entero con el cap nudge (Theme.placeText) — medido antes
+    -- a escala pixel-perfect: "SD"/"48" quedaban 1px altas en todos los tamaños.
+    self:_placeText()
 
     self:_applyShapes()
 
@@ -226,11 +229,20 @@ function Avatar:_paint()
     self._text:SetTextColor(fg.r, fg.g, fg.b)
 end
 
+function Avatar:_placeText()
+    local T = Craft.Theme
+    T.placeText(self._text, self.frame, 0, T.snapPx(self._size, self.frame), FONT_SIZE, "TOP")
+end
+
 -- ─── _applyTheme ──────────────────────────────────────────────────────────────
 function Avatar:_applyTheme(t)
     self._t = t
 
     self._theme:applyFont(self._text, t.font, FONT_SIZE)
+    self:_placeText()
+    Craft.Theme.remeasureNextFrame(self, function()
+        if self.frame and self._text then self:_placeText() end
+    end)
 
     if self._ring then
         local w = self._size + 2 * Craft.Theme.px(RING, self.frame)

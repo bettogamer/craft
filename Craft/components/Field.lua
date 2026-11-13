@@ -324,7 +324,14 @@ function Field:_layoutHorizontal()
     -- Posicionar label (centrado vertical si items-center; al tope si items-start).
     if self._label then
         local lf = self._label:GetFrame()
-        local ly = hasExtra and 0 or math.floor((rowH - labelH) / 2)
+        -- FR-149: items-center con la misma fórmula que Theme.placeText (centrado +
+        -- cap nudge, píxel entero), para que el label case con el texto del control
+        -- de al lado. Medido antes a escala pixel-perfect: "Notificaciones"/"Nombre"
+        -- 10/13 contra un Select/Input h-8 (2px por encima del texto del control).
+        local T  = Craft.Theme
+        local fs = 12   -- text-xs (the Field label)
+        local ly = hasExtra and 0
+            or T.snapPx((rowH - labelH) / 2 + math.floor(fs * T.CAP_NUDGE + 0.5), self.frame)
         lf:ClearAllPoints()
         lf:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 0, -math.max(0, ly))
     end

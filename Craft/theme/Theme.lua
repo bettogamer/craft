@@ -741,6 +741,19 @@ function T.snapOffset(v, frame, max)
     return math.max(0, snapped)
 end
 
+-- The ONE way a Craft component moves a ScrollFrame (FR-149): clamps to
+-- [0, max], snaps on the scroll CHILD's grid (the client applies the offset in
+-- the child's units, which differ when the child has its own scale) and sets
+-- it. Returns the offset applied.
+function T.setScroll(sf, v, max, horizontal)
+    v = tonumber(v) or 0
+    if max then v = math.min(v, max) end
+    local ref = (sf.GetScrollChild and sf:GetScrollChild()) or sf
+    v = T.snapOffset(v, ref, max)
+    if horizontal then sf:SetHorizontalScroll(v) else sf:SetVerticalScroll(v) end
+    return v
+end
+
 -- One coalesced call of fn on the next frame per owner (lesson 4).
 function T.remeasureNextFrame(owner, fn)
     if owner._craftRemeasure or not (C_Timer and C_Timer.After) then return end

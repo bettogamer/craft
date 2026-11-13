@@ -249,7 +249,8 @@ function Section:_remeasureHeader()
     self._title:SetWidth(titleW)
 
     local titleH  = finite(self._title:GetStringHeight()) or LINE_H
-    local headerH = PAD_V * 2 + titleH
+    local off     = self:_placeTitle()
+    local headerH = PAD_V * 2 + titleH + 2 * off
     if headerH < HEADER_MIN then headerH = HEADER_MIN end
 
     -- Guard the SetHeight (this runs inside the header's own OnSizeChanged) so an
@@ -261,6 +262,21 @@ function Section:_remeasureHeader()
 
     -- The rule follows the text, so it re-derives with it (FR-045).
     if self._hovered then self:_layoutUnderline() end
+end
+
+-- FR-149: the title's first line centred in its 16px CSS line box (py-2.5 +
+-- leading 16), on whole physical pixels. Measured before at pixel-perfect scale:
+-- "Avanzado" 11/15 between the separators (the glyph box sat at the top of the
+-- line). No cap nudge here: the free space is even, so centring is exact.
+-- Returns the extra offset over PAD_V (kept below the last line too).
+function Section:_placeTitle()
+    local T   = Craft.Theme
+    local gh  = T.glyphHeight(self._title, FONT_SIZE)
+    if gh > LINE_H then gh = FONT_SIZE end   -- wrapped: one line's glyph box, same offset
+    local off = math.max(0, math.floor((LINE_H - gh) / 2 + 0.5))
+    self._title:ClearAllPoints()
+    self._title:SetPoint("TOPLEFT", self._header, "TOPLEFT", 0, -T.snapPx(PAD_V + off, self._header))
+    return off
 end
 
 -- ─── Hover underline (FR-045) ─────────────────────────────────────────────────

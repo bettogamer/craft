@@ -59,6 +59,22 @@ local AVATAR_SIZE  = 24                        -- Craft.Avatar size "sm"
 local AVATAR_PAD   = 6                         -- breathing room above/below
 local AVATAR_ROW_H = AVATAR_SIZE + AVATAR_PAD * 2   -- 36, ONLY on rows with an avatar
 local FONT_SIZE   = 12   -- text-xs
+
+-- FR-149: a row's text on whole physical pixels, dropped by the cap nudge
+-- (Theme.placeText). Measured before at pixel-perfect scale: "Rank 18 · Haste"
+-- in a 28px row sat 9/10 — 1px higher than Button. `right` anchors by the right
+-- edge (x = negative inset from the row's right side).
+local function placeRowText(fs, row, x, rowH, right)
+    local T = Craft.Theme
+    local h = T.snapPx(rowH, row)
+    if not right then
+        T.placeText(fs, row, x, h, FONT_SIZE)
+        return
+    end
+    local top = T.placeText(fs, row, 0, h, FONT_SIZE)
+    fs:ClearAllPoints()
+    fs:SetPoint("TOPRIGHT", row, "TOPRIGHT", T.snapPx(x, row), -top)
+end
 local MIN_W       = 128  -- min-w-32 (dropdown floor; context uses 144 but 128 is a safe floor)
 -- Scrolling past maxHeight (FR-086). The panel already CLIPPED the overflow; these
 -- are what MOVES it. Rail geometry = Craft.Scroll's (Craft's ScrollArea mapping);
@@ -487,8 +503,7 @@ function Menu:_renderRow(item, cfg)
         item._interactive = false
         item._disabled = false
         row:EnableMouse(false)
-        item.label:ClearAllPoints()
-        item.label:SetPoint("LEFT", row, "LEFT", ITEM_PL, 0)
+        placeRowText(item.label, row, ITEM_PL, rowH)
         item.label:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
         item._baseColor = t.mutedForeground
         return rowH, ITEM_PL + item.label:GetStringWidth() + ITEM_PR
@@ -539,8 +554,7 @@ function Menu:_renderRow(item, cfg)
         item.icon:Show()
         x = leftPad + ICON_SIZE + GAP
     end
-    item.label:ClearAllPoints()
-    item.label:SetPoint("LEFT", row, "LEFT", x, 0)
+    placeRowText(item.label, row, x, rowH)
 
     local contentW
     if isCR then
@@ -569,8 +583,7 @@ function Menu:_renderRow(item, cfg)
         if cfg.rightText and cfg.rightText ~= "" then
             self._theme:applyFont(item.rightText, t.font, FONT_SIZE, self._cfg.fontFlags)
             item.rightText:SetText(cfg.rightText)
-            item.rightText:ClearAllPoints()
-            item.rightText:SetPoint("RIGHT", row, "RIGHT", -rightPad, 0)
+            placeRowText(item.rightText, row, -rightPad, rowH, true)
             item.rightText:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
             item.rightText:Show()
             contentW = contentW + GAP + item.rightText:GetStringWidth()
@@ -592,8 +605,7 @@ function Menu:_renderRow(item, cfg)
         if cfg.rightText and cfg.rightText ~= "" then
             self._theme:applyFont(item.rightText, t.font, FONT_SIZE, self._cfg.fontFlags)
             item.rightText:SetText(cfg.rightText)
-            item.rightText:ClearAllPoints()
-            item.rightText:SetPoint("RIGHT", row, "RIGHT", -rightPad, 0)
+            placeRowText(item.rightText, row, -rightPad, rowH, true)
             item.rightText:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
             item.rightText:Show()
             contentW = contentW + GAP + item.rightText:GetStringWidth()
@@ -1007,7 +1019,7 @@ function Menu:_scrollBy(dy)
 end
 
 function Menu:_setScroll(v)
-    self._scroll:SetVerticalScroll(math.min(math.max(v or 0, 0), self:_maxScroll()))
+    Craft.Theme.setScroll(self._scroll, v, self:_maxScroll())
     self:_updateScrollbar()
     self:_syncSubmenuVisibility()
 end

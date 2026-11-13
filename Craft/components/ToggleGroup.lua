@@ -250,11 +250,18 @@ local function naturalWidth(fs)
     return fs:GetStringWidth()
 end
 
+-- FR-149: segment boxes, x offsets and the text/icon on whole physical pixels,
+-- text dropped by the cap nudge (Theme.placeText). Measured before at pixel-
+-- perfect scale: "Barra"/"Si" in h-8 sat 10/11 — 1px higher than Button/Toggle.
 function ToggleGroup:_layout()
+    local T     = Craft.Theme
+    local f     = self.frame
     local n     = self._count
     local fullW = self._cfg.width
     -- w-full: flex-1 segments (flex-basis 0) → equal shares of the width minus the gaps.
     local share = (fullW and n > 0) and math.max(0, (fullW - GAP * (n - 1)) / n) or nil
+    local h       = T.snapPx(H, f)
+    local iconTop = T.snapPx((h - ICON_SZ) / 2, f)
 
     local x = 0
     for i = 1, n do
@@ -262,10 +269,12 @@ function ToggleGroup:_layout()
         local labelW = naturalWidth(seg.fs)
         local iconW  = seg.icon and (ICON_SZ + ICON_GAP) or 0
         local w = share or math.max(MIN_W, PAD_H * 2 + iconW + labelW)
+        local left  = T.snapPx(x, f)
+        local w_px  = T.snapPx(x + w, f) - left   -- shares tile without a seam
 
         seg.btn:ClearAllPoints()
-        seg.btn:SetPoint("TOPLEFT", self.frame, "TOPLEFT", x, 0)
-        seg.btn:SetSize(w, H)
+        seg.btn:SetPoint("TOPLEFT", f, "TOPLEFT", left, 0)
+        seg.btn:SetSize(w_px, h)
 
         -- Label: natural width, or capped to what's left of the share (it elides —
         -- word wrap is off). SetWidth(0) returns the FontString to auto-size.
@@ -276,21 +285,22 @@ function ToggleGroup:_layout()
             seg.fs:SetWidth(0)
         end
 
-        -- center the icon+label combo
-        seg.fs:ClearAllPoints()
+        -- Centre the icon+label combo (same geometry as Toggle:_position): the
+        -- label shifts right by half the icon block, the icon sits ICON_GAP left.
         local offset = seg.icon and ((ICON_SZ + ICON_GAP) / 2) or 0
-        seg.fs:SetPoint("CENTER", seg.btn, "CENTER", offset, 0)
+        T.placeText(seg.fs, seg.btn, offset, h, FONT_SIZE, "TOP")
         if seg.icon then
             seg.iconTex:ClearAllPoints()
-            seg.iconTex:SetPoint("RIGHT", seg.fs, "LEFT", -ICON_GAP, 0)
+            local ix = -(seg.fs:GetStringWidth() + ICON_GAP) / 2
+            seg.iconTex:SetPoint("TOP", seg.btn, "TOP", T.snapPx(ix, f), -iconTop)
         end
 
         x = x + w + GAP
     end
 
     -- w-full keeps the given width even with no segments; w-fit drops the trailing gap.
-    self.frame:SetWidth(fullW or math.max(0, x - GAP))
-    self.frame:SetHeight(H)
+    f:SetWidth(fullW or T.snapPx(math.max(0, x - GAP), f))
+    f:SetHeight(h)
 end
 
 -- ─── Selection / hover ────────────────────────────────────────────────────────
@@ -406,6 +416,10 @@ function ToggleGroup:_applyTheme(t)
 
     self:_layout()
     self:_refresh()
+    -- First rasterization of a weight measures narrow on that frame (FR-149 lesson 4).
+    Craft.Theme.remeasureNextFrame(self, function()
+        if self.frame and self._segs then self:_layout() end
+    end)
 end
 
 -- ─── Public API ───────────────────────────────────────────────────────────────

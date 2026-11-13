@@ -168,11 +168,7 @@ function ScrollBar:_setScroll(v)
     -- offset in the scroll child's units, which differ from the ScrollFrame's
     -- when the child has its own scale (measured: Browser pixel-perfect mode,
     -- 591.83 u of child = 591.83 px while the frame's grid said 516 px).
-    local sf  = self._scrollFrame
-    local ref = (sf.GetScrollChild and sf:GetScrollChild()) or sf
-    v = Craft.Theme.snapOffset(v, ref, self:GetMaxScroll())
-    if self._horiz then self._scrollFrame:SetHorizontalScroll(v)
-    else                self._scrollFrame:SetVerticalScroll(v) end
+    Craft.Theme.setScroll(self._scrollFrame, v, self:GetMaxScroll(), self._horiz)
 end
 
 function ScrollBar:_cursorAlong()

@@ -72,7 +72,7 @@ function Input:Create(parent, config)
     -- ── Root frame ────────────────────────────────────────────────────────────
     self.frame = CreateFrame("Frame", nil, parent)
     self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
-    self.frame:SetHeight(HEIGHT)
+    self.frame:SetHeight(Craft.Theme.snapPx(HEIGHT, self.frame))  -- whole px (FR-149)
     if self._cfg.width then
         self.frame:SetWidth(self._cfg.width)
     end
@@ -179,7 +179,7 @@ function Input:Create(parent, config)
     -- text (and cursor) start — bypasses WoW's internal EditBox frame margin.
     self._edit:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     0, -PAD_V)
     self._edit:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0,  PAD_V)
-    self._edit:SetTextInsets(self:_leftPad(), self:_rightPad(), 0, 0)
+    self:_applyInsets(0)
     self._edit:SetText(self._cfg.value)
 
     -- FR-060 — hit priority: the EditBox is mouse-enabled and spans the FULL inner
@@ -194,10 +194,10 @@ function Input:Create(parent, config)
     -- ── _placeholder: FontString OVERLAY ──────────────────────────────────────
     -- Placeholder is a FontString (no internal WoW margin) so normal anchors work.
     self._placeholder = self.frame:CreateFontString(nil, "OVERLAY")
-    self._placeholder:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",     self:_leftPad(),   -PAD_V)
-    self._placeholder:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -self:_rightPad(),  PAD_V)
     self._placeholder:SetJustifyH("LEFT")
-    self._placeholder:SetJustifyV("MIDDLE")
+    self._placeholder:SetWordWrap(false)       -- one line + ellipsis (bug #2b)
+    self._placeholder:SetNonSpaceWrap(false)
+    self:_anchorPlaceholder()
 
     -- Show placeholder only if initial value is empty
     if self._cfg.value == "" then
@@ -332,10 +332,31 @@ function Input:_rightPad()
     return self:_hasTrailing() and (PAD_H + ICON_DELTA) or PAD_H
 end
 
+-- FR-149: text on whole physical pixels, dropped by the cap nudge. Measured
+-- before at pixel-perfect scale: "0:00", "# 42", "HP left" in h-8 sat 10/11 —
+-- 1px higher than Button. FontStrings (placeholder, prefix/suffix) go through
+-- Theme.placeText; the EditBox centres its own text, so its top inset is twice
+-- the nudge (the centre moves down by exactly the nudge).
+function Input:_capNudge()
+    return math.floor(FONT_SIZE * Craft.Theme.CAP_NUDGE + 0.5)
+end
+
+function Input:_applyInsets(px1)
+    local T = Craft.Theme
+    local f = self.frame
+    self._edit:ClearAllPoints()
+    self._edit:SetPoint("TOPLEFT",     f, "TOPLEFT",     0, -T.snapPx(PAD_V, f))
+    self._edit:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0,  T.snapPx(PAD_V, f))
+    self._edit:SetTextInsets(self:_leftPad() - px1, self:_rightPad() - px1,
+        T.snapPx(2 * self:_capNudge(), f), 0)
+end
+
 function Input:_anchorPlaceholder()
-    self._placeholder:ClearAllPoints()
-    self._placeholder:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",      self:_leftPad(),  -PAD_V)
-    self._placeholder:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -self:_rightPad(),  PAD_V)
+    local T = Craft.Theme
+    local f = self.frame
+    local h = T.snapPx(HEIGHT, f)
+    local top = T.placeText(self._placeholder, f, self:_leftPad(), h, FONT_SIZE)
+    self._placeholder:SetPoint("TOPRIGHT", f, "TOPRIGHT", -T.snapPx(self:_rightPad(), f), -top)
 end
 
 -- FR-122: (re)measures the addon texts and re-derives everything that depends
@@ -347,15 +368,21 @@ function Input:_layoutAddons()
             return nil
         end
         fs:SetText(text)
-        fs:ClearAllPoints()
-        fs:SetPoint(point, self.frame, point, x, 0)
+        local h = Craft.Theme.snapPx(HEIGHT, self.frame)
+        if point == "LEFT" then
+            Craft.Theme.placeText(fs, self.frame, x, h, FONT_SIZE)
+        else   -- RIGHT: same top, anchored by its right edge
+            local top = Craft.Theme.placeText(fs, self.frame, 0, h, FONT_SIZE)
+            fs:ClearAllPoints()
+            fs:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", Craft.Theme.snapPx(x, self.frame), -top)
+        end
         fs:Show()
         return math.ceil(fs:GetStringWidth() or 0)
     end
     self._prefixW = place(self._prefix, self._cfg.prefix, "LEFT", self:_prefixX())
     self._suffixW = place(self._suffix, self._cfg.suffix, "RIGHT", -self:_suffixX())
     local px1 = Craft.Theme.px(1, self.frame)
-    self._edit:SetTextInsets(self:_leftPad() - px1, self:_rightPad() - px1, 0, 0)
+    self:_applyInsets(px1)
     self:_anchorPlaceholder()
 end
 

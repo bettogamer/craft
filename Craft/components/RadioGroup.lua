@@ -256,6 +256,11 @@ function RadioGroup:_applyTheme(t)
         local c = self._cfg.disabled and t.mutedForeground or t.foreground
         item.fs:SetTextColor(c.r, c.g, c.b)
         item.fs:SetText(item.label)
+        -- FR-149: label on whole px against the 16px slot, dropped by the cap nudge.
+        -- Measured before at pixel-perfect scale: "Barra/Icono/Texto" 4/5 against
+        -- the circle — 1px higher than Checkbox/Button.
+        Craft.Theme.placeText(item.fs, item.row, ITEM_SIZE + LABEL_GAP,
+            Craft.Theme.snapPx(ITEM_SIZE, item.row), FONT_SIZE)
         local w = ITEM_SIZE + LABEL_GAP + item.fs:GetStringWidth()
         item.row:SetWidth(w)
         if w > maxW then maxW = w end

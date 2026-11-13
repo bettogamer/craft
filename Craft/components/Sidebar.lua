@@ -54,6 +54,15 @@ local GUIDE_INSET    = 10   -- vertical guide line (border-l) offset within each
 local GROUP_H        = 32   -- h-8
 local GROUP_PX       = 8    -- px-2
 local GROUP_FONT     = 12   -- text-xs (fontSizeSm)
+
+-- FR-149: a row's label on whole physical pixels, dropped by the cap nudge
+-- (Theme.placeText), against the row's own height. Measured before at pixel-
+-- perfect scale: "Home" (h-8) 11/12, "Calendario" (h-7) 9/10, "Inbox" (h-12)
+-- 19/20 — 1px higher than Button in every size.
+local function placeLabel(fs, row, x, fontSize)
+    local T = Craft.Theme
+    T.placeText(fs, row, x, T.snapPx(row:GetHeight() or 0, row), fontSize)
+end
 local GROUP_ALPHA    = 0.7  -- sidebarForeground/70
 local DISABLED_ALPHA = 0.5  -- disabled:opacity-50 (FR-048)
 local ACTION_SIZE    = 20   -- SidebarMenuAction: aspect-square w-5 (FR-109)
@@ -255,7 +264,7 @@ function Sidebar:Create(parent, config)
             local movable   = trackH - thumbH
             if movable <= 0 then return end
             local newScroll = self._sbarDragStartScroll + (deltaY / movable) * range
-            self._scroll:SetVerticalScroll(math.max(0, math.min(range, newScroll)))
+            Craft.Theme.setScroll(self._scroll, newScroll, range)
             self:_updateSbar()
         end)
     end)
@@ -321,7 +330,7 @@ function Sidebar:Create(parent, config)
     self._scrollFx = Weave.effect(function()
         local v = self._scrollTween()
         if self._scrollAnim and type(v) == "number" then
-            self._scroll:SetVerticalScroll(clamp(v, 0, self:_maxScroll()))
+            Craft.Theme.setScroll(self._scroll, v, self:_maxScroll())
             self:_updateSbar()
         end
     end)
@@ -475,6 +484,7 @@ function Sidebar:_recolorAll()
                 GROUP_ALPHA
             )
             self._theme:applyFont(entry.labelFs, t.font, GROUP_FONT)
+            if entry.frame then placeLabel(entry.labelFs, entry.frame, GROUP_PX, GROUP_FONT) end
 
         elseif entry.type == "item" and entry.frame then
             self:_colorItem(entry, self:_isSelected(entry.itemId))
@@ -697,7 +707,7 @@ function Sidebar:_rebuildLayout(from)
     local cur = self._scroll:GetVerticalScroll() or 0
     local maxS = self:_maxScroll()
     if (self._scroll:GetHeight() or 0) > 0 and cur > maxS then
-        self._scroll:SetVerticalScroll(maxS)
+        Craft.Theme.setScroll(self._scroll, maxS, maxS)
     end
     self:_updateSbar()
 end
@@ -840,6 +850,7 @@ function Sidebar:AddSection(label)
         )
     end
     labelFs:SetText(label or "")  -- after SetFont (shadcn shows the label as-is, no uppercase)
+    placeLabel(labelFs, row, GROUP_PX, GROUP_FONT)
 
     local entry = {
         type    = "section",
@@ -1319,8 +1330,7 @@ function Sidebar:_positionRow(entry)
         slotW = ICON_SIZE + ITEM_GAP
     end
     local labelX = baseX + slotW
-    entry.labelFs:ClearAllPoints()
-    entry.labelFs:SetPoint("LEFT", entry.frame, "LEFT", labelX, 0)
+    placeLabel(entry.labelFs, entry.frame, labelX, ITEM_FONT)
 
     -- Chevron at the trailing edge.
     if entry.chevTex then
@@ -1513,7 +1523,7 @@ end
 -- Jumps to `y` px from the top, clamped to the content. Cancels an animated scroll.
 function Sidebar:SetScroll(y)
     self._scrollAnim = false
-    self._scroll:SetVerticalScroll(clamp(tonumber(y) or 0, 0, self:_maxScroll()))
+    Craft.Theme.setScroll(self._scroll, y, self:_maxScroll())
     self:_updateSbar()
 end
 
@@ -1769,8 +1779,7 @@ function Sidebar:_paintGhost(e, label)
     g.icon:SetShown(hasIcon)
     g.icon:ClearAllPoints()
     g.icon:SetPoint("LEFT", g, "LEFT", baseX, 0)
-    g.label:ClearAllPoints()
-    g.label:SetPoint("LEFT", g, "LEFT", baseX + (hasIcon and ICON_SIZE + ITEM_GAP or 0), 0)
+    placeLabel(g.label, g, baseX + (hasIcon and ICON_SIZE + ITEM_GAP or 0), ITEM_FONT)
     if t then
         local acc, fg = t.sidebarAccent, t.sidebarAccentForeground
         g.bg:SetColorTexture(acc.r, acc.g, acc.b, 1)

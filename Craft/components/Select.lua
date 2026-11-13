@@ -656,7 +656,7 @@ end
 function Select:_scrollBy(dy)
     local maxS = self:_maxScroll()
     local cur  = self._scroll:GetVerticalScroll() or 0
-    self._scroll:SetVerticalScroll(math.min(math.max(cur + (dy or 0), 0), maxS))
+    Craft.Theme.setScroll(self._scroll, cur + (dy or 0), maxS)
     self:_layoutViewport()
 end
 
@@ -704,7 +704,7 @@ function Select:_scrollToSelected()
             end
         end
     end
-    self._scroll:SetVerticalScroll(math.min(math.max(target, 0), maxS))
+    Craft.Theme.setScroll(self._scroll, target, maxS)
     self:_layoutViewport()
 end
 

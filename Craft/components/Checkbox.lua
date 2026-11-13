@@ -96,7 +96,7 @@ function Checkbox:Create(parent, config)
     -- ── _label: optional FontString to the right of the box ──────────────────
     self._label = self.frame:CreateFontString(nil, "OVERLAY")
     if self._cfg.label and self._cfg.label ~= "" then
-        self._label:SetPoint("LEFT", self._box, "RIGHT", LABEL_GAP, 0)
+        self:_placeLabel()
         self._label:Show()
     else
         self._label:Hide()
@@ -284,6 +284,10 @@ function Checkbox:_applyTheme(t)
 
     -- Label font
     self._theme:applyFont(self._label, t.font, 12)
+    self:_placeLabel()
+    Craft.Theme.remeasureNextFrame(self, function()
+        if self.frame and self._label then self:_placeLabel() end
+    end)
     if self._cfg.disabled then
         self._label:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
     else
@@ -324,6 +328,16 @@ function Checkbox:_applyTheme(t)
     -- prog so a theme change mid-animation repaints with the new endpoints (§9).
     self:_refreshVisual()
     if self._fill then self:_paint(self._fill:peek(), self._iconA:peek()) end
+end
+
+-- ─── _placeLabel (FR-149) ──────────────────────────────────────────────────────
+-- Label on whole physical pixels against the 16px box, dropped by the cap nudge
+-- (Theme.placeText). Measured before at pixel-perfect scale: "Remember session",
+-- "Select all", "Follows" sat 3/4 against the box — 1px higher than Button's split.
+function Checkbox:_placeLabel()
+    local T = Craft.Theme
+    T.placeText(self._label, self._box, BOX_SIZE + LABEL_GAP,
+        T.snapPx(BOX_SIZE, self._box), 12)
 end
 
 -- ─── _recalcWidth ─────────────────────────────────────────────────────────────
@@ -382,8 +396,7 @@ function Checkbox:SetLabel(text)
     self._cfg.label = text
     if text and text ~= "" then
         self._label:SetText(text)
-        self._label:ClearAllPoints()
-        self._label:SetPoint("LEFT", self._box, "RIGHT", LABEL_GAP, 0)
+        self:_placeLabel()
         self._label:Show()
     else
         self._label:Hide()

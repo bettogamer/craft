@@ -91,7 +91,8 @@ function Combobox:Create(parent, config)
     local sz = SIZES[self._cfg.size] or SIZES.default
     self.frame = CreateFrame("Frame", nil, parent)
     self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
-    self.frame:SetHeight(sz.h)
+    self._h = sz.h
+    self.frame:SetHeight(Craft.Theme.snapPx(sz.h, self.frame))  -- whole px (FR-149)
     if config.width then self.frame:SetWidth(config.width) end
 
     self._trigger = CreateFrame("Button", nil, self.frame)
@@ -115,8 +116,7 @@ function Combobox:Create(parent, config)
     self._selectedText:SetNonSpaceWrap(false)
 
     self._chevron = self._trigger:CreateTexture(nil, "ARTWORK")
-    self._chevron:SetSize(CHEVRON, CHEVRON)
-    self._chevron:SetPoint("RIGHT", self._trigger, "RIGHT", -TRIGGER_PR, 0)
+    self._chevron:SetSize(CHEVRON, CHEVRON)   -- anchored in _placeTriggerText
     Craft.Icons.Apply(self._chevron, "chevron-down", 16)
 
     self._trigger:SetScript("OnEnter", function()
@@ -406,8 +406,7 @@ end
 -- Clamped scroll + window re-render: the ONE way Combobox moves the list.
 function Combobox:_setScroll(y)
     local maxScroll = math.max((self._listH or 0) - (self._viewH or 0), 0)
-    y = math.min(math.max(y or 0, 0), maxScroll)
-    self._scroll:SetVerticalScroll(y)
+    Craft.Theme.setScroll(self._scroll, y, maxScroll)
     self:_renderWindow()
 end
 
@@ -520,6 +519,29 @@ function Combobox:_paintTriggerBorder(r, g, b, a)
     self._borderRight:SetColorTexture(r, g, b, a)
 end
 
+-- ─── Trigger text (FR-149) ──────────────────────────────────────────────────
+-- Same as Select:_placeTriggerText: TOPLEFT+TOPRIGHT on whole physical pixels,
+-- text dropped by the cap nudge. Measured before at pixel-perfect scale: "Inter"
+-- in h-8 sat 10/11 — 1px higher than Button.
+function Combobox:_placeTriggerText()
+    local T  = Craft.Theme
+    local tr = self._trigger
+    local h  = T.snapPx(self._h, tr)
+    local top = T.placeText(self._selectedText, tr, TRIGGER_PL, h, FONT_SIZE)
+    self._selectedText:SetPoint("TOPRIGHT", tr, "TOPRIGHT",
+        -T.snapPx(TRIGGER_PR + CHEVRON + TRIG_GAP, tr), -top)
+
+    self._chevron:ClearAllPoints()
+    self._chevron:SetPoint("TOPRIGHT", tr, "TOPRIGHT",
+        -T.snapPx(TRIGGER_PR, tr), -T.snapPx((h - CHEVRON) / 2, tr))
+end
+
+function Combobox:_remeasureNextFrame()
+    Craft.Theme.remeasureNextFrame(self, function()
+        if self.frame and self._selectedText then self:_placeTriggerText() end
+    end)
+end
+
 -- ─── _applyTheme ────────────────────────────────────────────────────────────
 function Combobox:_applyTheme(t)
     self._t = t
@@ -540,11 +562,8 @@ function Combobox:_applyTheme(t)
     self._triggerBg:SetPoint("BOTTOMRIGHT", self._trigger, "BOTTOMRIGHT", -px1,  px1)
     self._triggerBg:SetColorTexture(t.input.r, t.input.g, t.input.b, self._bgAlpha)
 
-    self._selectedText:ClearAllPoints()
-    self._selectedText:SetPoint("LEFT",   self._trigger, "LEFT",  TRIGGER_PL, 0)
-    self._selectedText:SetPoint("RIGHT",  self._trigger, "RIGHT", -(TRIGGER_PR + CHEVRON + TRIG_GAP), 0)
-    self._selectedText:SetPoint("TOP",    self._trigger, "TOP",    0, 0)
-    self._selectedText:SetPoint("BOTTOM", self._trigger, "BOTTOM", 0, 0)
+    self:_placeTriggerText()
+    self:_remeasureNextFrame()
 
     -- Search row
     self._searchIcon:SetVertexColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b, 1)

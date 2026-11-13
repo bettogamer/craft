@@ -574,13 +574,13 @@ function CodeEditor:_followCursor(x, y, h)
     h = h or self._pitch
     local viewH = self._scroll:GetHeight() or 0
     local cur = self._scroll:GetVerticalScroll()
-    if top < cur then self._scroll:SetVerticalScroll(top)
-    elseif top + h > cur + viewH then self._scroll:SetVerticalScroll(math.max(0, top + h - viewH)) end
+    if top < cur then Craft.Theme.setScroll(self._scroll, top)
+    elseif top + h > cur + viewH then Craft.Theme.setScroll(self._scroll, top + h - viewH) end
     local viewW = self._scroll:GetWidth() or 0
     local hcur = self._scroll:GetHorizontalScroll()
     local margin = self._charW * 2
-    if left < hcur then self._scroll:SetHorizontalScroll(math.max(0, left - margin))
-    elseif left + margin > hcur + viewW then self._scroll:SetHorizontalScroll(left + margin - viewW) end
+    if left < hcur then Craft.Theme.setScroll(self._scroll, left - margin, nil, true)
+    elseif left + margin > hcur + viewW then Craft.Theme.setScroll(self._scroll, left + margin - viewW, nil, true) end
     self:_updateBars()
 end
 
@@ -771,7 +771,7 @@ function CodeEditor:ClearFocus() self._edit:ClearFocus() end
 -- ── Scrolling — same names as Craft.Scroll / Textarea (FR-091) ───────────────
 function CodeEditor:SetScrollOffset(v)
     local maxScroll = self._vbar:GetMaxScroll()
-    self._scroll:SetVerticalScroll(math.max(0, math.min(maxScroll, v or 0)))
+    Craft.Theme.setScroll(self._scroll, v, maxScroll)
     self:_updateBars()
 end
 function CodeEditor:GetScrollOffset() return self._scroll:GetVerticalScroll() or 0 end
