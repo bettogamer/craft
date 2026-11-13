@@ -1126,3 +1126,55 @@ describe("Craft.Menu branch vs a scrolling parent", function()
         m:Destroy()
     end)
 end)
+
+-- ─── FR-148: tooltips quiet while a menu is open ─────────────────────────────
+
+describe("Craft.Menu open registry + Tooltip silence (FR-148)", function()
+    -- Earlier specs leave menus open on purpose (they test open state); start clean.
+    for m in pairs(Craft._openMenus) do m:Close() end
+
+    it("IsAnyOpen follows Open/Close/Destroy", function()
+        local m = Craft.Menu:Create({ items = { { type = "item", label = "A" } } })
+        assert.is_false(Craft.Menu.IsAnyOpen())
+        m:Open(UIParent)
+        assert.is_true(Craft.Menu.IsAnyOpen())
+        m:Close()
+        assert.is_false(Craft.Menu.IsAnyOpen())
+        m:Open(UIParent)
+        m:Destroy()
+        assert.is_false(Craft.Menu.IsAnyOpen())
+    end)
+
+    it("an outside attached tooltip does not open while a menu is open; inside does", function()
+        local m = Craft.Menu:Create({ items = { { type = "item", label = "A" } } })
+        local outside = CreateFrame("Button", nil, UIParent)
+        local inside  = CreateFrame("Button", nil, m._panel)
+        Craft.Tooltip.Attach(outside, { text = "out", delay = 0 })
+        Craft.Tooltip.Attach(inside,  { text = "in",  delay = 0 })
+
+        m:Open(UIParent)
+        outside:_fire("OnEnter")
+        assert.is_false(Craft.Tooltip.IsShown())
+        inside:_fire("OnEnter")
+        assert.is_true(Craft.Tooltip.IsShown())
+        inside:_fire("OnLeave")
+
+        m:Close()
+        assert.is_false(Craft.Tooltip.IsShown())     -- nothing pops by itself
+        outside:_fire("OnEnter")
+        assert.is_true(Craft.Tooltip.IsShown())      -- next hover works again
+        outside:_fire("OnLeave")
+        Craft.Tooltip.Detach(outside); Craft.Tooltip.Detach(inside)
+        m:Destroy()
+    end)
+
+    it("a menu whose panel is hidden (clipped with its anchor) does not silence", function()
+        local m = Craft.Menu:Create({ items = { { type = "item", label = "A" } } })
+        m:Open(UIParent)
+        m._refHidden:set(true)
+        m._panel:Hide()
+        assert.is_false(Craft.Menu.IsAnyOpen())
+        m._refHidden:set(false)
+        m:Destroy()
+    end)
+end)

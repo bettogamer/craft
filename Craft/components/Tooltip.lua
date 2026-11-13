@@ -632,6 +632,17 @@ end
 -- Registry: set of frames that currently have tooltip hooks active.
 local _attached = {}
 
+-- FR-148: while a Craft.Menu is open (Radix DropdownMenu is modal: nothing
+-- outside its content gets pointer events) an attached tooltip stays quiet
+-- unless its anchor is INSIDE that menu. Nothing opens by itself when the menu
+-- closes: the next OnEnter shows it. Explicit TT.Show is the caller's call.
+local function _silencedByMenu(frame)
+    local M = Craft.Menu
+    if not (M and M.IsAnyOpen and M.IsAnyOpen()) then return false end
+    return not (M.Contains and M.Contains(frame))
+end
+TT._silencedByMenu = _silencedByMenu  -- test hook
+
 function TT.Attach(frame, config)
     -- If already attached, detach first to reset the config.
     if _attached[frame] then
@@ -646,6 +657,7 @@ function TT.Attach(frame, config)
     frame:HookScript("OnEnter", function()
         -- Ignore if this frame was later detached.
         if not _attached[frame] then return end
+        if _silencedByMenu(frame) then return end
 
         _pendingAnchor = frame
         local capturedAnchor = frame
@@ -654,7 +666,7 @@ function TT.Attach(frame, config)
         if delay > 0 then
             _pendingTimer = C_Timer.After(delay / 1000, function()
                 -- Only show if the cursor is still over this anchor.
-                if _pendingAnchor == capturedAnchor then
+                if _pendingAnchor == capturedAnchor and not _silencedByMenu(capturedAnchor) then
                     _show(capturedAnchor, capturedConfig)
                 end
             end)

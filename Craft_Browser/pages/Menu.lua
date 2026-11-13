@@ -327,6 +327,28 @@ CraftBrowserPages["Menu"] = {
         table.insert(comps, btn8)
         y = y + 44
 
+        -- FR-148: with a menu open, outside tooltips stay quiet (Radix DropdownMenu is
+        -- modal). Open the menu, then hover the button next to it: no tooltip. Close
+        -- it and hover again: the tooltip shows. The rows' own tooltips still work.
+        y = addLabel("FR-148 — abre el menú y pasa el ratón por «Con tooltip»: callado; ciérralo: vuelve", y)
+        local quietMenu = Craft.Menu:Create({ items = {
+            { type = "item", label = "Fila con tooltip", tooltip = "Los tooltips DENTRO del menú siguen" },
+            { type = "item", label = "Otra fila" },
+        } })
+        table.insert(menus, quietMenu)
+        local btn9 = Craft.Button:Create(parent, { text = "Abrir menú", variant = "outline",
+            onClick = function(b)
+                quietMenu:Open(b:GetFrame(), { point = "TOPLEFT", relativePoint = "BOTTOMLEFT" })
+            end })
+        btn9:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, btn9)
+        local btn10 = Craft.Button:Create(parent, { text = "Con tooltip", variant = "secondary" })
+        btn10:GetFrame():SetPoint("LEFT", btn9:GetFrame(), "RIGHT", 8, 0)
+        table.insert(comps, btn10)
+        Craft.Tooltip.Attach(btn10:GetFrame(), { text = "Tooltip de fuera (FR-148)" })
+        table.insert(comps, { Destroy = function() Craft.Tooltip.Detach(btn10:GetFrame()) end })
+        y = y + 44
+
         return {
             height  = y + 24,
             cleanup = function()
