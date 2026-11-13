@@ -63,7 +63,7 @@ El cálculo de posición ocurre **cada vez** que el tooltip se muestra — no se
 
 | Función                            | Firma                              | Descripción                                                                                     |
 |------------------------------------|------------------------------------|-------------------------------------------------------------------------------------------------|
-| `Craft.Tooltip.Attach(frame, cfg)` | `(Frame, table) → void`            | Adjunta un tooltip a `frame` via OnEnter/OnLeave. Sobreescribe cualquier attachment previo.     |
+| `Craft.Tooltip.Attach(frame, cfg)` | `(Frame, table) → void`            | Adjunta un tooltip a `frame` via OnEnter/OnLeave. Sobreescribe cualquier attachment previo. **FR-148:** callado mientras haya un `Craft.Menu` abierto y `frame` no esté dentro de él (el `DropdownMenu` de Radix es modal); al cerrarse el menú no se abre nada solo, aparece en el siguiente `OnEnter`. |
 | `Craft.Tooltip.Detach(frame)`      | `(Frame) → void`                   | Elimina los scripts OnEnter/OnLeave de tooltip del frame. No afecta otros scripts del frame.    |
 | `Craft.Tooltip.Show(anchor, cfg)`  | `(Frame, table) → void`            | Muestra el tooltip manualmente sobre `anchor` con la config dada. Sin `delay` (default 0) es inmediato; con `delay` (FR-127) se difiere y un `Hide` lo cancela. |
 | `Craft.Tooltip.Hide()`             | `() → void`                        | Oculta el tooltip activo y cancela cualquier timer de delay pendiente.                          |

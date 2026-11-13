@@ -6,6 +6,53 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+### Added
+
+- **`Craft.Badge`: colores y métricas por instancia (FR-140, pedido de QuantumDungeonTools).** El
+  equivalente Craft de un `className` de shadcn sobre `<Badge>`: `textColor` / `borderColor` /
+  `fillColor` (`{r,g,b,a}` o nombre de token, re-resueltos en cada re-tema) y `Badge:SetColors({ text,
+  border, fill })` en caliente (un campo nil vuelve al de la variante); `fontSize`, `paddingX`, `paddingY`
+  y `fontWeight` (`"regular"|"medium"|"bold"`). Con `fontSize` o `paddingY` el alto deja el `h-5` fijo y
+  sale del texto (`línea + 2·paddingY + 2·px1`, con línea = `fontSize` al leading de `text-xs` 16/12 y el
+  padding dentro del borde de 1 px), con las mayúsculas centradas como en CSS (la etiqueta baja `round(0.1em)`, 1 px, en TODOS los badges: WoW
+  coloca la línea de Inter ~0.1 em más arriba que el navegador); ancho y alto se re-miden
+  en `_applyTheme` (bug #4) y una vez más al frame siguiente (primer rasterizado de un peso/tamaño).
+  Nuevo `Badge:GetBaselineOffset()`. El borde cuadrado pasa a ser un anillo de 1 px (`AnchorBorder`, como
+  FR-038): el `outline` ya no tiñe el interior con `t.border`. **Sin `size`**: `.cn-badge` es de un solo tamaño en Lyra; el
+  consumidor guarda su propia tabla de preset. Sin overrides el badge es idéntico a v2.47.0. Demo con los
+  cinco tags de QDT, `SetColors` 8/10 ↔ 10/10 y alineado por línea base en `pages/Badge.lua`.
+- **`Craft.RoundedSurface`: superficie de radio `r` con relleno y anillo de 1 px independientes (FR-141).**
+  Primitivo nuevo (`theme/RoundedSurface.lua`, en los dos `.toc`): relleno 9-slice sin solapes y borde de
+  1 px físico (tiras `hairline` + cuartos de anillo). La familia de formas nueva `shape_cring_<d>.tga`
+  (34 archivos, banda = 1/d del disco) da un anillo exacto por diámetro físico, elegido con
+  `Craft.Shapes.NearestCornerRing` y re-elegido al cambiar la escala. `r = 0` / cliente sin máscaras →
+  build cuadrado. **`Badge` `pill` pasa a usarlo**: el `outline` en píldora ya no rellena el interior con
+  el color del borde. Es la pieza de dibujo del eje Style de RFC-002 (Mira), cuyo uso en componentes
+  sigue sujeto a su ADR. Banco en la página nueva **Pixels** del Browser.
+- **Píxeles re-ajustados al cambiar la escala (FR-142) + `hairline`/`pixelInset` (FR-147).** Theme
+  escucha `UI_SCALE_CHANGED`/`DISPLAY_SIZE_CHANGED` y, un frame después, `Craft.Theme.RefreshPixels()`
+  re-ajusta todo lo pedido en píxeles físicos (registro débil: `SetPixel*` se registran solos) y
+  re-ejecuta los `_applyTheme`. `RefreshPixels(root)` para el consumidor que escala su host;
+  `Window:SetBaseScale` ya lo llama; `onPixelScaleChanged(fn)`. Nuevos `Craft.Theme.hairline`,
+  `pixelInset` (n < 0 hacia fuera) y `onPixelRefit`; `AnchorBorder` usa `hairline`; Badge y Window
+  migran su inset de 1 px. Sin `OnUpdate`, sin cambio a escala fija.
+- **`Craft.Theme.smooth(tex)` + `Craft.Theme.smoothCurves` (FR-143)** — ajuste a la rejilla OFF en una
+  textura curva. Default `false` hasta medir con el banco de la página Pixels.
+- **Fuente de respaldo CJK (FR-145).** En clientes `zhCN`/`zhTW`/`koKR`, `applyFont` cambia las fuentes
+  incluidas en Craft (no la mono ni las del consumidor) por `STANDARD_TEXT_FONT`. `Craft.Theme.locale()`,
+  `localeFont(path)`; botón «Simular cliente zhCN» en la página Theme.
+- **Tope de frame level (FR-146).** `Craft.MAX_FRAME_LEVEL`, `Craft.Strata.level(n)` y
+  `Craft.Strata.above(frame, n)`; todas las subidas de nivel de Craft (26) pasan por ellos y no pueden
+  pasar de 10000. Banco de centrado impar a 4 escalas en la página Pixels.
+- **`Craft.Menu.IsAnyOpen()` / `Contains(frame)` y tooltips callados con un menú abierto (FR-148)**, como
+  el `DropdownMenu` modal de Radix; los tooltips dentro del menú siguen. Demo en la página Menu.
+
+### Fixed
+
+- **`Craft.ScrollBar`: el thumb ya no se queda enganchado al cursor (FR-144)** si se pierde el
+  `OnMouseUp` (Alt-Tab con el botón pulsado…): el arrastre se corta en cuanto el botón no está pulsado
+  y al ocultarse el riel. Repro en la página Scroll.
+
 ## [2.47.0] - 2026-11-10
 
 > **Release v2.47.0 — `Craft.Window` fuera del caché de layout del cliente (FR-138) y `Craft.Icons.Refresh`

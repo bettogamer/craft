@@ -40,6 +40,14 @@ CraftPresets  (global table)  — definida en theme/Presets.lua, cargada antes
 | `Craft.Theme.SetPixelWidth(frame, n)`    | `(Frame, number) → void`           | Ídem para ancho.                                                                                                       |
 | `Craft.Theme.SetPixelSize(frame, w, h)`  | `(Frame, number, number) → void`   | Ídem para ancho y alto simultáneamente.                                                                                |
 | `Craft.Theme.isPixelPerfect()`           | `() → boolean`                     | `true` si `UIParent:GetEffectiveScale() ≈ 1.0` (tolerancia 0.01).                                                    |
+| `Craft.Theme.RefreshPixels(root?)`       | `(Frame?) → void`                  | **FR-142.** Re-ajusta a la escala ACTUAL todo lo pedido en píxeles (`SetPixel*`, `hairline`, `pixelInset`, `onPixelRefit`) y re-ejecuta los `_applyTheme` de todos los contextos. Con `root`, solo re-ajusta regiones bajo ese frame. Craft lo llama solo en `UI_SCALE_CHANGED`/`DISPLAY_SIZE_CHANGED` (un frame después) y en `Window:SetBaseScale`; el consumidor que hace `SetScale` en su host lo llama después (como `Icons.Refresh`). |
+| `Craft.Theme.onPixelScaleChanged(fn)`    | `(function(root?)) → void`         | **FR-142.** Persistente: tras cada `RefreshPixels` (re-layout manual de un contenedor). |
+| `Craft.Theme.hairline(tex, axis, anchorTo?, edge?, n?)` | `(Texture, "h"\|"v", Frame?, string?, number?) → void` | **FR-147.** Tira de `n` (1) px físicos; con `anchorTo` la ancla a lo largo de `edge` (h: `TOP`/`BOTTOM`, def. `BOTTOM`; v: `LEFT`/`RIGHT`, def. `LEFT`). Se re-ajusta sola. |
+| `Craft.Theme.pixelInset(region, n, rel)` | `(Region, number, Frame) → void`   | **FR-147.** `region` ocupa `rel` menos `n` px físicos por lado (`n < 0` = hacia fuera). Se re-ajusta sola. |
+| `Craft.Theme.onPixelRefit(region, fn)`   | `(Region, function(region)) → void` | **FR-147.** Genérico: ejecuta `fn(region)` ahora y en cada re-ajuste mientras la región viva (tabla débil). Uno por región. |
+| `Craft.Theme.smooth(tex)` / `smoothCurves` | `(Texture) → void` / boolean     | **FR-143.** Quita el ajuste a la rejilla de una textura curva (`SetSnapToPixelGrid(false)` + `SetTexelSnappingBias(0)`). `smoothCurves` (def. `false`) es el interruptor que leen las esquinas de `RoundedSurface`; adopción pendiente del banco. |
+| `Craft.Theme.localeFont(path)` / `locale()` | `(string) → string` / `() → string` | **FR-145.** En `zhCN`/`zhTW`/`koKR` una fuente incluida en Craft (no la mono) cae a `STANDARD_TEXT_FONT`; `applyFont` lo aplica siempre. `_localeOverride` simula un locale. |
+| `Craft.Strata.above(frame, n?)` / `level(n)` | `(Frame, number?) → number`    | **FR-146.** Nivel de frame + `n` (o `n` suelto) acotado a `[0, Craft.MAX_FRAME_LEVEL = 10000]`. Toda subida de nivel de Craft pasa por aquí. |
 
 ### Presets built-in
 

@@ -106,7 +106,11 @@ y migrar los ~107 `SetColorTexture` a pasar por él. Así el radio se honra en
    - ¿Estilo Mira con esquinas redondeadas? → proyecto con ADR (Eje 2).
 2. **Si se quieren rounded corners:**
    - Paso 1: refactor de centralización (`Theme.applyFill`).
-   - Paso 2: `MaskTexture` parametrizado por `radius`.
+   - Paso 2: `MaskTexture` parametrizado por `radius`. → **Pieza de dibujo en
+     [FR-141](FR-141-pill-outline-ring.md)** (2026-11-13): superficie 9-slice de radio `r` con relleno y
+     anillo de 1 px independientes (el borde con centro transparente que exige `outline`); la píldora
+     de Badge es su caso `r = alto/2`. Depende también de [FR-142](FR-142-pixel-refit-on-scale-change.md)
+     (grosor de 1 px recalculado al cambiar la escala).
 3. **Convención de nombres:** mantener `<style>-<mode>` (`lyra-dark`, `mira-dark`);
    tratar el color como eje componible vía `extend()`, no `mira-neutral-emerald-dark`.
 4. **Gobernanza:** abrir ADR que extienda/supere ADR-0002 y relaje el guardrail

@@ -324,6 +324,8 @@ No interactivos. `heading` = `mutedForeground` font-medium. `separator` = `t.bor
 | `menu:SetItems(items)` | Reemplaza las entradas (reutiliza filas por índice) |
 | `menu:Destroy()` | Libera frames, listeners de tema y binds |
 | `Craft.Menu:AttachContextMenu(frame, builder)` | Registra click derecho sobre `frame`; `builder()` retorna `{ items = {...} }` fresco en cada apertura, y abre al cursor |
+| `Craft.Menu.IsAnyOpen()` | FR-148: `true` mientras algún menú (raíz o submenú, de cualquier copia embebida) está abierto **y** con el panel visible. Lo consulta `Tooltip.Attach` |
+| `Craft.Menu.Contains(frame)` | FR-148: `true` si `frame` está dentro del panel de un menú abierto (sus tooltips siguen funcionando) |
 
 ## Notas de implementación
 

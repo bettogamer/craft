@@ -38,6 +38,11 @@ Frame (root)                          — contenedor exterior, define el tamaño
 
 > **Nota pixel-perfect (ADR-0011)**: Track width (8px) y thumb width (6px) son valores normales de UI — usar directamente como UI units en `SetWidth`. El gap de 1px entre thumb y track edges es el único valor que debe pasarse por `Craft.Theme.px(1, frame)` para garantizar que ocupe exactamente 1 píxel físico sin importar el scale del contenedor.
 
+**Arrastre robusto (FR-144):** el arrastre del thumb (`Craft.ScrollBar`, compartido por Scroll,
+Textarea, Select…) termina por una sola ruta (`_endDrag`): `OnMouseUp`, el botón ya no pulsado en el
+`OnUpdate` (`IsMouseButtonDown`, como Slider FR-110 — cubre el `OnMouseUp` perdido tras Alt-Tab), el
+`OnHide` del riel o `Destroy`.
+
 ### Espacio reservado para scrollbar dentro del root
 
 El `ScrollFrame` se ancla con `BOTTOMRIGHT` a −8px del root (deja el riel vertical de 8px
