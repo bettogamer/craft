@@ -37,7 +37,7 @@ CraftBrowserPages["Switch"] = {
             local fs = parent:CreateFontString(nil, "OVERLAY")
             fs:SetFont(t.font, t.fontSizeSm)
             fs:SetTextColor(t.mutedForeground.r, t.mutedForeground.g, t.mutedForeground.b)
-            fs:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -(yOff + 3))
+            fs:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -(yOff + 4))  -- = placeText in an 18px track (FR-149)
             fs:SetText(text)
             table.insert(loose, fs)
             return fs
