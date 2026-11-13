@@ -8,6 +8,36 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ### Added
 
+- **`Craft.Theme`: helpers de texto centrado en su caja (FR-149, paso 1).** `snapPx`, `lineHeight`,
+  `placeText` y `remeasureNextFrame` reúnen las lecciones de Badge (cap nudge de 0.1 em, caja y texto en
+  píxeles físicos enteros con ancla `TOPLEFT`, línea CSS ≠ `GetStringHeight`, re-medida al frame
+  siguiente). `Craft.Badge` pasa a usarlos sin cambio de geometría. Browser: `/craft pp` y botón en la
+  página Pixels para la escala pixel-perfect en cualquier página (la medición del resto de componentes
+  sigue pendiente in-game).
+- **`Craft.Button`: texto centrado como en CSS y caja en píxeles enteros (FR-149, paso 2).** Medido a
+  escala pixel-perfect: «Default» en `h-8` tenía 1 px más de hueco debajo que encima (como Badge).
+  Ahora alto y ancho se redondean a píxeles físicos y el texto se ancla con
+  `Theme.placeText` (bajado 0.1 em); el icono y el `translate-y-px` del press también van a píxeles
+  enteros. Mismo tamaño de caja. Verificado in-game a 1:1: todas las cajas con su alto exacto y el
+  mismo reparto arriba/abajo en todas las filas.
+- **`Craft.Button`: el icono respeta el tamaño del botón.** `xs`/`icon-xs` llevan icono de 12 px y `sm` de
+  14 (`size-3`/`size-3.5`), pero `Icons.Apply` se llamaba sin tamaño y todos salían a 16. En `icon-xs`
+  el glifo quedaba además 4 px bajo una vez anclado en píxeles enteros (FR-149).
+- **`Craft.Select`, `Craft.Toggle` y `Craft.Tabs`: mismo centrado que Button (FR-149, paso 3).** Medidos a
+  1:1, los tres salían con el texto 1 px más alto que Button para el mismo texto y caja (Select `h-8`
+  11/12, Toggle 10/11, trigger de Tabs 7/8). Ahora usan `Theme.placeText` y cajas en píxeles enteros
+  (alto del Toggle y del Select, ancho del Toggle y de cada trigger de Tabs); el chevron del Select y
+  los iconos de Toggle/Tabs, a desplazamiento entero. El texto del Select conserva sus dos anclas
+  horizontales (el ancho sale del frame). Sin cambio de tamaño de caja. Medido in-game a 1:1: Select
+  12/11 (`sm` 10/9), Toggle 11/10 (relleno 10/9) y Tabs 9/8, el mismo +1 de hueco impar que Button.
+- **`Craft.Scroll` / `Craft.ScrollBar`: el desplazamiento cae en píxeles enteros (FR-149).** Con la
+  página scrolleada al máximo o arrastrando el thumb, el offset quedaba fraccional y todo el contenido
+  se movía una fracción de píxel: medido, el texto de cada trigger de Tabs bajaba 1 px respecto a su
+  caja. Nuevo `Craft.Theme.snapOffset(v, frame, max)`, usado por todos los setters de scroll, sobre
+  la rejilla del scroll child (el cliente aplica el offset en sus unidades, que difieren si tiene escala propia).
+- **`Craft.Flex` / `Craft.Grid`: `floor` con tolerancia (FR-149).** Un `GetHeight()` de 25.99999 (ruido de
+  coma flotante con escala propia) hacía que `math.floor` perdiera un píxel entero: el 2.º renglón de un
+  Tabs con wrap quedaba 1 px alto. Ahora se redondea hacia abajo con una tolerancia de 1e-4.
 - **`Craft.Badge`: colores y métricas por instancia (FR-140, pedido de QuantumDungeonTools).** El
   equivalente Craft de un `className` de shadcn sobre `<Badge>`: `textColor` / `borderColor` /
   `fillColor` (`{r,g,b,a}` o nombre de token, re-resueltos en cada re-tema) y `Badge:SetColors({ text,
