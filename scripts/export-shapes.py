@@ -10,6 +10,7 @@ Outputs (one WHITE anti-aliased shape per file, on a transparent background):
   Craft/media/shape_pill_24x14.tga   256×128  — Switch sm track
   Craft/media/shape_circle.tga       128×128  — Switch thumb
   Craft/media/shape_ring_<n>.tga     128×128  — ProgressRing track/arc, band = D/n (FR-087)
+  Craft/media/shape_cring_<d>.tga    128×128  — 1px corner outline shown d px across (FR-141)
   Craft/media/shape_arrow.tga        256×256  — solid arrow pointing UP (FR-120)
   Craft/media/shape_chevron.tga      256×256  — chevron (head, no shaft) pointing UP (FR-120)
   Craft/media/shape_arrow_curved.tga 256×256  — U-turn arrow, head pointing UP (FR-120)
@@ -91,6 +92,16 @@ SHAPES_LUA = REPO_ROOT / "Craft" / "theme" / "Shapes.lua"
 RING_DENOMS     = [4, 6, 8, 12, 16]
 RING_FILE_SIZE  = 128          # POT → mip chain; ≈4× the 32px sweet spot, fine down to 16px
 
+# ─── Corner-ring family (FR-141, Craft.RoundedSurface) ─────────────────────────
+# A 1px OUTLINE for a rounded corner: an annulus whose band is 1/D of the visible
+# DISC (not of the file), so when the disc is shown D physical px across the band
+# is exactly 1 physical px. A baked band scales with the piece, so there is one file
+# per on-screen diameter; the primitive picks the nearest D from the corner's real
+# radius in physical px (Theme.px), like Icons picks its atlas density (FR-137).
+# ±1 around D keeps the band within 1±1/D px, so the list thins out as D grows.
+CRING_DIAMS     = list(range(3, 25)) + list(range(26, 41, 2)) + [44, 48, 56, 64]
+CRING_FILE_SIZE = 128
+
 SHAPES = [
     # name          file                       fw    fh   kind     target (w,h)  extra
     ("pill_32x18", "shape_pill_32x18.tga",     128,   64, "pill",  (32, 18),     None),
@@ -108,6 +119,10 @@ SHAPES = [
     ("arrow",        "shape_arrow.tga",        256, 256, "arrow",        (256, 256), None),
     ("chevron",      "shape_chevron.tga",      256, 256, "chevron",      (256, 256), None),
     ("arrow_curved", "shape_arrow_curved.tga", 256, 256, "arrow_curved", (256, 256), None),
+] + [
+    ("cring_%d" % d, "shape_cring_%d.tga" % d,
+     CRING_FILE_SIZE, CRING_FILE_SIZE, "cring", (d, d), d)
+    for d in CRING_DIAMS
 ]
 
 # ─── Drawing ──────────────────────────────────────────────────────────────────
@@ -161,6 +176,19 @@ def draw_ring(fw: int, fh: int, denom: int) -> Image.Image:
     os_ = RENDER_SCALE
     W, H, G = fw * os_, fh * os_, GUTTER * os_
     band = (fw / float(denom)) * os_
+    img  = Image.new("RGBA", (W, H), (255, 255, 255, 0))
+    draw = ImageDraw.Draw(img)
+    draw.ellipse([G, G, W - G - 1, H - G - 1], fill=(255, 255, 255, 255))
+    draw.ellipse([G + band, G + band, W - G - 1 - band, H - G - 1 - band], fill=(0, 0, 0, 0))
+    return img.resize((fw, fh), Image.LANCZOS)
+
+def draw_cring(fw: int, fh: int, diam: int) -> Image.Image:
+    """Corner-ring outline (FR-141): like draw_ring, but the band is 1/diam of the
+    visible DISC (file side minus both gutters), so shown `diam` physical px wide
+    it is 1 physical px thick. Hole punched before LANCZOS: both edges AA'd."""
+    os_ = RENDER_SCALE
+    W, H, G = fw * os_, fh * os_, GUTTER * os_
+    band = ((fw - 2 * GUTTER) / float(diam)) * os_
     img  = Image.new("RGBA", (W, H), (255, 255, 255, 0))
     draw = ImageDraw.Draw(img)
     draw.ellipse([G, G, W - G - 1, H - G - 1], fill=(255, 255, 255, 255))
@@ -309,6 +337,29 @@ def generate_shapes_lua():
         "    return Craft.Shapes._geom[name]",
         "end",
         "",
+        "-- Corner-ring outlines (FR-141): the on-screen DISC diameters, in physical px,",
+        "-- that have a file whose band is exactly 1px at that size. Every file shares",
+        "-- the gutter `cringInset` (fraction of the file side per edge).",
+        "Craft.Shapes._cringDiams = {",
+    ] + [
+        "    " + ", ".join(str(d) for d in CRING_DIAMS[i:i + 16]) + ","
+        for i in range(0, len(CRING_DIAMS), 16)
+    ] + [
+        "}",
+        f"Craft.Shapes.cringInset = {GUTTER / float(CRING_FILE_SIZE):.10g}",
+        "",
+        "-- NearestCornerRing(d) → name, diam of the corner-ring file closest to a disc",
+        "-- `d` physical px across (nil below the smallest: draw the corner square).",
+        "function Craft.Shapes.NearestCornerRing(d)",
+        "    local list = Craft.Shapes._cringDiams",
+        "    if not d or d < list[1] - 0.5 then return nil end",
+        "    local best = list[1]",
+        "    for i = 2, #list do",
+        "        if math.abs(list[i] - d) < math.abs(best - d) then best = list[i] end",
+        "    end",
+        '    return "cring_" .. best, best',
+        "end",
+        "",
     ]
     SHAPES_LUA.write_text("\n".join(lines), encoding="utf-8")
     print(f"  ✅ {SHAPES_LUA.relative_to(REPO_ROOT)} ({len(SHAPES)} shapes)")
@@ -331,6 +382,8 @@ def main():
             img = draw_circle(fw, fh)
         elif kind == "ring":
             img = draw_ring(fw, fh, extra)
+        elif kind == "cring":
+            img = draw_cring(fw, fh, extra)
         elif kind == "arrow":
             img = draw_arrow(fw, fh)
         elif kind == "chevron":

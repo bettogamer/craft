@@ -38,6 +38,8 @@ theme\Theme.lua
 
 # Shapes — prefab rounded-shape UV descriptor (ADR-0018; consumed by Switch)
 theme\Shapes.lua
+# RoundedSurface — fill + 1px ring of radius r (FR-141; needs Shapes)
+theme\RoundedSurface.lua
 
 # Icons
 icons\Atlas.lua

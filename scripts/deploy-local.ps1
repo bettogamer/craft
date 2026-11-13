@@ -108,7 +108,7 @@ if ($AtlasMissing) {
 }
 
 # Generate rounded-shape masks if not present (ADR-0018; needs only Pillow)
-$Shapes = Join-Path $MediaDir "shape_circle.tga"
+$Shapes = Join-Path $MediaDir "shape_cring_64.tga"  # newest family (FR-141): stale media regenerates
 if (-not (Test-Path $Shapes)) {
     if ($DryRun) {
         Write-Host "[dry-run] Would generate rounded-shape masks"

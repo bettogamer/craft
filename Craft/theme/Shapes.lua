@@ -27,6 +27,40 @@ Craft.Shapes._file = {
     ["arrow"] = "shape_arrow.tga",
     ["chevron"] = "shape_chevron.tga",
     ["arrow_curved"] = "shape_arrow_curved.tga",
+    ["cring_3"] = "shape_cring_3.tga",
+    ["cring_4"] = "shape_cring_4.tga",
+    ["cring_5"] = "shape_cring_5.tga",
+    ["cring_6"] = "shape_cring_6.tga",
+    ["cring_7"] = "shape_cring_7.tga",
+    ["cring_8"] = "shape_cring_8.tga",
+    ["cring_9"] = "shape_cring_9.tga",
+    ["cring_10"] = "shape_cring_10.tga",
+    ["cring_11"] = "shape_cring_11.tga",
+    ["cring_12"] = "shape_cring_12.tga",
+    ["cring_13"] = "shape_cring_13.tga",
+    ["cring_14"] = "shape_cring_14.tga",
+    ["cring_15"] = "shape_cring_15.tga",
+    ["cring_16"] = "shape_cring_16.tga",
+    ["cring_17"] = "shape_cring_17.tga",
+    ["cring_18"] = "shape_cring_18.tga",
+    ["cring_19"] = "shape_cring_19.tga",
+    ["cring_20"] = "shape_cring_20.tga",
+    ["cring_21"] = "shape_cring_21.tga",
+    ["cring_22"] = "shape_cring_22.tga",
+    ["cring_23"] = "shape_cring_23.tga",
+    ["cring_24"] = "shape_cring_24.tga",
+    ["cring_26"] = "shape_cring_26.tga",
+    ["cring_28"] = "shape_cring_28.tga",
+    ["cring_30"] = "shape_cring_30.tga",
+    ["cring_32"] = "shape_cring_32.tga",
+    ["cring_34"] = "shape_cring_34.tga",
+    ["cring_36"] = "shape_cring_36.tga",
+    ["cring_38"] = "shape_cring_38.tga",
+    ["cring_40"] = "shape_cring_40.tga",
+    ["cring_44"] = "shape_cring_44.tga",
+    ["cring_48"] = "shape_cring_48.tga",
+    ["cring_56"] = "shape_cring_56.tga",
+    ["cring_64"] = "shape_cring_64.tga",
 }
 
 -- Geometry of the shapes whose consumer has to do maths against the drawn
@@ -51,4 +85,26 @@ end
 -- GetGeometry(name) → { inset, thickness } (or nil). Only rings carry it.
 function Craft.Shapes.GetGeometry(name)
     return Craft.Shapes._geom[name]
+end
+
+-- Corner-ring outlines (FR-141): the on-screen DISC diameters, in physical px,
+-- that have a file whose band is exactly 1px at that size. Every file shares
+-- the gutter `cringInset` (fraction of the file side per edge).
+Craft.Shapes._cringDiams = {
+    3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+    19, 20, 21, 22, 23, 24, 26, 28, 30, 32, 34, 36, 38, 40, 44, 48,
+    56, 64,
+}
+Craft.Shapes.cringInset = 0.015625
+
+-- NearestCornerRing(d) → name, diam of the corner-ring file closest to a disc
+-- `d` physical px across (nil below the smallest: draw the corner square).
+function Craft.Shapes.NearestCornerRing(d)
+    local list = Craft.Shapes._cringDiams
+    if not d or d < list[1] - 0.5 then return nil end
+    local best = list[1]
+    for i = 2, #list do
+        if math.abs(list[i] - d) < math.abs(best - d) then best = list[i] end
+    end
+    return "cring_" .. best, best
 end
