@@ -6,6 +6,14 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.48.0] - 2026-11-13
+
+> **Release v2.48.0 — píxeles enteros.** Texto centrado como en CSS y cajas y scroll en píxeles físicos
+> enteros en todos los componentes (FR-149), `Craft.RoundedSurface` con anillo de 1 px (FR-141), re-ajuste
+> de píxeles al cambiar la escala (FR-142/147), colores y métricas por instancia en Badge (FR-140, para
+> QuantumDungeonTools), fuente de respaldo CJK (FR-145), tope de frame level (FR-146), tooltips callados
+> con un menú abierto (FR-148) y el thumb del ScrollBar que ya no se engancha (FR-144). Verificado in-game.
+
 ### Added
 
 - **`Craft.Theme`: helpers de texto centrado en su caja (FR-149, paso 1).** `snapPx`, `lineHeight`,
@@ -76,13 +84,15 @@ Versioning: [SemVer](https://semver.org/lang/es/)
   `pixelInset` (n < 0 hacia fuera) y `onPixelRefit`; `AnchorBorder` usa `hairline`; Badge y Window
   migran su inset de 1 px. Sin `OnUpdate`, sin cambio a escala fija.
 - **`Craft.Theme.smooth(tex)` + `Craft.Theme.smoothCurves` (FR-143)** — ajuste a la rejilla OFF en una
-  textura curva. Default `false` hasta medir con el banco de la página Pixels.
+  textura curva. Medido en el banco de la página Pixels: sin diferencia visible, así que el default se
+  queda en `false` y no se adopta en más componentes (disponible por superficie con `opts.smooth`).
 - **Fuente de respaldo CJK (FR-145).** En clientes `zhCN`/`zhTW`/`koKR`, `applyFont` cambia las fuentes
   incluidas en Craft (no la mono ni las del consumidor) por `STANDARD_TEXT_FONT`. `Craft.Theme.locale()`,
   `localeFont(path)`; botón «Simular cliente zhCN» en la página Theme.
 - **Tope de frame level (FR-146).** `Craft.MAX_FRAME_LEVEL`, `Craft.Strata.level(n)` y
   `Craft.Strata.above(frame, n)`; todas las subidas de nivel de Craft (26) pasan por ellos y no pueden
-  pasar de 10000. Banco de centrado impar a 4 escalas en la página Pixels.
+  pasar de 10000. Banco de centrado impar a 4 escalas en la página Pixels: Checkbox, Radio, Switch,
+  Slider y Avatar salen centrados.
 - **`Craft.Menu.IsAnyOpen()` / `Contains(frame)` y tooltips callados con un menú abierto (FR-148)**, como
   el `DropdownMenu` modal de Radix; los tooltips dentro del menú siguen. Demo en la página Menu.
 

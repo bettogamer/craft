@@ -5,7 +5,7 @@
 (Switch, Badge `pill`, Avatar), `Craft/icons/Icons.lua` (`Icons.Apply`), marcas de Checkbox/Radio.
 **Tipo:** Calidad visual (pixel-perfect).
 **Prioridad:** Media. **Primero medir:** si no hay defecto visible, se cierra sin código.
-**Estado:** helper implementado en dev (2026-11-13, sin release); **adopción pendiente de medir**.
+**Estado:** ✅ cerrado sin adopción (2026-11-13). Banco medido in-game (página Pixels, ×0.64 / 0.71 / 0.9 / 1.0, x a medio píxel): las píldoras con ajuste a rejilla ON y OFF salen iguales (mismo alto y ancho de tinta en cada escala, sin diferencia visible). `smoothCurves` se queda en `false` y no se extiende a Switch/Avatar/`Icons.Apply`; el helper `Theme.smooth` y `opts.smooth` quedan disponibles por si un caso concreto lo justifica. Texto original:
 `Craft.Theme.smooth(tex)` (comprueba que los métodos existan) y el interruptor
 `Craft.Theme.smoothCurves` (default `false`), que leen las esquinas de `Craft.RoundedSurface` (FR-141;
 también `opts.smooth` por superficie). Banco en la página Pixels del Browser: misma píldora con ajuste ON

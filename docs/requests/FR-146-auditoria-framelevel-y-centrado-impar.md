@@ -5,7 +5,7 @@
 thumbs de Checkbox, Radio, Switch, Slider, Avatar).
 **Tipo:** Auditoría (devuelve fixes concretos o se cierra).
 **Prioridad:** Baja.
-**Estado:** §1 implementado en dev (2026-11-13, sin release): `Craft.MAX_FRAME_LEVEL = 10000`,
+**Estado:** ✅ cerrado (2026-11-13). §2 mirado in-game en el banco de la página Pixels: Checkbox, Radio, Switch, Slider y Avatar salen centrados a ×0.64 / 0.71 / 0.9 / 1.0; no hay fixes que abrir más allá de los de FR-149. §1 implementado en dev (2026-11-13, sin release): `Craft.MAX_FRAME_LEVEL = 10000`,
 `Craft.Strata.level(n)` y `Craft.Strata.above(frame, n)`; migradas TODAS las subidas de nivel de Craft
 (26 llamadas: las 18 `x:GetFrameLevel() + N` y las 8 de Slider/Toast sobre una base guardada). Spec con
 padre a 9998. §2 (centrado impar): banco en la página Pixels del Browser (Checkbox, Radio, Switch,
