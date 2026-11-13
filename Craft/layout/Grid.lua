@@ -12,6 +12,11 @@
 local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
+-- Floor with a float tolerance (FR-149): GetHeight()/GetWidth() of a frame with
+-- its own scale can come back as 25.99999 for 26, and a bare math.floor() then
+-- drops a whole pixel (measured: the 2nd wrapped row of Tabs sat 1px high).
+local function pxFloor(v) return math.floor(v + 1e-4) end
+
 local Grid = {}
 
 -- ─── parseTrack() ───────────────────────────────────────────────────────────
@@ -229,10 +234,10 @@ function Grid:Layout()
         local x, w
         if js == "stretch" then
             x, w = cellX, cellW
-            it.frame:SetWidth(math.max(0, math.floor(w)))
+            it.frame:SetWidth(math.max(0, pxFloor(w)))
         else
             w = (it._naturalW and it._naturalW > 0) and it._naturalW or it.frame:GetWidth()
-            if w > 0 then it.frame:SetWidth(math.floor(w)) end  -- restaura natural (estable en re-layout)
+            if w > 0 then it.frame:SetWidth(pxFloor(w)) end  -- restaura natural (estable en re-layout)
             if js == "end" then
                 x = cellX + cellW - w
             elseif js == "center" then
@@ -247,10 +252,10 @@ function Grid:Layout()
         local y, h
         if as == "stretch" then
             y, h = cellY, cellH
-            it.frame:SetHeight(math.max(0, math.floor(h)))
+            it.frame:SetHeight(math.max(0, pxFloor(h)))
         else
             h = (it._naturalH and it._naturalH > 0) and it._naturalH or it.frame:GetHeight()
-            if h > 0 then it.frame:SetHeight(math.floor(h)) end
+            if h > 0 then it.frame:SetHeight(pxFloor(h)) end
             if as == "end" then
                 y = cellY + cellH - h
             elseif as == "center" then
@@ -262,7 +267,7 @@ function Grid:Layout()
 
         it.frame:ClearAllPoints()
         it.frame:SetPoint("TOPLEFT", self._container, "TOPLEFT",
-            math.floor(pH + x), -math.floor(pV + y))
+            pxFloor(pH + x), -pxFloor(pV + y))
     end
 
     -- 4. Extensión de contenido: útil para que el contenedor se dimensione a la

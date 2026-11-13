@@ -533,3 +533,58 @@ describe("Craft.Button", function()
     end)
 
 end)
+
+describe("Craft.Button whole-pixel layout (FR-149)", function()
+    local function whole(v)
+        local n = v * 0.71 / (768 / 1080)
+        return math.abs(n - math.floor(n + 0.5)) < 1e-6
+    end
+
+    it("height, width and text offset are whole physical pixels at a fractional scale", function()
+        MockSetPhysicalScreenHeight(1080)
+        local host = CreateFrame("Frame", nil, UIParent)
+        host:SetScale(0.71)
+        for _, cfg in ipairs({
+            { text = "Default" },
+            { text = "Small", size = "sm" },
+            { text = "Left", icon = "arrow-left", iconPosition = "left" },
+            { text = "Right", icon = "arrow-right" },
+        }) do
+            local b = Craft.Button:Create(host, cfg)
+            b.frame:SetScale(0.71)
+            b:_applySize(); b:_recalcWidth(); b:_positionChildren()
+            assert.is_true(whole(b.frame:GetHeight()))
+            assert.is_true(whole(b.frame:GetWidth()))
+            local p, _, _, x, y = b._label:GetPoint(1)
+            assert.is_true(p == "TOP" or p == "TOPLEFT")
+            assert.is_true(whole(-y))
+            if p == "TOPLEFT" then assert.is_true(whole(x)) end
+            b:Destroy()
+        end
+        MockSetPhysicalScreenHeight(768)
+    end)
+
+    it("the label drops by the cap nudge (h-8, 12px: top 11) and 1 more on press", function()
+        local b = Craft.Button:Create(UIParent, { text = "Default" })
+        b._label.GetStringHeight = function() return 12 end
+        b:_positionChildren()
+        local _, _, _, _, y = b._label:GetPoint(1)
+        assert.equals(-11, y)            -- (32-12)/2 + round(1.2)
+        b:_onMouseDown()
+        _, _, _, _, y = b._label:GetPoint(1)
+        assert.equals(-12, y)
+        b:_onMouseUp()
+        b:Destroy()
+    end)
+
+    it("the icon takes the size's own icon size (xs 12, sm 14, default 16) and is centred", function()
+        for _, c in ipairs({ { "icon-xs", 12, 24 }, { "sm", 14, 28 }, { "xs", 12, 24 }, { "icon", 16, 32 } }) do
+            local b = Craft.Button:Create(UIParent, { text = "Go", icon = "settings", size = c[1] })
+            assert.equals(c[2], b._icon:GetWidth())
+            assert.equals(c[2], b._icon:GetHeight())
+            local _, _, _, _, y = b._icon:GetPoint(1)
+            assert.equals(-(c[3] - c[2]) / 2, y)
+            b:Destroy()
+        end
+    end)
+end)

@@ -119,6 +119,8 @@ function Button:Create(parent, config)
     self:_applyTheme(self._theme:get())
     self._label:SetText(self._cfg.text)  -- after SetFont in _applyTheme
     self:_recalcWidth()                  -- recalc now that text is set (GetStringWidth was 0 before)
+    self:_positionChildren()             -- the label's own glyph height is known now
+    self:_remeasureNextFrame()
 
     -- Interaction scripts
     self.frame:SetScript("OnEnter",    function() self:_onEnter()    end)
@@ -156,10 +158,13 @@ function Button:_applySize()
         -- Icon-only: fixed square frame. The width is OURS, so record it as the
         -- intrinsic one: otherwise, back on a text size, _recalcWidth's Flex guard
         -- reads the icon square as an external width and keeps it (FR-097).
-        self.frame:SetSize(s.w, s.h)
-        self._intrinsicWidth = s.w
+        local side = Craft.Theme.snapPx(s.w, self.frame)
+        self.frame:SetSize(side, Craft.Theme.snapPx(s.h, self.frame))
+        self._intrinsicWidth = side
     else
-        self.frame:SetHeight(s.h)
+        -- Whole physical pixels (FR-149): a fractional box rendered 31/33px
+        -- tall depending on the row it fell in.
+        self.frame:SetHeight(Craft.Theme.snapPx(s.h, self.frame))
         -- Width is recalculated in _recalcWidth once the text is known
     end
 end
@@ -177,7 +182,7 @@ function Button:_recalcWidth()
     -- the icon glyph carries inside its cell — equalising the *frame* padding actually
     -- unbalances the *visible* gaps. See FR-014 (won't-do) for the analysis.
     local padTotal = hasIcon and (s.padHIcon + s.padH) or (s.padH * 2)
-    local intrinsic = math.max(padTotal + labelW + iconW, s.h)
+    local intrinsic = Craft.Theme.snapPx(math.max(padTotal + labelW + iconW, s.h), self.frame)
 
     -- If an external layout (e.g. Craft.Flex) changed the frame width after our last
     -- _recalcWidth, respect it — don't collapse the button back to its text width.
@@ -330,42 +335,64 @@ end
 -- ─── Child positioning ─────────────────────────────────────────────────────
 -- yOffset: vertical shift for the press effect (-1 on MouseDown, 0 on MouseUp)
 -- Only the primary anchor gets yOffset; secondary elements follow via relative anchors.
+-- FR-149: TOP-based anchors at whole physical pixels, text dropped by the cap
+-- nudge (Theme.placeText). Measured at pixel-perfect scale before: "Default" in
+-- h-8 had 9px above / 11 below (1px high, like Badge), and CENTER/LEFT anchors
+-- let box and text round apart. Horizontal centring stays relative (TOP) so a
+-- width set later by Flex still centres the label.
 function Button:_positionChildren(yOffset)
     yOffset = yOffset or 0
+    local T       = Craft.Theme
     local s       = self._size
     local hasIcon = self._cfg.icon ~= nil
+    local h       = T.snapPx(s.h, self.frame)
+    local font    = s.font or 12
+    local press   = T.snapPx(-yOffset, self.frame)   -- translate-y-px on press
+    local isz     = s.icon or 16
+    local iconTop = T.snapPx((h - isz) / 2, self.frame) + press
 
     self._label:ClearAllPoints()
     self._icon:ClearAllPoints()
     self._underline:ClearAllPoints()
 
+    local function placeLabel(x, point)
+        local top = T.placeText(self._label, self.frame, x, h, font, point)
+        if press ~= 0 then
+            self._label:ClearAllPoints()
+            self._label:SetPoint(point, self.frame, point, T.snapPx(x, self.frame), -(top + press))
+        end
+    end
+
     if s.w then
-        -- Icon-only: center icon (or label) with yOffset
+        -- Icon-only: centred icon (or label)
         if hasIcon then
-            self._icon:SetPoint("CENTER", self.frame, "CENTER", 0, yOffset)
+            self._icon:SetPoint("TOP", self.frame, "TOP", 0, -iconTop)
         else
-            self._label:SetPoint("CENTER", self.frame, "CENTER", 0, yOffset)
+            placeLabel(0, "TOP")
         end
     elseif hasIcon then
         -- Asymmetric padding: the icon side is reduced (padHIcon), the text side normal
         -- (padH). The opposite-side padding emerges from the recalculated frame width.
         if self._cfg.iconPosition == "left" then
-            self._icon:SetPoint("LEFT",  self.frame, "LEFT",  s.padHIcon, yOffset)
-            self._label:SetPoint("LEFT", self._icon,  "RIGHT", s.gap, 0)
+            self._icon:SetPoint("TOPLEFT", self.frame, "TOPLEFT", T.snapPx(s.padHIcon, self.frame), -iconTop)
+            placeLabel(s.padHIcon + isz + s.gap, "TOPLEFT")
         else
-            self._label:SetPoint("LEFT", self.frame, "LEFT",  s.padH, yOffset)
-            self._icon:SetPoint("LEFT",  self._label, "RIGHT", s.gap, 0)
+            placeLabel(s.padH, "TOPLEFT")
+            local x = s.padH + self._label:GetStringWidth() + s.gap
+            self._icon:SetPoint("TOPLEFT", self.frame, "TOPLEFT", T.snapPx(x, self.frame), -iconTop)
         end
     else
         -- Text only
-        self._label:SetPoint("CENTER", self.frame, "CENTER", 0, yOffset)
+        placeLabel(0, "TOP")
     end
 
     -- Icon size and visibility
     if hasIcon then
-        self._icon:SetSize(s.icon, s.icon)
         self._icon:Show()
-        Craft.Icons.Apply(self._icon, self._cfg.icon)
+        -- Apply sets the size itself (default 16): pass the size's own icon
+        -- (xs/icon-xs 12, sm 14) or every icon came out at 16 and, once anchored
+        -- on whole pixels, the icon-xs glyph sat 4px low (FR-149).
+        Craft.Icons.Apply(self._icon, self._cfg.icon, s.icon)
     else
         self._icon:Hide()
     end
@@ -425,6 +452,18 @@ function Button:SetText(text)
     self._label:SetText(text)
     self:_recalcWidth()
     self:_positionChildren()
+    self:_remeasureNextFrame()
+end
+
+-- First rasterization of a weight/size measures narrow on that frame (FR-149
+-- lesson 4): one coalesced re-measure on the next frame.
+function Button:_remeasureNextFrame()
+    Craft.Theme.remeasureNextFrame(self, function()
+        if self.frame and self._size then
+            self:_recalcWidth()
+            self:_positionChildren()
+        end
+    end)
 end
 
 function Button:SetEnabled(enabled)

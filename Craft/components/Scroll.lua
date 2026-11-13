@@ -176,14 +176,14 @@ function Scroll:_wheel(delta)
     end
     local maxScroll = self._bar:GetMaxScroll()
     local current   = self._scrollFrame:GetVerticalScroll()
-    self._scrollFrame:SetVerticalScroll(math.max(0, math.min(maxScroll, current - delta * WHEEL_STEP)))
+    self._bar:_setScroll(math.max(0, math.min(maxScroll, current - delta * WHEEL_STEP)))
     self:_updateScrollbar()
 end
 
 function Scroll:_clampVertical()
     local maxY = self._bar:GetMaxScroll()
     local cur  = self._scrollFrame:GetVerticalScroll() or 0
-    if cur > maxY then self._scrollFrame:SetVerticalScroll(maxY) end
+    if cur > maxY then self._bar:_setScroll(maxY) end
 end
 
 -- Keep both offsets inside the current range (resize or content change).
@@ -195,7 +195,7 @@ end
 function Scroll:_clampHorizontal()
     local maxX = self._hbar:GetMaxScroll()
     local cur  = self._scrollFrame:GetHorizontalScroll() or 0
-    if cur > maxX then self._scrollFrame:SetHorizontalScroll(maxX) end
+    if cur > maxX then self._hbar:_setScroll(maxX) end
 end
 
 -- ─── Rail forwarders ───────────────────────────────────────────────────────
@@ -252,20 +252,20 @@ end
 -- Vertical offset API — no-ops on a horizontal-only Scroll (there is no vertical range).
 function Scroll:ScrollToTop()
     if not self._bar then return end
-    self._scrollFrame:SetVerticalScroll(0)
+    self._bar:_setScroll(0)
     self:_updateScrollbar()
 end
 
 function Scroll:ScrollToBottom()
     if not self._bar then return end
-    self._scrollFrame:SetVerticalScroll(self._bar:GetMaxScroll())
+    self._bar:_setScroll(self._bar:GetMaxScroll())
     self:_updateScrollbar()
 end
 
 function Scroll:SetScrollOffset(n)
     if not self._bar then return end
     local maxScroll = self._bar:GetMaxScroll()
-    self._scrollFrame:SetVerticalScroll(math.max(0, math.min(maxScroll, n or 0)))
+    self._bar:_setScroll(math.max(0, math.min(maxScroll, n or 0)))
     self:_updateScrollbar()
 end
 
@@ -273,7 +273,7 @@ end
 function Scroll:SetHorizontalScroll(n)
     if not self._hbar then return end
     local maxX = self._hbar:GetMaxScroll()
-    self._scrollFrame:SetHorizontalScroll(math.max(0, math.min(maxX, n or 0)))
+    self._hbar:_setScroll(math.max(0, math.min(maxX, n or 0)))
     self:_updateScrollbar()
 end
 

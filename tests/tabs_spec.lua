@@ -311,3 +311,35 @@ describe("Craft.Tabs default tab seeding (FR-070)", function()
         assert.equals("b", seen)
     end)
 end)
+
+describe("Craft.Tabs whole-pixel layout (FR-149)", function()
+    it("the trigger label drops by the cap nudge (26px trigger, 12px: top 8)", function()
+        for _, fill in ipairs({ false, true }) do
+            local tabs = Craft.Tabs:Create(UIParent, { fill = fill })
+            tabs:AddTab("one", "Tab One")
+            local btn = tabs._buttons.one
+            btn._text.GetStringHeight = function() return 12 end
+            tabs:_placeTrigger(btn)
+            local p, _, _, _, y = btn._text:GetPoint(1)
+            assert.equals("TOP", p)
+            assert.equals(-8, y)        -- (26-12)/2 + round(1.2)
+            tabs:Destroy()
+        end
+    end)
+
+    it("an icon trigger packs from the left at whole offsets", function()
+        local tabs = Craft.Tabs:Create(UIParent, {})
+        tabs:AddTab("acc", "Account", { icon = "user" })
+        local btn = tabs._buttons.acc
+        if btn._icon then
+            local p, _, _, x, y = btn._icon:GetPoint(1)
+            assert.equals("TOPLEFT", p)
+            assert.equals(6, x)
+            assert.equals(-5, y)        -- (26-16)/2
+            local tp, _, _, tx = btn._text:GetPoint(1)
+            assert.equals("TOPLEFT", tp)
+            assert.equals(28, tx)       -- 6 + 16 + 6
+        end
+        tabs:Destroy()
+    end)
+end)

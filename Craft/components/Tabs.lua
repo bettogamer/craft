@@ -181,7 +181,7 @@ function Tabs:AddTab(id, label, opts)
     -- Trigger button — content width (icon + text + horizontal padding), fixed
     -- inner height. Flex lays them out left-aligned and wraps to new rows on overflow.
     local btn = CreateFrame("Button", nil, self._list)
-    btn:SetHeight(TRIGGER_H)
+    btn:SetHeight(Craft.Theme.snapPx(TRIGGER_H, btn))  -- whole px (FR-149)
 
     local btnText = btn:CreateFontString(nil, "OVERLAY")
     if self._t then
@@ -196,27 +196,6 @@ function Tabs:AddTab(id, label, opts)
         icon = btn:CreateTexture(nil, "ARTWORK")
         Craft.Icons.Apply(icon, opts.icon, ICON_SIZE)
         icon:SetSize(ICON_SIZE, ICON_SIZE)
-    end
-
-    -- Position the content group and derive the trigger width. The font is set
-    -- above (theme is applied before tabs are added in Create), so GetStringWidth()
-    -- is valid. The group is left-anchored with TRIGGER_PX padding; since the width
-    -- hugs the content + TRIGGER_PX on each side, it ends up horizontally centered.
-    local textW = math.max(btnText:GetStringWidth(), 1)
-    if icon then
-        if self._fill then
-            -- Equal-width cell: center the icon+label pair. Text sits at center
-            -- shifted right by half the icon slot so the pair straddles the middle.
-            btnText:SetPoint("CENTER", btn, "CENTER", math.floor((ICON_SIZE + ICON_GAP) / 2), 0)
-            icon:SetPoint("RIGHT", btnText, "LEFT", -ICON_GAP, 0)
-        else
-            icon:SetPoint("LEFT", btn, "LEFT", TRIGGER_PX, 0)
-            btnText:SetPoint("LEFT", icon, "RIGHT", ICON_GAP, 0)
-        end
-        btn:SetWidth(ICON_SIZE + ICON_GAP + textW + TRIGGER_PX * 2)
-    else
-        btnText:SetPoint("CENTER", btn, "CENTER")
-        btn:SetWidth(textW + TRIGGER_PX * 2)
     end
 
     -- Border textures (transparent by default, solid on active)
@@ -247,6 +226,9 @@ function Tabs:AddTab(id, label, opts)
     btn._underline   = underline
     btn._id          = id
 
+    -- Content placement + width (font is set above: GetStringWidth() is valid)
+    self:_placeTrigger(btn)
+
     -- Click: activate this tab
     btn:SetScript("OnClick", function()
         self:SetActiveTab(id)
@@ -273,6 +255,7 @@ function Tabs:AddTab(id, label, opts)
     if self._t then
         self:_styleButton(btn, false)
     end
+    self:_remeasureNextFrame()
 end
 
 -- ─── _relayout ─────────────────────────────────────────────────────────────
@@ -418,19 +401,53 @@ function Tabs:_applyTheme(t)
     self:_recalcTriggerWidths()
 end
 
+-- ─── _placeTrigger ──────────────────────────────────────────────────────────
+-- Places a trigger's label/icon and derives its width from the measured text.
+-- FR-149: TOP/TOPLEFT anchors at whole physical pixels, text dropped by the cap
+-- nudge (Theme.placeText). Measured before at pixel-perfect scale: "Tab One" and
+-- "Account" in the 26px trigger sat 7/8 — 1px higher than Button. Text-only and
+-- fill triggers centre on TOP (follows the width Flex gives them); a content-
+-- width trigger with an icon packs from the left with TRIGGER_PX padding.
+function Tabs:_placeTrigger(btn)
+    local T     = Craft.Theme
+    local h     = T.snapPx(TRIGGER_H, btn)
+    local text  = btn._text
+    local icon  = btn._icon
+    local textW = math.max(text:GetStringWidth(), 1)
+    local iconTop = T.snapPx((h - ICON_SIZE) / 2, btn)
+
+    if icon then
+        icon:ClearAllPoints()
+        if self._fill then
+            -- Equal-width cell: the icon+label pair straddles the middle.
+            T.placeText(text, btn, (ICON_SIZE + ICON_GAP) / 2, h, FONT_SIZE, "TOP")
+            icon:SetPoint("TOP", btn, "TOP", T.snapPx(-(textW + ICON_GAP) / 2, btn), -iconTop)
+        else
+            icon:SetPoint("TOPLEFT", btn, "TOPLEFT", T.snapPx(TRIGGER_PX, btn), -iconTop)
+            T.placeText(text, btn, TRIGGER_PX + ICON_SIZE + ICON_GAP, h, FONT_SIZE, "TOPLEFT")
+        end
+        btn:SetWidth(T.snapPx(ICON_SIZE + ICON_GAP + textW + TRIGGER_PX * 2, btn))
+    else
+        T.placeText(text, btn, 0, h, FONT_SIZE, "TOP")
+        btn:SetWidth(T.snapPx(textW + TRIGGER_PX * 2, btn))
+    end
+end
+
 -- ─── _recalcTriggerWidths ───────────────────────────────────────────────────
--- Re-derives each trigger's width from its re-measured text (same formula as
--- _addTabButton) and re-runs the flex layout.
+-- Re-places every trigger from its re-measured text and re-runs the flex layout.
 function Tabs:_recalcTriggerWidths()
     for _, btn in pairs(self._buttons) do
-        local textW = math.max(btn._text:GetStringWidth(), 1)
-        if btn._icon then
-            btn:SetWidth(ICON_SIZE + ICON_GAP + textW + TRIGGER_PX * 2)
-        else
-            btn:SetWidth(textW + TRIGGER_PX * 2)
-        end
+        self:_placeTrigger(btn)
     end
     self:_relayout()
+end
+
+-- First rasterization of a weight/size measures narrow on that frame (FR-149
+-- lesson 4): one coalesced re-measure on the next frame.
+function Tabs:_remeasureNextFrame()
+    Craft.Theme.remeasureNextFrame(self, function()
+        if self.frame then self:_recalcTriggerWidths() end
+    end)
 end
 
 -- ─── Internal: switch the visual active tab, no callbacks ──────────────────

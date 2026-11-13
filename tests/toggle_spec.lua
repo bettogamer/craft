@@ -219,3 +219,42 @@ describe("Craft.Toggle (FR-023)", function()
     end)
 
 end)
+
+describe("Craft.Toggle whole-pixel layout (FR-149)", function()
+    local function whole(v)
+        local n = v * 0.71 / (768 / 1080)
+        return math.abs(n - math.floor(n + 0.5)) < 1e-6
+    end
+
+    it("height, width and text offset are whole physical pixels at a fractional scale", function()
+        MockSetPhysicalScreenHeight(1080)
+        local host = CreateFrame("Frame", nil, UIParent)
+        host:SetScale(0.71)
+        for _, cfg in ipairs({
+            { text = "Outline", variant = "outline" },
+            { text = "Small", size = "sm" },
+            { text = "Bold", icon = "bold" },
+        }) do
+            local tg = Craft.Toggle:Create(host, cfg)
+            tg.frame:SetScale(0.71)
+            tg:_recalcWidth(); tg:_position()
+            assert.is_true(whole(tg.frame:GetWidth()))
+            local p, _, _, _, y = tg._label:GetPoint(1)
+            assert.equals("TOP", p)
+            assert.is_true(whole(-y))
+            tg:Destroy()
+        end
+        MockSetPhysicalScreenHeight(768)
+    end)
+
+    it("the label drops by the cap nudge (h-8, 12px: top 11; sm: top 9)", function()
+        for _, c in ipairs({ { "default", -11 }, { "sm", -9 } }) do
+            local tg = Craft.Toggle:Create(UIParent, { text = "On", size = c[1] })
+            tg._label.GetStringHeight = function() return 12 end
+            tg:_position()
+            local _, _, _, _, y = tg._label:GetPoint(1)
+            assert.equals(c[2], y)
+            tg:Destroy()
+        end
+    end)
+end)

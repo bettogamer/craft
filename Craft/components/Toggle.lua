@@ -52,7 +52,7 @@ function Toggle:Create(parent, config)
     self.frame = CreateFrame("Button", nil, parent)
     self._theme = Craft.Theme.resolve(parent, config, self.frame)  -- FR-104: before any child
     self._size = SIZES[self._cfg.size] or SIZES["default"]
-    self.frame:SetHeight(self._size.h)
+    self.frame:SetHeight(Craft.Theme.snapPx(self._size.h, self.frame))  -- whole px (FR-149)
 
     -- Border ring: 4 × 1px corner-safe textures (Button's chassis). Transparent for
     -- variant=default (bg-transparent, borderless); border-input for variant=outline.
@@ -93,6 +93,8 @@ function Toggle:Create(parent, config)
     self:_applyTheme(self._theme:get())
     self._label:SetText(self._cfg.text)  -- after SetFont in _applyTheme (AGENTS §9)
     self:_recalcWidth()                  -- recalc now that text is set (GetStringWidth was 0 before)
+    self:_position()                     -- the label's own glyph height is known now
+    self:_remeasureNextFrame()
 
     self.frame:SetScript("OnEnter", function()
         if self._cfg.disabled then return end
@@ -130,7 +132,7 @@ function Toggle:_recalcWidth()
     local hasText = self._cfg.text ~= nil and self._cfg.text ~= ""
     local labelW  = hasText and self._label:GetStringWidth() or 0
     local iconW   = hasIcon and (s.icon + (hasText and s.gap or 0)) or 0
-    local intrinsic = math.max(s.minW, s.padH * 2 + iconW + labelW)
+    local intrinsic = Craft.Theme.snapPx(math.max(s.minW, s.padH * 2 + iconW + labelW), self.frame)
 
     -- If an external layout (e.g. Craft.Flex) changed the frame width after our last
     -- _recalcWidth, respect it — don't collapse back to the content width (Button idiom).
@@ -210,23 +212,32 @@ function Toggle:_applyTheme(t)
 end
 
 -- ─── Child positioning ─────────────────────────────────────────────────────
+-- FR-149: TOP anchors at whole physical pixels, text dropped by the cap nudge
+-- (Theme.placeText). Measured before at pixel-perfect scale: "Outline" in h-8
+-- sat 10/11 and "On" 9/10 — 1px higher than Button for the same text and box.
+-- Horizontal centring stays relative (TOP) so a width set later by Flex still
+-- centres the content.
 function Toggle:_position()
+    local T       = Craft.Theme
     local s       = self._size
     local hasIcon = self._cfg.icon ~= nil
     local hasText = self._cfg.text ~= nil and self._cfg.text ~= ""
+    local h       = T.snapPx(s.h, self.frame)
+    local iconTop = T.snapPx((h - s.icon) / 2, self.frame)
 
     self._label:ClearAllPoints()
     self._icon:ClearAllPoints()
 
     if hasIcon and hasText then
-        -- Centered icon+label combo (ToggleGroup's segment layout): the label shifts
-        -- right by half the icon block and the icon hangs off its LEFT edge.
-        self._label:SetPoint("CENTER", self.frame, "CENTER", (s.icon + s.gap) / 2, 0)
-        self._icon:SetPoint("RIGHT", self._label, "LEFT", -s.gap, 0)
+        -- Centred icon+label combo (ToggleGroup's segment layout): the label shifts
+        -- right by half the icon block; the icon sits gap px left of the label.
+        T.placeText(self._label, self.frame, (s.icon + s.gap) / 2, h, s.font, "TOP")
+        local x = -(self._label:GetStringWidth() + s.gap) / 2
+        self._icon:SetPoint("TOP", self.frame, "TOP", T.snapPx(x, self.frame), -iconTop)
     elseif hasIcon then
-        self._icon:SetPoint("CENTER", self.frame, "CENTER", 0, 0)
+        self._icon:SetPoint("TOP", self.frame, "TOP", 0, -iconTop)
     else
-        self._label:SetPoint("CENTER", self.frame, "CENTER", 0, 0)
+        T.placeText(self._label, self.frame, 0, h, s.font, "TOP")
     end
 
     if hasIcon then
@@ -236,6 +247,17 @@ function Toggle:_position()
     else
         self._icon:Hide()
     end
+end
+
+-- First rasterization of a weight/size measures narrow on that frame (FR-149
+-- lesson 4): one coalesced re-measure on the next frame.
+function Toggle:_remeasureNextFrame()
+    Craft.Theme.remeasureNextFrame(self, function()
+        if self.frame and self._size then
+            self:_recalcWidth()
+            self:_position()
+        end
+    end)
 end
 
 -- ─── Public API ────────────────────────────────────────────────────────────

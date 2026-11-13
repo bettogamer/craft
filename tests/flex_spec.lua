@@ -81,3 +81,26 @@ describe("Craft.Flex ordering (FR-032)", function()
     end)
 
 end)
+
+describe("Craft.Flex float tolerance (FR-149)", function()
+    it("a height reported as 25.99999 still stacks the next wrapped row at a whole 26", function()
+        local container = CreateFrame("Frame")
+        container:SetWidth(100)
+        local flex = Craft.Flex.new(container, { direction = "row", wrap = "wrap",
+            align = "stretch", paddingH = 3, paddingV = 3 })
+        local frames = {}
+        for i = 1, 2 do
+            local f = CreateFrame("Frame", nil, container)
+            f:SetWidth(80)
+            f:SetHeight(26)
+            f.GetHeight = function() return 25.99999 end   -- client float noise
+            flex:Add(f, { grow = 0, shrink = 0, basis = "auto" })
+            frames[i] = f
+        end
+        flex:Layout()
+        local _, _, _, _, y1 = frames[1]:GetPoint(1)
+        local _, _, _, _, y2 = frames[2]:GetPoint(1)
+        assert.equals(-3, y1)
+        assert.equals(-29, y2)        -- 3 + 26, not floor(28.99999) = 28
+    end)
+end)

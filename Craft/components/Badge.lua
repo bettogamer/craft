@@ -48,11 +48,8 @@ local FONT_SIZE = 12   -- text-xs
 -- 192/932 ≈ 0.206. One generic ratio is within a rounding pixel for the bundled
 -- families; used only by auto-height badges (FR-140) and GetBaselineOffset.
 local DESCENT = 0.2
--- Line height of an auto-height badge: text-xs's own proportion (12px / leading-4
--- 16px). WoW's GetStringHeight() is ~the font size (glyph box, no leading), so a
--- box sized from it hugged the letters — nothing like the h-5 badge (FR-140 fix).
-local LEADING = 16 / 12
-local CAP_NUDGE = 0.1   -- em the label drops so caps centre as in CSS (see _recalcSize)
+-- Line height (text-xs leading), cap nudge, whole-pixel snapping and the
+-- next-frame re-measure live in Craft.Theme (FR-149: placeText & co.).
 local WEIGHTS = { regular = "font", medium = "fontMedium", bold = "fontBold" }
 
 local VARIANTS = { default = true, secondary = true, outline = true, destructive = true }
@@ -298,19 +295,6 @@ function Badge:_iconSize()
     return (fs and fs < ICON_SIZE) and fs or ICON_SIZE
 end
 
--- Glyph box of the label as WoW measures it (the font size until it can).
-function Badge:_glyphHeight()
-    local h = self._label:GetStringHeight() or 0
-    if h <= 0 then h = self._cfg.fontSize or FONT_SIZE end
-    return math.ceil(h)
-end
-
--- CSS line box: fontSize × the text-xs leading, never less than the glyph box.
-function Badge:_lineHeight()
-    local lead = math.floor((self._cfg.fontSize or FONT_SIZE) * LEADING + 0.5)
-    return math.max(self:_glyphHeight(), lead)
-end
-
 -- w-fit width + (FR-140) text-driven height, and every anchor that depends on them.
 function Badge:_recalcSize()
     if not self._label then return end
@@ -331,25 +315,18 @@ function Badge:_recalcSize()
     -- anchor, the same badge rendered 17 or 18px tall and its text drifted 1px
     -- depending on where the row fell (pills looked low). Snapped height + a TOP
     -- anchor at a whole-pixel offset make box and text round together anywhere.
-    local function snap(v) return (v == 0) and 0 or Craft.Theme.px(v, self.frame) end
+    local T = Craft.Theme
+    local function snap(v) return T.snapPx(v, self.frame) end
+    local size = cfg.fontSize or FONT_SIZE
     local h = H
     if self._autoH then
-        local line = self:_lineHeight()
-        h = line + 2 * (cfg.paddingY or 0) + 2 * self._px1
+        h = T.lineHeight(self._label, size) + 2 * (cfg.paddingY or 0) + 2 * self._px1
     end
     h = snap(h)
-    -- Cap nudge: in CSS, Inter's caps sit centred in the line box (ascent .969,
-    -- descent .242, cap-height .727 → 3.6px above and below at 12/16). WoW places
-    -- the same line ~0.1em higher: measured in-game (2026-11-13) the caps had ~1px
-    -- more room below than above, in the h-5 badge AND the compact ones. Drop the
-    -- label by round(0.1em) to match shadcn.
-    local nudge = math.floor((cfg.fontSize or FONT_SIZE) * CAP_NUDGE + 0.5)
-    local gh = self._label:GetStringHeight() or 0
-    if gh <= 0 then gh = cfg.fontSize or FONT_SIZE end
-    local top = snap((h - gh) / 2 + nudge)
+    -- Cap nudge (Theme.placeText): WoW sets Inter ~0.1em higher than CSS — measured
+    -- in-game 2026-11-13, ~1px more room below the caps in every badge size.
+    local top, gh = T.placeText(self._label, self.frame, x, h, size)
     self._textTop, self._textH = top, gh
-    self._label:ClearAllPoints()
-    self._label:SetPoint("TOPLEFT", self.frame, "TOPLEFT", snap(x), -top)
     if self._icon then   -- same whole-pixel TOP anchoring as the text
         self._icon:ClearAllPoints()
         self._icon:SetPoint("TOPLEFT", self.frame, "TOPLEFT", snap(edge + padIcon), -snap((h - isz) / 2))
@@ -383,10 +360,7 @@ end
 -- metrics on the frame it is first used (bold 11px came out ~3px narrow, no right
 -- padding). One coalesced re-measure on the next frame settles it.
 function Badge:_remeasureNextFrame()
-    if self._remeasurePending or not (C_Timer and C_Timer.After) then return end
-    self._remeasurePending = true
-    C_Timer.After(0, function()
-        self._remeasurePending = false
+    Craft.Theme.remeasureNextFrame(self, function()
         if self.frame then self:_recalcSize() end
     end)
 end
@@ -403,7 +377,7 @@ end
 -- up by baseline with text of another size. Accurate to the rounding pixel (the
 -- descender share is the generic DESCENT ratio, not read from the font).
 function Badge:GetBaselineOffset()
-    local glyph = self._textH or self:_glyphHeight()
+    local glyph = self._textH or math.ceil(Craft.Theme.glyphHeight(self._label, self._cfg.fontSize or FONT_SIZE))
     return self._h - (self._textTop or 0) - glyph + glyph * DESCENT
 end
 

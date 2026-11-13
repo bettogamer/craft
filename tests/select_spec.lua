@@ -431,3 +431,25 @@ describe("Craft.Select Esc", function()
         s:Destroy()
     end)
 end)
+
+describe("Craft.Select whole-pixel layout (FR-149)", function()
+    local unpack = unpack or table.unpack
+    it("the trigger text drops by the cap nudge and keeps its width anchors", function()
+        for _, c in ipairs({ { "default", -11 }, { "sm", -9 } }) do
+            local sel = Craft.Select:Create(UIParent, {
+                size = c[1], options = { { value = "a", label = "Alpha" } },
+            })
+            sel._selectedText.GetStringHeight = function() return 12 end
+            sel:_placeTriggerText()
+            local pts = sel._selectedText._pointsByAnchor
+            local _, _, _, x, y = unpack(pts.TOPLEFT)
+            assert.equals(10, x)
+            assert.equals(c[2], y)       -- (h-12)/2 + round(1.2)
+            local _, _, _, x2, y2 = unpack(pts.TOPRIGHT)
+            assert.equals(-30, x2)       -- pr 8 + chevron 16 + gap 6
+            assert.equals(c[2], y2)
+            assert.is_nil(pts.BOTTOM)    -- no TOP+BOTTOM box any more
+            sel:Destroy()
+        end
+    end)
+end)

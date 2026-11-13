@@ -6,6 +6,11 @@
 local Craft = LibStub("Craft-2.0")
 local _BUILD = ((select(2, ...)) or {}).CRAFT_BUILD or 0  -- this copy's build (see Craft.register)
 
+-- Floor with a float tolerance (FR-149): GetHeight()/GetWidth() of a frame with
+-- its own scale can come back as 25.99999 for 26, and a bare math.floor() then
+-- drops a whole pixel (measured: the 2nd wrapped row of Tabs sat 1px high).
+local function pxFloor(v) return math.floor(v + 1e-4) end
+
 local Flex = {}
 
 -- ─── new() ─────────────────────────────────────────────────────────────────
@@ -202,16 +207,16 @@ function Flex:Layout()
             local lineHeight = 0
             local lineCursor = pH
             for _, item in ipairs(line) do
-                local itemMain  = math.floor(sizes[item])
+                local itemMain  = pxFloor(sizes[item])
                 local itemCross = item.frame:GetHeight()
                 lineHeight = math.max(lineHeight, itemCross)
 
                 local crossAlign = item.alignSelf ~= "auto" and item.alignSelf or cfg.align
                 local crossPos
                 if crossAlign == "flex-end" then
-                    crossPos = math.floor(lineHeight - itemCross)
+                    crossPos = pxFloor(lineHeight - itemCross)
                 elseif crossAlign == "center" then
-                    crossPos = math.floor((lineHeight - itemCross) / 2)
+                    crossPos = pxFloor((lineHeight - itemCross) / 2)
                 elseif crossAlign == "stretch" then
                     crossPos = 0
                     item.frame:SetHeight(lineHeight)
@@ -222,7 +227,7 @@ function Flex:Layout()
                 item.frame:ClearAllPoints()
                 item.frame:SetWidth(itemMain)
                 item.frame:SetPoint("TOPLEFT", self._container, "TOPLEFT",
-                    math.floor(lineCursor), -math.floor(yOffset + crossPos))
+                    pxFloor(lineCursor), -pxFloor(yOffset + crossPos))
 
                 lineCursor = lineCursor + itemMain + gap
             end
@@ -271,8 +276,8 @@ function Flex:Layout()
     end
 
     for _, item in ipairs(sorted) do
-        local mainPos  = math.floor(cursor)
-        local itemMain = math.floor(sizes[item])
+        local mainPos  = pxFloor(cursor)
+        local itemMain = pxFloor(sizes[item])
 
         -- Calculate position on the cross axis (align-items / alignSelf)
         local crossAlign = item.alignSelf ~= "auto" and item.alignSelf or cfg.align
@@ -280,13 +285,13 @@ function Flex:Layout()
 
         if crossAlign == "flex-end" then
             itemCross = isRow and item.frame:GetHeight() or item.frame:GetWidth()
-            crossPos  = math.floor(crossSize - itemCross)
+            crossPos  = pxFloor(crossSize - itemCross)
         elseif crossAlign == "center" then
             itemCross = isRow and item.frame:GetHeight() or item.frame:GetWidth()
-            crossPos  = math.floor((crossSize - itemCross) / 2)
+            crossPos  = pxFloor((crossSize - itemCross) / 2)
         elseif crossAlign == "stretch" then
             crossPos  = 0
-            itemCross = math.floor(crossSize)
+            itemCross = pxFloor(crossSize)
         else  -- flex-start / baseline ("baseline" treated as "flex-start"; WoW has no native baseline)
             itemCross = isRow and item.frame:GetHeight() or item.frame:GetWidth()
             crossPos  = 0
@@ -304,7 +309,7 @@ function Flex:Layout()
             local x = isRev and (mainSize - mainPos - itemMain + pH) or (mainPos + pH)
             local y = crossPos + pV
             item.frame:SetPoint("TOPLEFT", self._container, "TOPLEFT",
-                math.floor(x), -math.floor(y))
+                pxFloor(x), -pxFloor(y))
         else
             if crossAlign == "stretch" then
                 item.frame:SetWidth(itemCross)
@@ -314,7 +319,7 @@ function Flex:Layout()
             local x = crossPos + pH
             local y = isRev and (mainSize - mainPos - itemMain + pV) or (mainPos + pV)
             item.frame:SetPoint("TOPLEFT", self._container, "TOPLEFT",
-                math.floor(x), -math.floor(y))
+                pxFloor(x), -pxFloor(y))
         end
 
         -- Advance cursor

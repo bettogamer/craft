@@ -679,6 +679,78 @@ function T.isPixelPerfect()
     return math.abs(UIParent:GetEffectiveScale() - 1.0) < 0.01
 end
 
+-- ─── Text centred in a box (FR-149, lessons from Badge FR-140/FR-146) ───────
+-- 1. WoW sets Inter's line ~0.1em higher than the browser: caps centred by CSS
+--    come out with ~1px more room below. Drop the text round(CAP_NUDGE·size).
+-- 2. Box and text snap to the physical grid each on their own: snap heights,
+--    widths and text offsets to whole physical pixels and anchor at TOPLEFT.
+-- 3. GetStringHeight() is the glyph box (≈ font size), not the CSS line box:
+--    line = round(size · leading), never less than what the client measures.
+-- 4. A weight/size rasterized for the first time measures ~3px narrow on that
+--    frame: re-measure once on the next frame (remeasureNextFrame).
+T.CAP_NUDGE  = 0.1
+T.LEADING_XS = 16 / 12   -- text-xs: 12px / 16px line
+
+-- Size in UI units snapped to whole physical pixels (sign kept; 0 stays 0).
+function T.snapPx(v, frame)
+    if not v or v == 0 then return 0 end
+    if v < 0 then return -T.px(-v, frame) end
+    return T.px(v, frame)
+end
+
+-- Glyph box height as the client measures it (the font size until it can).
+function T.glyphHeight(fs, fontSize)
+    local h = fs:GetStringHeight() or 0
+    if h <= 0 then h = fontSize or 12 end
+    return h
+end
+
+-- CSS line box: round(fontSize · leading), never below the measured glyph box.
+function T.lineHeight(fs, fontSize, leading)
+    local lead = math.floor(fontSize * (leading or T.LEADING_XS) + 0.5)
+    return math.max(math.ceil(T.glyphHeight(fs, fontSize)), lead)
+end
+
+-- Anchors `fs` at TOPLEFT of `box`, `x` in from the left, vertically centred in
+-- a box `boxHeight` tall with the cap nudge, every offset on whole physical
+-- pixels. Returns the top offset used and the glyph height (for icons or a
+-- baseline). boxHeight should itself come from snapPx. `point` = "TOP" centres
+-- the text horizontally instead (x = shift from the centre), so it follows a
+-- width set later by a layout (Flex).
+function T.placeText(fs, box, x, boxHeight, fontSize, point)
+    point = point or "TOPLEFT"
+    local gh = T.glyphHeight(fs, fontSize)
+    local nudge = math.floor(fontSize * T.CAP_NUDGE + 0.5)
+    local top = T.snapPx((boxHeight - gh) / 2 + nudge, box)
+    fs:ClearAllPoints()
+    fs:SetPoint(point, box, point, T.snapPx(x, box), -top)
+    return top, gh
+end
+
+-- Scroll offset on whole physical pixels, never past `max` (FR-149). A
+-- fractional offset (the max = content − viewport, a thumb drag) shifts the
+-- whole page by a fraction of a pixel, so every box and its text round apart
+-- again: measured 1px lower text in every Tabs trigger of a scrolled page.
+function T.snapOffset(v, frame, max)
+    v = v or 0
+    if v <= 0 then return 0 end
+    local unit = T.px(1, frame)
+    if not unit or unit <= 0 then return v end
+    local snapped = math.floor(v / unit + 0.5) * unit
+    if max and snapped > max then snapped = math.floor(max / unit) * unit end
+    return math.max(0, snapped)
+end
+
+-- One coalesced call of fn on the next frame per owner (lesson 4).
+function T.remeasureNextFrame(owner, fn)
+    if owner._craftRemeasure or not (C_Timer and C_Timer.After) then return end
+    owner._craftRemeasure = true
+    C_Timer.After(0, function()
+        owner._craftRemeasure = false
+        fn()
+    end)
+end
+
 -- ─── Curved textures off the pixel grid (FR-143) ───────────────────────────
 -- The client snaps every texture's vertices to the physical pixel grid. On a 1px
 -- colour strip that is exactly right; on a SCALED curve (a pill cap, a disc, a
