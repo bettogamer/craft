@@ -237,3 +237,85 @@ describe("Craft.Tooltip follows the anchor's scale (FR-136)", function()
         Craft.Tooltip.Hide()
     end)
 end)
+
+describe("Craft.Tooltip measures by config (FR-150)", function()
+    local function setup()
+        Craft.Tooltip.Hide()
+        Craft.Theme.use(Craft.Theme.build({}))
+        local anchor = CreateFrame("Frame", nil, UIParent)
+        anchor:SetSize(40, 20)
+        return anchor
+    end
+    local function f() return Craft.Tooltip._getFrame() end
+    local function rows() return f()._rows end
+
+    it("width = 300 fixes the frame even when the content is narrower", function()
+        local anchor = setup()
+        Craft.Tooltip.Show(anchor, { width = 300, lines = { { "a", "b" } } })
+        assert.equals(300, f():GetWidth())
+        local _, _, _, x = rows()[1].right:GetPoint(1)
+        assert.equals(300 - 12, x)
+        Craft.Tooltip.Show(anchor, { width = 300, maxWidth = 100, text = "hi" })
+        assert.equals(300, f():GetWidth())
+    end)
+
+    it("a long double line truncates its left column inside the fixed width", function()
+        local anchor = setup()
+        local long = string.rep("x", 60)  -- 420 px natural
+        Craft.Tooltip.Show(anchor, { width = 300, lines = { { long, "12/36" } } })
+        assert.equals(300, f():GetWidth())
+        assert.equals(300 - 24 - 12 - 35, rows()[1].left:GetWidth())
+    end)
+
+    it("padding, rowGap and gapBefore change the height by exactly those px", function()
+        local anchor = setup()
+        local L = { "a", "b" }
+        Craft.Tooltip.Show(anchor, { lines = L })
+        local h0 = f():GetHeight()                     -- 6 + 12 + 2 + 12 + 6
+        assert.equals(38, h0)
+        Craft.Tooltip.Show(anchor, { lines = L, padding = 12 })
+        assert.equals(h0 + 12, f():GetHeight())
+        Craft.Tooltip.Show(anchor, { lines = L, padding = { x = 4, y = 10 } })
+        assert.equals(h0 + 8, f():GetHeight())
+        Craft.Tooltip.Show(anchor, { lines = L, rowGap = 4 })
+        assert.equals(h0 + 2, f():GetHeight())
+        Craft.Tooltip.Show(anchor, { lines = { "a", { "b", gapBefore = 10 } } })
+        assert.equals(h0 + 10, f():GetHeight())
+        assert.is_false(rows()[2].sep:IsShown())
+        -- nothing sticks: a plain Show goes back to the defaults
+        Craft.Tooltip.Show(anchor, { lines = L })
+        assert.equals(h0, f():GetHeight())
+    end)
+
+    it("fontSize / fontWeight apply to every line; per-line size/weight override them", function()
+        local anchor = setup()
+        local t = Craft.Theme.get()
+        Craft.Tooltip.Show(anchor, { fontSize = 13, fontWeight = "medium", lines = {
+            { "Sección", size = 11, weight = "bold" },
+            { "Jefe", "Muerto" },
+        } })
+        local r = rows()
+        local p1, s1 = r[1].left:GetFont()
+        assert.equals(t.fontBold, p1); assert.equals(11, s1)
+        local p2, s2 = r[2].left:GetFont()
+        assert.equals(t.fontMedium, p2); assert.equals(13, s2)
+        assert.equals(t.fontMedium, (r[2].right:GetFont()))
+        -- next Show without options: back to the config defaults (singleton, no sticking)
+        Craft.Tooltip.Show(anchor, { lines = { { "Sección" }, { "Jefe", "Muerto" } } })
+        local q1, z1 = r[1].left:GetFont()
+        assert.equals(t.font, q1); assert.equals(12, z1)
+        assert.equals(t.font, (r[2].right:GetFont()))
+    end)
+
+    it("plain text honours fontSize / fontWeight and padding", function()
+        local anchor = setup()
+        local t = Craft.Theme.get()
+        Craft.Tooltip.Show(anchor, { text = "hi", fontSize = 14, fontWeight = "semibold", padding = 10 })
+        local p, s = f()._text:GetFont()
+        assert.equals(t.fontMedium, p); assert.equals(14, s)
+        assert.equals(14 + 20, f():GetHeight())
+        Craft.Tooltip.Show(anchor, { text = "hi" })
+        local q, z = f()._text:GetFont()
+        assert.equals(t.font, q); assert.equals(12, z)
+    end)
+end)

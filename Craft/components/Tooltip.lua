@@ -35,6 +35,16 @@
 --   (t.fontFlags), passed as applyFont's 4th arg — "" = no outline. nil = theme flag.
 --   The tooltip is a singleton, so it is re-resolved on EVERY Show: a later Show
 --   without the option goes back to the theme flag (it never sticks).
+--
+-- Measures by config (FR-150), all optional and re-resolved on every Show:
+--   config.width      FIXED frame width (padding included); wins over maxWidth.
+--   config.padding    number (both axes) or { x = n, y = n }. Default 12 × 6.
+--   config.rowGap     gap between lines (default 2).
+--   config.fontSize / config.fontWeight ("regular"|"medium"|"semibold"|"bold") for
+--                     every line (and plain text). semibold → the medium file.
+--   per line: gapBefore = n (extra gap before it, no hairline: sections),
+--             size = n, weight = "..." (override config for that line; a title
+--             line defaults to medium unless it carries its own weight).
 
 local Craft = LibStub("Craft-2.0")
 local Weave = LibStub("Weave-1.0")
@@ -59,6 +69,26 @@ local SEP_GAP   = 4   -- my-1 around a separator hairline (shadcn Separator in m
 local _tooltip       = nil   -- the shared Frame, created lazily
 local _visible       = nil   -- Weave.signal(false): internal show/hide state (fade driver)
 local _fontFlags     = nil   -- current Show's config.fontFlags (nil = theme flag, FR-101)
+-- FR-150: current Show's measures (reset on every Show, nothing sticks).
+local _m = { padX = PAD_H, padY = PAD_V, rowGap = ROW_GAP, size = FONT_SIZE, weight = nil }
+
+local function _resolveMeasures(config)
+    local pad = config.padding
+    local px, py = PAD_H, PAD_V
+    if type(pad) == "number" then px, py = pad, pad
+    elseif type(pad) == "table" then px, py = pad.x or PAD_H, pad.y or PAD_V end
+    _m.padX, _m.padY = px, py
+    _m.rowGap = config.rowGap or ROW_GAP
+    _m.size   = config.fontSize or FONT_SIZE
+    _m.weight = config.fontWeight
+end
+
+-- Weight name → font path of the theme (WoW has no synthetic weights).
+local function _fontFor(t, weight)
+    if weight == "bold" then return t.fontBold or t.font end
+    if weight == "medium" or weight == "semibold" then return t.fontMedium or t.font end
+    return t.font
+end
 -- FR-104: the singleton listens to ONE theme context — the one it was last shown
 -- with (config.theme > the anchor's context). Starts on the default context.
 TT._ctx    = Craft.Theme
@@ -214,8 +244,10 @@ end
 -- Font + colours of one line (re-run on every theme change).
 local function _styleRow(r, t)
     local spec = r.spec
-    TT._ctx:applyFont(r.left, spec.title and (t.fontMedium or t.font) or t.font, FONT_SIZE, _fontFlags)
-    TT._ctx:applyFont(r.right, t.font, FONT_SIZE, _fontFlags)
+    local size = spec.size or _m.size
+    local leftW = spec.weight or (spec.title and "medium") or _m.weight
+    TT._ctx:applyFont(r.left, _fontFor(t, leftW), size, _fontFlags)
+    TT._ctx:applyFont(r.right, _fontFor(t, spec.weight or _m.weight), size, _fontFlags)
     local fg = t.popoverForeground
     local lc = _resolveColor(t, spec.leftColor or spec.color, fg)
     local rc = _resolveColor(t, spec.rightColor, fg)
@@ -252,7 +284,7 @@ function TT._applyThemeToFrame(t)
         _tooltip._bg:SetColorTexture(t.popover.r, t.popover.g, t.popover.b, 1)
     end
 
-    TT._ctx:applyFont(_tooltip._text, t.font, FONT_SIZE, _fontFlags)
+    TT._ctx:applyFont(_tooltip._text, _fontFor(t, _m.weight), _m.size, _fontFlags)
     _tooltip._text:SetTextColor(t.popoverForeground.r, t.popoverForeground.g, t.popoverForeground.b)
     if _tooltip._rows then
         for _, r in ipairs(_tooltip._rows) do
@@ -277,9 +309,10 @@ local function _layoutTooltip(config)
     f._text:Show()
     f._text:SetText(text)
 
-    local maxW    = config.maxWidth or 240
-    local iconRoom = icon and (FONT_SIZE + ICON_GAP) or 0
-    local textMaxW = maxW - PAD_H * 2 - iconRoom
+    local padX, padY, fsz = _m.padX, _m.padY, _m.size
+    local maxW    = config.width or config.maxWidth or 240
+    local iconRoom = icon and (fsz + ICON_GAP) or 0
+    local textMaxW = maxW - padX * 2 - iconRoom
 
     -- Constrain text to at most textMaxW so GetStringHeight() reflects wrapping
     f._text:SetWidth(math.max(1, textMaxW))
@@ -297,8 +330,8 @@ local function _layoutTooltip(config)
     local dispW = math.min(textW + WRAP_SLACK, textMaxW)
 
     -- Frame size
-    local totalW = math.min(maxW, math.max(PAD_H * 2 + iconRoom + dispW, 32))
-    local totalH = PAD_V * 2 + textH
+    local totalW = config.width or math.min(maxW, math.max(padX * 2 + iconRoom + dispW, 32))
+    local totalH = padY * 2 + textH
     f:SetSize(totalW, totalH)
 
     -- Position elements — anchor from TOPLEFT so Y is deterministic
@@ -306,16 +339,16 @@ local function _layoutTooltip(config)
     f._icon:ClearAllPoints()
 
     if icon then
-        Craft.Icons.Apply(f._icon, icon, FONT_SIZE)
-        f._icon:SetSize(FONT_SIZE, FONT_SIZE)
+        Craft.Icons.Apply(f._icon, icon, fsz)
+        f._icon:SetSize(fsz, fsz)
 
         -- Shrink the text box to the measured width (+ wrap slack). It was widened to
         -- textMaxW for measurement; with a single TOPLEFT anchor (icon case) a wide box
         -- would leave the short text floating away from the icon (visible gap).
         f._text:SetWidth(dispW)
 
-        -- Icon: left side, vertically centered (single-line: PAD_V offset from top)
-        f._icon:SetPoint("TOPLEFT", f, "TOPLEFT", PAD_H, -(PAD_V + (textH - FONT_SIZE) / 2))
+        -- Icon: left side, vertically centered (single-line: padY offset from top)
+        f._icon:SetPoint("TOPLEFT", f, "TOPLEFT", padX, -(padY + (textH - fsz) / 2))
         -- Text: to the right of icon, same top baseline
         f._text:SetPoint("TOPLEFT", f._icon, "TOPRIGHT", ICON_GAP, 0)
 
@@ -325,8 +358,8 @@ local function _layoutTooltip(config)
         f._icon:Show()
     else
         f._icon:Hide()
-        f._text:SetPoint("TOPLEFT",  f, "TOPLEFT",  PAD_H,  -PAD_V)
-        f._text:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD_H, -PAD_V)
+        f._text:SetPoint("TOPLEFT",  f, "TOPLEFT",  padX,  -padY)
+        f._text:SetPoint("TOPRIGHT", f, "TOPRIGHT", -padX, -padY)
     end
 end
 
@@ -349,7 +382,8 @@ local function _layoutLines(config)
         end
     end
 
-    local cw = (config.maxWidth or 240) - PAD_H * 2
+    local padX, padY, rowGap = _m.padX, _m.padY, _m.rowGap
+    local cw = (config.width or config.maxWidth or 240) - padX * 2
     local natural = 0
     for i, spec in ipairs(specs) do
         local r = _getRow(f, i)
@@ -370,14 +404,17 @@ local function _layoutLines(config)
     end
     _hideRows(f, #specs + 1)
 
-    local contentW = math.min(cw, natural + WRAP_SLACK)
+    -- FR-150: a fixed width uses the whole content box even if the text is shorter.
+    local contentW = config.width and math.max(1, cw) or math.min(cw, natural + WRAP_SLACK)
     local px1 = Craft.Theme.px(1)
-    local y, first = PAD_V, true
+    local y, first = padY, true
     for i, spec in ipairs(specs) do
         local r = f._rows[i]
         r.left:ClearAllPoints()
         r.right:ClearAllPoints()
         r.sep:ClearAllPoints()
+        -- FR-150: extra gap before a line (sections without a hairline).
+        if not first and type(spec.gapBefore) == "number" then y = y + spec.gapBefore end
         if spec.separator and not first then
             -- Full bleed inside the ring, like the -mx of a menu separator.
             y = y + SEP_GAP
@@ -388,19 +425,19 @@ local function _layoutLines(config)
             y = y + px1 + SEP_GAP
         else
             r.sep:Hide()
-            if not first and not r.empty then y = y + ROW_GAP end
+            if not first and not r.empty then y = y + rowGap end
         end
 
         if r.empty then
             r.left:Hide(); r.right:Hide()
         else
             local h
-            r.left:SetPoint("TOPLEFT", f, "TOPLEFT", PAD_H, -y)
+            r.left:SetPoint("TOPLEFT", f, "TOPLEFT", padX, -y)
             r.left:Show()
             if r.double then
                 -- Right column auto-sizes at the content edge; the left one gets
                 -- what is left and truncates with an ellipsis (wrap off).
-                r.right:SetPoint("TOPRIGHT", f, "TOPLEFT", PAD_H + contentW, -y)
+                r.right:SetPoint("TOPRIGHT", f, "TOPLEFT", padX + contentW, -y)
                 r.right:Show()
                 r.left:SetWidth(math.max(1, contentW - COL_GAP - r.rightW))
                 h = math.max(r.left:GetStringHeight(), r.right:GetStringHeight())
@@ -414,7 +451,7 @@ local function _layoutLines(config)
         end
     end
 
-    f:SetSize(math.max(32, contentW + PAD_H * 2), y + PAD_V)
+    f:SetSize(config.width or math.max(32, contentW + padX * 2), y + padY)
 end
 
 -- ─── Positioning logic ─────────────────────────────────────────────────────
@@ -562,6 +599,7 @@ local function _show(anchor, config)
     -- FR-101: resolve the flag for THIS show before measuring (outline changes glyph
     -- metrics). Assigned unconditionally so a previous show's override never sticks.
     _fontFlags = config.fontFlags
+    _resolveMeasures(config)  -- FR-150: same rule, before the theme pass styles the fonts
     -- FR-104: this show's context — config.theme > the anchor's (parent chain).
     TT._bindTheme(Craft.Theme.resolve(anchor, config))
     TT._applyThemeToFrame(TT._ctx:get())
