@@ -82,6 +82,16 @@ El cálculo de posición ocurre **cada vez** que el tooltip se muestra — no se
 | `maxWidth` | number   | `240`    | Ancho máximo en px antes de hacer wrap del texto.                        |
 | `side`     | string   | `nil`    | Lado forzado (`side` de shadcn): `"top"`\|`"bottom"`\|`"left"`\|`"right"`. `nil` = automático (arriba si cabe, si no abajo). Ver §Lado. |
 | `fontFlags`| string   | `nil`    | FR-101: flags de fuente SOLO para este tooltip (4.º arg de `Theme.applyFont`; `""` = sin contorno). `nil` = el `t.fontFlags` global del tema. Se re-resuelve en cada `Show`: no se "pega" al siguiente. |
+| `width`    | number   | `nil`    | FR-150: ancho FIJO del frame (padding incluido); manda sobre `maxWidth`. Las dobles líneas reparten ese ancho y la izquierda se trunca con elipsis. |
+| `padding`  | number \| `{x,y}` | `12 × 6` | FR-150: padding interior; un número = ambos ejes. |
+| `rowGap`   | number   | `2`      | FR-150: hueco entre líneas (`lines`). |
+| `fontSize` / `fontWeight` | number / string | `12` / regular | FR-150: tamaño y peso de todas las líneas (y del texto plano). Pesos: `"regular"`, `"medium"`, `"semibold"` (= archivo medium; WoW no sintetiza pesos), `"bold"`. |
+
+Por línea (FR-150), dentro de cada entrada de `lines`: `gapBefore = n` (hueco extra antes de la
+línea, sin hairline: secciones; se ignora en la primera), `size = n` y `weight = "..."` (sobrescriben
+`fontSize`/`fontWeight` en esa línea, ambas columnas; el `title` sigue en medium salvo que lleve su
+propio `weight`). Todas las medidas se re-resuelven en cada `Show` como `fontFlags`: nada se pega al
+siguiente tooltip.
 
 ## Notas de implementación
 

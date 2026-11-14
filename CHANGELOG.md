@@ -6,6 +6,16 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.49.0] - 2026-11-13
+
+> **Release v2.49.0 — medidas del Tooltip por config (FR-150).** Verificado in-game.
+
+### Added
+- **`Craft.Tooltip`: medidas por config (FR-150, para QuantumDungeonTools).** `width` (ancho fijo,
+  manda sobre `maxWidth`), `padding` (número o `{x,y}`), `rowGap`, `fontSize` / `fontWeight`; por
+  línea `gapBefore` (secciones sin hairline), `size` y `weight`. Opcionales: sin ellas nada cambia, y
+  se re-resuelven en cada `Show` (no se pegan). Demo «Detalle (FR-150)» en la página Tooltip.
+
 ## [2.48.0] - 2026-11-13
 
 > **Release v2.48.0 — píxeles enteros.** Texto centrado como en CSS y cajas y scroll en píxeles físicos
