@@ -347,6 +347,19 @@ for _, w in ipairs({ { 400, "" }, { 500, "Medium" }, { 700, "Bold" } }) do
     table.insert(AXES.fontFiles, fontFile("BettoGeo", w[1], w[2], true))
 end
 
+-- ─── Catálogo de texturas de barra (FR-151) ───────────────────────────────────
+-- Texturas de StatusBar propias del owner que viajan en media/ (commiteadas, como las
+-- fuentes Betto). Se exponen con Craft.Theme.getStatusBarTextures() y se registran en
+-- LibSharedMedia como "statusbar". `name` es estable (lo guardan las SavedVariables de
+-- los consumidores). Bundlear una textura nueva = añadir su fila aquí.
+AXES.statusBarFiles = {
+    { name = "BettoBar",                  file = "BettoBar.tga" },
+    { name = "BettoBar Gradient",         file = "BettoBarGradient.tga" },
+    { name = "BettoBar Reverse Gradient", file = "BettoBarReverseGradient.tga" },
+    { name = "BettoBar Left",             file = "BettoBarLeft.tga" },
+    { name = "BettoBar Right",            file = "BettoBarRight.tga" },
+}
+
 -- ─── Eje Heading Font (títulos) ──────────────────────────────────────────────────
 -- Eje separado del body (ADR-0014 §6.1): permite mezclar (p. ej. body Inter + títulos
 -- Geist). Aporta el token `fontHeading` que leen los 4 componentes de título (Dialog,

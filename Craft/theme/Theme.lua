@@ -284,6 +284,19 @@ function T.getFontFiles()
     return out
 end
 
+-- ─── getStatusBarTextures() (FR-151) ─────────────────────────────────────────
+-- Las texturas de barra que trae Craft: { { name = "BettoBar Gradient",
+-- path = "Interface\AddOns\…\media\BettoBarGradient.tga" }, … }. Tabla nueva en
+-- cada llamada. La ruta vale para StatusBar:SetStatusBarTexture / Texture:SetTexture.
+
+function T.getStatusBarTextures()
+    local out = {}
+    for i, f in ipairs(AXES.statusBarFiles) do
+        out[i] = { name = f.name, path = Craft.mediaPath .. f.file }
+    end
+    return out
+end
+
 -- ─── getFont() ─────────────────────────────────────────────────────────────
 
 function Ctx.getFont(s, weight)
@@ -988,7 +1001,8 @@ end
 
 -- ─── LibSharedMedia (FR-129) ─────────────────────────────────────────────────
 -- Craft NO depende de LibSharedMedia, pero si está cargada le registra sus TTF
--- (getFontFiles, mismos nombres) para que cualquier addon con selector LSM (ElvUI,
+-- (getFontFiles, mismos nombres) y sus texturas de barra como "statusbar"
+-- (getStatusBarTextures, FR-151) para que cualquier addon con selector LSM (ElvUI,
 -- Details, WeakAuras…) ofrezca Inter, Geist y Betto. Solo lo hace el Theme
 -- REGISTRADO (build mayor, cuyas rutas son las de Craft.mediaPath) y una vez por
 -- sesión; un nombre que ya esté en LSM no se pisa (Register devuelve false). LSM puede
@@ -1003,7 +1017,11 @@ local function registerLSM()
     for _, f in ipairs(T.getFontFiles()) do
         lsm:Register("font", f.name, f.path)
     end
+    for _, f in ipairs(T.getStatusBarTextures()) do
+        lsm:Register("statusbar", f.name, f.path)
+    end
     Craft._lsmFonts = true
+    Craft._lsmStatusBars = true
     return true
 end
 T._registerLSM = registerLSM   -- internal (specs)

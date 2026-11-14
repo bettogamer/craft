@@ -375,7 +375,7 @@ describe("LibSharedMedia registration (FR-129)", function()
         assert.is_nil(Craft._lsmFonts)              -- no LSM at load: keeps listening
         local ev = Craft.Theme._lsmEvents
         assert.is_true(ev:IsEventRegistered("ADDON_LOADED"))
-        local reg = { font = { ["Inter"] = "Other/Inter.ttf" } }
+        local reg = { font = { ["Inter"] = "Other/Inter.ttf" }, statusbar = {} }
         local LSM = { Register = function(_, kind, name, path)
             if reg[kind][name] then return false end
             reg[kind][name] = path
@@ -393,5 +393,21 @@ describe("LibSharedMedia registration (FR-129)", function()
         local n = 0
         for _ in pairs(reg.font) do n = n + 1 end
         assert.equals(27, n)
+        assert.is_true(Craft._lsmStatusBars)
+        assert.equals(Craft.mediaPath .. "BettoBarGradient.tga", reg.statusbar["BettoBar Gradient"])
+        local m = 0
+        for _ in pairs(reg.statusbar) do m = m + 1 end
+        assert.equals(5, m)
+    end)
+end)
+
+describe("getStatusBarTextures (FR-151)", function()
+    it("lists the bundled bar textures with paths under mediaPath", function()
+        local list = Craft.Theme.getStatusBarTextures()
+        assert.equals(5, #list)
+        assert.equals("BettoBar", list[1].name)
+        assert.equals(Craft.mediaPath .. "BettoBar.tga", list[1].path)
+        list[1].name = "mutated"
+        assert.equals("BettoBar", Craft.Theme.getStatusBarTextures()[1].name)  -- fresh table
     end)
 end)
