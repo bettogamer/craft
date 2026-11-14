@@ -355,6 +355,30 @@ CraftBrowserPages["Theme"] = {
         end
         y = addLabel(lsmText, y)
 
+        -- FR-151: texturas de barra (getStatusBarTextures) + su registro "statusbar" en LSM.
+        local bars = Craft.Theme.getStatusBarTextures()
+        y = addLabel(("FR-151: Craft.Theme.getStatusBarTextures() — %d texturas de barra"):format(#bars), y + 8)
+        for i, b in ipairs(bars) do
+            local sb = CreateFrame("StatusBar", nil, parent)
+            sb:SetSize(240, 18)
+            sb:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+            sb:SetStatusBarTexture(b.path)
+            sb:SetStatusBarColor(t.primary.r, t.primary.g, t.primary.b, 1)
+            sb:SetMinMaxValues(0, 1)
+            sb:SetValue(0.35 + 0.13 * i)
+            local bg = sb:CreateTexture(nil, "BACKGROUND")
+            bg:SetAllPoints(sb)
+            bg:SetColorTexture(t.muted.r, t.muted.g, t.muted.b, 1)
+            local inLsm = lsm and (lsm:Fetch("statusbar", b.name, true) == b.path)
+            local tag = lsm and (inLsm and "  ·  LSM ok" or "  ·  LSM: ya existía") or ""
+            local lbl = Craft.Label:Create(parent, { text = b.name .. tag })
+            lbl:GetFrame():SetPoint("LEFT", sb, "RIGHT", 12, 0)
+            table.insert(comps, lbl)
+            table.insert(comps, { Destroy = function() sb:Hide(); sb:SetParent(nil) end })
+            y = y + 26
+        end
+        y = y + 4
+
         -- FR-145: locale fallback. Simulates a zhCN client: Craft's bundled fonts fall
         -- back to STANDARD_TEXT_FONT (on a western client that's the game's Friz Quadrata,
         -- so the switch is visible). The mono face and consumer fonts are kept.
