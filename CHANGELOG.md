@@ -6,6 +6,17 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.50.0] - 2026-11-14
+
+> **Release v2.50.0 — texturas de barra Betto en LibSharedMedia (FR-151).** Sin verificar in-game.
+
+### Added
+- **Texturas de barra Betto + registro en LibSharedMedia (FR-151).** Cinco texturas de `StatusBar`
+  en `media/` (`BettoBar`, `BettoBar Gradient`, `BettoBar Reverse Gradient`, `BettoBar Left`,
+  `BettoBar Right`), expuestas con `Craft.Theme.getStatusBarTextures()` y registradas en LSM como
+  `"statusbar"` junto a las fuentes (FR-129), sin pisar nombres existentes. Viajan commiteadas
+  (excepción en `.gitignore`, como las fuentes Betto). Demo en la página Theme del Browser.
+
 ## [2.49.0] - 2026-11-13
 
 > **Release v2.49.0 — medidas del Tooltip por config (FR-150).** Verificado in-game.
