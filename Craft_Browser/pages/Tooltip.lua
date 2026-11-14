@@ -128,6 +128,30 @@ CraftBrowserPages["Tooltip"] = {
         end
         y = y + 56
 
+        -- FR-150: fixed width + measures by config (QDT «Detalle»): 300 px, padding 12×12,
+        -- 4 px between rows, sections separated by gapBefore = 10 (no hairline),
+        -- rows 12 medium, section titles 11 medium muted. The second button shows the
+        -- same lines with no options: nothing from the first one sticks (singleton).
+        y = addLabel("FR-150 width / padding / rowGap / gapBefore / size·weight — hover a ambos", y)
+        local secLines = {
+            { "Ruinas de Lordaeron", size = 11, weight = "medium", color = "mutedForeground" },
+            { "Copia", "#6" },
+            { "Reseteo", "en 42 min", rightColor = "mutedForeground" },
+            { "Jefes", size = 11, weight = "medium", color = "mutedForeground", gapBefore = 10 },
+            { "Capitán con un nombre larguísimo que se corta por el ancho fijo", "Muerto", rightColor = "destructive" },
+            { "Señor de la ruina", "Vivo" },
+        }
+        local btn9 = Craft.Button:Create(parent, { text="Detalle (FR-150)", variant="secondary" })
+        btn9:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        Craft.Tooltip.Attach(btn9:GetFrame(), { delay=0, side="right", width=300, padding=12,
+            rowGap=4, fontSize=12, fontWeight="medium", lines=secLines })
+        table.insert(comps, btn9)
+        local btn10 = Craft.Button:Create(parent, { text="Mismas líneas, sin opciones", variant="outline" })
+        btn10:GetFrame():SetPoint("LEFT", btn9:GetFrame(), "RIGHT", 8, 0)
+        Craft.Tooltip.Attach(btn10:GetFrame(), { delay=0, side="right", lines=secLines })
+        table.insert(comps, btn10)
+        y = y + 48
+
         return {
             height  = y + 24,
             cleanup = function()
@@ -139,6 +163,8 @@ CraftBrowserPages["Tooltip"] = {
                 Craft.Tooltip.Detach(btn6:GetFrame())
                 Craft.Tooltip.Detach(btn7:GetFrame())
                 Craft.Tooltip.Detach(b8)
+                Craft.Tooltip.Detach(btn9:GetFrame())
+                Craft.Tooltip.Detach(btn10:GetFrame())
                 for _, f in ipairs(scaleBtns) do Craft.Tooltip.Detach(f) end
                 for _, h in ipairs(scaleHosts) do h:Hide() end
                 for _, c in ipairs(comps) do if c.Destroy then c:Destroy() end end
