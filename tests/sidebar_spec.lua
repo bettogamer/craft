@@ -30,6 +30,8 @@ dofile("Craft/icons/Icons.lua")
 dofile("Craft/components/Tooltip.lua")   -- Sidebar attaches it for per-item tooltips (FR-089)
 dofile("Craft/theme/Shapes.lua")
 dofile("Craft/components/Avatar.lua")    -- FR-095: item avatar
+dofile("Craft/theme/RoundedSurface.lua")
+dofile("Craft/components/Badge.lua")     -- FR-152: composed item badge
 dofile("Craft/components/Sidebar.lua")
 
 local Craft = LibStub("Craft-2.0")
@@ -1552,6 +1554,115 @@ describe("Craft.Sidebar branch click", function()
         sb._itemFrames.g.frame:_fire("OnClick", "LeftButton")
         _G.IsControlKeyDown = prev
         assert.is_false(sb:IsExpanded("g"))
+        sb:Destroy()
+    end)
+end)
+
+describe("Craft.Sidebar item badge (FR-152)", function()
+    local function sidebar(items, cfg)
+        cfg = cfg or {}
+        cfg.width = cfg.width or 220
+        local sb = Craft.Sidebar:Create(UIParent, cfg)
+        sb:SetItems(items)
+        return sb
+    end
+
+    it("a string badge is the plain SidebarMenuBadge counter (no Craft.Badge)", function()
+        local sb = sidebar({ { id = "inbox", label = "Inbox", badge = "3" } })
+        local e = sb._itemFrames.inbox
+        assert.is_not_nil(e.badge)
+        assert.is_nil(e.badge.obj)
+        local box = e.frame.badgeBox
+        assert.is_true(box:IsShown())
+        assert.equals("3", box.fs:GetText())
+        assert.equals(20, box:GetHeight())            -- h-5
+        assert.is_true(box:GetWidth() >= 20)           -- min-w-5
+        assert.is_false(box:IsMouseEnabled())          -- pointer-events-none
+        local p, _, _, x, y = box:GetPoint(1)
+        assert.equals("TOPRIGHT", p)
+        assert.equals(-4, x)                           -- right-1
+        assert.equals(-6, y)                           -- top-1.5 on h-8
+        sb:Destroy()
+    end)
+
+    it("a number badge works too; an empty or malformed one shows nothing", function()
+        local sb = sidebar({ { id = "a", label = "A", badge = 12 },
+                             { id = "b", label = "B", badge = "" },
+                             { id = "c", label = "C", badge = { variant = "outline" } } })
+        assert.equals("12", sb._itemFrames.a.frame.badgeBox.fs:GetText())
+        assert.is_nil(sb._itemFrames.b.badge)
+        assert.is_nil(sb._itemFrames.c.badge)
+        sb:Destroy()
+    end)
+
+    it("a badge with a variant composes a Craft.Badge with the overrides handed through", function()
+        local sb = sidebar({ { id = "m", label = "Module", disabled = true, badge = {
+            text = "PRONTO", variant = "outline", fontSize = 9, color = "mutedForeground" } } })
+        local e = sb._itemFrames.m
+        local obj = e.badge.obj
+        assert.is_not_nil(obj)
+        assert.equals("outline", obj._cfg.variant)
+        assert.equals(9, obj._cfg.fontSize)
+        assert.equals("PRONTO", obj._label:GetText())
+        assert.is_false(obj:GetFrame():IsMouseEnabled())
+        assert.is_true(obj:GetFrame():IsShown())
+        sb:Destroy()
+    end)
+
+    it("the label gets a one-line width that stops before the badge", function()
+        local sb = sidebar({ { id = "x", label = "A very long module name here", badge = "3" } })
+        local e = sb._itemFrames.x
+        local rowW = sb._child:GetWidth() - 16
+        local bw = e.frame.badgeBox:GetWidth()
+        assert.equals(rowW - 4 - bw - 8 - 8, e.labelFs:GetWidth())   -- right-1, gap-2, p-2
+        assert.is_false(e.labelFs._wordWrap)
+        sb:Destroy()
+    end)
+
+    it("sits left of the action when a row carries both", function()
+        local sb = sidebar({ { id = "x", label = "X", badge = "3", action = { icon = "eye" } } })
+        local _, _, _, bx = sb._itemFrames.x.frame.badgeBox:GetPoint(1)
+        assert.equals(-(4 + 20 + 4), bx)               -- action right-1 + w-5 + gap
+        sb:Destroy()
+    end)
+
+    it("is hidden after the row is recycled for an item without badge", function()
+        local sb = sidebar({ { id = "a", label = "A", badge = "3" },
+                             { id = "b", label = "B", badge = { text = "NEW", variant = "secondary" } } })
+        local rowA, rowB = sb._itemFrames.a.frame, sb._itemFrames.b.frame
+        local objB = rowB.badgeObj
+        sb:SetItems({ { id = "c", label = "C" }, { id = "d", label = "D" } })
+        assert.equals(rowA, sb._itemFrames.c.frame)    -- same pooled rows
+        assert.is_false(rowA.badgeBox:IsShown())
+        assert.is_false(objB:GetFrame():IsShown())
+        assert.is_nil(sb._itemFrames.c.badge)
+        assert.equals(0, sb._itemFrames.c.labelFs:GetWidth())   -- natural width again
+        sb:Destroy()
+    end)
+
+    it("a recycled Craft.Badge is reused when its metrics match", function()
+        local sb = sidebar({ { id = "a", label = "A", badge = { text = "1", variant = "outline" } } })
+        local obj = sb._itemFrames.a.frame.badgeObj
+        sb:SetItems({ { id = "a", label = "A", badge = { text = "2", variant = "secondary" } } })
+        assert.equals(obj, sb._itemFrames.a.badge.obj)
+        assert.equals("secondary", obj._cfg.variant)
+        assert.equals("2", obj._label:GetText())
+        sb:Destroy()
+    end)
+
+    it("counter colour: sidebar-foreground, accent on hover/active, `color` wins", function()
+        local sb = sidebar({ { id = "a", label = "A", badge = "3" },
+                             { id = "b", label = "B", badge = { text = "!", color = "destructive" } } })
+        local t = sb._t
+        local fsA = sb._itemFrames.a.frame.badgeBox.fs
+        local function is(fs, c)
+            local r, g, b = fs:GetTextColor()
+            return math.abs(r - c.r) < 1e-6 and math.abs(g - c.g) < 1e-6 and math.abs(b - c.b) < 1e-6
+        end
+        assert.is_true(is(fsA, t.sidebarForeground))
+        sb:SetActiveItem("a")
+        assert.is_true(is(fsA, t.sidebarAccentForeground))
+        assert.is_true(is(sb._itemFrames.b.frame.badgeBox.fs, t.destructive))
         sb:Destroy()
     end)
 end)

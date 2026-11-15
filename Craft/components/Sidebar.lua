@@ -68,6 +68,19 @@ local DISABLED_ALPHA = 0.5  -- disabled:opacity-50 (FR-048)
 local ACTION_SIZE    = 20   -- SidebarMenuAction: aspect-square w-5 (FR-109)
 local ACTION_RIGHT   = 4    -- right-1
 local ACTION_TOP_LG  = 10   -- peer-data-[size=lg]:top-2.5 (sm/default top-1/top-1.5 = centred)
+-- SidebarMenuBadge (FR-152), new-york .tsx + Lyra rounded-none:
+--   absolute right-1 flex h-5 min-w-5 items-center justify-center px-1 text-xs
+--   font-medium tabular-nums select-none pointer-events-none text-sidebar-foreground
+--   peer-hover/peer-data-active:text-sidebar-accent-foreground
+--   peer-data-[size=sm]:top-1 · default:top-1.5 · lg:top-2.5
+local BADGE_H        = 20   -- h-5
+local BADGE_MIN_W    = 20   -- min-w-5
+local BADGE_PX       = 4    -- px-1
+local BADGE_RIGHT    = 4    -- right-1
+local BADGE_GAP      = 4    -- badge <-> action when a row carries both (Craft: shadcn stacks them)
+-- Craft.Badge config fields a `badge = { variant = ... }` hands through (FR-140 vocabulary).
+local BADGE_PASS     = { "variant", "pill", "icon", "fontSize", "fontWeight", "paddingX",
+                         "paddingY", "textColor", "borderColor", "fillColor", "fontFlags" }
 local TIP_DELAY      = 0.3  -- row tooltip delay (Craft.Tooltip.Attach's default 300ms, FR-089)
 
 local SBAR_W         = 4    -- scrollbar track width (px)
@@ -488,6 +501,7 @@ function Sidebar:_recolorAll()
 
         elseif entry.type == "item" and entry.frame then
             self:_colorItem(entry, self:_isSelected(entry.itemId))
+            if entry.badge then self:_positionRow(entry) end   -- FR-152: font metrics -> re-measure
             if entry.guides then
                 local sb = t.sidebarBorder
                 for _, g in ipairs(entry.guides) do
@@ -532,6 +546,7 @@ function Sidebar:_colorItem(entry, isActive)
             entry.chevTex:SetVertexColor(m.r, m.g, m.b, DISABLED_ALPHA)
         end
         self:_colorAction(entry)   -- FR-109: the action is a sibling, not disabled
+        self:_colorBadge(entry, false)   -- FR-152: so is the badge (shadcn)
         return
     end
 
@@ -574,6 +589,7 @@ function Sidebar:_colorItem(entry, isActive)
         end
     end
     self:_colorAction(entry)   -- FR-109 (peer-data-active)
+    self:_colorBadge(entry, isActive)   -- FR-152 (peer-data-active)
 end
 
 -- hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
@@ -585,6 +601,7 @@ function Sidebar:_colorHover(entry)
     entry.labelFs:SetTextColor(r, g, b)
     if entry.hasIcon then entry.iconTex:SetVertexColor(r, g, b, 1) end
     if entry.chevTex then entry.chevTex:SetVertexColor(r, g, b, 1) end
+    self:_colorBadge(entry, true)   -- FR-152: peer-hover/menu-button
 end
 
 -- ─── Layout ───────────────────────────────────────────────────────────────────
@@ -866,7 +883,8 @@ end
 
 -- ─── AddItem ──────────────────────────────────────────────────────────────────
 -- Adds a menu item. itemConfig: {id, label, icon, avatar, texture, section, onClick, onDoubleClick,
--- onContextMenu, collapsible, selectable, defaultOpen, children, disabled, muted, tooltip, action}.
+-- onContextMenu, collapsible, selectable, defaultOpen, children, disabled, muted, tooltip, action,
+-- badge}.
 -- `depth`/`parentEntry` are internal
 -- (tree recursion).
 -- Returns the item entry. Content x-positions are set in _positionRow (layout time).
@@ -1015,6 +1033,8 @@ function Sidebar:AddItem(itemConfig, depth, parentEntry)
 
     -- Trailing action button (FR-109).
     self:_makeRowAction(entry, itemConfig.action, rowH)
+    -- Trailing badge (FR-152).
+    self:_makeRowBadge(entry, itemConfig.badge, rowH)
 
     row.entry = entry
     if t then self:_colorItem(entry, self:_isSelected(id)) end
@@ -1261,6 +1281,123 @@ function Sidebar:_colorAction(entry)
     a.tex:SetVertexColor(c.r, c.g, c.b, 1)
 end
 
+-- ─── _makeRowBadge (FR-152) ──────────────────────────────────────────────────────
+-- shadcn SidebarMenuBadge: a counter/label at the row's trailing edge, a SIBLING of
+-- the menu button (pointer-events-none: clicks and hover go to the row).
+--   badge = "3" | 3 | { text, color }   -> the SidebarMenuBadge itself: plain
+--           text-xs medium text, no box, h-5 min-w-5 px-1; `color` = token name or
+--           {r,g,b,a} kept in every state (like action.color, FR-126).
+--   badge = { text, variant = "outline"|"secondary"|"default"|"destructive", ... }
+--           -> a Craft.Badge inside it (the shadcn composition <SidebarMenuBadge>
+--           <Badge variant="outline">), with the FR-140 overrides handed through
+--           (fontSize, fontWeight, paddingX/Y, textColor/borderColor/fillColor, pill,
+--           icon, fontFlags); `color` maps to textColor.
+-- As in shadcn, `disabled` (opacity-50 on the BUTTON) does not dim the sibling
+-- badge (same as the action, FR-109): a consumer that wants it dim passes
+-- color = "mutedForeground".
+-- Pooled with the row: the counter is created once; the Craft.Badge is reused while
+-- its metric fields don't change (text, variant and colours are live setters).
+local function badgeSpec(raw)
+    if type(raw) == "string" or type(raw) == "number" then
+        raw = { text = raw }
+    end
+    if type(raw) ~= "table" or raw.text == nil then return nil end
+    local text = tostring(raw.text)
+    if text == "" then return nil end
+    return raw, text
+end
+
+function Sidebar:_makeRowBadge(entry, raw, rowH)
+    local row = entry.frame
+    local spec, text = badgeSpec(raw)
+    if row.badgeBox then row.badgeBox:Hide() end
+    if row.badgeObj then row.badgeObj:GetFrame():Hide() end
+    entry.badge = nil
+    if not spec then return end
+
+    local b = { spec = spec, text = text }
+    if spec.variant ~= nil and Craft.Badge then
+        -- Composed Craft.Badge. Metric fields only apply at Create: a different set
+        -- rebuilds it (rare: a sidebar's badges share one style).
+        local cfg = { text = text }
+        for _, k in ipairs(BADGE_PASS) do cfg[k] = spec[k] end
+        if spec.color ~= nil and cfg.textColor == nil then cfg.textColor = spec.color end
+        local key = table.concat({ tostring(cfg.pill), tostring(cfg.icon), tostring(cfg.fontSize),
+            tostring(cfg.fontWeight), tostring(cfg.paddingX), tostring(cfg.paddingY),
+            tostring(cfg.fontFlags) }, "|")
+        local obj = row.badgeObj
+        if obj and row.badgeKey ~= key then obj:Destroy(); obj = nil end
+        if not obj then
+            obj = Craft.Badge:Create(row, cfg)
+            row.badgeObj, row.badgeKey = obj, key
+        else
+            obj:SetText(text)
+            obj:SetVariant(cfg.variant)
+            obj:SetColors({ text = cfg.textColor, border = cfg.borderColor, fill = cfg.fillColor })
+        end
+        local f = obj:GetFrame()
+        f:EnableMouse(false)   -- pointer-events-none
+        f:SetFrameLevel(Craft.Strata.above(row, 1))
+        f:Show()
+        b.obj, b.frame = obj, f
+        b.top = math.floor((rowH - (f:GetHeight() or BADGE_H)) / 2)
+        -- Craft.Badge settles its width a frame later (first use of a weight):
+        -- re-place so the label elides against the final width.
+        Craft.Theme.remeasureNextFrame(self, function()
+            if not self.frame then return end
+            for _, e in ipairs(self._sections) do
+                if e.badge and e.frame then self:_positionRow(e) end
+            end
+        end)
+    else
+        local box = row.badgeBox
+        if not box then
+            box = CreateFrame("Frame", nil, row)
+            box:EnableMouse(false)   -- pointer-events-none
+            box.fs = box:CreateFontString(nil, "OVERLAY")
+            box.fs:SetJustifyH("CENTER")
+            box.fs:SetWordWrap(false)
+            box.fs:SetNonSpaceWrap(false)
+            row.badgeBox = box
+        end
+        box:SetFrameLevel(Craft.Strata.above(row, 1))
+        local t = self._t
+        if t then self._theme:applyFont(box.fs, t.fontMedium or t.font, ITEM_FONT) end   -- before SetText
+        box.fs:SetText(text)
+        box:Show()
+        b.frame, b.fs = box, box.fs
+        b.top = (self._cfg.size == "lg" and (entry.depth or 0) == 0)
+                and ACTION_TOP_LG or math.floor((rowH - BADGE_H) / 2)
+    end
+    entry.badge = b
+end
+
+-- Sizes the badge (the counter's w = max(min-w-5, text + px-1)) and returns its width.
+function Sidebar:_layoutBadge(entry)
+    local b = entry.badge
+    if b.obj then return b.frame:GetWidth() or 0 end
+    local t = self._t
+    if t then self._theme:applyFont(b.fs, t.fontMedium or t.font, ITEM_FONT) end
+    local T = Craft.Theme
+    local w = T.snapPx(math.max(BADGE_MIN_W, math.ceil(b.fs:GetStringWidth() or 0) + 2 * BADGE_PX), b.frame)
+    b.frame:SetSize(w, BADGE_H)
+    T.placeText(b.fs, b.frame, 0, BADGE_H, ITEM_FONT, "TOP")
+    return w
+end
+
+-- Counter colour: text-sidebar-foreground, accent foreground on peer hover/active;
+-- a `color` wins in every state. A composed Craft.Badge paints itself.
+function Sidebar:_colorBadge(entry, accent)
+    local b, t = entry.badge, self._t
+    if not b or b.obj or not t then return end
+    local c = b.spec.color
+    if type(c) == "string" then c = t[c] end
+    if not (type(c) == "table" and c.r) then
+        c = accent and t.sidebarAccentForeground or t.sidebarForeground
+    end
+    b.fs:SetTextColor(c.r, c.g, c.b, c.a or 1)
+end
+
 -- ─── _makeRowAvatar (FR-095) ────────────────────────────────────────────────────
 -- Builds the row's Craft.Avatar from itemConfig.avatar = { unit | creatureDisplayID |
 -- atlas | image, fallback, size, crop, texCoord, desaturated } — the Avatar's own
@@ -1348,6 +1485,35 @@ function Sidebar:_positionRow(entry)
         if entry.chevBtn then right = entry.chevBtn:GetWidth() end
         entry.action.btn:ClearAllPoints()
         entry.action.btn:SetPoint("TOPRIGHT", entry.frame, "TOPRIGHT", -right, -entry.action.top)
+    end
+
+    -- Badge (FR-152): right-1, left of the chevron Button and of the action. The
+    -- label elides before it; a row without one keeps its natural-width label.
+    local b = entry.badge
+    if b then
+        local right = entry.chevBtn and entry.chevBtn:GetWidth() or BADGE_RIGHT
+        if entry.action then
+            right = (entry.chevBtn and entry.chevBtn:GetWidth() or ACTION_RIGHT)
+                + ACTION_SIZE + BADGE_GAP
+        end
+        local bw = self:_layoutBadge(entry)
+        local f = b.frame
+        f:ClearAllPoints()
+        f:SetPoint("TOPRIGHT", entry.frame, "TOPRIGHT", -right, -b.top)
+        local rowW = (self._child:GetWidth() or 0) - 2 * ITEM_PAD
+        if rowW > 0 then
+            -- truncate: with a width WoW wraps by default (bug #2b) -> one line, elided.
+            entry.labelFs:SetWordWrap(false)
+            entry.labelFs:SetNonSpaceWrap(false)
+            entry.labelFs:SetWidth(math.max(1, rowW - right - bw - ITEM_GAP - labelX))
+            entry.frame._labelW = true
+        end
+    elseif entry.frame._labelW then
+        -- Pooled row back to a badge-less item: natural width, client default wrap.
+        entry.labelFs:SetWidth(0)
+        entry.labelFs:SetWordWrap(true)
+        entry.labelFs:SetNonSpaceWrap(true)
+        entry.frame._labelW = nil
     end
 
     -- Vertical guide lines (border-l): one per ancestor level, in each indent gutter.
@@ -2122,6 +2288,7 @@ function Sidebar:Destroy()
         for _, row in ipairs(pool) do
             row.slideFx:dispose()
             row.slide:dispose()
+            if row.badgeObj then row.badgeObj:Destroy(); row.badgeObj = nil end   -- FR-152
         end
     end
     self._scrollFx:dispose(); self._scrollTween:dispose()
