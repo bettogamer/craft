@@ -287,9 +287,79 @@ CraftBrowserPages["Tabs"] = {
         table.insert(comps, tabs5)
         y = y + 130
 
+        -- ── FR-153 repro: QDT's exact sequence. Headless window; the page is a child
+        -- Frame built HIDDEN and shown afterwards; Tabs anchored TOPLEFT to a header
+        -- FontString + BOTTOMRIGHT to the page; a Craft.Scroll SetAllPoints'd into the
+        -- tab's content frame. Before the fix the bar painted but the content frame
+        -- (and everything under it) had no rect: IsVisible() true, GetRect() nil.
+        y = addLabel("FR-153 — Tabs built under a HIDDEN parent, shown later: the content must paint", y)
+        local reproWin, reproComps
+        local function rectOf(f)
+            local l, b, w, h = f:GetRect()
+            if not l then return "NORECT" end
+            return ("%d,%d %dx%d"):format(l, b, w, h)
+        end
+        local reproBtn = Craft.Button:Create(parent, {
+            text = "FR-153: open hidden-parent repro", variant = "outline", size = "sm",
+            onClick = function()
+                if reproWin then
+                    for _, c in ipairs(reproComps) do c:Destroy() end
+                    reproWin:Destroy()
+                end
+                reproComps = {}
+                reproWin = Craft.Window:Create(UIParent, { header = false, width = 520, height = 340 })
+                local content = reproWin:GetContent()
+                local page = CreateFrame("Frame", nil, content)
+                page:SetAllPoints(content)
+                page:Hide()                                   -- built hidden
+                local title = page:CreateFontString(nil, "OVERLAY")
+                title:SetFont(t.font, 14, "")
+                title:SetTextColor(t.foreground.r, t.foreground.g, t.foreground.b)
+                title:SetPoint("TOPLEFT", page, "TOPLEFT", 16, -16)
+                title:SetText("Instance Tracker")
+                local closeR = Craft.Button:Create(page, { text = "Close", variant = "ghost", size = "sm",
+                    onClick = function() reproWin:Hide() end })
+                closeR:GetFrame():SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, -10)
+                table.insert(reproComps, closeR)
+                local tabsR = Craft.Tabs:Create(page, { variant = "line",
+                    tabs = { { id = "summary", label = "Summary" }, { id = "log", label = "Log" } },
+                    defaultTab = "summary" })
+                tabsR:GetFrame():SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
+                tabsR:GetFrame():SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -16, 16)
+                table.insert(reproComps, tabsR)
+                local scrollR, lblR
+                for _, id in ipairs({ "summary", "log" }) do
+                    local cf = tabsR:GetContentFrame(id)
+                    local sc = Craft.Scroll:Create(cf, {})
+                    sc:GetFrame():SetAllPoints(cf)
+                    local child = sc:GetScrollChild()
+                    child:SetSize(400, 200)
+                    local lbl = Craft.Label:Create(child, {
+                        text = id == "summary" and "Summary content — visible = FR-153 fixed"
+                            or "Log content — visible = FR-153 fixed",
+                        color = { r=t.foreground.r, g=t.foreground.g, b=t.foreground.b, a=1 } })
+                    lbl:GetFrame():SetPoint("TOPLEFT", child, "TOPLEFT", 8, -12)
+                    table.insert(reproComps, sc)
+                    table.insert(reproComps, lbl)
+                    if id == "summary" then scrollR, lblR = sc, lbl end
+                end
+                reproWin:Show()
+                page:Show()                                   -- shown afterwards
+                C_Timer.After(0.3, function()
+                    print(("FR-153: tabs %s · content %s · scroll %s · label %s"):format(
+                        rectOf(tabsR:GetFrame()), rectOf(tabsR:GetContentFrame("summary")),
+                        rectOf(scrollR:GetFrame()), rectOf(lblR:GetFrame())))
+                end)
+            end,
+        })
+        reproBtn:GetFrame():SetPoint("TOPLEFT", parent, "TOPLEFT", 16, -y)
+        table.insert(comps, reproBtn)
+        y = y + 40
+
         return {
             height  = y + 24,
             cleanup = function()
+                if reproWin then reproWin:Hide() end   -- FR-153 repro window
                 for _, fs in ipairs(looseFS) do fs:Hide() end
                 for _, c in ipairs(comps) do if c.Destroy then c:Destroy() end end
                 for _, c in ipairs(containers) do

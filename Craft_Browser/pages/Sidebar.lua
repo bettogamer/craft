@@ -12,6 +12,7 @@ CraftBrowserPages = CraftBrowserPages or {}
 --  8. Scroll con overflow vs scrollbar oculto (FR-051)
 --  9. Items reactivos (ADR-0013: signal como prop, preserva expansión por id)
 -- 10. Acción por fila (FR-109: SidebarMenuAction, showOnHover)
+--     (badge por ítem, FR-152: SidebarMenuBadge, junto a Muted)
 -- 11. Lista de auras: selección múltiple (FR-116), arrastrar y soltar (FR-117),
 --     ScrollToItem/SetScroll (FR-118) y estrés del pool de filas (FR-080)
 
@@ -163,6 +164,47 @@ CraftBrowserPages["Sidebar"] = {
             },
         })
         y = y + 212
+
+        -- ── 5a2. Badge por ítem (FR-152) ─────────────────────────────────────
+        -- badge = "3" es el SidebarMenuBadge de shadcn (texto, sin caja); con
+        -- `variant` compone un Craft.Badge («PRONTO» de QDT). El label se elide antes.
+        y = addLabel("Badge (FR-152) — contador shadcn, «PRONTO» outline en disabled, badge+acción, label elidido", y)
+        local c5a2 = newContainer(220, 236, y)
+        local itemsA = {
+            { id="b-inbox", label="Inbox",  icon="inbox", badge = "3" },
+            { id="b-drafts", label="Borradores", icon="file", badge = 128 },
+            { id="b-soon", label="Instance Tracker", icon="map", disabled = true,
+              tooltip = "Pronto", badge = { text = "PRONTO", variant = "outline",
+                  fontSize = 9, fontWeight = "bold", paddingX = 4, color = "mutedForeground" } },
+            { id="b-err", label="Errores", icon="triangle-alert",
+              badge = { text = "2", color = "destructive" },
+              action = { icon = "eye", hover = true, onClick = function(id) print("FR-152 action:", id) end } },
+            { id="b-long", label="Un nombre de módulo larguísimo que no cabe", icon="box", badge = "99+" },
+            { id="b-grp", label="Grupo", icon="folder", badge = "5", collapsible = true,
+              children = { { id="b-c1", label="Hija", icon="dot", badge = "1" } } },
+        }
+        local itemsB = {
+            { id="b-inbox", label="Inbox",  icon="inbox" },
+            { id="b-drafts", label="Borradores", icon="file" },
+            { id="b-soon", label="Instance Tracker", icon="map" },
+            { id="b-err", label="Errores", icon="triangle-alert", badge = "7" },
+        }
+        local sbBadge = newSidebar(c5a2, {
+            width = 220, activeItem = "b-inbox",
+            onSelect = function(id) print("Sidebar onSelect (FR-152):", id) end,
+            items = itemsA,
+        })
+        local withBadges = true
+        local recycle = Craft.Button:Create(parent, { text = "FR-152: reciclar filas (con/sin badge)",
+            variant = "outline", size = "sm",
+            onClick = function()
+                withBadges = not withBadges
+                sbBadge:SetItems(withBadges and itemsA or itemsB)
+                print("FR-152: SetItems", withBadges and "con badges" or "sin badges (deben desaparecer)")
+            end })
+        recycle:GetFrame():SetPoint("TOPLEFT", c5a2, "TOPRIGHT", 12, 0)
+        table.insert(comps, recycle)
+        y = y + 248
 
         -- ── 5b. Tooltip por entrada (FR-089) ─────────────────────────────────
         -- La fila gris SIN explicacion se lee como una fila rota. Con `tooltip` la
