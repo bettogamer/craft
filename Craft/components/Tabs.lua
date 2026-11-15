@@ -114,15 +114,28 @@ function Tabs:Create(parent, config)
     self._listBorder:SetPoint("TOPLEFT",  self._list, "BOTTOMLEFT",  0, 0)
     self._listBorder:SetPoint("TOPRIGHT", self._list, "BOTTOMRIGHT", 0, 0)
 
-    -- Content area: below the list, fills remaining height
+    -- Content area: below the list, fills remaining height.
+    -- FR-153: ONE anchor + an explicit size pushed by _syncContent, not the old
+    -- TOPLEFT(list)+BOTTOMRIGHT(frame) pair. Built under a hidden parent (a page
+    -- shown later), the client never resolved that pair: the content frame and
+    -- everything hung from it reported IsVisible()=true with GetRect()=nil and drew
+    -- nothing. Same family and same fix as FR-099 (Section).
     self._content = CreateFrame("Frame", nil, self.frame)
-    self._content:SetPoint("TOPLEFT",     self._list,  "BOTTOMLEFT",  0,  0)
-    self._content:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0,  0)
+    self._content:SetPoint("TOPLEFT", self._list, "BOTTOMLEFT", 0, 0)
 
     -- Re-layout when container width changes (e.g. after SetWidth from caller).
     -- Width changes may add/remove wrapped rows, so the list height is recomputed.
-    self.frame:HookScript("OnShow", function() self:_relayout() end)
-    self._list:SetScript("OnSizeChanged", function() self:_relayout() end)
+    -- Every path that can change the frame or list size re-pushes the content size.
+    self.frame:HookScript("OnShow", function()
+        self:_relayout()
+        self:_syncContent(true)
+        self:_scheduleContentResync()   -- FR-153: the rect may only settle a frame later
+    end)
+    self.frame:HookScript("OnSizeChanged", function() self:_syncContent() end)
+    self._list:SetScript("OnSizeChanged", function()
+        self:_relayout()
+        self:_syncContent()
+    end)
 
     -- Register theming
     self._themeHandle = self._theme:register(function(t) self:_applyTheme(t) end)
@@ -173,10 +186,12 @@ function Tabs:AddTab(id, label, opts)
     opts = opts or {}
 
     -- Content frame for this tab
+    -- FR-153: single anchor + explicit size (pushed by _syncContent), like _content.
     local contentFrame = CreateFrame("Frame", nil, self._content)
-    contentFrame:SetAllPoints(self._content)
+    contentFrame:SetPoint("TOPLEFT", self._content, "TOPLEFT", 0, 0)
     contentFrame:Hide()
     self._frames[id] = contentFrame
+    self:_syncContent(true)
 
     -- Trigger button — content width (icon + text + horizontal padding), fixed
     -- inner height. Flex lays them out left-aligned and wraps to new rows on overflow.
@@ -274,6 +289,40 @@ function Tabs:_relayout()
         self._list:SetHeight(h)
     end
     self._inLayout = false
+    self:_syncContent()   -- FR-153: a wrapped row changes the room left for content
+end
+
+-- ─── _syncContent (FR-153) ────────────────────────────────────────────────
+-- A finite, positive number or nil (NaN fails `n == n`, ±inf fails the bound).
+local function finite(n)
+    if type(n) ~= "number" or n ~= n or n <= 0 or n >= math.huge then return nil end
+    return n
+end
+
+-- Pushes the content area's size (frame width × frame height − list height) onto
+-- _content and every tab frame. Skips while the frame has no size yet; cuts on an
+-- unchanged size unless `force` (OnShow / a new tab).
+function Tabs:_syncContent(force)
+    if not self.frame or not self._content then return end
+    local w = finite(self.frame:GetWidth())
+    local fh = finite(self.frame:GetHeight())
+    if not w or not fh then return end
+    local h = math.max(0, fh - (finite(self._list:GetHeight()) or 0))
+    if not force and self._syncW == w and self._syncH == h then return end
+    self._syncW, self._syncH = w, h
+    self._content:SetSize(w, h)
+    for _, f in pairs(self._frames) do f:SetSize(w, h) end
+end
+
+-- One forced re-push on the next frame (coalesced): a parent shown this frame may
+-- only hand out its final rect after the OnShow that triggered us (FR-135 lesson).
+function Tabs:_scheduleContentResync()
+    if self._resyncPending or not (C_Timer and C_Timer.After) then return end
+    self._resyncPending = true
+    C_Timer.After(0, function()
+        self._resyncPending = nil
+        if self.frame then self:_syncContent(true) end
+    end)
 end
 
 -- ─── _styleButton ─────────────────────────────────────────────────────────

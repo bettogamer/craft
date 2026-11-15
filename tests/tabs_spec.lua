@@ -343,3 +343,55 @@ describe("Craft.Tabs whole-pixel layout (FR-149)", function()
         tabs:Destroy()
     end)
 end)
+
+describe("Craft.Tabs content rect under a hidden parent (FR-153)", function()
+    it("content and tab frames take ONE anchor and an explicit size", function()
+        local page = CreateFrame("Frame", nil, UIParent)
+        page:Hide()                                   -- built while hidden
+        local tabs = Craft.Tabs:Create(page, { variant = "line",
+            tabs = { { id = "summary", label = "Summary" }, { id = "log", label = "Log" } },
+            defaultTab = "summary" })
+        local f = tabs:GetFrame()
+        -- the consumer's anchors resolve later: no size during Create
+        assert.equals(0, tabs:GetContent():GetWidth() or 0)
+
+        f:SetSize(749, 542)
+        f:_fire("OnSizeChanged", 749, 542)
+        local listH = tabs._list:GetHeight()
+        local content = tabs:GetContent()
+        assert.equals(1, content:GetNumPoints())
+        assert.equals("TOPLEFT", (content:GetPoint(1)))
+        assert.equals(749, content:GetWidth())
+        assert.equals(542 - listH, content:GetHeight())
+        for _, id in ipairs({ "summary", "log" }) do
+            local cf = tabs:GetContentFrame(id)
+            assert.equals("TOPLEFT", (cf:GetPoint(1)))
+            assert.equals(749, cf:GetWidth())
+            assert.equals(542 - listH, cf:GetHeight())
+        end
+        tabs:Destroy()
+    end)
+
+    it("OnShow re-pushes the size, and a tab added later gets it too", function()
+        local tabs = Craft.Tabs:Create(UIParent, {})
+        local f = tabs:GetFrame()
+        f:SetSize(300, 200)           -- size changed without an OnSizeChanged
+        f:_fire("OnShow")
+        assert.equals(300, tabs:GetContent():GetWidth())
+        tabs:AddTab("late", "Late")
+        assert.equals(300, tabs:GetContentFrame("late"):GetWidth())
+        assert.equals(200 - tabs._list:GetHeight(), tabs:GetContentFrame("late"):GetHeight())
+        tabs:Destroy()
+    end)
+
+    it("never pushes a non-finite size", function()
+        local tabs = Craft.Tabs:Create(UIParent, {})
+        tabs:AddTab("a", "A")
+        local f = tabs:GetFrame()
+        f:SetSize(0/0, 200)
+        f:_fire("OnSizeChanged")
+        local w = tabs:GetContent():GetWidth() or 0
+        assert.is_true(w == w)        -- not NaN
+        tabs:Destroy()
+    end)
+end)
