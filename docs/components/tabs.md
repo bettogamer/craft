@@ -184,6 +184,17 @@ No hay parámetro `size` — el TabList tiene un único tamaño (32px `h-8`).
 
 ## Notas de implementación
 
+**Contenido con ancla única + tamaño explícito (FR-153).** `_content` y el frame de cada tab
+llevan **solo** `TOPLEFT` (a la base de la lista / a `_content`) y reciben su tamaño
+(`ancho del frame × alto del frame − alto de la lista`) por `_syncContent`, desde el
+`OnSizeChanged` del frame y de la lista, `_relayout`, `AddTab` y `OnShow` (más un re-empuje
+forzado al fotograma siguiente). Antes iban con dos anclas (`TOPLEFT` a la lista +
+`BOTTOMRIGHT` al frame); construidas bajo un padre **oculto** que se muestra después, el
+cliente no resolvía ese par: `IsVisible()` true pero `GetRect()` nil en el contenido y en todo
+lo que colgaba de él, sin error. Misma familia y mismo arreglo que FR-099 (Section). Nada que
+cambiar en el consumidor: `GetContentFrame(id)` sigue siendo el frame donde montar los hijos
+(`SetAllPoints` sobre él vale).
+
 **Sembrar el valor inicial NO notifica (FR-070).** Las dos ramas de `Create` — la
 literal (`defaultTab = "a"`) y la reactiva (`defaultTab = signal`) — pintan la tab
 activa por `_applyActiveTab`, que es silencioso. Pintar el estado inicial no es un

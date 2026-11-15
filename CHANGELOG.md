@@ -6,6 +6,25 @@ Versioning: [SemVer](https://semver.org/lang/es/)
 
 ## [Unreleased]
 
+## [2.51.0] - 2026-11-14
+
+> **Release v2.51.0 — badge por ítem del Sidebar (FR-152) y rect del contenido de Tabs (FR-153).** Verificado in-game.
+
+### Added
+- **`Craft.Sidebar`: badge por ítem = `SidebarMenuBadge` (FR-152, para QuantumDungeonTools).**
+  `items[i].badge = "3"` pinta el contador de shadcn (texto `text-xs` medium sin caja, `h-5 min-w-5
+  px-1` a `right-1`, acento con hover/activa); `{ text, variant = "outline", ... }` compone un
+  `Craft.Badge` con los overrides de FR-140 (el «PRONTO» de QDT). El label se elide antes del badge,
+  que va a la izquierda del chevrón y de la acción. Pooleado con la fila. Como en shadcn no se
+  atenúa con `disabled` (`color = "mutedForeground"` para apagarlo). Demo «Badge (FR-152)» en la
+  página Sidebar, con botón de reciclado de filas.
+
+### Fixed
+- **`Craft.Tabs`: el contenido no tenía rect si el padre se construía oculto (FR-153).** El frame
+  de contenido y los de cada tab pasan a ancla única + tamaño explícito empujado desde
+  `OnSizeChanged`/`OnShow` (patrón FR-099). Repro «FR-153: open hidden-parent repro» en la página
+  Tabs (imprime los rects en el chat).
+
 ## [2.50.0] - 2026-11-14
 
 > **Release v2.50.0 — texturas de barra Betto en LibSharedMedia (FR-151).** Sin verificar in-game.
